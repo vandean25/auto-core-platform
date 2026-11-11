@@ -61,6 +61,7 @@ type TestTokenFactory = {
     role?: string;
     platformRole?: string;
     iss?: string;
+    auth_time?: number;
   }) => string;
 };
 
@@ -113,6 +114,7 @@ export function createTestAuthToken(
     role?: string;
     platformRole?: string;
     iss?: string;
+    auth_time?: number;
   } = {},
 ): string {
   return authService.createTestToken({
@@ -635,6 +637,7 @@ export async function cleanupTestTenantGraph(
   const userIds = [
     ...new Set(memberships.map((membership) => membership.user_id)),
   ];
+  await tenantPrisma.endedSessionLineage.deleteMany({});
   await tenantPrisma.tenantMember.deleteMany({});
   await cleanupTestUsers(prisma, userIds);
 

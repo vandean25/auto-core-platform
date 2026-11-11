@@ -2,8 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { SalesOrderStatus } from '@prisma/client';
 import { PaginationMetaDto } from '../../../common/dto/paginated-response.dto.js';
 import { CatalogItemResponseDto } from '../../../inventory/dto/inventory-response.dto.js';
-import { CustomerResponseDto } from '../../../customer/dto/customer-response.dto.js';
-import { VehicleResponseDto } from '../../../vehicle/dto/vehicle-response.dto.js';
+import { CustomerVehicleReferenceDto } from '../../dto/customer-vehicle-reference.dto.js';
 
 export class SalesOrderInvoiceSummaryDto {
   @ApiProperty()
@@ -43,28 +42,12 @@ export class SalesOrderItemResponseDto {
   tax_rate!: number;
 }
 
-export class SalesOrderResponseDto {
+export class SalesOrderResponseDto extends CustomerVehicleReferenceDto {
   @ApiProperty()
   id!: string;
 
   @ApiProperty()
   order_number!: string;
-
-  @ApiProperty()
-  customer_id!: string;
-
-  @ApiProperty({ type: () => CustomerResponseDto })
-  customer!: CustomerResponseDto;
-
-  @ApiProperty({ type: String, required: false, nullable: true })
-  vehicle_id?: string | null;
-
-  @ApiProperty({
-    type: () => VehicleResponseDto,
-    required: false,
-    nullable: true,
-  })
-  vehicle?: VehicleResponseDto | null;
 
   @ApiProperty({ enum: SalesOrderStatus, enumName: 'SalesOrderStatus' })
   status!: SalesOrderStatus;

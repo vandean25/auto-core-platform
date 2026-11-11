@@ -109,6 +109,43 @@ describe('AuthService Firebase verification', () => {
     );
   });
 
+  it('keeps distinct auth_time values when fixtures specify different sign-ins', async () => {
+    const authService = createAuthService();
+    const first = authService.createTestToken({ auth_time: 1_700_000_000 });
+    const second = authService.createTestToken({ auth_time: 1_700_000_001 });
+
+    authSessionService.resolveTenantUser.mockResolvedValue(null);
+
+    await expect(
+      authService.authenticateBearerToken(`Bearer ${first}`),
+    ).rejects.toThrow();
+    expect(authSessionService.resolveTenantUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({ auth_time: 1_700_000_000 }),
+    );
+
+    await expect(
+      authService.authenticateBearerToken(`Bearer ${second}`),
+    ).rejects.toThrow();
+    expect(authSessionService.resolveTenantUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({ auth_time: 1_700_000_001 }),
+    );
+  });
+
+  it('preserves auth_time from test JWT fixtures', async () => {
+    const authService = createAuthService();
+    const authTime = 1_699_000_000;
+    const token = authService.createTestToken({ auth_time: authTime });
+
+    authSessionService.resolveTenantUser.mockImplementation(async (claims) => {
+      expect(claims.auth_time).toBe(authTime);
+      return null;
+    });
+
+    await expect(
+      authService.authenticateBearerToken(`Bearer ${token}`),
+    ).rejects.toThrow();
+  });
+
   it('defaults emailVerified to true in createTestToken and allows override', async () => {
     const authService = createAuthService();
     const defaultToken = authService.createTestToken();

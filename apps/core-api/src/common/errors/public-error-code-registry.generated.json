@@ -335,6 +335,14 @@
       "public": false,
       "params": []
     },
+    "CONTEXT_MISMATCH": {
+      "public": true,
+      "params": []
+    },
+    "CONTEXT_REQUIRED": {
+      "public": true,
+      "params": []
+    },
     "CONTRACT_VERSION_UNSUPPORTED": {
       "public": true,
       "params": []
@@ -687,6 +695,10 @@
       "public": true,
       "params": []
     },
+    "HTTP_412": {
+      "public": true,
+      "params": []
+    },
     "HTTP_413": {
       "public": true,
       "params": []
@@ -696,6 +708,10 @@
       "params": []
     },
     "HTTP_422": {
+      "public": true,
+      "params": []
+    },
+    "HTTP_428": {
       "public": true,
       "params": []
     },

@@ -413,6 +413,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'inspection_source_connections',
     clean: (p) => p.inspectionSourceConnection.deleteMany(),
   },
+  {
+    table: 'ended_session_lineages',
+    clean: (p) => p.endedSessionLineage.deleteMany(),
+  },
   { table: 'tenant_members', clean: (p) => p.tenantMember.deleteMany() },
   { table: 'warranty_claims', clean: (p) => p.warrantyClaim.deleteMany() },
   {

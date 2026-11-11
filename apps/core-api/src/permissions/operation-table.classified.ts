@@ -31,6 +31,14 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
     'Authorized context selection among the own memberships.',
     BACK_OFFICE_DEMO,
   ),
+  'AuthController.scopeContext': ownSession(
+    'Fresh IdP-checked session handshake that mints the authoritative scope context.',
+    EVERY_ROLE,
+  ),
+  'AuthController.logout': ownSession(
+    'Ends the current session lineage for scope-context continuity.',
+    EVERY_ROLE,
+  ),
   'AuthLocalePreferencesController.getPreferences': ownSession(
     'Own locale preferences. Interactive user only, also for platform admins.',
     EVERY_ROLE,

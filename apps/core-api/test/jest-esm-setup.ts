@@ -17,6 +17,14 @@ if (!process.env.IMPORT_UPLOAD_STORAGE?.trim()) {
   process.env.IMPORT_UPLOAD_STORAGE = 'local';
 }
 
+if (!process.env.TEST_JWT_SECRET?.trim()) {
+  process.env.TEST_JWT_SECRET = 'acp-e2e-test-jwt-secret';
+}
+
+if (!process.env.SCOPE_CONTEXT_HMAC_SECRET?.trim()) {
+  process.env.SCOPE_CONTEXT_HMAC_SECRET = 'acp-e2e-scope-context-hmac-secret';
+}
+
 const runsImportWorkerE2e = process.argv.some((arg) =>
   arg.includes('import-background-worker.e2e-spec'),
 );

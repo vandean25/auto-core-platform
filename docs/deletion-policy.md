@@ -88,6 +88,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
 | User | No direct delete | Identity record persists for auditability; deactivate memberships instead of deleting the user. |
 | TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
+| EndedSessionLineage | Retention (AUT-937) | Session logout audit for scope-context continuity. Rows record an ended sign-in lineage per `(tenant_id, continuity_digest)` after refresh tokens are revoked at the IdP. Pruned lazily on scope-context handshake when `refresh_tokens_revoked_at` is older than the Firebase ID-token lifetime and `auth_time_seconds` is not after that revocation time. No REST delete route; removed by tenant purge or that handshake-time prune. |
 | TenantApiKey | No (revoke only) | Revoke by setting `revoked_at` (idempotent, immediate). No hard delete through any API. Rows stay for the audit trail and are removed only by tenant purge (ADR-0026). |
 | PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |

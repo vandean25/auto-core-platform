@@ -23,7 +23,9 @@ export function shouldThrottleAuthRoute(
   return (
     (request.method === 'GET' && pathWithoutApiPrefix === '/auth/me') ||
     (request.method === 'POST' &&
-      pathWithoutApiPrefix === '/auth/switch-tenant')
+      (pathWithoutApiPrefix === '/auth/switch-tenant' ||
+        pathWithoutApiPrefix === '/auth/scope-context' ||
+        pathWithoutApiPrefix === '/auth/logout'))
   );
 }
 

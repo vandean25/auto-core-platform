@@ -155,6 +155,7 @@ model Tenant {
   agentActionLogs                  AgentActionLog[]
   decisionShadowLogs               DecisionShadowLog[]
   memberships                      TenantMember[]
+  endedSessionLineages             EndedSessionLineage[]
   siteMemberships                  SiteMembership[]
   partsReservations                PartsReservation[]
   partsRequisitions                PartsRequisition[]
@@ -359,6 +360,23 @@ model TenantMember {
   @@index([tenant_id])
   @@index([user_id])
   @@map("tenant_members")
+}
+
+/// ADR-0038 §3: explicit logout records ended session lineages for continuity rejection.
+model EndedSessionLineage {
+  id                        String    @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant    @relation(fields: [tenant_id], references: [id])
+  principal_sub             String    @db.VarChar(128)
+  continuity_digest         String    @db.VarChar(64)
+  auth_time_seconds         BigInt
+  site_id                   String?
+  ended_at                  DateTime  @default(now()) @db.Timestamptz(3)
+  refresh_tokens_revoked_at DateTime? @db.Timestamptz(3)
+
+  @@unique([tenant_id, continuity_digest], map: "ended_session_lineages_tenant_digest_key")
+  @@index([tenant_id, principal_sub])
+  @@map("ended_session_lineages")
 }
 
 /// AUT-547 landing-page demo form submission (privacy-minimal retention; see docs/deletion-policy.md).
@@ -3374,6 +3392,9 @@ model InvoiceItem {
   catalog_item_id String?
   catalog_item    CatalogItem? @relation(fields: [catalog_item_id], references: [id])
 
+  workshop_task_line_item_id String?
+  workshop_task_line_item    WorkshopTaskLineItem? @relation(fields: [workshop_task_line_item_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   description         String
   quantity            Decimal       @db.Decimal(10, 3)
   unit_price          Decimal       @db.Decimal(10, 2)
@@ -3392,6 +3413,7 @@ model InvoiceItem {
   @@unique([tenant_id, id])
   @@index([tenant_id])
   @@index([catalog_item_id])
+  @@index([workshop_task_line_item_id])
   @@map("invoice_items")
 }
 
@@ -4708,6 +4730,7 @@ model WorkshopTaskLineItem {
   deferred_part_reservation Boolean                          @default(false)
   parts_reservations        PartsReservation[]
   warranty_claim_lines      WarrantyClaimLine[]
+  invoice_items             InvoiceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -82,6 +82,8 @@
   "COMMAND_ID_REUSED": "Diese Befehls-ID wurde bereits verwendet. Bitte starten Sie einen neuen Befehl.",
   "COMMUNICATION_CONTROLLER_REQUIRED": "Bitte wählen Sie den verantwortlichen Betrieb aus, da mehrere Betriebe aktiv sind.",
   "CONTRACT_VERSION_UNSUPPORTED": "Diese Version des Befehlsschemas wird nicht unterstützt.",
+  "CONTEXT_MISMATCH": "Der Gültigkeitskontext passt nicht mehr zu Ihrem Zugriff.",
+  "CONTEXT_REQUIRED": "Diese Liste erfordert einen aktuellen Gültigkeitskontext.",
   "CREDIT_LIMIT_EXCEEDED": "Für diese Position ist kein gutschreibbarer Betrag mehr verfügbar.",
   "CRUISE_CONTROL": "Tempomat.",
   "CURRENCY_UNSUPPORTED": "Währung wird nicht unterstützt.",

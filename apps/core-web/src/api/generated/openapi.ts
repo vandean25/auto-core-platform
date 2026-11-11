@@ -84,6 +84,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/scope-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_scopeContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me/preferences": {
         parameters: {
             query?: never;
@@ -5789,6 +5821,14 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
         };
+        ScopeContextHandshakeResponseDto: {
+            /** @description Opaque HMAC-signed scope context token (X-ACP-Scope-Context). */
+            scopeContext: string;
+            /** @description SHA-256 digest of the scope context token for cache keys. */
+            scopeContextDigest: string;
+            /** @description HMAC continuity digest for this sign-in lineage (subject + auth_time). */
+            continuityDigest: string;
+        };
         UserLocalePreferencesResponseDto: {
             locale: components["schemas"]["DisplayLanguage"] | null;
             effectiveLocale: components["schemas"]["DisplayLanguage"];
@@ -5924,6 +5964,8 @@ export interface components {
         CappedListCountResponseDto: {
             count: number;
             isCapped: boolean;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
         };
         /** @enum {string} */
         TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE" | "WORKSHOP_CONSUMPTION";
@@ -6662,6 +6704,8 @@ export interface components {
             quantity: number;
             unitPrice: number;
             taxRate: number;
+            /** Format: uuid */
+            workshopTaskLineItemId?: string;
         };
         CreateInvoiceDto: {
             /** Format: uuid */
@@ -6672,8 +6716,6 @@ export interface components {
             internalNotes?: string;
             items: components["schemas"]["CreateInvoiceItemDto"][];
         };
-        /** @enum {string} */
-        InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
         WouldChangeItemDto: {
             /**
              * @description The entity/model name that would change
@@ -6840,12 +6882,15 @@ export interface components {
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
         };
         /** @enum {string} */
+        InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
+        /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
         /** @enum {string} */
         DiscountType: "PERCENTAGE" | "FLAT_AMOUNT";
         InvoiceItemResponseDto: {
             id: string;
             catalog_item_id?: string | null;
+            workshop_task_line_item_id?: string | null;
             description: string;
             /** @example 1.00 */
             quantity: string;
@@ -6858,13 +6903,13 @@ export interface components {
             revenue_group_name?: string | null;
         };
         InvoiceResponseDto: {
-            id: string;
-            invoice_number?: string | null;
-            status: components["schemas"]["InvoiceStatus"];
             customer_id: string;
             customer: components["schemas"]["CustomerResponseDto"];
             vehicle_id?: string | null;
             vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            id: string;
+            invoice_number?: string | null;
+            status: components["schemas"]["InvoiceStatus"];
             sales_order_id?: string | null;
             workshop_order_id?: string | null;
             /** Format: date-time */
@@ -6887,6 +6932,13 @@ export interface components {
             items: components["schemas"]["InvoiceItemResponseDto"][];
             /** @description Country-specific margin-scheme legal notice for on-screen invoice display. */
             margin_scheme_legal_note?: string | null;
+        };
+        ListCursorPageMetaDto: {
+            nextCursor: string | null;
+            hasNextPage: boolean;
+            limit: number;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
         };
         InvoiceCursorPageResponseDto: {
             data: components["schemas"]["InvoiceResponseDto"][];
@@ -7496,12 +7548,12 @@ export interface components {
             invoice_number?: string | null;
         };
         SalesOrderResponseDto: {
-            id: string;
-            order_number: string;
             customer_id: string;
             customer: components["schemas"]["CustomerResponseDto"];
             vehicle_id?: string | null;
             vehicle?: components["schemas"]["VehicleResponseDto"] | null;
+            id: string;
+            order_number: string;
             status: components["schemas"]["SalesOrderStatus"];
             /** @example 100.00 */
             total_amount: string;
@@ -13008,6 +13060,47 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthSessionResponseDto"];
                 };
+            };
+        };
+    };
+    AuthController_scopeContext: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeContextHandshakeResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_logout: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session lineage ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

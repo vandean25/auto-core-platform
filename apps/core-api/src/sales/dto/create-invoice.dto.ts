@@ -35,6 +35,11 @@ export class CreateInvoiceItemDto {
   @IsNumber()
   @IsNotEmpty()
   taxRate!: number;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsUUID()
+  @IsOptional()
+  workshopTaskLineItemId?: string;
 }
 
 export class CreateInvoiceDto {

@@ -3,6 +3,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from './firebase-admin.js';
+import { extractBearerTokenFromHeader } from './bearer-authorization.js';
 import { AuthSessionService } from './auth-session.service.js';
 import type {
   AuthenticatedUser,
@@ -17,6 +18,7 @@ type AuthClaims = {
   role?: string;
   platformRole?: string;
   iss?: string;
+  auth_time?: number;
 };
 
 type AuthenticateBearerTokenOptions = {
@@ -46,7 +48,7 @@ export class AuthService {
     authorizationHeader?: string,
     options: AuthenticateBearerTokenOptions = {},
   ): Promise<AuthenticatedUser> {
-    const token = this.extractBearerToken(authorizationHeader);
+    const token = extractBearerTokenFromHeader(authorizationHeader);
     const claims = await this.verifyToken(token);
     const tenantUser = await this.authSessionService.resolveTenantUser(claims);
 
@@ -81,24 +83,11 @@ export class AuthService {
         role: 'ADMIN',
         iss: 'local-test-fixture',
         emailVerified: true,
+        auth_time: Math.floor(Date.now() / 1000),
         ...overrides,
       },
       { secret: this.testJwtSecret },
     );
-  }
-
-  private extractBearerToken(authorizationHeader?: string): string {
-    if (!authorizationHeader) {
-      throw new UnauthorizedException('Missing Authorization header.');
-    }
-
-    const [scheme, token] = authorizationHeader.split(' ');
-
-    if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid Authorization header.');
-    }
-
-    return token;
   }
 
   private async verifyToken(token: string): Promise<AuthClaims> {
@@ -157,6 +146,8 @@ export class AuthService {
           ? payload.platformRole
           : undefined,
       iss: payload.iss,
+      auth_time:
+        typeof payload.auth_time === 'number' ? payload.auth_time : undefined,
     };
   }
 
@@ -190,6 +181,8 @@ export class AuthService {
       role,
       platformRole,
       iss: decoded.iss,
+      auth_time:
+        typeof decoded.auth_time === 'number' ? decoded.auth_time : undefined,
     };
   }
 }

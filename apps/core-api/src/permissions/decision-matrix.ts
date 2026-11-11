@@ -45,6 +45,8 @@ export const MATRIX_PRINCIPALS: readonly MatrixPrincipal[] = [
  */
 const EMPTY_ROLE_ALLOWED_ROUTES: ReadonlySet<string> = new Set([
   'AuthController.getMe',
+  'AuthController.scopeContext',
+  'AuthController.logout',
   'AuthController.switchTenant',
   'AuthLocalePreferencesController.getPreferences',
   'AuthLocalePreferencesController.patchPreferences',

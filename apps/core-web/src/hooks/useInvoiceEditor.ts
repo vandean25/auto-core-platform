@@ -6,6 +6,7 @@ export interface InvoiceEditorItem {
     id?: string
     tempId: string
     catalog_item_id?: string
+    workshop_task_line_item_id?: string | null
     description: string
     quantity: number
     unit_price: number
