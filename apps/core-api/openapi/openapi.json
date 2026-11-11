@@ -19092,6 +19092,10 @@
           "limit": {
             "type": "number",
             "minimum": 1
+          },
+          "scopeContextDigest": {
+            "type": "string",
+            "description": "Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8)."
           }
         },
         "required": [
@@ -22444,31 +22448,6 @@
           "total_tax",
           "total_gross",
           "items"
-        ]
-      },
-      "ListCursorPageMetaDto": {
-        "type": "object",
-        "properties": {
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "hasNextPage": {
-            "type": "boolean"
-          },
-          "limit": {
-            "type": "number",
-            "minimum": 1
-          },
-          "scopeContextDigest": {
-            "type": "string",
-            "description": "Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8)."
-          }
-        },
-        "required": [
-          "nextCursor",
-          "hasNextPage",
-          "limit"
         ]
       },
       "InvoiceCursorPageResponseDto": {

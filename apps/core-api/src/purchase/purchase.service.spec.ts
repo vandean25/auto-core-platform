@@ -46,6 +46,9 @@ describe('PurchaseService', () => {
       deleteMany: jest.fn(),
       count: jest.fn(),
     },
+    purchaseOrderSequence: {
+      upsert: jest.fn().mockResolvedValue({ current: 1 }),
+    },
     purchaseOrderItem: {
       findFirst: jest.fn(),
       deleteMany: jest.fn(),

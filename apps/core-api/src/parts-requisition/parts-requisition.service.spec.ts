@@ -41,6 +41,9 @@ function buildTransactionClient() {
       create: jest.fn(),
       findFirst: jest.fn(),
     },
+    purchaseOrderSequence: {
+      upsert: jest.fn().mockResolvedValue({ current: 1 }),
+    },
     purchaseOrderItem: {
       create: jest.fn(),
     },

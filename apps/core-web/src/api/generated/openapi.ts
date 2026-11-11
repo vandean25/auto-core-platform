@@ -5908,6 +5908,8 @@ export interface components {
             nextCursor: string | null;
             hasNextPage: boolean;
             limit: number;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
         };
         InventoryPriceOperationListResponseDto: {
             data: components["schemas"]["InventoryPriceOperationDto"][];
@@ -6932,13 +6934,6 @@ export interface components {
             items: components["schemas"]["InvoiceItemResponseDto"][];
             /** @description Country-specific margin-scheme legal notice for on-screen invoice display. */
             margin_scheme_legal_note?: string | null;
-        };
-        ListCursorPageMetaDto: {
-            nextCursor: string | null;
-            hasNextPage: boolean;
-            limit: number;
-            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
-            scopeContextDigest?: string;
         };
         InvoiceCursorPageResponseDto: {
             data: components["schemas"]["InvoiceResponseDto"][];
