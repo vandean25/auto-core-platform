@@ -1,11 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_COMMON } from './helpers/de-common'
-import {
-  AUT_971_LIST_API_DELAY_MS,
-  expectSkeletonDismissedBySettleDeadline,
-  routeWithSettledAt,
-} from './helpers/aut-971-skeleton-settle'
+import { expectSkeletonDismissedBySettleDeadline, routeWithSettledAt } from './helpers/aut-971-skeleton-settle'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 
