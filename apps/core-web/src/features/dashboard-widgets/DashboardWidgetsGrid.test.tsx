@@ -82,6 +82,27 @@ describe('DashboardWidgetsGrid data fetching (AUT-776)', () => {
     expect(requestedUrls()).toEqual([])
   })
 
+  it('AUT-971: legacy isLoading from useQuery matches first-payload gate during and after fetch', async () => {
+    const deferred = { resolve: undefined as undefined | (() => void) }
+    mocks.fetchWithAuth.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          deferred.resolve = () => resolve(new Response(JSON.stringify({ data: VEHICLES, meta: { total: 2 } })))
+        }),
+    )
+    mocks.widgets = [widget('legacy', '/vehicles')]
+    const queryClient = renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Widget wird geladen…')).toBeInTheDocument())
+    deferred.resolve?.()
+    await waitFor(() => expect(screen.queryByText('Widget wird geladen…')).not.toBeInTheDocument())
+
+    const entry = queryClient.getQueryCache().findAll({ queryKey: dashboardWidgetKeys.source('vehicles') })[0]
+    expect(entry.state.data).toBeDefined()
+    expect(isAwaitingFirstQueryPayload(false, true, false)).toBe(false)
+    expect(entry.state.status === 'pending').toBe(false)
+  })
+
   it('AUT-971: hides the widget loading line within 350ms after the fetch settles', async () => {
     const settledAt = { ms: 0 }
     mocks.fetchWithAuth.mockImplementation(async () => {

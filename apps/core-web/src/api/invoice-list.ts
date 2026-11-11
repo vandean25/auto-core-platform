@@ -21,7 +21,7 @@ function sortValue(invoice: Invoice, field: string) {
 /** The unpaged list for the sorts the cursor API does not approve: search, sort and paging happen in the browser. */
 function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
   const invoiceQuery = useInvoices({ enabled })
-  const { data: invoices = [], isLoading, isFetching, dataUpdatedAt } = invoiceQuery
+  const { data: invoices = [], isPending, isFetching, dataUpdatedAt } = invoiceQuery
   const { search, sortField, sortDirection, page, pageSize } = queryParams
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
@@ -37,14 +37,14 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
       dataUpdatedAt,
       tableProps: {
         pageCount: Math.max(1, Math.ceil(rows.length / pageSize)),
-        isLoading,
-        isPending: invoiceQuery.isPending,
+        isLoading: isPending && isFetching,
+        isPending,
         isFetching,
         hasUsableData: settled,
         listSnapshotResolved: settled || !invoiceQuery.isPending,
       },
     }
-  }, [dataUpdatedAt, invoiceQuery.data, invoiceQuery.isPending, invoices, isFetching, isLoading, search, sortField, sortDirection, page, pageSize])
+  }, [dataUpdatedAt, invoiceQuery.data, invoiceQuery.isPending, invoices, isFetching, isPending, search, sortField, sortDirection, page, pageSize])
 }
 
 /**
