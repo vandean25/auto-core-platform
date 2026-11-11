@@ -14,7 +14,27 @@ vi.mock('@/lib/i18n', () => ({ useLazyNamespaceBundleReady: () => ({ status: 're
 afterEach(cleanup)
 
 describe('WorkshopKpiDashboardWidget', () => {
-  it('AUT-971: WHEN KPI query is paused pending THEN skeleton is not shown', () => {
+  it('AUT-971: WHEN KPI data is present while query is paused THEN skeleton is not shown (legacy isLoading=isPending would)', () => {
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useWorkshopKpiReport).mockReturnValue({
+      data: { totals: { utilisation_percent: '0.82', productivity_percent: '0.71' }, rows: [] },
+      isPending: true,
+      isFetching: false,
+      isLoading: true,
+    } as never)
+
+    const { container } = render(
+      <MemoryRouter>
+        <WorkshopKpiDashboardWidget />
+      </MemoryRouter>,
+    )
+
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+    expect(screen.getAllByText(/0,8/).length).toBeGreaterThan(0)
+  })
+
+  it('AUT-971: WHEN KPI query is paused pending without data THEN skeleton is not shown', () => {
     vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1', activeRole: 'ADMIN' } } as never)
     vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
     vi.mocked(useWorkshopKpiReport).mockReturnValue({

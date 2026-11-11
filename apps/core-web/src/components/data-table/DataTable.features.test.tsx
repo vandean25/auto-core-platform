@@ -690,10 +690,15 @@ describe('DataTable infinite mode (AUT-889)', () => {
     expect(document.querySelector('tbody .animate-pulse')).toBeNull()
   })
 
+  function legacyTableFirstLoadActive(isLoading: boolean, hasUsableData: boolean, listSnapshotResolved: boolean) {
+    return isLoading && !hasUsableData && !listSnapshotResolved
+  }
+
   // AUT-971: legacy lists passed isPending as isLoading — paused pending must not arm the skeleton.
   it('AUT-971: WHEN pending is paused with isLoading=isPending THEN the table body does not keep skeleton rows', () => {
     vi.useFakeTimers()
     try {
+      expect(legacyTableFirstLoadActive(true, false, false)).toBe(true)
       render(
         <Harness
           data={[]}

@@ -2,7 +2,8 @@
 export function isAwaitingFirstQueryPayload(
   isPending: boolean,
   payloadReady: boolean,
-  isFetching = true,
+  isFetching?: boolean,
 ): boolean {
-  return isPending && isFetching && !payloadReady
+  const activelyFetching = isFetching ?? isPending
+  return isPending && activelyFetching && !payloadReady
 }
