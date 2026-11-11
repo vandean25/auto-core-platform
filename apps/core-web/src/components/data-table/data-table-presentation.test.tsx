@@ -7,7 +7,7 @@ describe('isDataTableFirstLoadActive', () => {
   it('AUT-971: does not treat paused pending as first load', () => {
     expect(
       isDataTableFirstLoadActive({
-        isLoading: false,
+        isLoading: true,
         isPending: true,
         isFetching: false,
         hasUsableData: false,

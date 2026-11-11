@@ -26,7 +26,7 @@ export function useDataTableViewModel<TData extends object>({
   pageCount = -1,
   isLoading = false,
   isPending: isPendingProp,
-  isFetching = false,
+  isFetching,
   isPlaceholderData = false,
   isError = false,
   bypassSkeleton = false,

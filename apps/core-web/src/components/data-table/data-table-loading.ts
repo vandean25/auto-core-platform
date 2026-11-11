@@ -152,8 +152,9 @@ export function isDataTableFirstLoadActive(
   input: Pick<DataTablePresentationInput, 'isLoading' | 'isPending' | 'isFetching' | 'hasUsableData' | 'listSnapshotResolved'>,
 ): boolean {
   const isPending = input.isPending ?? input.isLoading
-  const isFetching = input.isFetching !== false
-  return isPending && isFetching && !input.hasUsableData && !input.listSnapshotResolved
+  // Legacy `isLoading`-only callers omit isFetching; explicit `false` means paused pending (v5).
+  const isActivelyFetching = input.isFetching === undefined ? isPending : input.isFetching
+  return isPending && isActivelyFetching && !input.hasUsableData && !input.listSnapshotResolved
 }
 
 export function useDataTablePresentation(input: DataTablePresentationInput): DataTablePresentationState {
@@ -164,7 +165,7 @@ export function useDataTablePresentation(input: DataTablePresentationInput): Dat
     !showFirstLoadSkeleton &&
     input.hasUsableData &&
     input.isPlaceholderData &&
-    input.isFetching
+    Boolean(input.isFetching)
 
   const staleFetchFailed =
     input.hasUsableData && input.isPlaceholderData && input.isError && !input.isFetching
