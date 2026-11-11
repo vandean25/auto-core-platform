@@ -49,9 +49,9 @@ npm run test:visual:update   # rewrite the baselines (only on purpose, see below
   clock, fonts awaited, animations off, timestamps/avatars/version banner masked, unmocked API calls answer 404.
   Tolerance is `maxDiffPixelRatio` 0.01 (anti-aliasing noise only). A page can hide another volatile region from the
   comparison by marking it with the `data-visual-mask` attribute; the suite masks every element carrying it.
-- **Baselines come from Linux Chromium in the CI image** (`mcr.microsoft.com/playwright:v1.64.1-noble`). A baseline
+- **Baselines come from Linux Chromium in the CI image** (`mcr.microsoft.com/playwright:v1.65.0-noble`). A baseline
   written on macOS or Windows differs in text rendering and fails in CI. On a laptop run the update inside that image:
-  `docker run --rm --ipc=host -v "$PWD:/work" -w /work mcr.microsoft.com/playwright:v1.64.1-noble npm run test:visual:update --workspace=core-web`.
+  `docker run --rm --ipc=host -v "$PWD:/work" -w /work mcr.microsoft.com/playwright:v1.65.0-noble npm run test:visual:update --workspace=core-web`.
 - **Update baselines only deliberately.** A diff you did not intend is a bug: fix the page. When the change is intended,
   run `test:visual:update`, look at every changed PNG, and put the before/after screenshot in the PR description.
 - **CI:** the advisory job `UI Visual Regression (advisory)` (`.github/workflows/ui-visual.yaml`) runs on changes under

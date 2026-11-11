@@ -95,7 +95,7 @@ export function DateField({
 
   return (
     // On a phone the calendar button sits inside the field, so the date text keeps the whole width of a half-width filter.
-    <div className="relative flex items-center gap-1">
+    <div className="relative flex w-full min-w-[10.5rem] items-center gap-1">
       <Input
         ref={inputRef}
         id={id}
@@ -109,7 +109,10 @@ export function DateField({
         disabled={disabled}
         aria-label={ariaLabel}
         data-testid={testId}
-        className={cn('max-sm:min-h-11 max-sm:pr-12 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive', className)}
+        className={cn(
+          'w-full min-w-0 flex-1 max-sm:min-h-11 max-sm:pr-12 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive',
+          className,
+        )}
         onChange={(event) => handleChange(event.target.value)}
         // Inside a form an invalid text stays (red, and the browser blocks the submit); reverting it here would let a click on Submit save the old date unnoticed.
         onBlur={(event) => {
