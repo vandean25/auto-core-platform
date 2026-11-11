@@ -24,12 +24,30 @@ RUN npm run build
 RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
-# Pinned by digest: the v1.64.1-noble tag was re-published with Node 26; this digest is the Node 24 build, verified by the Node guard below at build time.
-FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea AS worker
+# Pinned by digest: v1.65.0-noble ships Node 26 upstream; replace it with exact Node 24.22.2 (AUT-673).
+FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
 
-RUN apt-get update && apt-get install -y --only-upgrade nodejs && rm -rf /var/lib/apt/lists/*
+ARG PDF_WORKER_NODE_VERSION=24.22.2
+# From https://nodejs.org/dist/v24.22.2/SHASUMS256.txt (node-v24.22.2-linux-x64.tar.xz)
+ARG PDF_WORKER_NODE_SHA256=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75
+ENV PDF_WORKER_NODE_VERSION=${PDF_WORKER_NODE_VERSION}
 
-RUN node -e "const [a,b,c]=process.versions.node.split('.').map(Number); if (a!==24 || b<22 || (b===22 && c<1)) { console.error('Node ' + process.version + ' is below 24.22.1 or not 24.x'); process.exit(1) }"
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get remove -y nodejs npm || true \
+    && rm -f /etc/apt/sources.list.d/nodesource.list \
+    && apt-get autoremove -y \
+    && apt-get install -y --no-install-recommends curl ca-certificates xz-utils \
+    && curl -fsSL "https://nodejs.org/dist/v${PDF_WORKER_NODE_VERSION}/node-v${PDF_WORKER_NODE_VERSION}-linux-x64.tar.xz" -o node.tar.xz \
+    && echo "${PDF_WORKER_NODE_SHA256}  node.tar.xz" | sha256sum -c - \
+    && tar -xJf node.tar.xz -C /usr/local --strip-components=1 \
+    && rm -f node.tar.xz \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+COPY apps/core-api/scripts/verify-pdf-worker-node.sh /usr/local/bin/verify-pdf-worker-node.sh
+RUN chmod +x /usr/local/bin/verify-pdf-worker-node.sh \
+    && verify-pdf-worker-node.sh
 
 WORKDIR /usr/src/app
 
@@ -45,8 +63,11 @@ RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --workspace=core-api --
 COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
+COPY apps/core-api/scripts/pdf-worker-image-smoke.mjs ./apps/core-api/scripts/pdf-worker-image-smoke.mjs
 
 WORKDIR /usr/src/app/apps/core-api
+
+RUN verify-pdf-worker-node.sh
 
 EXPOSE 3000
 

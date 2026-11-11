@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
+import { installPdfRendererRequestGuard } from '../common/pdf/pdf-page-request-guard.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import { loadBundledBrandFontCss } from '../document-branding/bundled-brand-font-css.js';
 import { brandRenderInputUnavailable } from '../invoices/invoice-pdf-branding.helpers.js';
@@ -43,8 +44,7 @@ export class WorkshopEstimatePdfRenderer {
         const page = await browser.newPage();
 
         try {
-          // Fonts and the logo are embedded, so the document never fetches a URL.
-          await page.route(/^https?:\/\//, (route) => route.abort());
+          await installPdfRendererRequestGuard(page);
 
           const html = buildWorkshopEstimateHtmlDocument(
             snapshot,

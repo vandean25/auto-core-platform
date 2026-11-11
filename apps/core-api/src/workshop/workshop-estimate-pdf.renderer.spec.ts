@@ -41,7 +41,7 @@ describe('WorkshopEstimatePdfRenderer', () => {
     const pdf = await renderer.render({ snapshot: buildEstimateSnapshot() });
 
     expect(pdf).toEqual(PDF_BYTES);
-    expect(page.route).toHaveBeenCalledWith(/^https?:\/\//, expect.any(Function));
+    expect(page.route).toHaveBeenCalledWith('**/*', expect.any(Function));
     const html = page.setContent.mock.calls[0][0] as string;
     expect(html).toContain('@font-face');
     expect(html).toContain('<h1>Kostenvoranschlag</h1>');

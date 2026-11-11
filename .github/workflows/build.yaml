@@ -367,7 +367,7 @@ jobs:
     # convenient: test/invoice-branding-render.e2e-spec.ts launches chromium through
     # PlaywrightBrowserService, and check-playwright-docker-version.spec.ts pins this container.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     defaults:
       run:
@@ -445,10 +445,28 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  pdf-worker-image:
+    # Builds the production pdf-worker target (not host npm test only).
+    name: PDF Worker Image (Node pin + Playwright smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Build pdf-worker image
+        run: docker build -f apps/core-api/Dockerfile --target worker -t acp-pdf-worker:ci .
+
+      - name: Verify pinned Node runtime in image
+        run: docker run --rm acp-pdf-worker:ci verify-pdf-worker-node.sh
+
+      - name: PDF worker Playwright smoke (built image)
+        run: docker run --rm acp-pdf-worker:ci node scripts/pdf-worker-image-smoke.mjs
+
   backend-gate:
     # Aggregator: keeps the original required-check name and passes only when every backend job passed.
     name: Backend Build and Test
-    needs: [backend, backend-unit, backend-e2e]
+    needs: [backend, backend-unit, backend-e2e, pdf-worker-image]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -457,11 +475,13 @@ jobs:
           LINT_BUILD: ${{ needs.backend.result }}
           UNIT: ${{ needs.backend-unit.result }}
           E2E: ${{ needs.backend-e2e.result }}
+          PDF_WORKER_IMAGE: ${{ needs.pdf-worker-image.result }}
         run: |
           echo "backend (lint, typecheck, build): $LINT_BUILD"
           echo "backend-unit: $UNIT"
           echo "backend-e2e: $E2E"
-          test "$LINT_BUILD" = success && test "$UNIT" = success && test "$E2E" = success
+          echo "pdf-worker-image: $PDF_WORKER_IMAGE"
+          test "$LINT_BUILD" = success && test "$UNIT" = success && test "$E2E" = success && test "$PDF_WORKER_IMAGE" = success
 
   frontend-unit:
     # Lint, build and Vitest. Runs in parallel with frontend-e2e; the `frontend` job below is the
@@ -560,7 +580,7 @@ jobs:
     # runs apt-get (the Azure apt mirror stalled shards for ~10 min). The tag must match the
     # playwright version in package-lock.json (enforced by check-playwright-docker-version.spec.ts).
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     defaults:
       run:

@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
+import { installPdfRendererRequestGuard } from '../common/pdf/pdf-page-request-guard.js';
 import { loadBundledBrandFontCss } from '../document-branding/bundled-brand-font-css.js';
 import { brandRenderInputUnavailable } from '../invoices/invoice-pdf-branding.helpers.js';
 import {
@@ -34,8 +35,7 @@ export class WarrantyClaimPdfRenderer {
         const page = await browser.newPage();
 
         try {
-          // The document is self-contained: no network access while rendering.
-          await page.route(/^https?:\/\//, (route) => route.abort());
+          await installPdfRendererRequestGuard(page);
           await page.setContent(
             buildWarrantyClaimHtml(content, { fontFaceCss: fonts }),
             {
