@@ -434,6 +434,29 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     findManySpy.mockRestore();
   });
 
+  it('discovery list uses catalog semi-join and does not load catalog ids into Node', async () => {
+    const catalogFindManySpy = jest.spyOn(prisma.catalogItem, 'findMany');
+    const journalFindManySpy = jest.spyOn(
+      prisma.inventoryPriceOperation,
+      'findMany',
+    );
+
+    await listOperations().expect(200);
+
+    expect(catalogFindManySpy).not.toHaveBeenCalled();
+    expect(journalFindManySpy).toHaveBeenCalledTimes(1);
+    const where = journalFindManySpy.mock.calls[0][0].where as {
+      AND?: Array<Record<string, unknown>>;
+    };
+    const root = where?.AND?.[0] as {
+      catalog_item?: { is?: unknown };
+    };
+    expect(root?.catalog_item?.is).toBeDefined();
+
+    catalogFindManySpy.mockRestore();
+    journalFindManySpy.mockRestore();
+  });
+
   it('discovery omits final rows past retention', async () => {
     const item = await seedItem();
     const oldMs = Date.now() - GUARDED_PRICE_RETENTION_MS - 60_000;

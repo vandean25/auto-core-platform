@@ -18,7 +18,7 @@ const DISCOVERY_STATES = [
 ] as const;
 
 /**
- * Keyset page of journal rows with catalog + retention filters (catalog via tenant item_ids).
+ * Keyset journal page: retention + principal + catalog EXISTS semi-join in one query.
  */
 export async function fetchGuardedPriceDiscoveryPage(
   prisma: PrismaService,
@@ -27,15 +27,6 @@ export async function fetchGuardedPriceDiscoveryPage(
   cursor: PriceOperationDiscoveryCursor | null,
   take = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
 ): Promise<InventoryPriceOperation[]> {
-  const catalogItems = await prisma.catalogItem.findMany({
-    where: { tenant_id: tenantId },
-    select: { id: true },
-  });
-  const catalogItemIds = catalogItems.map((row) => row.id);
-  if (catalogItemIds.length === 0) {
-    return [];
-  }
-
   return prisma.inventoryPriceOperation.findMany({
     where: {
       AND: [
@@ -43,7 +34,7 @@ export async function fetchGuardedPriceDiscoveryPage(
           tenant_id: tenantId,
           principal_id: principalId,
           state: { in: [...DISCOVERY_STATES] },
-          item_id: { in: catalogItemIds },
+          catalog_item: { is: { tenant_id: tenantId } },
         },
         discoveryRetentionWhere(),
         buildDiscoveryKeysetWhere(cursor),
