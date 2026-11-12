@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Node.js version must stay in sync with repo root .nvmrc (installed via nvm, exposed on PATH).
 ARG NVM_VERSION=0.40.3
-ARG NODE_VERSION=24.22.2
+ARG NODE_VERSION=24.22.3
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -33,7 +33,7 @@ RUN curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/ins
   && npm -v
 
 USER root
-ARG NODE_VERSION=24.22.2
+ARG NODE_VERSION=24.22.3
 RUN ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/node" /usr/local/bin/node \
   && ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/npm" /usr/local/bin/npm \
   && ln -sf "/home/ubuntu/.nvm/versions/node/v${NODE_VERSION}/bin/npx" /usr/local/bin/npx \

@@ -1,7 +1,7 @@
 # Build from the repository root:
 #   docker build -f apps/core-api/Dockerfile -t core-api .
 #   docker build -f apps/core-api/Dockerfile --target worker -t core-api-pdf-worker .
-FROM node:24.22.2-slim AS builder
+FROM node:24.22.3-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS builder
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
@@ -24,10 +24,10 @@ RUN npm run build
 RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
-# Pinned by digest: v1.65.0-noble ships Node 26 upstream; replace it with exact Node 24.22.2 (AUT-673).
+# Pinned by digest: v1.65.0-noble ships Node 26 upstream; copy exact Node 24.22.3 from digest-pinned builder (AUT-673, AUT-991).
 FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
 
-ARG PDF_WORKER_NODE_VERSION=24.22.2
+ARG PDF_WORKER_NODE_VERSION=24.22.3
 ENV PDF_WORKER_NODE_VERSION=${PDF_WORKER_NODE_VERSION}
 
 # Drop Playwright base Node 26 without apt (AUT-981).
@@ -36,7 +36,7 @@ RUN rm -f /etc/apt/sources.list.d/nodesource.list \
     && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
     && rm -rf /usr/lib/node_modules
 
-# Exact Node 24.22.2 runtime from the digest-pinned builder stage (node:24.22.2-slim).
+# Exact Node 24.22.3 runtime copied from the digest-pinned builder stage (node:24.22.3-slim@sha256:…).
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 COPY --from=builder /usr/local/include/ /usr/local/include/
 COPY --from=builder /usr/local/lib/ /usr/local/lib/
@@ -71,7 +71,7 @@ EXPOSE 3000
 
 CMD ["node", "dist/main.js"]
 
-FROM node:24.22.2-slim AS api
+FROM node:24.22.3-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS api
 
 WORKDIR /usr/src/app
 
