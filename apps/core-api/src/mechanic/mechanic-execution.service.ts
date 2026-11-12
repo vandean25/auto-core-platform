@@ -40,7 +40,6 @@ import {
 import {
   ACTIVE_OR_BLOCKED_STATUSES,
   QUEUE_ORDER_STATUSES,
-  VISIBLE_PART_LINE_STATUSES,
   buildScheduledDateFilter,
   mapToMechanicQueueItem,
   mapToMechanicTaskDetail,
@@ -116,7 +115,7 @@ export class MechanicExecutionService {
         },
         bay: { select: { id: true, name: true } },
         line_items: {
-          where: { part_execution_status: { in: VISIBLE_PART_LINE_STATUSES } },
+          where: { type: WorkshopLineItemType.PART },
           select: {
             id: true,
             description: true,
@@ -645,8 +644,8 @@ export class MechanicExecutionService {
   // ─── Parts Requisition ─────────────────────────────────────────────────────
 
   /**
-   * Creates a new part request line (`WorkshopTaskLineItem` of type PART) with
-   * `part_execution_status = PENDING_PICK`.
+   * Creates a new free-text part request line (`WorkshopTaskLineItem` of type PART)
+   * without catalog pick workflow (`part_execution_status` null).
    *
    * Stock is NOT deducted by this operation.  The parts department picks and
    * stages the part through the kitting/tote workflow (ADR-0014 §6.1,

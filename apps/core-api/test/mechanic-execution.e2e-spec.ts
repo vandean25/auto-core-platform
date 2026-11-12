@@ -462,6 +462,36 @@ describe('Mechanic Execution Engine (e2e)', () => {
     expect(res.body).not.toHaveProperty('lineTotal');
   });
 
+  it('GET /queue lists a free-text part line with null partExecutionStatus', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskCId}/parts`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        itemNo: 'SEAL-QUEUE-001',
+        description: 'Gasket for queue visibility',
+        qty: 1,
+      })
+      .expect(201);
+
+    const queueRes = await request(app.getHttpServer())
+      .get('/api/mechanic/queue')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const queueTask = queueRes.body.data.find(
+      (entry: { taskId: string }) => entry.taskId === taskCId,
+    );
+    expect(queueTask).toBeDefined();
+    const partLine = queueTask.partLines.find(
+      (line: { id: string }) => line.id === createRes.body.id,
+    );
+    expect(partLine).toMatchObject({
+      description: 'Gasket for queue visibility',
+      qty: 1,
+      partExecutionStatus: null,
+    });
+  });
+
   it('POST /tasks/:taskId/parts rejects missing required fields with 400', async () => {
     await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskCId}/parts`)

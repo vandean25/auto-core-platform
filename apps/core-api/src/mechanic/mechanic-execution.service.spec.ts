@@ -164,6 +164,9 @@ describe('MechanicExecutionService', () => {
       expect(call.include.workshop_order).toBeDefined();
       expect(call.include.workshop_order.include.vehicle).toBeDefined();
       expect(call.include.line_items).toBeDefined();
+      expect(call.include.line_items.where).toEqual({
+        type: WorkshopLineItemType.PART,
+      });
     });
 
     it('does not expose customer PII fields in the response', async () => {

@@ -604,7 +604,19 @@ describe('PartsRequisitionService', () => {
   });
 
   it('rejects cancelled workshop lines before reserving ATP or creating a reservation', async () => {
-    tx.workshopTaskLineItem.findFirst.mockResolvedValue(null);
+    tx.workshopTaskLineItem.findFirst.mockImplementation(async ({ where }) => {
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { part_execution_status: null },
+          {
+            part_execution_status: {
+              not: WorkshopPartLineExecutionStatus.CANCELLED,
+            },
+          },
+        ]),
+      );
+      return null;
+    });
 
     await expect(
       service.createOnHandReservation({

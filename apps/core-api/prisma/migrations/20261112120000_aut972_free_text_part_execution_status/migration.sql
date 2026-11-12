@@ -17,6 +17,7 @@ ALTER TABLE "workshop_task_line_items"
     OR (
       "type" = 'PART'
       AND "catalog_item_id" IS NULL
+      AND "part_execution_status" IS NULL
     )
   );
 
