@@ -203,6 +203,7 @@ export function buildWarrantyClaimInjectionHtml(): string {
       closedAt: null,
       createdAt: '2026-11-11T12:00:00.000Z',
       updatedAt: '2026-11-11T12:00:00.000Z',
+      pdfGenerationError: null,
       lines: [
         {
           id: 'line-1',

@@ -330,10 +330,13 @@ export class WarrantyClaimPdfService {
     orderId: string,
     claimId: string,
   ): Promise<WarrantyClaimPdfContent> {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
 
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       select: {
         order_number: true,
         odometer: true,

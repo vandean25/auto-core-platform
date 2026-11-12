@@ -55,6 +55,8 @@ describe('warranty claim access for technicians', () => {
     untouched<SiteContextService>(),
     untouched(),
     untouched(),
+    untouched(),
+    untouched(),
   );
 
   it.each([
