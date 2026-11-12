@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
+  isWarrantyClaimPdfArchiveStale,
   readCachedWarrantyClaimPdfMetadata,
   warrantyClaimPdfObjectKey,
 } from './warranty-claim-pdf.generation.js';
@@ -32,5 +33,20 @@ describe('warranty-claim-pdf.generation', () => {
         pdf_generation_error: 'failed',
       }),
     ).toBeNull();
+  });
+
+  it('treats the archive as stale when the claim changed after generation', () => {
+    expect(
+      isWarrantyClaimPdfArchiveStale({
+        claimUpdatedAt: new Date('2026-11-12T12:00:00.000Z'),
+        pdfGeneratedAt: new Date('2026-11-12T10:00:00.000Z'),
+      }),
+    ).toBe(true);
+    expect(
+      isWarrantyClaimPdfArchiveStale({
+        claimUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
+        pdfGeneratedAt: new Date('2026-11-12T10:00:00.000Z'),
+      }),
+    ).toBe(false);
   });
 });

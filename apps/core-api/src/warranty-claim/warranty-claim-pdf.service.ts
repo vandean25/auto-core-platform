@@ -22,6 +22,7 @@ import { toWarrantyClaimResponse } from './warranty-claim.mapper.js';
 import type { WarrantyClaimPdfContent } from './warranty-claim-pdf.layout.js';
 import {
   clearWarrantyClaimPdfArchiveData,
+  isWarrantyClaimPdfArchiveStale,
   readCachedWarrantyClaimPdfMetadata,
   warrantyClaimPdfObjectKey,
   type CachedWarrantyClaimPdfMetadata,
@@ -90,7 +91,11 @@ export class WarrantyClaimPdfService {
     await this.assertClaimScope(orderId, claimId);
 
     const { tenantId, claim } = await this.loadClaimPdfRow(orderId, claimId);
-    const cached = await this.resolveVerifiedCachedPdf(claimId, tenantId, claim);
+    const cached = await this.resolveVerifiedCachedPdf(
+      claimId,
+      tenantId,
+      claim,
+    );
     if (cached) {
       return {
         mode: 'cached',
@@ -144,8 +149,15 @@ export class WarrantyClaimPdfService {
         span.setAttribute('claimId', claimId);
         span.setAttribute('workshopOrderId', orderId);
 
-        const { tenantId, claim } = await this.loadClaimPdfRow(orderId, claimId);
-        const cached = await this.resolveVerifiedCachedPdf(claimId, tenantId, claim);
+        const { tenantId, claim } = await this.loadClaimPdfRow(
+          orderId,
+          claimId,
+        );
+        const cached = await this.resolveVerifiedCachedPdf(
+          claimId,
+          tenantId,
+          claim,
+        );
         if (cached) {
           return {
             claimId,
@@ -199,7 +211,11 @@ export class WarrantyClaimPdfService {
             error instanceof Error ? error.stack : undefined,
           );
           Sentry.captureException(error, {
-            tags: { claimId, workshopOrderId: orderId, operation: 'pdf.generate' },
+            tags: {
+              claimId,
+              workshopOrderId: orderId,
+              operation: 'pdf.generate',
+            },
           });
           await this.safeStoreGenerationError(
             orderId,
@@ -225,7 +241,7 @@ export class WarrantyClaimPdfService {
     await this.assertClaimScope(orderId, claimId);
     const { claim } = await this.loadClaimPdfRow(orderId, claimId);
 
-    const cached = readCachedWarrantyClaimPdfMetadata(claim);
+    const cached = this.readFreshCachedMetadata(claim);
     if (!cached?.key) {
       throw new NotFoundException('Warranty claim PDF is not generated yet');
     }
@@ -235,7 +251,11 @@ export class WarrantyClaimPdfService {
       key: cached.key,
     });
 
-    const filename = this.buildFilename(claim.type, claim.order_number, claimId);
+    const filename = this.buildFilename(
+      claim.type,
+      claim.order_number,
+      claimId,
+    );
     return {
       filename,
       contentType: opened.contentType ?? 'application/pdf',
@@ -290,6 +310,7 @@ export class WarrantyClaimPdfService {
         pdf_storage_key: true,
         pdf_generated_at: true,
         pdf_generation_error: true,
+        updatedAt: true,
         workshop_order: { select: { order_number: true } },
       },
     });
@@ -424,17 +445,40 @@ export class WarrantyClaimPdfService {
     return `data:${logo.mime_type};base64,${bytes.toString('base64')}`;
   }
 
+  private readFreshCachedMetadata(claim: {
+    updatedAt: Date;
+    pdf_storage_bucket: string | null;
+    pdf_storage_key: string | null;
+    pdf_generated_at: Date | null;
+    pdf_generation_error?: string | null;
+  }): CachedWarrantyClaimPdfMetadata | null {
+    const cached = readCachedWarrantyClaimPdfMetadata(claim);
+    if (!cached) {
+      return null;
+    }
+    if (
+      isWarrantyClaimPdfArchiveStale({
+        claimUpdatedAt: claim.updatedAt,
+        pdfGeneratedAt: claim.pdf_generated_at,
+      })
+    ) {
+      return null;
+    }
+    return cached;
+  }
+
   private async resolveVerifiedCachedPdf(
     claimId: string,
     tenantId: string,
     claim: {
+      updatedAt: Date;
       pdf_storage_bucket: string | null;
       pdf_storage_key: string | null;
       pdf_generated_at: Date | null;
       pdf_generation_error?: string | null;
     },
   ): Promise<CachedWarrantyClaimPdfMetadata | null> {
-    const cached = readCachedWarrantyClaimPdfMetadata(claim);
+    const cached = this.readFreshCachedMetadata(claim);
     if (!cached) {
       return null;
     }

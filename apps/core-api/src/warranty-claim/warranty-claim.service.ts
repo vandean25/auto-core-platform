@@ -26,9 +26,6 @@ import {
   type WarrantyClaimRow,
 } from './warranty-claim.mapper.js';
 import {
-  clearWarrantyClaimPdfArchiveData,
-} from './warranty-claim-pdf.generation.js';
-import {
   WARRANTY_CLAIM_ERROR_CODES,
   assertWarrantyClaimAccess,
   assertWarrantyClaimDecisionDate,
@@ -310,9 +307,6 @@ export class WarrantyClaimService {
               : {}),
             ...(statusChanged && next.status === WarrantyClaimStatus.CLOSED
               ? { closed_at: now }
-              : {}),
-            ...(contentChanged || metadataChanged || linesChanged
-              ? clearWarrantyClaimPdfArchiveData()
               : {}),
           },
         });
