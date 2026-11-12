@@ -6,6 +6,9 @@ export const E2E_SCOPE_CONTEXT = {
   continuityDigest: 'e2e-continuity',
 } as const;
 
+/** Digest echoed on list responses; updated whenever the handshake mock mints a new SC. */
+export let e2eActiveScopeContextDigest: string = E2E_SCOPE_CONTEXT.scopeContextDigest;
+
 const SCOPE_CONTEXT_ROUTE = /\/api\/auth\/scope-context(\?.*)?$/;
 
 type ScopeHandshakePage = Page & { __acpScopeHandshakeInstalled?: boolean };
@@ -19,6 +22,7 @@ export async function mockScopeContextHandshake(
   await page.unroute(SCOPE_CONTEXT_ROUTE);
   await page.route(SCOPE_CONTEXT_ROUTE, async (route) => {
     const body = options?.onPost?.() ?? options?.body ?? E2E_SCOPE_CONTEXT;
+    e2eActiveScopeContextDigest = body.scopeContextDigest;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
   scoped.__acpScopeHandshakeInstalled = true;

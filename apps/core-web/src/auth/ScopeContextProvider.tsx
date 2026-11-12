@@ -3,11 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { useAuth } from '@/auth/AuthProvider'
 
-import {
-  applyUserSessionLifecycle,
-  handshakeScopeContext,
-  invalidateProtectedScopeContext,
-} from '@/auth/scope-context-client'
+import { handshakeScopeContext, invalidateProtectedScopeContext } from '@/auth/scope-context-client'
+import { SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY } from '@/auth/scope-context.constants'
 import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/realtime-resync'
 
 type ScopeContextProviderProps = {
@@ -54,19 +51,19 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
     }
     window.addEventListener('pageshow', onPageShow)
 
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY) return
+      runHandshake()
+    }
+    window.addEventListener('storage', onStorage)
+
     return () => {
       window.removeEventListener('focus', runHandshake)
       window.removeEventListener('online', runHandshake)
       window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('storage', onStorage)
     }
   }, [enabled, queryClient])
-
-  useEffect(() => {
-    if (!enabled) return undefined
-    const onStorage = () => applyUserSessionLifecycle()
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [enabled])
 
   return children
 }

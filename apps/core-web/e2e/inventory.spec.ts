@@ -299,6 +299,8 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       const box = await refresh.boundingBox();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      await refresh.click();
+      await expect(page.getByText('SKU-0000')).toBeVisible();
       expect(await pageOverflow(page)).toBe(0);
     });
   });

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { AutoCorePage } from '../pom/AutoCorePage';
 import { createMockListResponse } from './mock-factories';
-import { E2E_SCOPE_CONTEXT, mockScopeContextHandshake } from './scope-context-handshake';
+import { e2eActiveScopeContextDigest, E2E_SCOPE_CONTEXT, mockScopeContextHandshake } from './scope-context-handshake';
 
 type CappedCount = { count: number; isCapped: boolean };
 
@@ -97,7 +97,7 @@ export async function mockCursorList<TRow>(
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
       return;
     }
-    const body = { ...(count ?? { count: Math.min(rows.length, 1000), isCapped: rows.length > 1000 }), scopeContextDigest: E2E_SCOPE_CONTEXT.scopeContextDigest };
+    const body = { ...(count ?? { count: Math.min(rows.length, 1000), isCapped: rows.length > 1000 }), scopeContextDigest: e2eActiveScopeContextDigest };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
@@ -109,7 +109,7 @@ export async function mockCursorList<TRow>(
       return;
     }
     const body = listBody(rows, url.searchParams, { maxLimit, unpaged }) as { data?: unknown; meta?: Record<string, unknown> };
-    if (body.meta) body.meta.scopeContextDigest = E2E_SCOPE_CONTEXT.scopeContextDigest;
+    if (body.meta) body.meta.scopeContextDigest = e2eActiveScopeContextDigest;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 

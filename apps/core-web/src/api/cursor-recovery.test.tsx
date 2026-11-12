@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -93,22 +93,11 @@ describe('cursor recovery (ADR-0038 §9)', () => {
 
   it('403 blocks without retry', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const listKey = ['inventory', 'cursor-list', {}, 'digest-a']
-    const countKey = ['inventory', 'capped-count', {}, 'digest-a']
-    await resolveCursorListFailure(client, {
-      error: new CursorListApiError('HTTP_403', 403, 'HTTP_403'),
-      semanticKey: 'inventory:{}',
-      listKey,
-      countKey,
-      contextValid: true,
-    })
-    expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
-
     let listCalls = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
-        return { ok: true, json: async () => ({ count: 0, isCapped: false }) } as Response
+        return { ok: true, json: async () => ({ count: 0, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
       }
       if (target.includes('pagination=cursor')) {
         listCalls += 1
@@ -121,7 +110,8 @@ describe('cursor recovery (ADR-0038 §9)', () => {
 
     await waitFor(() => expect(result.current.tableProps.isLoading).toBe(false))
     expect(result.current.rows).toEqual([])
-    expect(listCalls).toBe(0)
+    expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
+    expect(listCalls).toBe(1)
   })
 
   it('new sign-in new episode', async () => {
@@ -130,22 +120,77 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     expect(getCursorEpisodeCounter()).toBe(before + 1)
     resetCursorRecoveryForTests()
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const blockedEpisodeCounter = getCursorEpisodeCounter()
+    let listsForFreshEpisode = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
-        return { ok: true, json: async () => ({ count: 0, isCapped: false }) } as Response
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
       }
-      return apiError(400, 'LIST_CURSOR_INVALID')
+      if (!target.includes('pagination=cursor')) return apiError(500, 'HTTP_500')
+      if (getCursorEpisodeCounter() === blockedEpisodeCounter) {
+        return apiError(400, 'LIST_CURSOR_INVALID')
+      }
+      listsForFreshEpisode += 1
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'fresh' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
     })
 
     renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
-    await waitFor(() => expect(vi.mocked(fetchWithAuth).mock.calls.length).toBeGreaterThan(0))
+    await waitFor(() => expect(cursorEpisodeBudgetForTests('inventory:{}')).toBe(0))
 
     startNewCursorRecoveryEpisode()
-    renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
-    const invalidCalls = vi
-      .mocked(fetchWithAuth)
-      .mock.calls.filter((call) => String(call[0]).includes('/api/inventory?')).length
-    expect(invalidCalls).toBeGreaterThanOrEqual(2)
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'fresh' }]))
+    expect(listsForFreshEpisode).toBeGreaterThanOrEqual(1)
+  })
+
+  it('LIST_CURSOR_INVALID restarts page one with a live signal', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let servedFirstPage = false
+    let sawRestartWithoutCursor = false
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
+      const target = String(url)
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 2, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      const params = new URL(target, 'http://acp.test').searchParams
+      if (params.get('cursor') === 'cur-1') {
+        return apiError(400, 'LIST_CURSOR_INVALID')
+      }
+      if (!params.get('cursor') && servedFirstPage) {
+        expect(init?.signal?.aborted).toBe(false)
+        sawRestartWithoutCursor = true
+        return {
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'restarted' }],
+            meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+          }),
+        } as Response
+      }
+      servedFirstPage = true
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'a' }],
+          meta: { nextCursor: 'cur-1', hasNextPage: true, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+  await act(async () => {
+      await result.current.tableProps.infinite.fetchNextPage()
+    })
+    await waitFor(() => expect(result.current.rows.some((row) => row.id === 'restarted')).toBe(true))
+    expect(sawRestartWithoutCursor).toBe(true)
   })
 })

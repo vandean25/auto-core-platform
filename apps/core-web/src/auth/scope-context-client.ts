@@ -4,6 +4,7 @@ import {
   SCOPE_CONTEXT_HANDSHAKE_PATH,
   SCOPE_CONTEXT_HEADER,
   SCOPE_CONTEXT_LOGOUT_PATH,
+  SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY,
 } from '@/auth/scope-context.constants'
 
 export type ValidatedScopeContext = {
@@ -127,11 +128,26 @@ export function scopeContextHeaderValue(): string | undefined {
 }
 
 export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observedGeneration: number): boolean {
+  if (observedGeneration !== store.getState().protectedGeneration) return true
   if (echoedDigest === undefined) return false
   const validated = store.getState().context?.scopeContextDigest
   if (validated === undefined) return true
-  if (observedGeneration !== store.getState().protectedGeneration) return true
   return echoedDigest !== validated
+}
+
+/** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
+export function acceptQuarantinedScopeForExplicitRefresh(): void {
+  if (!store.getState().quarantined) return
+  store.setState({ quarantined: false })
+}
+
+function broadcastSessionLineageToOtherTabs(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY, String(Date.now()))
+  } catch {
+    // Private mode or quota; the local tab already applied lifecycle.
+  }
 }
 
 async function postHandshake(): Promise<components['schemas']['ScopeContextHandshakeResponseDto']> {
@@ -210,6 +226,7 @@ export async function logoutScopeContextLineage(): Promise<void> {
 export function applyUserSessionLifecycle() {
   invalidateProtectedScopeContext()
   bumpCursorEpisodeCounter()
+  broadcastSessionLineageToOtherTabs()
 }
 
 export { SCOPE_CONTEXT_HEADER }

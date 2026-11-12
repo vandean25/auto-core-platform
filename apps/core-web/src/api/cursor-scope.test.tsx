@@ -8,6 +8,7 @@ import {
   resetScopeContextClientForTests,
   seedValidatedScopeContextForTests,
 } from '@/auth/scope-context-client'
+import { refreshInfiniteList } from '@/lib/infinite-list-query'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 
@@ -79,9 +80,11 @@ describe('cursor scope (ADR-0038)', () => {
   })
 
   it('external scope change blocks', async () => {
+    let activeDigest = 'digest-a'
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('/api/auth/scope-context')) {
+        activeDigest = 'digest-b'
         return {
           ok: true,
           json: async () => ({
@@ -94,14 +97,15 @@ describe('cursor scope (ADR-0038)', () => {
       if (target.includes('capped-count')) {
         return {
           ok: true,
-          json: async () => ({ count: 0, isCapped: false, scopeContextDigest: 'digest-a' }),
+          json: async () => ({ count: 1, isCapped: false, scopeContextDigest: activeDigest }),
         } as Response
       }
+      const rowId = activeDigest === 'digest-b' ? 'refreshed' : 'a'
       return {
         ok: true,
         json: async () => ({
-          data: [{ id: 'a' }],
-          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+          data: [{ id: rowId }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: activeDigest },
         }),
       } as Response
     })
@@ -124,7 +128,16 @@ describe('cursor scope (ADR-0038)', () => {
     })
 
     expect(result.current.rows).toEqual([])
-    const { isScopeContextQuarantined } = await import('@/auth/scope-context-client')
-    expect(isScopeContextQuarantined()).toBe(true)
+    const scopeContextClient = await import('@/auth/scope-context-client')
+    expect(scopeContextClient.isScopeContextQuarantined()).toBe(true)
+
+    const scopedListKey = [...baseOptions().listKey, 'digest-b'] as const
+    await act(async () => {
+      scopeContextClient.acceptQuarantinedScopeForExplicitRefresh()
+      await refreshInfiniteList(client, scopedListKey)
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'refreshed' }]))
+    expect(scopeContextClient.isScopeContextQuarantined()).toBe(false)
   })
 })

@@ -81,14 +81,21 @@ export function startNewCursorRecoveryEpisode() {
   bumpCursorEpisodeCounter()
 }
 
-async function flushAndFence(client: QueryClient, listKey: QueryKey, countKey: QueryKey) {
+async function flushListCache(
+  client: QueryClient,
+  listKey: QueryKey,
+  countKey: QueryKey,
+  options?: { cancelInFlight?: boolean },
+) {
   client.setQueryData(listKey, () => undefined)
   client.setQueryData(countKey, () => undefined)
-  await cancelInfiniteList(client, listKey)
+  if (options?.cancelInFlight !== false) {
+    await cancelInfiniteList(client, listKey)
+  }
 }
 
 async function blockListEpisode(client: QueryClient, listKey: QueryKey, countKey: QueryKey) {
-  await flushAndFence(client, listKey, countKey)
+  await flushListCache(client, listKey, countKey)
   markInfiniteListStale(client, listKey)
   return { type: 'blocked', externalScope: false } as const
 }
@@ -115,13 +122,8 @@ export async function resolveCursorListFailure(
 
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
     episode.offsetLatched = true
-    await flushAndFence(client, listKey, countKey)
+    await flushListCache(client, listKey, countKey, { cancelInFlight: false })
     return { type: 'offset-latch' }
-  }
-
-  if (error.status === 401 || error.status === 403 || error.status === 422) {
-    episode.authBlocked = true
-    return blockListEpisode(client, listKey, countKey)
   }
 
   if (error.code === 'LIST_CURSOR_INVALID' && contextValid) {
@@ -129,7 +131,7 @@ export async function resolveCursorListFailure(
       return blockListEpisode(client, listKey, countKey)
     }
     episode.budget = 0
-    await flushAndFence(client, listKey, countKey)
+    await flushListCache(client, listKey, countKey, { cancelInFlight: false })
     return { type: 'restart-page-one' }
   }
 
@@ -144,7 +146,7 @@ export async function resolveCursorListFailure(
       }
 
       episode.budget = 0
-      await flushAndFence(client, listKey, countKey)
+      await flushListCache(client, listKey, countKey, { cancelInFlight: false })
 
       const handshake = await handshakeScopeContext()
       if (handshake.kind === 'external-scope') {
@@ -167,10 +169,23 @@ export async function resolveCursorListFailure(
     return episode.recoveryInFlight
   }
 
+  if (error.status === 401 || error.status === 403) {
+    episode.authBlocked = true
+    return blockListEpisode(client, listKey, countKey)
+  }
+
+  if (error.status === 422) {
+    if (error.code && CURSOR_NO_RETRY_CODES.has(error.code)) {
+      return { type: 'pass-through', error }
+    }
+    episode.authBlocked = true
+    return blockListEpisode(client, listKey, countKey)
+  }
+
   return { type: 'pass-through', error }
 }
 
 export async function applyExternalScopeBlock(client: QueryClient, listKey: QueryKey, countKey: QueryKey) {
-  await flushAndFence(client, listKey, countKey)
+  await flushListCache(client, listKey, countKey)
   markInfiniteListStale(client, listKey)
 }

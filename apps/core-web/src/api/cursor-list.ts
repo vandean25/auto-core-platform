@@ -1,6 +1,10 @@
 import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import {
+  isScopeContextQuarantined,
+  scopeContextReadyForCursorList,
+} from '@/auth/scope-context-client'
 import { useScopeContextDigest, useScopeContextQuarantined, useScopeContextReady } from '@/auth/use-scope-context-digest'
 import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
 import type { components } from './generated/openapi'
@@ -19,6 +23,28 @@ export const CURSOR_PAGE_LIMIT = 50
 export type CappedListCount = components['schemas']['CappedListCountResponseDto']
 type CursorListPage<TRow> = { data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean } }
 type QueryParams = Record<string, string | undefined>
+
+function restartListFetchSignal(querySignal: AbortSignal): AbortSignal {
+  return querySignal.aborted ? querySignal : new AbortController().signal
+}
+
+async function fetchListPageAfterRecovery<TRow>(
+  path: string,
+  cursorParams: QueryParams,
+  querySignal: AbortSignal,
+): Promise<CursorListPage<TRow>> {
+  if (querySignal.aborted) {
+    throw new DOMException('Query aborted', 'AbortError')
+  }
+  const page = await fetchCursorListPage<TRow>(
+    urlOf(path, { ...cursorParams, cursor: undefined }),
+    restartListFetchSignal(querySignal),
+  )
+  if (querySignal.aborted) {
+    throw new DOMException('Query aborted', 'AbortError')
+  }
+  return page
+}
 
 function urlOf(path: string, params: QueryParams) {
   const search = new URLSearchParams()
@@ -60,10 +86,10 @@ async function runListQuery<TRow>(
       semanticKey: semanticEpisodeKey,
       listKey,
       countKey,
-      contextValid: true,
+      contextValid: scopeContextReadyForCursorList() && !isScopeContextQuarantined(),
     })
     if (outcome.type === 'restart-page-one') {
-      return fetchCursorListPage<TRow>(urlOf(path, { ...cursorParams, cursor: undefined }), signal)
+      return fetchListPageAfterRecovery<TRow>(path, cursorParams, signal)
     }
     if (outcome.type === 'offset-latch') {
       throw error
@@ -99,10 +125,16 @@ async function runCountQuery(
       semanticKey: semanticEpisodeKey,
       listKey,
       countKey,
-      contextValid: true,
+      contextValid: scopeContextReadyForCursorList() && !isScopeContextQuarantined(),
     })
     if (outcome.type === 'restart-page-one') {
-      return fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal)
+      if (signal.aborted) throw new DOMException('Query aborted', 'AbortError')
+      const count = await fetchCursorListCount<CappedListCount>(
+        urlOf(countPath, countParams),
+        restartListFetchSignal(signal),
+      )
+      if (signal.aborted) throw new DOMException('Query aborted', 'AbortError')
+      return count
     }
     if (outcome.type === 'blocked' || outcome.type === 'throw' || outcome.type === 'pass-through') {
       throw error

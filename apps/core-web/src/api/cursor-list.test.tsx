@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetScopeContextClientForTests, seedValidatedScopeContextForTests } from '@/auth/scope-context-client'
+import { resetScopeContextClientForTests, seedValidatedScopeContextForTests, SCOPE_CONTEXT_HEADER } from '@/auth/scope-context-client'
 import { resetCursorRecoveryForTests } from './cursor-recovery'
 import { fetchWithAuth } from './client'
 import { CURSOR_PAGE_LIMIT, useCursorList } from './cursor-list'
@@ -71,6 +71,12 @@ describe('useCursorList', () => {
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
 
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+    expect(result.current.tableProps.infinite.queryKey.at(-1)).toBe(REGRESSION_SCOPE_DIGEST)
+    const listHeaderCall = vi
+      .mocked(fetchWithAuth)
+      .mock.calls.find((call) => !String(call[0]).includes('capped-count'))
+    const headers = new Headers((listHeaderCall?.[1] as { headers?: HeadersInit } | undefined)?.headers)
+    expect(headers.get(SCOPE_CONTEXT_HEADER)).toBe('sc-regression')
     expect(result.current.tableProps.infinite.hasNextPage).toBe(true)
     await act(async () => {
       await result.current.tableProps.infinite.fetchNextPage()
@@ -134,9 +140,7 @@ describe('useCursorList', () => {
     )
 
     failing = false
-    const retry = result.current.tableProps.onRetry
-    expect(retry).toBeDefined()
-    act(() => retry?.())
+    act(() => result.current.tableProps.onRetry?.())
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
     expect(result.current.tableProps.isError).toBe(false)
   })
