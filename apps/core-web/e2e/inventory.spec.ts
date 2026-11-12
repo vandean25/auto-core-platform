@@ -292,6 +292,9 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await new AutoCorePage(page, 'Artikel').navigate('/inventory');
       await expect(page.getByText('SKU-0000')).toBeVisible();
 
+      // ScopeContextProvider throttles lifecycle handshakes (same as focus resync).
+      // Match ScopeContextProvider focus throttle (features/realtime/realtime-resync.ts).
+      await page.waitForTimeout(10_500);
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
       const refresh = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });

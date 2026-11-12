@@ -23,6 +23,8 @@ type HandshakeResult =
 type ScopeContextClientState = {
   context: ValidatedScopeContext | null
   quarantined: boolean
+  /** User must tap "Liste aktualisieren" after external-scope or a failed handshake. */
+  explicitRefreshRequired: boolean
   protectedGeneration: number
   episodeCounter: number
   continuityDigest: string | null
@@ -48,6 +50,7 @@ function createStore(initial: ScopeContextClientState) {
 const store = createStore({
   context: null,
   quarantined: true,
+  explicitRefreshRequired: false,
   protectedGeneration: 0,
   episodeCounter: 0,
   continuityDigest: null,
@@ -76,6 +79,7 @@ export function seedValidatedScopeContextForTests(context: ValidatedScopeContext
   store.setState({
     context,
     quarantined: false,
+    explicitRefreshRequired: false,
     continuityDigest,
   })
 }
@@ -86,6 +90,7 @@ export function resetScopeContextClientForTests() {
   store.setState({
     context: null,
     quarantined: true,
+    explicitRefreshRequired: false,
     protectedGeneration: 0,
     episodeCounter: 0,
     continuityDigest: null,
@@ -114,6 +119,10 @@ export function getCursorEpisodeCounter(): number {
 
 export function isScopeContextQuarantined(): boolean {
   return store.getState().quarantined
+}
+
+export function isScopeExplicitRefreshRequired(): boolean {
+  return store.getState().explicitRefreshRequired
 }
 
 export function scopeContextReadyForCursorList(): boolean {
@@ -151,7 +160,7 @@ export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observe
 /** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
 export function acceptQuarantinedScopeForExplicitRefresh(): void {
   if (!store.getState().quarantined) return
-  store.setState({ quarantined: false })
+  store.setState({ quarantined: false, explicitRefreshRequired: false })
 }
 
 /**
@@ -166,6 +175,7 @@ export async function handshakeBeforeExplicitListRefresh(): Promise<boolean> {
     acceptQuarantinedScopeForExplicitRefresh()
     return true
   }
+  store.setState({ explicitRefreshRequired: false })
   return true
 }
 
@@ -211,7 +221,7 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     try {
       body = await postHandshake()
     } catch {
-      applyHandshakeState(epochAtStart, { quarantined: true })
+      applyHandshakeState(epochAtStart, { quarantined: true, explicitRefreshRequired: true })
       return { kind: 'failed' }
     }
 
@@ -222,7 +232,14 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     const outcome = classifyHandshake(previous, next, previousContinuity, continuity)
 
     if (outcome.kind === 'session') {
-      if (applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: false })) {
+      if (
+        applyHandshakeState(epochAtStart, {
+          continuityDigest: continuity,
+          context: next,
+          quarantined: false,
+          explicitRefreshRequired: false,
+        })
+      ) {
         bumpCursorEpisodeCounter()
       }
       return outcome
@@ -230,11 +247,21 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
 
     if (outcome.kind === 'external-scope') {
       bumpProtectedScopeGeneration()
-      applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: true })
+      applyHandshakeState(epochAtStart, {
+        continuityDigest: continuity,
+        context: next,
+        quarantined: true,
+        explicitRefreshRequired: true,
+      })
       return outcome
     }
 
-    applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: false })
+    applyHandshakeState(epochAtStart, {
+      continuityDigest: continuity,
+      context: next,
+      quarantined: false,
+      explicitRefreshRequired: false,
+    })
     return outcome
   })()
 

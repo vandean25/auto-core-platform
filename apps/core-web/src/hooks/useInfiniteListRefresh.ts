@@ -1,6 +1,11 @@
 import { QueryClientContext } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { useCallback, useContext, useState, useSyncExternalStore } from 'react'
+import {
+  isScopeContextQuarantined,
+  isScopeExplicitRefreshRequired,
+  subscribeScopeContextClient,
+} from '@/auth/scope-context-client'
 import { refreshInfiniteList } from '@/lib/infinite-list-query'
 
 /** Without a `queryKey` (a DataTable in offset mode) the list never needs a refresh. */
@@ -9,11 +14,22 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
   // Counted, so a refresh superseded by a newer one cannot unlock the list while the newer one still runs.
   const [running, setRunning] = useState(0)
   const needsRefresh = useSyncExternalStore(
-    (onStoreChange) => queryClient?.getQueryCache().subscribe(onStoreChange) ?? (() => undefined),
-    () =>
-      queryClient !== undefined &&
-      queryKey !== undefined &&
-      queryClient.getQueryCache().find({ queryKey, exact: true })?.state.isInvalidated === true,
+    (onStoreChange) => {
+      const stopScope = subscribeScopeContextClient(onStoreChange)
+      const stopQuery = queryClient?.getQueryCache().subscribe(onStoreChange) ?? (() => undefined)
+      return () => {
+        stopScope()
+        stopQuery()
+      }
+    },
+    () => {
+      if (isScopeExplicitRefreshRequired()) return true
+      if (queryClient === undefined || queryKey === undefined) return false
+      const query = queryClient.getQueryCache().find({ queryKey, exact: true })
+      if (query?.state.isInvalidated === true) return true
+      // Lifecycle quarantine hides rows immediately; the handshake may still be in flight.
+      return isScopeContextQuarantined() && query?.state.data !== undefined
+    },
     () => false,
   )
 
