@@ -41,6 +41,7 @@ export function createAgentProposalSpecHarness() {
   const mockDryRun: any = { executeInRollbackTransaction: jest.fn() };
 
   const mockPrisma: any = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn().mockImplementation(async (callback) => {
       return callback(mockPrisma);
     }),

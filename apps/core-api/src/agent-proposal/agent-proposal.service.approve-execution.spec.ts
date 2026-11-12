@@ -73,7 +73,9 @@ describe('AgentProposalService approve execution', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,

@@ -21,7 +21,7 @@ import {
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
 import { recomputeRequisitionStatus } from '../parts-requisition/parts-requisition.helpers.js';
-import { generatePurchaseOrderNumber } from './purchase-order-number.util.js';
+import { createPurchaseOrderWithAllocatedNumber } from './purchase-order-number.util.js';
 import {
   lockPurchaseOrderHeader,
   lockPurchaseOrderItems,
@@ -188,21 +188,27 @@ export async function executeCreatePurchaseOrder(
   return prisma.$transaction(async (tx) => {
     await lockSitesAndAssertActive(tx, tenantId, [siteId]);
 
-    return tx.purchaseOrder.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: siteId,
-        vendor_id: vendorId,
-        order_number: generatePurchaseOrderNumber(),
-        status: PurchaseOrderStatus.DRAFT,
-        items: {
-          create: items.map((i) =>
-            toPurchaseOrderItemNestedCreateData(tenantId, i),
-          ),
-        },
-      },
-      include: { items: true },
-    });
+    return createPurchaseOrderWithAllocatedNumber(
+      tx,
+      tenantId,
+      new Date(),
+      (orderNumber) =>
+        tx.purchaseOrder.create({
+          data: {
+            tenant_id: tenantId,
+            site_id: siteId,
+            vendor_id: vendorId,
+            order_number: orderNumber,
+            status: PurchaseOrderStatus.DRAFT,
+            items: {
+              create: items.map((i) =>
+                toPurchaseOrderItemNestedCreateData(tenantId, i),
+              ),
+            },
+          },
+          include: { items: true },
+        }),
+    );
   });
 }
 

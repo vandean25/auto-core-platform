@@ -1,4 +1,6 @@
 import { Logger, NotFoundException } from '@nestjs/common';
+import { rethrowAsConflict } from '../labor/labor-shared.helpers.js';
+import { lockSingleTenantTableRow } from '../purchase/purchase-lock.helpers.js';
 import { AgentProposalStatus, type AgentProposal } from '@prisma/client';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
@@ -43,6 +45,12 @@ export async function claimAndExecuteProposal(
   let claimed = false;
   try {
     const outcome = await prisma.$transaction(async (tx) => {
+      await lockSingleTenantTableRow(
+        tx,
+        'agent_proposals',
+        tenantId,
+        proposal.id,
+      );
       const updated = await tx.agentProposal.updateMany({
         where: {
           id: proposal.id,
@@ -132,7 +140,10 @@ export async function claimAndExecuteProposal(
         error,
       });
     }
-    throw error;
+    rethrowAsConflict(
+      error,
+      'Proposal execution conflict: this approval was already applied or collided with a concurrent change.',
+    );
   }
 }
 
@@ -153,7 +164,9 @@ export async function markExecutionFailed(params: {
         where: {
           id: proposal.id,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,

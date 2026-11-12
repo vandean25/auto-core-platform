@@ -19,17 +19,35 @@ import {
 } from '@prisma/client';
 import { PurchaseReceiptService } from './purchase-receipt.service.js';
 import { PurchaseProposeDraftService } from './purchase-propose-draft.service.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from './purchase-order-create-savepoint.js';
 
 import Decimal = Prisma.Decimal;
 
 describe('PurchaseService', () => {
   let service: PurchaseService;
 
+  beforeAll(() => {
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
+  });
+
+  afterAll(() => {
+    resetPurchaseOrderCreateSavepointPortForTests();
+  });
+
   const mockPrismaService = {
     $transaction: jest
       .fn()
       .mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
     $queryRaw: jest.fn().mockResolvedValue([{ id: 'site-1', is_active: true }]),
+    site: {
+      findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]),
+    },
     vendor: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -39,12 +57,17 @@ describe('PurchaseService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
-      findMany: jest.fn(),
       updateMany: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
       count: jest.fn(),
+    },
+    purchaseOrderSequence: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'seq-1', current: 0 }),
+      create: jest.fn().mockResolvedValue({}),
+      upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
     purchaseOrderItem: {
       findFirst: jest.fn(),

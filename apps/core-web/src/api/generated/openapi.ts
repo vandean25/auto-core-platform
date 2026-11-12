@@ -212,6 +212,57 @@ export interface paths {
         patch: operations["LocationController_update"];
         trace?: never;
     };
+    "/api/inventory/price-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List own guarded price operations within retention (ADR-0037) */
+        get: operations["InventoryPriceOperationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/price-operations/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one own guarded price operation by key */
+        get: operations["InventoryPriceOperationsController_getOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/price-operations/{key}/fence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** User fence: mark a guarded price operation as not applied */
+        post: operations["InventoryPriceOperationsController_fence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory/availability/{sku}": {
         parameters: {
             query?: never;
@@ -5832,6 +5883,51 @@ export interface components {
         };
         CreateLocationDto: Record<string, never>;
         UpdateLocationDto: Record<string, never>;
+        InventoryPriceOperationDto: {
+            /** Format: uuid */
+            key: string;
+            /** Format: uuid */
+            itemId: string;
+            sku: string;
+            /** @enum {string} */
+            state: "ACCEPTED" | "APPLIED" | "CONFLICT" | "FENCED";
+            kind: string;
+            /** Format: int64 */
+            expectedRevision: number;
+            /** @description Target price in major units (decimal string) */
+            retail_price: string;
+            /** @description Original basis price in major units (decimal string) */
+            basis_retail_price: string;
+            /** Format: date-time */
+            acceptedAt: string;
+            /** Format: date-time */
+            finalAt: string | null;
+            errorCode: string | null;
+        };
+        ListCursorPageMetaDto: {
+            nextCursor: string | null;
+            hasNextPage: boolean;
+            limit: number;
+            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
+            scopeContextDigest?: string;
+        };
+        InventoryPriceOperationListResponseDto: {
+            data: components["schemas"]["InventoryPriceOperationDto"][];
+            meta: components["schemas"]["ListCursorPageMetaDto"];
+        };
+        UserFenceInventoryPriceDto: {
+            /** Format: uuid */
+            itemId: string;
+            retail_price: number;
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        GuardedPriceErrorDto: {
+            statusCode: number;
+            message: string | string[];
+            error: string;
+            code?: string;
+        };
         GuardedInventoryPricePatchDto: {
             retail_price: number;
             /** Format: int64 */
@@ -5848,12 +5944,6 @@ export interface components {
             revenue_group_id?: number | null;
             /** Format: int64 */
             revision: number;
-        };
-        GuardedPriceErrorDto: {
-            statusCode: number;
-            message: string | string[];
-            error: string;
-            code?: string;
         };
         UpdateInventoryItemDto: {
             sku: string;
@@ -6844,13 +6934,6 @@ export interface components {
             items: components["schemas"]["InvoiceItemResponseDto"][];
             /** @description Country-specific margin-scheme legal notice for on-screen invoice display. */
             margin_scheme_legal_note?: string | null;
-        };
-        ListCursorPageMetaDto: {
-            nextCursor: string | null;
-            hasNextPage: boolean;
-            limit: number;
-            /** @description Echoed SHA-256 digest of a valid X-ACP-Scope-Context header (ADR-0038 §8). */
-            scopeContextDigest?: string;
         };
         InvoiceCursorPageResponseDto: {
             data: components["schemas"]["InvoiceResponseDto"][];
@@ -13201,6 +13284,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryPriceOperationsController_list: {
+        parameters: {
+            query?: {
+                /** @description Keyset cursor (acceptedAt DESC, key) */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryPriceOperationListResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryPriceOperationsController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryPriceOperationDto"];
+                };
+            };
+        };
+    };
+    InventoryPriceOperationsController_fence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserFenceInventoryPriceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryPriceOperationDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardedPriceErrorDto"];
                 };
             };
         };

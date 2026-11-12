@@ -18,8 +18,11 @@ import {
   markJournalRevisionConflict,
 } from './guarded-price.helpers.js';
 import {
+  guardedPriceTestHooks,
   shouldFailTxEAfterCatalogUpdate,
   shouldFailTxEAfterJournalLock,
+  waitForTxECatalogReleaseIfHeld,
+  waitForTxEReleaseIfHeld,
 } from './guarded-price-test-hooks.js';
 import { receiptFromAppliedJournal } from './guarded-price-receipt.js';
 import { revisionFromDb, revisionToDb } from './guarded-price.revision.js';
@@ -70,6 +73,8 @@ async function lockAcceptedJournal(
   }
 
   await lockGuardedPriceJournalRow(tx, ctx.tenantId, journal.id);
+  guardedPriceTestHooks.onTxEJournalLocked?.();
+  await waitForTxEReleaseIfHeld();
 
   if (shouldFailTxEAfterJournalLock()) {
     throw new Error('GUARDED_PRICE_TEST_TX_E_FAIL');
@@ -148,6 +153,9 @@ async function applyCatalogPrice(
     }
     throw error;
   }
+
+  guardedPriceTestHooks.onTxECatalogUpdated?.();
+  await waitForTxECatalogReleaseIfHeld();
 
   if (shouldFailTxEAfterCatalogUpdate()) {
     throw new Error('GUARDED_PRICE_TEST_TX_E_AFTER_CATALOG');

@@ -63,6 +63,7 @@ model Tenant {
   vendors                          Vendor[]
   purchaseOrders                   PurchaseOrder[]
   purchaseOrderItems               PurchaseOrderItem[]
+  purchaseOrderSequences           PurchaseOrderSequence[]
   customers                        Customer[]
   customerContactPoints            CustomerContactPoint[]
   customerConsents                 CustomerConsent[]
@@ -1146,6 +1147,7 @@ model InventoryPriceOperation {
   principal_id       String
   key                String                        @db.Uuid
   item_id            String
+  /// No relation to CatalogItem on purpose: the journal outlives catalog hard-deletes (no FK).
   sku                String
   kind               String
   expected_revision  BigInt
@@ -1160,6 +1162,7 @@ model InventoryPriceOperation {
   @@unique([tenant_id, principal_id, key])
   @@unique([tenant_id, id])
   @@index([state, accepted_at])
+  @@index([tenant_id, principal_id, accepted_at(sort: Desc), key(sort: Desc)], map: "inventory_price_operations_discovery_idx")
   @@map("inventory_price_operations")
 }
 
@@ -1606,6 +1609,19 @@ model PurchaseOrder {
   @@index([tenant_id, site_id])
   @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "purchase_orders_order_number_trgm_idx")
   @@map("purchase_orders")
+}
+
+/// PO-YYYY-NNNN counter per tenant and calendar year (invoice / KV estimate pattern).
+model PurchaseOrderSequence {
+  id        String @id @default(uuid())
+  tenant_id String
+  tenant    Tenant @relation(fields: [tenant_id], references: [id])
+  year      Int
+  current   Int    @default(0)
+
+  @@unique([tenant_id, year])
+  @@index([tenant_id])
+  @@map("purchase_order_sequences")
 }
 
 model PurchaseOrderItem {

@@ -1,19 +1,99 @@
 /** E2E-only fault injection for guarded price Tx-E (never honored outside Jest workers). */
-export const guardedPriceTestHooks = {
-  failTxEAfterJournalLock: false,
-  failTxEAfterCatalogUpdate: false,
+
+type GuardedPriceTestHookState = {
+  failTxEAfterJournalLock: boolean;
+  failTxEAfterCatalogUpdate: boolean;
+  holdTxEOpenAfterJournalLock: boolean;
+  holdTxEOpenAfterCatalogUpdate: boolean;
+  txERelease: (() => void) | null;
+  txECatalogRelease: (() => void) | null;
+  onTxEJournalLocked: (() => void) | null;
+  onTxECatalogUpdated: (() => void) | null;
 };
 
-export function shouldFailTxEAfterJournalLock(): boolean {
+const GLOBAL_HOOK_KEY = '__acpGuardedPriceTestHooks';
+
+function guardedPriceTestHookState(): GuardedPriceTestHookState {
+  const globalRef = globalThis as unknown as Record<
+    string,
+    GuardedPriceTestHookState
+  >;
+  if (!globalRef[GLOBAL_HOOK_KEY]) {
+    globalRef[GLOBAL_HOOK_KEY] = {
+      failTxEAfterJournalLock: false,
+      failTxEAfterCatalogUpdate: false,
+      holdTxEOpenAfterJournalLock: false,
+      holdTxEOpenAfterCatalogUpdate: false,
+      txERelease: null,
+      txECatalogRelease: null,
+      onTxEJournalLocked: null,
+      onTxECatalogUpdated: null,
+    };
+  }
+  const state = globalRef[GLOBAL_HOOK_KEY];
+  state.holdTxEOpenAfterCatalogUpdate ??= false;
+  state.txECatalogRelease ??= null;
+  state.onTxECatalogUpdated ??= null;
+  return state;
+}
+
+export const guardedPriceTestHooks = guardedPriceTestHookState();
+
+type HookFlag =
+  | 'failTxEAfterJournalLock'
+  | 'failTxEAfterCatalogUpdate'
+  | 'holdTxEOpenAfterJournalLock'
+  | 'holdTxEOpenAfterCatalogUpdate';
+
+/** A set flag is ignored outside Jest workers, so it can never fail or park a real price transaction. */
+function hookFlagOn(flag: HookFlag): boolean {
   return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.failTxEAfterJournalLock
+    process.env.JEST_WORKER_ID !== undefined && guardedPriceTestHooks[flag]
   );
 }
 
+export function shouldFailTxEAfterJournalLock(): boolean {
+  return hookFlagOn('failTxEAfterJournalLock');
+}
+
 export function shouldFailTxEAfterCatalogUpdate(): boolean {
-  return (
-    process.env.JEST_WORKER_ID !== undefined &&
-    guardedPriceTestHooks.failTxEAfterCatalogUpdate
-  );
+  return hookFlagOn('failTxEAfterCatalogUpdate');
+}
+
+export function shouldHoldTxEOpenAfterJournalLock(): boolean {
+  return hookFlagOn('holdTxEOpenAfterJournalLock');
+}
+
+export async function waitForTxEReleaseIfHeld(): Promise<void> {
+  if (!shouldHoldTxEOpenAfterJournalLock()) {
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    guardedPriceTestHooks.txERelease = resolve;
+  });
+}
+
+export function shouldHoldTxEOpenAfterCatalogUpdate(): boolean {
+  return hookFlagOn('holdTxEOpenAfterCatalogUpdate');
+}
+
+export async function waitForTxECatalogReleaseIfHeld(): Promise<void> {
+  if (!shouldHoldTxEOpenAfterCatalogUpdate()) {
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    guardedPriceTestHooks.txECatalogRelease = resolve;
+  });
+}
+
+export function releaseHeldTxE(): void {
+  guardedPriceTestHooks.txERelease?.();
+  guardedPriceTestHooks.txERelease = null;
+  guardedPriceTestHooks.holdTxEOpenAfterJournalLock = false;
+}
+
+export function releaseHeldTxECatalog(): void {
+  guardedPriceTestHooks.txECatalogRelease?.();
+  guardedPriceTestHooks.txECatalogRelease = null;
+  guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate = false;
 }

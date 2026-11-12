@@ -37,6 +37,13 @@ export async function countDbStatements(
   return (await collectStatements(action)).length;
 }
 
+/** Test-only: returns captured SQL while `action` runs (for diagnosing flaky counts). */
+export async function collectDbStatementsForTest(
+  action: () => Promise<unknown>,
+): Promise<string[]> {
+  return collectStatements(action);
+}
+
 export type FailedAuditInsertRun<T> = {
   outcome: T;
   /** How many audit_logs INSERTs the action attempted; each one failed at the database. */

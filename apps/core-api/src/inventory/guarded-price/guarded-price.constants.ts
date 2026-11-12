@@ -1,0 +1,3 @@
+export const GUARDED_PRICE_LEASE_MS = 2 * 60 * 1000;
+export const GUARDED_PRICE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const GUARDED_PRICE_DISCOVERY_PAGE_SIZE = 50;

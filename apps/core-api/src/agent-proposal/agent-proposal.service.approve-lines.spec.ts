@@ -30,7 +30,9 @@ describe('AgentProposalService approve lines', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,
@@ -58,7 +60,9 @@ describe('AgentProposalService approve lines', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,
@@ -205,7 +209,9 @@ describe('AgentProposalService approve lines', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,
@@ -240,7 +246,9 @@ describe('AgentProposalService approve lines', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,
@@ -282,7 +290,9 @@ describe('AgentProposalService approve lines', () => {
         where: {
           id: proposalId,
           tenant_id: tenantId,
-          status: AgentProposalStatus.PENDING,
+          status: {
+            in: [AgentProposalStatus.PENDING, AgentProposalStatus.APPROVED],
+          },
         },
         data: {
           status: AgentProposalStatus.FAILED,

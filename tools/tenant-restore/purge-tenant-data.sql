@@ -44,6 +44,7 @@ VALUES
   ('labor_price_groups'),
   ('legal_entities'),
   ('mcp_write_command_receipts'),
+  ('purchase_order_sequences'),
   ('push_devices'),
   ('push_preferences'),
   ('revenue_groups'),
@@ -463,6 +464,7 @@ VALUES
   ('purchase_order_items', 'catalog_items', 'catalog_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_order_items', 'purchase_orders', 'purchase_order_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_order_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('purchase_order_sequences', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'vendors', 'vendor_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1134,6 +1136,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."push_preferences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."push_devices"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."purchase_order_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."mcp_write_command_receipts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

@@ -5657,7 +5657,11 @@ describe('MCP server (e2e)', () => {
           applyProposal(proposed.pending_action_id, adminHeaderA),
         ]);
         const statuses = [first.status, second.status];
-        expect(statuses.some((status) => status === 200)).toBe(true);
+        expect(statuses).not.toContain(500);
+        expect(statuses).not.toContain(409);
+        expect(statuses.every((status) => status === 200)).toBe(true);
+        const executed = [first.body, second.body];
+        expect(executed.every((body) => body.status === 'EXECUTED')).toBe(true);
         expect(await countVendorDraftPos()).toBe(before + 1);
       } finally {
         await demand.cleanup();

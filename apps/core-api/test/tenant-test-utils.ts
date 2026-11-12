@@ -673,6 +673,10 @@ export async function cleanupTestTenantGraph(
     `DELETE FROM workshop_estimate_sequences WHERE tenant_id = $1`,
     tenantId,
   );
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM purchase_order_sequences WHERE tenant_id = $1`,
+    tenantId,
+  );
   for (const table of ['push_devices', 'push_preferences']) {
     await prisma.$executeRawUnsafe(
       `DELETE FROM ${table} WHERE tenant_id = $1`,

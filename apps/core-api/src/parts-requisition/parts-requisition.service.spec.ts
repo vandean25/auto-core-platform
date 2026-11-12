@@ -16,6 +16,11 @@ import {
 } from '@prisma/client';
 import { AtpService } from '../inventory/atp.service.js';
 import { PartsRequisitionService } from './parts-requisition.service.js';
+import {
+  passThroughPurchaseOrderCreateSavepoint,
+  resetPurchaseOrderCreateSavepointPortForTests,
+  setPurchaseOrderCreateSavepointPortForTests,
+} from '../purchase/purchase-order-create-savepoint.js';
 
 const tenantId = 'tenant-1';
 const siteId = 'site-1';
@@ -28,6 +33,9 @@ const vendorId = 'vendor-1';
 function buildTransactionClient() {
   return {
     $queryRaw: jest.fn(),
+    site: {
+      findMany: jest.fn().mockResolvedValue([{ id: siteId }]),
+    },
     brand: {
       findFirst: jest.fn(),
     },
@@ -40,6 +48,12 @@ function buildTransactionClient() {
     purchaseOrder: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    purchaseOrderSequence: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'seq-1', current: 0 }),
+      create: jest.fn().mockResolvedValue({}),
+      upsert: jest.fn().mockResolvedValue({ current: 1 }),
     },
     purchaseOrderItem: {
       create: jest.fn(),
@@ -126,6 +140,16 @@ function buildReservation(overrides: Record<string, unknown> = {}) {
 }
 
 describe('PartsRequisitionService', () => {
+  beforeAll(() => {
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
+  });
+
+  afterAll(() => {
+    resetPurchaseOrderCreateSavepointPortForTests();
+  });
+
   const tenantContext = {
     getTenantId: jest.fn(),
     getAuthenticatedUser: jest.fn(),

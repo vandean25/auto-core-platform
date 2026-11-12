@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InventoryPriceOperationState, Prisma } from '@prisma/client';
 import { AuditService } from '../../audit/audit.service.js';
 import { DashboardRealtimeService } from '../../dashboard-realtime/dashboard-realtime.service.js';
@@ -31,6 +27,7 @@ import {
   isInteractiveTransactionExpired,
   isLockTimeoutError,
   isUniqueViolation,
+  requireGuardedPricePrincipalId,
 } from './guarded-price.helpers.js';
 import {
   frozenIntentMatchesRow,
@@ -59,7 +56,9 @@ export class GuardedPriceService {
   ): Promise<GuardedPriceReceiptDto> {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     assertCanMutateInventoryStock(role);
-    const principalId = this.requirePrincipalId();
+    const principalId = requireGuardedPricePrincipalId(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const tenantId = await this.tenantContext.getTenantId();
     const operationKey = resolveOperationKey(
       idempotencyHeader,
@@ -162,14 +161,6 @@ export class GuardedPriceService {
       return txAResult.receipt;
     }
     return null;
-  }
-
-  private requirePrincipalId(): string {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.userId) {
-      throw new ForbiddenException('Authenticated principal is required.');
-    }
-    return user.userId;
   }
 
   private async runTxA(
