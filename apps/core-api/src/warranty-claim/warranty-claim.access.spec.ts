@@ -62,7 +62,7 @@ describe('warranty claim access for technicians', () => {
     ['get', () => service.get('order-1', 'claim-1')],
     ['create', () => service.create('order-1', { type: 'GARANTIE' })],
     ['update', () => service.update('order-1', 'claim-1', {})],
-    ['render the PDF', () => pdf.render('order-1', 'claim-1')],
+    ['download the PDF', () => pdf.getPdf('order-1', 'claim-1')],
   ])('refuses to %s before it reaches any data', async (_name, call) => {
     await expect(call()).rejects.toThrow(ForbiddenException);
   });

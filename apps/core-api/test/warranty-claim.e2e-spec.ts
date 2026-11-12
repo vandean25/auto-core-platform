@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { INestApplication } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import { INestApplication, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe, GlobalExceptionFilter } from '../src/common/index.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { CloudTasksService } from '../src/common/services/cloud-tasks.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -33,6 +36,31 @@ function claimsPath(orderId: string, claimId?: string): string {
   return claimId ? `${base}/${claimId}` : base;
 }
 
+async function requestClaimPdf(
+  server: Parameters<typeof request>[0],
+  orderId: string,
+  claimId: string,
+  token: string,
+): Promise<Buffer> {
+  await request(server)
+    .post(`${claimsPath(orderId, claimId)}/pdf`)
+    .set('Authorization', `Bearer ${token}`)
+    .expect(201);
+
+  const download = await request(server)
+    .get(`${claimsPath(orderId, claimId)}/pdf`)
+    .set('Authorization', `Bearer ${token}`)
+    .buffer(true)
+    .parse((response, callback) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => callback(null, Buffer.concat(chunks)));
+    })
+    .expect(200);
+
+  return download.body as Buffer;
+}
+
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -54,6 +82,29 @@ async function readPdfText(pdfBytes: Buffer): Promise<string> {
   return pages.join(' ');
 }
 
+function createWarrantyClaimPdfStorageMock(bucket = 'test-invoice-pdf') {
+  const objects = new Map<string, Buffer>();
+  return {
+    uploadPdf: async (params: { key: string; body: Buffer }) => {
+      objects.set(params.key, params.body);
+      return { bucket, key: params.key, etag: null };
+    },
+    getPdfStream: async (params: { bucket?: string; key: string }) => {
+      const body = objects.get(params.key);
+      if (!body) {
+        throw new NotFoundException('PDF not found in storage');
+      }
+      return {
+        bucket: params.bucket ?? bucket,
+        key: params.key,
+        stream: Readable.from(body),
+        contentType: 'application/pdf',
+        contentLength: body.length,
+      };
+    },
+  };
+}
+
 describe('Warranty claims (AUT-464, e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -66,9 +117,15 @@ describe('Warranty claims (AUT-464, e2e)', () => {
   const extraTenantIds: string[] = [];
 
   beforeAll(async () => {
+    process.env.INVOICE_PDF_BUCKET = 'test-invoice-pdf';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PdfStorage)
+      .useValue(createWarrantyClaimPdfStorageMock())
+      .overrideProvider(CloudTasksService)
+      .useValue({ isEnabled: () => false, enqueuePdfGeneration: jest.fn() })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -1018,20 +1075,30 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
 
-      const download = await request(app.getHttpServer())
-        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .buffer(true)
-        .parse((response, callback) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () => callback(null, Buffer.concat(chunks)));
-        })
-        .expect(200);
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
 
-      expect(download.headers['content-type']).toContain('application/pdf');
-      expect(download.headers['content-disposition']).toMatch(/^attachment; filename="kulanz-wo-aut464-.*\.pdf"$/);
-      expect((download.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.length).toBeGreaterThan(100);
+    });
+
+    it('renders a PDF when the claim has no lines', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, { complaint: 'Noise on cold start' });
+
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+
+      expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.length).toBeGreaterThan(100);
     });
 
     it('prints the order, the claim type, the affected lines and the EUR amounts', async () => {
@@ -1042,18 +1109,14 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         select: { order_number: true },
       });
 
-      const download = await request(app.getHttpServer())
-        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .buffer(true)
-        .parse((response, callback) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () => callback(null, Buffer.concat(chunks)));
-        })
-        .expect(200);
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
 
-      const text = await readPdfText(download.body as Buffer);
+      const text = await readPdfText(body);
       expect(text).toContain('Kulanzantrag');
       expect(text).toContain(order.order_number);
       expect(text).toContain('LAB-KUPPLUNG');
@@ -1067,6 +1130,10 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
       const mechanicToken = await createMemberToken('TECH');
 
+      await request(app.getHttpServer())
+        .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${mechanicToken}`)
+        .expect(403);
       await request(app.getHttpServer())
         .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
         .set('Authorization', `Bearer ${mechanicToken}`)

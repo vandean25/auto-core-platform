@@ -9,6 +9,9 @@ const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   'credit-note': (resourceId) => `credit-notes/${resourceId}/pdf/worker`,
   'vehicle-sale-kaufvertrag': (resourceId) =>
     `vehicle-sales/${resourceId}/kaufvertrag/pdf/worker`,
+  // Warranty claims enqueue with an explicit workerRelativePath (needs workshop order id).
+  'warranty-claim': (resourceId) =>
+    `workshop/warranty-claims/${resourceId}/pdf/worker`,
 };
 
 function withTrailingSlash(url: string): string {

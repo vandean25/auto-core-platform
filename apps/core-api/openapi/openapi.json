@@ -9779,6 +9779,42 @@
       }
     },
     "/api/workshop/orders/{orderId}/warranty-claims/{claimId}/pdf": {
+      "post": {
+        "operationId": "WarrantyClaimController_requestPdf",
+        "parameters": [
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
       "get": {
         "operationId": "WarrantyClaimController_downloadPdf",
         "parameters": [
@@ -31744,6 +31780,11 @@
             "nullable": true,
             "format": "date-time"
           },
+          "pdfGenerationError": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set when archived PDF generation failed"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -31773,6 +31814,7 @@
           "decisionNote",
           "submittedAt",
           "closedAt",
+          "pdfGenerationError",
           "createdAt",
           "updatedAt",
           "lines"

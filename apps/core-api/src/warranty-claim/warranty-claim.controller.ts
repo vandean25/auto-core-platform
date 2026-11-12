@@ -2,12 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  Header,
+  HttpException,
+  Logger,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
-  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -15,7 +18,9 @@ import {
   ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import * as Sentry from '@sentry/node';
+import type { Readable } from 'node:stream';
+import { PdfWorker } from '../common/pdf/index.js';
 import {
   CreateWarrantyClaimDto,
   ListWarrantyClaimsQueryDto,
@@ -26,9 +31,64 @@ import {
 import { WarrantyClaimPdfService } from './warranty-claim-pdf.service.js';
 import { WarrantyClaimService } from './warranty-claim.service.js';
 
+interface WarrantyClaimPdfPayload {
+  filename: string;
+  contentType?: string | null;
+  contentLength?: number | null;
+  stream: Readable;
+}
+
+function handleWarrantyClaimPdfWorkerError(
+  claimId: string,
+  error: unknown,
+  logger: Logger,
+): void {
+  const isNonRetryable =
+    error instanceof HttpException && error.getStatus() < 500;
+  if (!isNonRetryable) {
+    throw error;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  logger.warn(
+    `Dropping non-retryable warranty claim PDF worker error (claimId=${claimId}): ${message}`,
+  );
+  Sentry.captureException(error, {
+    level: 'warning',
+    tags: { claimId, operation: 'pdf.worker' },
+  });
+}
+
+function toPdfStreamableFile(pdf: WarrantyClaimPdfPayload): StreamableFile {
+  const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');
+  return new StreamableFile(pdf.stream, {
+    type: pdf.contentType || 'application/pdf',
+    disposition: `attachment; filename="${safeFilename}"`,
+    length: pdf.contentLength ?? undefined,
+  });
+}
+
+function formatPdfRequestResponse(
+  result: Awaited<ReturnType<WarrantyClaimPdfService['requestGeneration']>>,
+) {
+  if (result.mode === 'enqueued') {
+    return {
+      message: 'PDF generation enqueued',
+      enqueued: true,
+      taskId: result.taskId,
+    };
+  }
+  return {
+    message: 'PDF is ready',
+    enqueued: false,
+  };
+}
+
 @ApiTags('Workshop')
 @Controller('workshop/orders/:orderId/warranty-claims')
 export class WarrantyClaimController {
+  private readonly logger = new Logger(WarrantyClaimController.name);
+
   constructor(
     private readonly claims: WarrantyClaimService,
     private readonly pdf: WarrantyClaimPdfService,
@@ -71,7 +131,35 @@ export class WarrantyClaimController {
     return this.claims.update(orderId, claimId, dto);
   }
 
+  @Post(':claimId/pdf')
+  @ApiCreatedResponse({ schema: { type: 'object' } })
+  async requestPdf(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('claimId', ParseUUIDPipe) claimId: string,
+  ) {
+    const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
+    const result = await this.pdf.requestGeneration(orderId, claimId, {
+      targetBaseUrl,
+    });
+    return formatPdfRequestResponse(result);
+  }
+
+  @Post(':id/pdf/worker')
+  @PdfWorker('warranty-claim')
+  async generatePdfWorker(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('id', ParseUUIDPipe) claimId: string,
+  ) {
+    try {
+      await this.pdf.generateNow(orderId, claimId);
+    } catch (error) {
+      handleWarrantyClaimPdfWorkerError(claimId, error, this.logger);
+    }
+  }
+
   @Get(':claimId/pdf')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @ApiProduces('application/pdf')
   @ApiOkResponse({
     description: 'Printable Garantie/Kulanz claim summary',
@@ -80,15 +168,8 @@ export class WarrantyClaimController {
   async downloadPdf(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Param('claimId', ParseUUIDPipe) claimId: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const file = await this.pdf.render(orderId, claimId);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Length': String(file.bytes.length),
-      'Content-Disposition': `attachment; filename="${file.filename}"`,
-      'Cache-Control': 'private, no-store',
-    });
-    res.send(file.bytes);
+  ) {
+    const pdf = await this.pdf.getPdf(orderId, claimId);
+    return toPdfStreamableFile(pdf);
   }
 }

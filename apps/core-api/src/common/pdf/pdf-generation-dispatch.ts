@@ -31,6 +31,7 @@ export type EnqueueOrGeneratePdfParams<TResult> = {
   resourceName: string;
   tenantId: string;
   targetBaseUrl: string;
+  workerRelativePath?: string;
   cloudTasks: Pick<CloudTasksService, 'isEnabled' | 'enqueuePdfGeneration'>;
   nodeEnv?: string;
   logger: {
@@ -75,6 +76,7 @@ export async function enqueueOrGeneratePdf<TResult>(
       resourceId: params.resourceId,
       tenantId: params.tenantId,
       targetBaseUrl: params.targetBaseUrl,
+      workerRelativePath: params.workerRelativePath,
     });
     return { mode: 'enqueued', taskId };
   } catch (error) {
