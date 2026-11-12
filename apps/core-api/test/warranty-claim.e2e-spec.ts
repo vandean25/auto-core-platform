@@ -165,7 +165,16 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         description: 'Geberzylinder',
         quantity: 1,
         unit_price: 1000,
-        part_execution_status: 'PENDING_PICK',
+        part_execution_status: null,
+      },
+    });
+    const cancelledCatalogItem = await prisma.catalogItem.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        sku: `WARRANTY-CANCEL-${Date.now()}`,
+        name: 'Cancelled part',
+        cost_price: 5,
+        retail_price: 30,
       },
     });
     const cancelledPartLine = await prisma.workshopTaskLineItem.create({
@@ -177,6 +186,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         description: 'Dichtsatz (storniert)',
         quantity: 1,
         unit_price: 30,
+        catalog_item_id: cancelledCatalogItem.id,
         part_execution_status: 'CANCELLED',
       },
     });
@@ -241,7 +251,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         description: 'Fremdteil',
         quantity: 1,
         unit_price: 10,
-        part_execution_status: 'PENDING_PICK',
+        part_execution_status: null,
       },
     });
     return line.id;

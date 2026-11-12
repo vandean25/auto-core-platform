@@ -322,8 +322,7 @@ describe('Workshop capacity week (e2e)', () => {
                   })),
                   {
                     type: WorkshopLineItemType.PART,
-                    part_execution_status:
-                      WorkshopPartLineExecutionStatus.PENDING_PICK,
+                    part_execution_status: null,
                     item_no: 'PART-1',
                     description: 'Oil filter',
                     quantity: '3',

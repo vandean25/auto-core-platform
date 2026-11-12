@@ -177,6 +177,15 @@ describe('Workshop Domain Models (e2e)', () => {
       },
     });
 
+    const catalogItem = await prisma.catalogItem.create({
+      data: {
+        tenant_id: tenantId,
+        sku: `DOM-PAD-${Date.now()}`,
+        name: 'Brake pad set',
+        cost_price: 45,
+        retail_price: 90,
+      },
+    });
     const partLine = await prisma.workshopTaskLineItem.create({
       data: {
         tenant_id: tenantId,
@@ -186,6 +195,7 @@ describe('Workshop Domain Models (e2e)', () => {
         description: 'Brake pad set',
         quantity: 1,
         unit_price: 90,
+        catalog_item_id: catalogItem.id,
         part_execution_status: 'PENDING_PICK',
       },
     });
