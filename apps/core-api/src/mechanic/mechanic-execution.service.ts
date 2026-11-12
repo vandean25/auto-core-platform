@@ -10,7 +10,6 @@ import {
   NotificationEventType,
   Prisma,
   WorkshopLineItemType,
-  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
@@ -687,7 +686,7 @@ export class MechanicExecutionService {
         tenant_id: tenantId,
         workshop_task_id: taskId,
         type: WorkshopLineItemType.PART,
-        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        part_execution_status: null,
         item_no: dto.itemNo,
         description: dto.description,
         quantity: new Prisma.Decimal(dto.qty),
@@ -720,9 +719,7 @@ export class MechanicExecutionService {
       itemNo: lineItem.item_no,
       description: lineItem.description,
       qty: Number(lineItem.quantity),
-      partExecutionStatus:
-        lineItem.part_execution_status ??
-        WorkshopPartLineExecutionStatus.PENDING_PICK,
+      partExecutionStatus: lineItem.part_execution_status,
     } satisfies RequestPartResponseDto;
   }
 

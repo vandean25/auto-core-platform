@@ -134,7 +134,7 @@ describe('workshop-task.helpers', () => {
       expect(record.internal_cost_rate).toEqual(new Prisma.Decimal(35));
     });
 
-    it('constructs a part line item record with PENDING_PICK status', () => {
+    it('constructs a free-text part line without pick status', () => {
       const record = buildNewTaskLineItemRecord('ten-1', 'task-1', {
         type: WorkshopLineItemType.PART,
         itemNo: 'P-01',
@@ -144,9 +144,7 @@ describe('workshop-task.helpers', () => {
       });
 
       expect(record.type).toBe(WorkshopLineItemType.PART);
-      expect(record.part_execution_status).toBe(
-        WorkshopPartLineExecutionStatus.PENDING_PICK,
-      );
+      expect(record.part_execution_status).toBeNull();
       expect(record.labor_operation_id).toBeNull();
       expect(record.standard_aw).toBeNull();
       expect(record.actual_hours).toBeNull();
@@ -726,6 +724,11 @@ describe('workshop-task.helpers', () => {
         tx: {
           workshopTaskLineItem: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { id: 'part-1', catalog_item_id: 'catalog-1' },
+              ]),
           },
           partsReservation: {
             findMany: jest.fn().mockResolvedValue([
@@ -767,6 +770,11 @@ describe('workshop-task.helpers', () => {
         tx: {
           workshopTaskLineItem: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { id: 'part-1', catalog_item_id: 'catalog-1' },
+              ]),
           },
           partsReservation: {
             findMany: jest.fn().mockResolvedValue([
@@ -808,6 +816,11 @@ describe('workshop-task.helpers', () => {
         tx: {
           workshopTaskLineItem: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { id: 'part-1', catalog_item_id: 'catalog-1' },
+              ]),
           },
           partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
         } as any,
@@ -831,6 +844,42 @@ describe('workshop-task.helpers', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+          }),
+        }),
+      );
+    });
+
+    it('does not rewrite part execution status for free-text lines', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'part-1', catalog_item_id: null }]),
+          },
+          partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'MISC',
+          description: 'Consumable',
+          qty: 1,
+          unitPrice: 12,
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({
+            part_execution_status: expect.anything(),
           }),
         }),
       );
@@ -1087,7 +1136,11 @@ describe('workshop-task.helpers', () => {
         ],
       ]);
 
-      const map = derivePartExecutionStatusMap(items, reservationsByLine);
+      const map = derivePartExecutionStatusMap(
+        items,
+        reservationsByLine,
+        new Map([['part-1', 'catalog-1']]),
+      );
       expect(map.get('part-1')).toBe(WorkshopPartLineExecutionStatus.CONSUMED);
       expect(map.has('labor-1')).toBe(false);
     });

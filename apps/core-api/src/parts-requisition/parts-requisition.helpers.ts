@@ -53,12 +53,28 @@ export type StagedConsumptionSlice = ReservationSliceState & {
   id: string;
 };
 
+export type TaskPartsGateLineState = {
+  catalog_item_id?: string | null;
+  part_execution_status: WorkshopPartLineExecutionStatus | null;
+};
+
 export type TaskPartsGateState = {
-  lines: ReadonlyArray<{
-    part_execution_status: WorkshopPartLineExecutionStatus | null;
-  }>;
+  lines: ReadonlyArray<TaskPartsGateLineState>;
   reservations: ReadonlyArray<ReservationSliceState>;
 };
+
+export function isCatalogPartLineBlockingCompletion(
+  line: TaskPartsGateLineState,
+): boolean {
+  if (!line.catalog_item_id) {
+    return false;
+  }
+  return (
+    line.part_execution_status ===
+      WorkshopPartLineExecutionStatus.PENDING_PICK ||
+    line.part_execution_status === WorkshopPartLineExecutionStatus.STAGED
+  );
+}
 
 export function getRemainingCommitment(
   slice: Pick<
@@ -111,12 +127,7 @@ export function allocateStagedConsumption(
 
 export function isTaskBlockedByParts(state: TaskPartsGateState): boolean {
   return (
-    state.lines.some(
-      (line) =>
-        line.part_execution_status ===
-          WorkshopPartLineExecutionStatus.PENDING_PICK ||
-        line.part_execution_status === WorkshopPartLineExecutionStatus.STAGED,
-    ) ||
+    state.lines.some(isCatalogPartLineBlockingCompletion) ||
     state.reservations.some(isActiveSlice) ||
     state.reservations.some((reservation) =>
       new Prisma.Decimal(reservation.quantity_staged).gt(ZERO),

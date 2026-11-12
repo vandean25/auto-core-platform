@@ -434,9 +434,7 @@ describe('WorkshopTaskService', () => {
     expect(secondLineItem.standard_aw).toBeNull();
     expect(secondLineItem.actual_hours).toBeNull();
     expect(secondLineItem.internal_cost_rate).toBeNull();
-    expect(secondLineItem.part_execution_status).toBe(
-      WorkshopPartLineExecutionStatus.PENDING_PICK,
-    );
+    expect(secondLineItem.part_execution_status).toBeNull();
   });
 
   it('rejects a line-item patch when the task version is stale', async () => {
@@ -725,12 +723,16 @@ describe('WorkshopTaskService', () => {
       line_items_version: 2,
       workshop_order: { status: WorkshopOrderStatus.IN_PROGRESS },
     });
-    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([
-      {
-        id: 'jit-line-1',
-        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
-      },
-    ]);
+    mockPrisma.workshopTaskLineItem.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'jit-line-1',
+          part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: 'jit-line-1', catalog_item_id: 'catalog-item-1' },
+      ]);
     mockPrisma.workshopTask.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.workshopTaskLineItem.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.laborOperation.count.mockResolvedValue(0);

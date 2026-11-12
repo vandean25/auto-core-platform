@@ -21,9 +21,14 @@ export async function findAuthorizedLine(
       id: lineId,
       tenant_id: tenantId,
       type: WorkshopLineItemType.PART,
-      part_execution_status: {
-        not: WorkshopPartLineExecutionStatus.CANCELLED,
-      },
+      OR: [
+        { part_execution_status: null },
+        {
+          part_execution_status: {
+            not: WorkshopPartLineExecutionStatus.CANCELLED,
+          },
+        },
+      ],
       workshop_task: {
         tenant_id: tenantId,
         workshop_order: {

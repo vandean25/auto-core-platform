@@ -201,7 +201,7 @@ export async function completeLaborAndTask(
   const lines =
     (await tx.workshopTaskLineItem.findMany({
       where: { tenant_id: tenantId, workshop_task_id: taskId },
-      select: { part_execution_status: true },
+      select: { part_execution_status: true, catalog_item_id: true },
     })) ?? [];
   const reservations =
     (await tx.partsReservation.findMany({

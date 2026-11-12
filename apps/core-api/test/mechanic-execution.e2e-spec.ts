@@ -442,7 +442,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
 
   // ─── Parts Request ────────────────────────────────────────────────────────
 
-  it('POST /tasks/:taskId/parts creates a PENDING_PICK part line item', async () => {
+  it('POST /tasks/:taskId/parts creates a free-text part line without pick status', async () => {
     const res = await request(app.getHttpServer())
       .post(`/api/mechanic/tasks/${taskCId}/parts`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -456,7 +456,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
     expect(res.body.itemNo).toBe('OIL-FILTER-001');
     expect(res.body.description).toBe('Oil filter 2.0 TDI');
     expect(res.body.qty).toBe(1);
-    expect(res.body.partExecutionStatus).toBe('PENDING_PICK');
+    expect(res.body.partExecutionStatus).toBeNull();
     // No pricing/cost in response
     expect(res.body).not.toHaveProperty('unitPrice');
     expect(res.body).not.toHaveProperty('lineTotal');

@@ -9,8 +9,8 @@ import { IsNumber, IsString, Min } from 'class-validator';
  * Cost/price fields are intentionally excluded — mechanics must not see or
  * set financial data (ADR-0014 §8.2, §6.3).
  *
- * A new `WorkshopTaskLineItem` of type PART is created with
- * `part_execution_status = PENDING_PICK`. Stock is NOT deducted (ADR-0014 §6.1).
+ * A new free-text `WorkshopTaskLineItem` of type PART is created without pick workflow.
+ * Stock is NOT deducted (ADR-0014 §6.1).
  */
 export class RequestPartDto {
   @ApiProperty({ description: 'SKU / part number' })
@@ -40,6 +40,6 @@ export class RequestPartResponseDto {
   @ApiProperty()
   qty!: number;
 
-  @ApiProperty({ enum: WorkshopPartLineExecutionStatus })
-  partExecutionStatus!: WorkshopPartLineExecutionStatus;
+  @ApiProperty({ enum: WorkshopPartLineExecutionStatus, nullable: true })
+  partExecutionStatus!: WorkshopPartLineExecutionStatus | null;
 }

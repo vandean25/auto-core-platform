@@ -1355,7 +1355,7 @@ describe('MechanicExecutionService', () => {
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
-    it('creates PENDING_PICK line item and emits realtime event', async () => {
+    it('creates free-text part line without pick status', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock).mockResolvedValue(
         makeTaskForPart(),
       );
@@ -1364,7 +1364,7 @@ describe('MechanicExecutionService', () => {
         item_no: 'OIL-5W30',
         description: '5W-30 Engine Oil',
         quantity: { toNumber: () => 2, toString: () => '2' },
-        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        part_execution_status: null,
       });
 
       const result = await service.requestPart(MECHANIC_ID, TASK_ID, {
@@ -1379,14 +1379,12 @@ describe('MechanicExecutionService', () => {
             tenant_id: TENANT_ID,
             workshop_task_id: TASK_ID,
             type: WorkshopLineItemType.PART,
-            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+            part_execution_status: null,
             item_no: 'OIL-5W30',
           }),
         }),
       );
-      expect(result.partExecutionStatus).toBe(
-        WorkshopPartLineExecutionStatus.PENDING_PICK,
-      );
+      expect(result.partExecutionStatus).toBeNull();
       // The Prisma realtime extension emits the event; service no longer calls manually.
       expect(mockRealtimeService.emitEntityUpdated).not.toHaveBeenCalledWith(
         TENANT_ID,
