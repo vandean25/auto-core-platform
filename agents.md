@@ -468,7 +468,7 @@ Cloud Agents for this repository should use the versioned environment in `.curso
 
 | Component | Detail |
 | --- | --- |
-| Node.js | **24.22.2** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
+| Node.js | **24.22.3** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
 | Dependencies | Root `npm ci`, then `prisma generate` for `core-api` |
 | PostgreSQL | **17** (PGDG), started on every agent boot via `start` |
 | Dev database | `core_platform` owned by role `acp_cloud` (local-only password in install scripts) |

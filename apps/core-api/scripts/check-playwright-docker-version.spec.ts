@@ -18,6 +18,17 @@ const FULLSTACK_WORKFLOW_PATH = path.join(
   'workflows',
   'e2e-fullstack.yaml',
 );
+const NVMRC_PATH = path.join(REPO_ROOT, '.nvmrc');
+const CURSOR_DOCKERFILE_PATH = path.join(REPO_ROOT, '.cursor', 'Dockerfile');
+const CLOUDBUILD_STAGING_PATH = path.join(REPO_ROOT, 'cloudbuild.staging.yaml');
+const AGENTS_MD_PATH = path.join(REPO_ROOT, 'agents.md');
+const VERIFY_SCRIPT_PATH = path.join(
+  CORE_API_ROOT,
+  'scripts',
+  'verify-pdf-worker-node.sh',
+);
+const NODE_SLIM_DIGEST =
+  'sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54';
 
 interface PackageManifest {
   engines?: {
@@ -113,6 +124,27 @@ function readEngineVersion(manifestPath: string): string {
   return version;
 }
 
+function readNvmrcVersion(): string {
+  return fs.readFileSync(NVMRC_PATH, 'utf8').trim();
+}
+
+function splitDockerStages(dockerfile: string): {
+  builder: string;
+  worker: string;
+  rest: string;
+} {
+  const workerSplit = dockerfile.split(/^FROM mcr\.microsoft\.com\/playwright:/m);
+  const builder = workerSplit[0] ?? '';
+  const afterWorker = workerSplit[1] ?? '';
+  const workerMatch = afterWorker.match(
+    /^[\s\S]*?^FROM node:[^\n]+ AS api$/m,
+  );
+  const worker = workerMatch
+    ? workerMatch[0].replace(/^FROM node:[^\n]+ AS api$/m, '').trimEnd()
+    : afterWorker;
+  return { builder, worker, rest: afterWorker };
+}
+
 describe('Production image version pins (AUT-167)', () => {
   it('matches the playwright package version in package-lock.json', () => {
     const packageVersion = readPlaywrightVersionFromLockfile();
@@ -187,38 +219,86 @@ describe('Production image version pins (AUT-167)', () => {
     );
   });
 
-  it('uses Node 24.22.2 slim for the API target', () => {
+  it('keeps every listed Node pin identical to .nvmrc (AUT-991 scenario 1)', () => {
+    const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const cursorDockerfile = fs.readFileSync(CURSOR_DOCKERFILE_PATH, 'utf8');
+    const cloudBuild = fs.readFileSync(CLOUDBUILD_PATH, 'utf8');
+    const cloudBuildStaging = fs.readFileSync(CLOUDBUILD_STAGING_PATH, 'utf8');
+    const verifyScript = fs.readFileSync(VERIFY_SCRIPT_PATH, 'utf8');
+    const agentsMd = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
 
+    expect(expected).toBe('24.22.3');
     expect(dockerfile).toMatch(
-      /^FROM node:24\.22\.2-slim(@sha256:[a-f0-9]{64})? AS api$/m,
+      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim@sha256:[a-f0-9]{64} AS builder$`, 'm'),
+    );
+    expect(dockerfile).toMatch(
+      new RegExp(`ARG PDF_WORKER_NODE_VERSION=${expected.replace(/\./g, '\\.')}`),
+    );
+    expect(dockerfile).toMatch(
+      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim@sha256:[a-f0-9]{64} AS api$`, 'm'),
+    );
+    const cursorNodeArgs = [
+      ...cursorDockerfile.matchAll(/^ARG NODE_VERSION=([0-9.]+)$/gm),
+    ].map((match) => match[1]);
+    expect(cursorNodeArgs).toEqual([expected, expected]);
+    const cloudBuildPins = [
+      ...cloudBuild.matchAll(/^\s*name: node:([0-9.]+)\s*$/gm),
+    ].map((match) => match[1]);
+    expect(cloudBuildPins).toEqual([expected, expected]);
+    expect(cloudBuildStaging).toMatch(
+      new RegExp(`^\\s*name: node:${expected.replace(/\./g, '\\.')}\\s*$`, 'm'),
+    );
+    expect(verifyScript).toMatch(
+      new RegExp(
+        `EXPECTED_VERSION="\\$\\{PDF_WORKER_NODE_VERSION:-${expected.replace(/\./g, '\\.')}\\}"`,
+      ),
+    );
+    expect(agentsMd).toMatch(
+      new RegExp(
+        `\\| Node\\.js \\| \\*\\*${expected.replace(/\./g, '\\.')}\\*\\* from`,
+      ),
     );
   });
 
-  it('uses Node 24.22.2 in Cloud Build', () => {
-    const cloudBuild = fs.readFileSync(CLOUDBUILD_PATH, 'utf8');
+  it('requires digest-pinned node stages for builder and api (AUT-991 scenario 2)', () => {
+    const expected = readNvmrcVersion();
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const digestPattern = '@sha256:[a-f0-9]{64}';
 
-    expect(cloudBuild).toMatch(/^\s*name: node:24\.22\.2\s*$/m);
+    expect(dockerfile).toMatch(
+      new RegExp(
+        `^FROM node:${expected.replace(/\./g, '\\.')}-slim${digestPattern} AS builder$`,
+        'm',
+      ),
+    );
+    expect(dockerfile).toMatch(
+      new RegExp(
+        `^FROM node:${expected.replace(/\./g, '\\.')}-slim${digestPattern} AS api$`,
+        'm',
+      ),
+    );
+    expect(dockerfile).toContain(NODE_SLIM_DIGEST);
+    expect(dockerfile).not.toMatch(
+      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim AS (builder|api)$`, 'm'),
+    );
   });
 
-  it('replaces upstream Node with exact 24.22.2 and verifies the worker runtime', () => {
+  it('bans apt-get only in the worker stage and copies Node from pinned builder (AUT-991 scenario 3)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const { builder, worker } = splitDockerStages(dockerfile);
 
-    expect(dockerfile).toMatch(/ARG PDF_WORKER_NODE_VERSION=24\.22\.2/);
-    expect(dockerfile).toMatch(/^FROM node:24\.22\.2-slim AS builder$/m);
     expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/bin\//);
     expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/include\//);
     expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/lib\//);
     expect(dockerfile).toMatch(/verify-pdf-worker-node\.sh/);
     expect(dockerfile).not.toMatch(/setup_24\.x/);
-    const workerStage = dockerfile.slice(dockerfile.indexOf('AS worker'));
-    expect(workerStage).not.toMatch(/apt-get/);
-    expect(workerStage).not.toMatch(/sha256sum -c -/);
-    expect(workerStage).not.toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/);
-    const verifyScript = fs.readFileSync(
-      path.join(CORE_API_ROOT, 'scripts', 'verify-pdf-worker-node.sh'),
-      'utf8',
-    );
+    expect(worker).not.toMatch(/apt-get/);
+    expect(worker).not.toMatch(/sha256sum -c -/);
+    expect(worker).not.toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/);
+    // Non-worker stages are not subject to the worker apt ban guard.
+    expect(builder.length).toBeGreaterThan(0);
+    const verifyScript = fs.readFileSync(VERIFY_SCRIPT_PATH, 'utf8');
     expect(verifyScript).toMatch(
       /process\.versions\.node\.split\('\.'\)\.map\(Number\)/,
     );

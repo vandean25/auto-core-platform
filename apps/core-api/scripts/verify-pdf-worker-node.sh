@@ -2,7 +2,7 @@
 # Fails the image build (or CI) unless only the pinned Node 24 runtime is on PATH.
 set -euo pipefail
 
-EXPECTED_VERSION="${PDF_WORKER_NODE_VERSION:-24.22.2}"
+EXPECTED_VERSION="${PDF_WORKER_NODE_VERSION:-24.22.3}"
 EXPECTED_PREFIX="v${EXPECTED_VERSION}"
 
 NODE_V="$(node -v)"
