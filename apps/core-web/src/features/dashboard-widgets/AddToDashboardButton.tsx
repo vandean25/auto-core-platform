@@ -47,12 +47,28 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
     [source.fields],
   )
 
-  const applyBuiltInDefaultName = React.useCallback(
-    (type: DashboardWidgetDisplayType, calculation: DashboardWidgetMetricCalculation) => {
-      const titleKey = defaultBuiltInWidgetTitleKey(type, calculation)
-      setName(t(titleKey, { sourceLabel: t(source.labelKey) }))
-    },
+  const builtInNameFor = React.useCallback(
+    (type: DashboardWidgetDisplayType, calculation: DashboardWidgetMetricCalculation) =>
+      t(defaultBuiltInWidgetTitleKey(type, calculation), { sourceLabel: t(source.labelKey) }),
     [source.labelKey, t],
+  )
+
+  const maybeAdoptBuiltInNameForSelection = React.useCallback(
+    (
+      previousType: DashboardWidgetDisplayType,
+      previousCalculation: DashboardWidgetMetricCalculation,
+      nextType: DashboardWidgetDisplayType,
+      nextCalculation: DashboardWidgetMetricCalculation,
+    ) => {
+      setName((current) => {
+        const previousDefault = builtInNameFor(previousType, previousCalculation)
+        if (!current.trim() || current === previousDefault) {
+          return builtInNameFor(nextType, nextCalculation)
+        }
+        return current
+      })
+    },
+    [builtInNameFor],
   )
 
   React.useEffect(() => {
@@ -61,8 +77,8 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
     setGroupByField(categoricalFields[0]?.key ?? '')
     setMetricCalculation('count')
     setMetricField(numericFields[0]?.key ?? '')
-    applyBuiltInDefaultName('list', 'count')
-  }, [open, applyBuiltInDefaultName, categoricalFields, numericFields])
+    setName(builtInNameFor('list', 'count'))
+  }, [open, builtInNameFor, categoricalFields, numericFields])
 
   return (
     <>
@@ -93,8 +109,8 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
                 value={displayType}
                 onValueChange={(value) => {
                   const nextType = value as DashboardWidgetDisplayType
+                  maybeAdoptBuiltInNameForSelection(displayType, metricCalculation, nextType, metricCalculation)
                   setDisplayType(nextType)
-                  applyBuiltInDefaultName(nextType, metricCalculation)
                 }}
               >
                 <SelectTrigger id="dashboard-widget-display-type">
@@ -134,8 +150,8 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
                     value={metricCalculation}
                     onValueChange={(value) => {
                       const nextCalculation = value as DashboardWidgetMetricCalculation
+                      maybeAdoptBuiltInNameForSelection(displayType, metricCalculation, displayType, nextCalculation)
                       setMetricCalculation(nextCalculation)
-                      applyBuiltInDefaultName(displayType, nextCalculation)
                     }}
                   >
                     <SelectTrigger id="dashboard-widget-calculation">
