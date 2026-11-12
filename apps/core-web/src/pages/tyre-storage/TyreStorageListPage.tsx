@@ -1,37 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Download, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
-import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { StatusBadge } from '@/components/status/StatusBadge'
-import { formatTyreSetStatusLabel } from '@/lib/i18n/enum-labels'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { DateField } from '@/components/ui/date-field'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useLocations } from '@/api/locations'
-import { useDueTyreSets, useTyreSets, type TyreSet } from '@/api/tyre-storage'
 import { fetchWithAuth } from '@/api/client'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { triggerBlobDownload } from '@/lib/download'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
-import { CustomerSearch } from '@/components/sales/CustomerSearch'
-import type { Customer } from '@/api/types'
 import { toast } from 'sonner'
-import { formatIsoDateOnly } from '@/lib/format'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-
-const ALL = '__all__'
+import { createTyreStorageListColumns } from '@/features/tyre-storage/tyre-storage-list-columns'
+import {
+  exportDueTyreSetsCsv,
+  tyreStorageExportFailedMessage,
+} from '@/features/tyre-storage/tyre-storage-list-export'
+import { TyreStorageListFilters } from '@/features/tyre-storage/TyreStorageListFilters'
+import { useTyreStorageListPage } from './useTyreStorageListPage'
 
 export default function TyreStorageListPage() {
   const { t } = useTranslation('inventory')
@@ -41,126 +26,49 @@ export default function TyreStorageListPage() {
 
   const navigate = useNavigate()
   const emDash = t('shared.emDash')
-  const [search, setSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'all' | 'due'>('all')
-  const [season, setSeason] = useState(ALL)
-  const [status, setStatus] = useState(ALL)
-  const [locationId, setLocationId] = useState(ALL)
-  const [customerFilter, setCustomerFilter] = useState<Customer | null>(null)
-  const [dueFrom, setDueFrom] = useState('')
-  const [dueTo, setDueTo] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const { data: locations } = useLocations()
-  const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
-
-  const listParams = {
+  const {
     search,
-    season: season === ALL ? undefined : season,
-    status: status === ALL ? undefined : status,
-    locationId: locationId === ALL ? undefined : locationId,
-    customerId: customerFilter?.id,
-    dueFrom: dueFrom || undefined,
-    dueTo: dueTo || undefined,
-    pageSize: queryParams.pageSize,
-    page: queryParams.page,
-  }
+    setSearch,
+    viewMode,
+    setViewMode,
+    season,
+    setSeason,
+    status,
+    setStatus,
+    locationId,
+    setLocationId,
+    customerFilter,
+    setCustomerFilter,
+    dueFrom,
+    setDueFrom,
+    dueTo,
+    setDueTo,
+    createOpen,
+    setCreateOpen,
+    storageLocations,
+    rows,
+    isLoading,
+    tableState,
+    pageCount,
+    pageSizeOptions,
+    dueCount,
+  } = useTyreStorageListPage()
 
-  const { data: listData, isLoading: listLoading } = useTyreSets(listParams)
-  const { data: dueData, isLoading: dueLoading } = useDueTyreSets()
-
-  const storageLocations = (locations ?? []).filter(
-    (loc) => loc.type === 'customer_storage',
+  const columns = useMemo(
+    () => createTyreStorageListColumns({ t, emDash, viewMode }),
+    [emDash, viewMode, t],
   )
 
-  const rows = viewMode === 'due' ? (dueData?.data ?? []) : (listData?.data ?? [])
-  const isLoading = viewMode === 'due' ? dueLoading : listLoading
-
-  const columns = useMemo<ColumnDef<TyreSet>[]>(() => {
-    const base: ColumnDef<TyreSet>[] = [
+  const exportDueCsv = useCallback(async () => {
+    await exportDueTyreSetsCsv(
       {
-        accessorKey: 'label',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.label')} />
-        ),
-        cell: ({ row }) => <span className="font-medium">{row.original.label}</span>,
+        fetchExport: () => fetchWithAuth('/api/tyre-sets/due-for-swap/export'),
+        downloadBlob: triggerBlobDownload,
+        showExportFailed: (message) => toast.error(message),
       },
-      {
-        accessorKey: 'customerName',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.customer')} />
-        ),
-      },
-    ]
-    if (viewMode === 'due') {
-      base.push(
-        {
-          accessorKey: 'customerPhone',
-          header: ({ column }) => (
-            <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.phone')} />
-          ),
-          cell: ({ row }) => row.original.customerPhone ?? emDash,
-        },
-        {
-          accessorKey: 'customerEmail',
-          header: ({ column }) => (
-            <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.email')} />
-          ),
-          cell: ({ row }) => row.original.customerEmail ?? emDash,
-        },
-      )
-    }
-    base.push(
-      {
-        accessorKey: 'vehiclePlate',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.plate')} />
-        ),
-        cell: ({ row }) => row.original.vehiclePlate ?? emDash,
-      },
-      {
-        accessorKey: 'season',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.season')} />
-        ),
-        cell: ({ row }) => <StatusBadge status={row.original.season} />,
-      },
-      {
-        accessorKey: 'status',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.status')} />
-        ),
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.status} label={formatTyreSetStatusLabel(row.original.status)} />
-        ),
-      },
-      {
-        accessorKey: 'binLabel',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.bin')} />
-        ),
-        cell: ({ row }) => row.original.binLabel ?? emDash,
-      },
-      {
-        accessorKey: 'plannedSwapOn',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t('tyreStorage.list.columns.swapDue')} />
-        ),
-        cell: ({ row }) =>
-          row.original.plannedSwapOn ? formatIsoDateOnly(row.original.plannedSwapOn) : emDash,
-      },
+      tyreStorageExportFailedMessage(t),
     )
-    return base
-  }, [emDash, t, viewMode])
-
-  const exportDueCsv = async () => {
-    const response = await fetchWithAuth('/api/tyre-sets/due-for-swap/export')
-    if (!response.ok) {
-      toast.error(t('tyreStorage.list.exportFailed'))
-      return
-    }
-    const text = await response.text()
-    triggerBlobDownload(new Blob([text], { type: 'text/csv' }), 'tyre-sets-due-for-swap.csv')
-  }
+  }, [t])
 
   return (
     <div className="space-y-6">
@@ -191,106 +99,40 @@ export default function TyreStorageListPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3 md:flex md:flex-row md:flex-wrap md:items-end">
-          <div className="col-span-2 space-y-1 md:col-span-1">
-            <Label>{t('tyreStorage.list.filters.plateVin')}</Label>
-            <Input
-              className="max-w-md min-h-11 text-base"
-              placeholder={t('tyreStorage.list.filters.searchPlateVin')}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              disabled={viewMode === 'due'}
-            />
-          </div>
-          <div
-            className={`col-span-2 min-w-0 space-y-1 md:col-span-1 md:min-w-[16rem] ${viewMode === 'due' ? 'pointer-events-none opacity-50' : ''}`}
-          >
-            <Label>{t('tyreStorage.list.filters.customer')}</Label>
-            <CustomerSearch value={customerFilter} onChange={setCustomerFilter} />
-          </div>
-          <div className="space-y-1">
-            <Label>{t('tyreStorage.list.filters.season')}</Label>
-            <Select value={season} onValueChange={setSeason} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-full md:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
-                <SelectItem value="WINTER">{t('tyreStorage.list.filters.winter')}</SelectItem>
-                <SelectItem value="SUMMER">{t('tyreStorage.list.filters.summer')}</SelectItem>
-                <SelectItem value="ALL_SEASON">{t('tyreStorage.list.filters.allSeason')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>{t('tyreStorage.list.filters.status')}</Label>
-            <Select value={status} onValueChange={setStatus} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-full md:w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
-                <SelectItem value="NEW">{t('tyreStorage.list.filters.new')}</SelectItem>
-                <SelectItem value="IN_STORAGE">{t('tyreStorage.list.filters.inStorage')}</SelectItem>
-                <SelectItem value="RETURNED">{t('tyreStorage.list.filters.returned')}</SelectItem>
-                <SelectItem value="DISPOSED">{t('tyreStorage.list.filters.disposed')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>{t('tyreStorage.list.filters.location')}</Label>
-            <Select value={locationId} onValueChange={setLocationId} disabled={viewMode === 'due'}>
-              <SelectTrigger className="min-h-11 w-full md:w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t('tyreStorage.list.filters.all')}</SelectItem>
-                {storageLocations.map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2 w-full space-y-1 sm:col-span-1 sm:min-w-[10.5rem]">
-            <Label>{t('tyreStorage.list.filters.dueFrom')}</Label>
-            <DateField
-              aria-label={t('tyreStorage.list.filters.dueFrom')}
-              className="min-h-11"
-              value={dueFrom}
-              onChange={setDueFrom}
-              disabled={viewMode === 'due'}
-            />
-          </div>
-          <div className="col-span-2 w-full space-y-1 sm:col-span-1 sm:min-w-[10.5rem]">
-            <Label>{t('tyreStorage.list.filters.dueTo')}</Label>
-            <DateField
-              aria-label={t('tyreStorage.list.filters.dueTo')}
-              className="min-h-11"
-              value={dueTo}
-              onChange={setDueTo}
-              disabled={viewMode === 'due'}
-            />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={viewMode === 'all' ? 'default' : 'outline'}
-            className="min-h-11"
-            onClick={() => setViewMode('all')}
-          >
-            {t('actions.allSets')}
-          </Button>
-          <Button
-            variant={viewMode === 'due' ? 'default' : 'outline'}
-            className="min-h-11"
-            onClick={() => setViewMode('due')}
-          >
-            {t('tyreStorage.list.dueCount', { count: dueData?.data.length ?? 0 })}
-          </Button>
-        </div>
+      <TyreStorageListFilters
+        viewMode={viewMode}
+        search={search}
+        onSearchChange={setSearch}
+        season={season}
+        onSeasonChange={setSeason}
+        status={status}
+        onStatusChange={setStatus}
+        locationId={locationId}
+        onLocationIdChange={setLocationId}
+        customerFilter={customerFilter}
+        onCustomerFilterChange={setCustomerFilter}
+        dueFrom={dueFrom}
+        onDueFromChange={setDueFrom}
+        dueTo={dueTo}
+        onDueToChange={setDueTo}
+        storageLocations={storageLocations}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={viewMode === 'all' ? 'default' : 'outline'}
+          className="min-h-11"
+          onClick={() => setViewMode('all')}
+        >
+          {t('actions.allSets')}
+        </Button>
+        <Button
+          variant={viewMode === 'due' ? 'default' : 'outline'}
+          className="min-h-11"
+          onClick={() => setViewMode('due')}
+        >
+          {t('tyreStorage.list.dueCount', { count: dueCount })}
+        </Button>
       </div>
 
       <DataTable
@@ -301,8 +143,8 @@ export default function TyreStorageListPage() {
           onRowClick: (row) => navigate(APP_ROUTE_PATHS.tyreStorageDetail.replace(':id', row.id)),
         }}
         {...tableState}
-        pageCount={viewMode === 'due' ? 1 : listData?.meta?.pageCount}
-        pageSizeOptions={viewMode === 'due' ? [] : undefined}
+        pageCount={pageCount}
+        pageSizeOptions={pageSizeOptions}
         enableCsvExport={false}
       />
 
