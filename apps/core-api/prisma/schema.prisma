@@ -1147,8 +1147,7 @@ model InventoryPriceOperation {
   principal_id       String
   key                String                        @db.Uuid
   item_id            String
-  /// Prisma read-path only (no DB FK): catalog semi-join for discovery; hard-deleted catalog rows are omitted.
-  catalog_item       CatalogItem                   @relation(fields: [item_id], references: [id])
+  /// No relation to CatalogItem on purpose: the journal outlives catalog hard-deletes (no FK).
   sku                String
   kind               String
   expected_revision  BigInt
@@ -1197,7 +1196,6 @@ model CatalogItem {
   stock_transfer_lines     StockTransferLine[]
   vendorArticles           VendorArticle[]
   catalogPriceHistories    CatalogPriceHistory[]
-  inventory_price_operations InventoryPriceOperation[]
   revision                 BigInt                 @default(0)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt

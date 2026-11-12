@@ -29,6 +29,13 @@ import {
 } from './helpers/inventory-price-fence-discovery.e2e-helpers.js';
 import { GUARDED_PRICE_KIND } from '../src/inventory/guarded-price/guarded-price.errors.js';
 
+/** SQL text of raw journal queries a spy on `$queryRaw` saw (other raw queries are ignored). */
+function journalQueries(spy: jest.SpiedFunction<PrismaService['$queryRaw']>): string[] {
+  return spy.mock.calls
+    .map(([sql]) => (Array.isArray(sql) ? sql.join('?') : String(sql)))
+    .filter((sql) => sql.includes('inventory_price_operations'));
+}
+
 describe('inventory price-operations discovery and fence (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -410,7 +417,7 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).expect(200);
 
     const oldMs = Date.now() - GUARDED_PRICE_RETENTION_MS - 60_000;
-    const findManySpy = jest.spyOn(prisma.inventoryPriceOperation, 'findMany');
+    const rawSpy = jest.spyOn(prisma, '$queryRaw');
     const bulk = Array.from({ length: 120 }, (_, i) => ({
       tenant_id: tenantId,
       principal_id: principal,
@@ -430,33 +437,23 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     const list = await listOperations().expect(200);
     expect(list.body.data).toHaveLength(1);
     expect(list.body.data[0].key).toBe(visibleKey);
-    expect(findManySpy).toHaveBeenCalledTimes(1);
-    findManySpy.mockRestore();
+    expect(journalQueries(rawSpy)).toHaveLength(1);
+    rawSpy.mockRestore();
   });
 
   it('discovery list uses catalog semi-join and does not load catalog ids into Node', async () => {
     const catalogFindManySpy = jest.spyOn(prisma.catalogItem, 'findMany');
-    const journalFindManySpy = jest.spyOn(
-      prisma.inventoryPriceOperation,
-      'findMany',
-    );
+    const rawSpy = jest.spyOn(prisma, '$queryRaw');
 
     await listOperations().expect(200);
 
     expect(catalogFindManySpy).not.toHaveBeenCalled();
-    expect(journalFindManySpy).toHaveBeenCalledTimes(1);
-    const firstCall = journalFindManySpy.mock.calls[0]?.[0];
-    expect(firstCall).toBeDefined();
-    const where = firstCall!.where as {
-      AND?: Array<Record<string, unknown>>;
-    };
-    const root = where?.AND?.[0] as {
-      catalog_item?: { is?: unknown };
-    };
-    expect(root?.catalog_item?.is).toBeDefined();
+    const queries = journalQueries(rawSpy);
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toMatch(/EXISTS \(\s*SELECT 1 FROM catalog_items/);
 
     catalogFindManySpy.mockRestore();
-    journalFindManySpy.mockRestore();
+    rawSpy.mockRestore();
   });
 
   it('discovery omits final rows past retention', async () => {

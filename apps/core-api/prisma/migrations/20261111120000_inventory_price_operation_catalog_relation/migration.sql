@@ -1,2 +1,0 @@
--- AUT-930: Prisma-only catalog_item relation on inventory_price_operations for discovery EXISTS semi-join.
--- No database foreign key: catalog rows may be hard-deleted during tenant restore without blocking journal retention.
