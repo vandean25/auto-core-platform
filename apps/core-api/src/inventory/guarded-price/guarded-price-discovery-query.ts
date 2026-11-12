@@ -1,7 +1,7 @@
 import { InventoryPriceOperationState, Prisma } from '@prisma/client';
 import { GUARDED_PRICE_RETENTION_MS } from './guarded-price.constants.js';
 
-/** Prisma filter matching `rowWithinRetention` (ACCEPTED always eligible); the discovery list mirrors it in SQL. */
+/** Retention rule shared by discovery list and get: ACCEPTED always, terminal rows until `final_at` (or `accepted_at`) passes the cutoff. */
 export function discoveryRetentionWhere(
   now = Date.now(),
 ): Prisma.InventoryPriceOperationWhereInput {

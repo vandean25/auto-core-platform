@@ -39,16 +39,29 @@ function guardedPriceTestHookState(): GuardedPriceTestHookState {
 
 export const guardedPriceTestHooks = guardedPriceTestHookState();
 
+type HookFlag =
+  | 'failTxEAfterJournalLock'
+  | 'failTxEAfterCatalogUpdate'
+  | 'holdTxEOpenAfterJournalLock'
+  | 'holdTxEOpenAfterCatalogUpdate';
+
+/** A set flag is ignored outside Jest workers, so it can never fail or park a real price transaction. */
+function hookFlagOn(flag: HookFlag): boolean {
+  return (
+    process.env.JEST_WORKER_ID !== undefined && guardedPriceTestHooks[flag]
+  );
+}
+
 export function shouldFailTxEAfterJournalLock(): boolean {
-  return guardedPriceTestHooks.failTxEAfterJournalLock;
+  return hookFlagOn('failTxEAfterJournalLock');
 }
 
 export function shouldFailTxEAfterCatalogUpdate(): boolean {
-  return guardedPriceTestHooks.failTxEAfterCatalogUpdate;
+  return hookFlagOn('failTxEAfterCatalogUpdate');
 }
 
 export function shouldHoldTxEOpenAfterJournalLock(): boolean {
-  return guardedPriceTestHooks.holdTxEOpenAfterJournalLock;
+  return hookFlagOn('holdTxEOpenAfterJournalLock');
 }
 
 export async function waitForTxEReleaseIfHeld(): Promise<void> {
@@ -61,7 +74,7 @@ export async function waitForTxEReleaseIfHeld(): Promise<void> {
 }
 
 export function shouldHoldTxEOpenAfterCatalogUpdate(): boolean {
-  return guardedPriceTestHooks.holdTxEOpenAfterCatalogUpdate;
+  return hookFlagOn('holdTxEOpenAfterCatalogUpdate');
 }
 
 export async function waitForTxECatalogReleaseIfHeld(): Promise<void> {

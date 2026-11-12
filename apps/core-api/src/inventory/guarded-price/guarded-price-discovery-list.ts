@@ -1,54 +1,69 @@
-import { InventoryPriceOperation, Prisma } from '@prisma/client';
+import type { InventoryPriceOperation, Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import {
-  GUARDED_PRICE_DISCOVERY_PAGE_SIZE,
-  GUARDED_PRICE_RETENTION_MS,
-} from './guarded-price.constants.js';
+import { GUARDED_PRICE_DISCOVERY_PAGE_SIZE } from './guarded-price.constants.js';
 import type { PriceOperationDiscoveryCursor } from './guarded-price-discovery-cursor.js';
+import { discoveryRetentionWhere } from './guarded-price-discovery-query.js';
 
-function keysetSql(cursor: PriceOperationDiscoveryCursor | null): Prisma.Sql {
+export type GuardedPriceDiscoveryPage = {
+  /** Scanned rows whose catalog item still exists (may be shorter than a full page). */
+  page: InventoryPriceOperation[];
+  hasNextPage: boolean;
+  /** Last scanned row, visible or not: the next cursor must start after it. */
+  scanTail: InventoryPriceOperation | null;
+};
+
+function keysetWhere(
+  cursor: PriceOperationDiscoveryCursor | null,
+): Prisma.InventoryPriceOperationWhereInput {
   if (!cursor) {
-    return Prisma.empty;
+    return {};
   }
-  return Prisma.sql`AND (op.accepted_at, op.key) < (${new Date(cursor.acceptedAt)}, ${cursor.key}::uuid)`;
+  const acceptedAt = new Date(cursor.acceptedAt);
+  return {
+    OR: [
+      { accepted_at: { lt: acceptedAt } },
+      { accepted_at: acceptedAt, key: { lt: cursor.key } },
+    ],
+  };
 }
 
 /**
- * Keyset journal page: principal + retention (same rule as `discoveryRetentionWhere`)
- * + catalog EXISTS in one query. No Prisma relation to `catalog_items`: a relation
- * would make the tenant-restore manifest expect a RESTRICT FK that would block
- * catalog hard-deletes the journal must survive.
+ * One keyset journal read (page + 1) and one catalog read for at most a page of ids.
+ * Rows of hard-deleted catalog items are dropped after the scan; the journal has no
+ * relation to `catalog_items` so the restore manifest expects no FK that would block
+ * those deletes.
  */
 export async function fetchGuardedPriceDiscoveryPage(
   prisma: PrismaService,
   tenantId: string,
   principalId: string,
   cursor: PriceOperationDiscoveryCursor | null,
-  take = GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
-): Promise<InventoryPriceOperation[]> {
-  const cutoff = new Date(Date.now() - GUARDED_PRICE_RETENTION_MS);
-  // eslint-disable-next-line no-restricted-syntax -- AUT-930: typed Prisma cannot express EXISTS on catalog_items without a relation, and a relation adds a RESTRICT FK to the restore manifest; tenant_id is bound in both predicates.
-  return prisma.$queryRaw<InventoryPriceOperation[]>`
-    SELECT op.*
-    FROM inventory_price_operations op
-    WHERE op.tenant_id = ${tenantId}
-      AND op.principal_id = ${principalId}
-      AND (
-        op.state = 'ACCEPTED'
-        OR (
-          op.state IN ('APPLIED', 'CONFLICT', 'FENCED')
-          AND (
-            op.final_at >= ${cutoff}
-            OR (op.final_at IS NULL AND op.accepted_at >= ${cutoff})
-          )
-        )
-      )
-      AND EXISTS (
-        SELECT 1 FROM catalog_items ci
-        WHERE ci.tenant_id = ${tenantId} AND ci.id = op.item_id
-      )
-      ${keysetSql(cursor)}
-    ORDER BY op.accepted_at DESC, op.key DESC
-    LIMIT ${take}
-  `;
+): Promise<GuardedPriceDiscoveryPage> {
+  const scanned = await prisma.inventoryPriceOperation.findMany({
+    where: {
+      AND: [
+        { tenant_id: tenantId, principal_id: principalId },
+        discoveryRetentionWhere(),
+        keysetWhere(cursor),
+      ],
+    },
+    orderBy: [{ accepted_at: 'desc' }, { key: 'desc' }],
+    take: GUARDED_PRICE_DISCOVERY_PAGE_SIZE + 1,
+  });
+  const window = scanned.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
+  const liveItems = window.length
+    ? await prisma.catalogItem.findMany({
+        where: {
+          tenant_id: tenantId,
+          id: { in: [...new Set(window.map((row) => row.item_id))] },
+        },
+        select: { id: true },
+      })
+    : [];
+  const liveIds = new Set(liveItems.map((item) => item.id));
+  return {
+    page: window.filter((row) => liveIds.has(row.item_id)),
+    hasNextPage: scanned.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE,
+    scanTail: window.at(-1) ?? null,
+  };
 }

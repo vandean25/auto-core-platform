@@ -11,13 +11,11 @@ import { GUARDED_PRICE_DISCOVERY_PAGE_SIZE } from './guarded-price.constants.js'
 import {
   encodePriceOperationDiscoveryCursor,
   parsePriceOperationDiscoveryCursor,
-  type PriceOperationDiscoveryCursor,
 } from './guarded-price-discovery-cursor.js';
 import { discoveryRetentionWhere } from './guarded-price-discovery-query.js';
 import { discoveryCatalogItemExists } from './guarded-price-discovery-catalog-exists.js';
 import { fetchGuardedPriceDiscoveryPage } from './guarded-price-discovery-list.js';
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
-import { rowWithinRetention } from './guarded-price-retention.js';
 import { isUuidV7 } from './guarded-price.uuid.js';
 import { guardedRequestInvalid } from './guarded-price.errors.js';
 
@@ -36,56 +34,26 @@ export class GuardedPriceDiscoveryService {
     const principalId = this.requirePrincipalId();
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
 
-    const { page, hasNextPage } = await this.loadDiscoveryPage(
-      tenantId,
-      principalId,
-      decodedCursor,
-    );
+    const { page, hasNextPage, scanTail } =
+      await fetchGuardedPriceDiscoveryPage(
+        this.prisma,
+        tenantId,
+        principalId,
+        decodedCursor,
+      );
 
-    return {
-      data: page.map(mapInventoryPriceOperation),
-      meta: this.buildDiscoveryListMeta(page, hasNextPage),
-    };
-  }
-
-  private async loadDiscoveryPage(
-    tenantId: string,
-    principalId: string,
-    decodedCursor: PriceOperationDiscoveryCursor | null,
-  ): Promise<{
-    page: Awaited<
-      ReturnType<PrismaService['inventoryPriceOperation']['findMany']>
-    >;
-    hasNextPage: boolean;
-  }> {
-    const rows = await fetchGuardedPriceDiscoveryPage(
-      this.prisma,
-      tenantId,
-      principalId,
-      decodedCursor,
-    );
-    const hasNextPage = rows.length > GUARDED_PRICE_DISCOVERY_PAGE_SIZE;
-    const page = rows.slice(0, GUARDED_PRICE_DISCOVERY_PAGE_SIZE);
-    return { page, hasNextPage };
-  }
-
-  private buildDiscoveryListMeta(
-    page: { accepted_at: Date; key: string }[],
-    hasNextPage: boolean,
-  ): ListCursorPageMetaDto {
     const meta: ListCursorPageMetaDto = {
       limit: GUARDED_PRICE_DISCOVERY_PAGE_SIZE,
       hasNextPage,
-      nextCursor: null,
+      nextCursor:
+        hasNextPage && scanTail
+          ? encodePriceOperationDiscoveryCursor({
+              acceptedAt: scanTail.accepted_at.toISOString(),
+              key: scanTail.key,
+            })
+          : null,
     };
-    if (hasNextPage && page.length > 0) {
-      const tail = page[page.length - 1];
-      meta.nextCursor = encodePriceOperationDiscoveryCursor({
-        acceptedAt: tail.accepted_at.toISOString(),
-        key: tail.key,
-      });
-    }
-    return meta;
+    return { data: page.map(mapInventoryPriceOperation), meta };
   }
 
   async getOperation(key: string): Promise<InventoryPriceOperationDto> {
@@ -106,7 +74,6 @@ export class GuardedPriceDiscoveryService {
     });
     if (
       !row ||
-      !rowWithinRetention(row) ||
       !(await discoveryCatalogItemExists(this.prisma, tenantId, row.item_id))
     ) {
       throw new NotFoundException(`Price operation ${key} not found`);

@@ -29,13 +29,6 @@ import {
 } from './helpers/inventory-price-fence-discovery.e2e-helpers.js';
 import { GUARDED_PRICE_KIND } from '../src/inventory/guarded-price/guarded-price.errors.js';
 
-/** SQL text of raw journal queries a spy on `$queryRaw` saw (other raw queries are ignored). */
-function journalQueries(spy: jest.SpiedFunction<PrismaService['$queryRaw']>): string[] {
-  return spy.mock.calls
-    .map(([sql]) => (Array.isArray(sql) ? sql.join('?') : String(sql)))
-    .filter((sql) => sql.includes('inventory_price_operations'));
-}
-
 describe('inventory price-operations discovery and fence (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -147,6 +140,21 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     return req;
   }
 
+  /** Follows nextCursor until the last page; returns the keys of every page in order. */
+  async function listAllPages(): Promise<string[][]> {
+    const pages: string[][] = [];
+    let cursor: string | undefined;
+    do {
+      const res = await listOperations(undefined, cursor).expect(200);
+      pages.push(res.body.data.map((row: { key: string }) => row.key));
+      cursor = res.body.meta.hasNextPage ? res.body.meta.nextCursor : undefined;
+      if (res.body.meta.hasNextPage) {
+        expect(cursor).toBeTruthy();
+      }
+    } while (cursor);
+    return pages;
+  }
+
   function getOperation(key: string, auth = `Bearer ${authTokenAdmin}`) {
     return request(app.getHttpServer())
       .get(`/api/inventory/price-operations/${key}`)
@@ -170,9 +178,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).then((res) => res);
 
     await txEHeld;
-    const heldRow = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
-      { where: { key } },
-    );
+    const heldRow =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(heldRow.state).toBe(InventoryPriceOperationState.ACCEPTED);
 
     let fenceRes: Awaited<ReturnType<typeof postFence>>;
@@ -182,17 +191,19 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       releaseHeldTxE();
     }
 
-    const rowAfterFence = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
-      { where: { key } },
-    );
+    const rowAfterFence =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(rowAfterFence.state).toBe(InventoryPriceOperationState.ACCEPTED);
     expect(fenceRes.status).toBe(409);
     expect(fenceRes.body.code).toBe('OPERATION_UNRESOLVED');
 
     await patchPromise;
-    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
-      { where: { key } },
-    );
+    const journal =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
   });
 
@@ -227,9 +238,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).then((res) => res);
 
     await catalogHeld;
-    const midJournal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
-      { where: { key } },
-    );
+    const midJournal =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(midJournal.state).toBe(InventoryPriceOperationState.ACCEPTED);
 
     let fenceRes: Awaited<ReturnType<typeof postFence>>;
@@ -308,9 +320,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       fenceBody(removed.id, 21, removedRevision),
     ).expect(404);
 
-    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow(
-      { where: { key } },
-    );
+    const journal =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
   });
 
@@ -401,10 +414,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       new Date(anchor - 500_000),
     );
 
-    const list = await listOperations().expect(200);
-    expect(list.body.data).toHaveLength(1);
-    expect(list.body.data[0].key).toBe(visibleKey);
-    expect(list.body.meta.hasNextPage).toBe(false);
+    // Regression: a page of only deleted-catalog rows must still hand out a cursor.
+    const pages = await listAllPages();
+    expect(pages[0]).toEqual([]);
+    expect(pages.flat()).toEqual([visibleKey]);
   });
 
   it('discovery list issues one journal query when many expired rows exist', async () => {
@@ -417,7 +430,7 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     }).expect(200);
 
     const oldMs = Date.now() - GUARDED_PRICE_RETENTION_MS - 60_000;
-    const rawSpy = jest.spyOn(prisma, '$queryRaw');
+    const findManySpy = jest.spyOn(prisma.inventoryPriceOperation, 'findMany');
     const bulk = Array.from({ length: 120 }, (_, i) => ({
       tenant_id: tenantId,
       principal_id: principal,
@@ -437,23 +450,28 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     const list = await listOperations().expect(200);
     expect(list.body.data).toHaveLength(1);
     expect(list.body.data[0].key).toBe(visibleKey);
-    expect(journalQueries(rawSpy)).toHaveLength(1);
-    rawSpy.mockRestore();
+    expect(findManySpy).toHaveBeenCalledTimes(1);
+    findManySpy.mockRestore();
   });
 
-  it('discovery list uses catalog semi-join and does not load catalog ids into Node', async () => {
+  it('discovery list checks only the scanned item ids against the catalog', async () => {
+    const item = await seedItem(10, 'SCANNED');
+    await seedItem(10, 'UNRELATED');
+    await guardedPatch(item.id, operationKey('c001'), {
+      retail_price: 12,
+      expectedRevision: revisionFromDb(item.revision),
+    }).expect(200);
     const catalogFindManySpy = jest.spyOn(prisma.catalogItem, 'findMany');
-    const rawSpy = jest.spyOn(prisma, '$queryRaw');
 
     await listOperations().expect(200);
 
-    expect(catalogFindManySpy).not.toHaveBeenCalled();
-    const queries = journalQueries(rawSpy);
-    expect(queries).toHaveLength(1);
-    expect(queries[0]).toMatch(/EXISTS \(\s*SELECT 1 FROM catalog_items/);
-
+    expect(catalogFindManySpy).toHaveBeenCalledTimes(1);
+    const where = catalogFindManySpy.mock.calls[0]?.[0]?.where as {
+      tenant_id: string;
+      id: { in: string[] };
+    };
+    expect(where).toEqual({ tenant_id: tenantId, id: { in: [item.id] } });
     catalogFindManySpy.mockRestore();
-    rawSpy.mockRestore();
   });
 
   it('discovery omits final rows past retention', async () => {
@@ -483,23 +501,26 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     await getOperation(key).expect(404);
   });
 
-  it('SALES gets 403 on list, get, and fence', async () => {
-    const salesBearer = await createMemberBearer(
-      prisma,
-      app.get(AuthService),
-      testTenant,
-      'SALES',
-    );
-    const key = operationKey('4031');
-    await listOperations(salesBearer).expect(403);
-    await getOperation(key, salesBearer).expect(403);
-    const item = await seedItem();
-    await postFence(
-      key,
-      fenceBody(item.id, 10, revisionFromDb(item.revision)),
-      salesBearer,
-    ).expect(403);
-  });
+  it.each(['SALES', 'TECH', 'DEMO'] as const)(
+    '%s gets 403 on list, get, and fence',
+    async (role) => {
+      const salesBearer = await createMemberBearer(
+        prisma,
+        app.get(AuthService),
+        testTenant,
+        role,
+      );
+      const key = operationKey('4031');
+      await listOperations(salesBearer).expect(403);
+      await getOperation(key, salesBearer).expect(403);
+      const item = await seedItem();
+      await postFence(
+        key,
+        fenceBody(item.id, 10, revisionFromDb(item.revision)),
+        salesBearer,
+      ).expect(403);
+    },
+  );
 
   it('in-lease fence returns 409 without holding Tx-E', async () => {
     const item = await seedItem();
@@ -516,9 +537,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
 
     const fenceRes = await postFence(key, intent).expect(409);
     expect(fenceRes.body.code).toBe('OPERATION_UNRESOLVED');
-    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
-      where: { key },
-    });
+    const journal =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(journal.state).toBe(InventoryPriceOperationState.ACCEPTED);
   });
 
@@ -540,9 +562,10 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       new Date(Date.now() - 3 * 60 * 1000),
     );
 
-    const fenceRes = await postFence(key, fenceBody(item.id, 13, revision)).expect(
-      200,
-    );
+    const fenceRes = await postFence(
+      key,
+      fenceBody(item.id, 13, revision),
+    ).expect(200);
     expect(fenceRes.body.state).toBe(InventoryPriceOperationState.FENCED);
   });
 
@@ -555,14 +578,16 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       expectedRevision: revision,
     }).expect(200);
 
-    const res = await postFence(key, fenceBody(item.id, 99, revision)).expect(422);
+    const res = await postFence(key, fenceBody(item.id, 99, revision)).expect(
+      422,
+    );
     expect(res.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
-    const journal = await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
-      where: { key },
-    });
+    const journal =
+      await tenantPrisma().inventoryPriceOperation.findFirstOrThrow({
+        where: { key },
+      });
     expect(journal.state).toBe(InventoryPriceOperationState.APPLIED);
   });
-
 
   it('discovery keyset returns fifty operations per page', async () => {
     const anchor = Date.now();
@@ -581,7 +606,9 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
     expect(page1.body.data).toHaveLength(50);
     expect(page1.body.meta.hasNextPage).toBe(true);
     expect(page1.body.meta.nextCursor).toBeTruthy();
-    const page1Keys = new Set(page1.body.data.map((row: { key: string }) => row.key));
+    const page1Keys = new Set(
+      page1.body.data.map((row: { key: string }) => row.key),
+    );
 
     const page2 = await listOperations(
       undefined,
@@ -626,22 +653,11 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
       }).expect(200);
     }
 
-    const page1 = await listOperations().expect(200);
-    expect(page1.body.data).toHaveLength(50);
-    expect(page1.body.meta.hasNextPage).toBe(true);
-
-    const page2 = await listOperations(
-      undefined,
-      page1.body.meta.nextCursor,
-    ).expect(200);
-    expect(page2.body.data).toHaveLength(16);
-    expect(page2.body.meta.hasNextPage).toBe(false);
-
-    const listedKeys = [
-      ...page1.body.data.map((row: { key: string }) => row.key),
-      ...page2.body.data.map((row: { key: string }) => row.key),
-    ].sort();
-    expect(listedKeys).toEqual([...visibleKeys].sort());
+    // Visible rows are accepted now, so they sort before the older ghosts. Ghosts in
+    // the scan window shorten page 2 and fill page 3, but never hide a visible row.
+    const pages = await listAllPages();
+    expect(pages.map((page) => page.length)).toEqual([50, 16, 0]);
+    expect(pages.flat().sort()).toEqual([...visibleKeys].sort());
   });
 
   it('rejects invalid discovery cursor with 400', async () => {
