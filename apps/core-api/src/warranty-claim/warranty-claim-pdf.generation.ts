@@ -38,12 +38,13 @@ export const clearWarrantyClaimPdfArchiveData = () =>
     pdf_storage_bucket: null,
     pdf_storage_key: null,
     pdf_generated_at: null,
+    pdf_source_updated_at: null,
     pdf_generation_error: null,
   }) as const;
 
 export const isWarrantyClaimPdfArchiveStale = (params: {
   claimUpdatedAt: Date;
-  pdfGeneratedAt: Date | null;
+  pdfSourceUpdatedAt: Date | null;
 }): boolean =>
-  params.pdfGeneratedAt === null ||
-  params.claimUpdatedAt.getTime() > params.pdfGeneratedAt.getTime();
+  params.pdfSourceUpdatedAt === null ||
+  params.claimUpdatedAt.getTime() > params.pdfSourceUpdatedAt.getTime();

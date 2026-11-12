@@ -47,6 +47,7 @@ function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
     closedAt: null,
     createdAt: "2026-10-09T10:00:00.000Z",
     updatedAt: "2026-10-10T08:00:00.000Z",
+    pdfGenerationError: null,
     lines: [laborLine],
     ...overrides,
   };

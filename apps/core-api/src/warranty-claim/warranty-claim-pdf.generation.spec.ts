@@ -39,13 +39,13 @@ describe('warranty-claim-pdf.generation', () => {
     expect(
       isWarrantyClaimPdfArchiveStale({
         claimUpdatedAt: new Date('2026-11-12T12:00:00.000Z'),
-        pdfGeneratedAt: new Date('2026-11-12T10:00:00.000Z'),
+        pdfSourceUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
       }),
     ).toBe(true);
     expect(
       isWarrantyClaimPdfArchiveStale({
         claimUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
-        pdfGeneratedAt: new Date('2026-11-12T10:00:00.000Z'),
+        pdfSourceUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
       }),
     ).toBe(false);
   });

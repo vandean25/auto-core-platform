@@ -9,6 +9,8 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe, GlobalExceptionFilter } from '../src/common/index.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { CloudTasksService } from '../src/common/services/cloud-tasks.service.js';
+import { PlaywrightBrowserService } from '../src/common/services/playwright-browser.service.js';
+import { signPdfTaskPayload } from '../src/common/pdf/pdf-task-payload.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -1138,6 +1140,55 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
         .set('Authorization', `Bearer ${mechanicToken}`)
         .expect(403);
+    });
+
+    it('does not launch a browser for user PDF enqueue when Cloud Tasks handles rendering', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+      process.env.CLOUD_TASKS_TARGET_BASE_URL =
+        process.env.CLOUD_TASKS_TARGET_BASE_URL ?? 'http://127.0.0.1:3000/api';
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const browserService = app.get(PlaywrightBrowserService);
+      const getBrowserSpy = jest.spyOn(browserService, 'getBrowser');
+
+      const cloudTasks = app.get(CloudTasksService);
+      jest.spyOn(cloudTasks, 'isEnabled').mockReturnValue(true);
+      jest
+        .spyOn(cloudTasks, 'enqueuePdfGeneration')
+        .mockImplementation(async () => ({ taskId: 'task-warranty-claim-1' }));
+
+      try {
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(201);
+
+        expect(getBrowserSpy).not.toHaveBeenCalled();
+
+        await request(app.getHttpServer())
+          .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(404);
+
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(204);
+
+        expect(getBrowserSpy).toHaveBeenCalled();
+      } finally {
+        getBrowserSpy.mockRestore();
+      }
     });
   });
 });

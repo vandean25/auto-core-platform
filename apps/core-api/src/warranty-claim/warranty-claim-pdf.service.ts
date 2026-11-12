@@ -195,6 +195,7 @@ export class WarrantyClaimPdfService {
             tenantId,
             upload,
             generatedAt,
+            claim.updatedAt,
           );
 
           return {
@@ -309,6 +310,7 @@ export class WarrantyClaimPdfService {
         pdf_storage_bucket: true,
         pdf_storage_key: true,
         pdf_generated_at: true,
+        pdf_source_updated_at: true,
         pdf_generation_error: true,
         updatedAt: true,
         workshop_order: { select: { order_number: true } },
@@ -450,6 +452,7 @@ export class WarrantyClaimPdfService {
     pdf_storage_bucket: string | null;
     pdf_storage_key: string | null;
     pdf_generated_at: Date | null;
+    pdf_source_updated_at: Date | null;
     pdf_generation_error?: string | null;
   }): CachedWarrantyClaimPdfMetadata | null {
     const cached = readCachedWarrantyClaimPdfMetadata(claim);
@@ -459,7 +462,7 @@ export class WarrantyClaimPdfService {
     if (
       isWarrantyClaimPdfArchiveStale({
         claimUpdatedAt: claim.updatedAt,
-        pdfGeneratedAt: claim.pdf_generated_at,
+        pdfSourceUpdatedAt: claim.pdf_source_updated_at,
       })
     ) {
       return null;
@@ -475,6 +478,7 @@ export class WarrantyClaimPdfService {
       pdf_storage_bucket: string | null;
       pdf_storage_key: string | null;
       pdf_generated_at: Date | null;
+      pdf_source_updated_at: Date | null;
       pdf_generation_error?: string | null;
     },
   ): Promise<CachedWarrantyClaimPdfMetadata | null> {
@@ -509,6 +513,7 @@ export class WarrantyClaimPdfService {
     tenantId: string,
     upload: { bucket: string; key: string },
     generatedAt: Date,
+    sourceUpdatedAt: Date,
   ) {
     const bucket = upload.bucket || resolvePdfStorageBucket();
     const result = await this.prisma.warrantyClaim.updateMany({
@@ -521,6 +526,7 @@ export class WarrantyClaimPdfService {
         pdf_storage_bucket: bucket,
         pdf_storage_key: upload.key,
         pdf_generated_at: generatedAt,
+        pdf_source_updated_at: sourceUpdatedAt,
         pdf_generation_error: null,
       },
     });
@@ -529,6 +535,15 @@ export class WarrantyClaimPdfService {
         `Warranty claim ${claimId} was not found for PDF metadata persistence`,
       );
     }
+
+    // PDF metadata updates bump @updatedAt; align source watermark so the archive stays fresh.
+    await this.prisma.$executeRaw`
+      UPDATE warranty_claims
+      SET pdf_source_updated_at = "updatedAt"
+      WHERE id = ${claimId}
+        AND tenant_id = ${tenantId}
+        AND workshop_order_id = ${orderId}
+    `;
   }
 
   private async clearGenerationError(

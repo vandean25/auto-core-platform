@@ -5642,10 +5642,11 @@ model WarrantyClaim {
   closed_at          DateTime?
   lines              WarrantyClaimLine[]
 
-  pdf_storage_bucket   String?
-  pdf_storage_key      String?
-  pdf_generated_at     DateTime?
-  pdf_generation_error String?
+  pdf_storage_bucket      String?
+  pdf_storage_key         String?
+  pdf_generated_at        DateTime?
+  pdf_source_updated_at   DateTime?
+  pdf_generation_error    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
