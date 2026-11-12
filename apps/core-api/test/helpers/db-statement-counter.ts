@@ -14,13 +14,24 @@ function statementSql(call: unknown[]): string {
   return typeof text === 'string' ? text : '';
 }
 
-async function collectStatements(
+/** One SQL statement and the pg `Client` (connection) that sent it. */
+export type CapturedStatement = { sql: string; connection: unknown };
+
+/**
+ * Returns every SQL statement the pg driver sends while `action` runs, with the connection that sent it.
+ * The spy is process-wide, so it also sees other work in the same Jest process; callers that need one
+ * request's statements filter by connection.
+ */
+export async function collectDbStatements(
   action: () => Promise<unknown>,
-): Promise<string[]> {
+): Promise<CapturedStatement[]> {
   const spy = jest.spyOn(Client.prototype, 'query');
   try {
     await action();
-    return spy.mock.calls.map(statementSql);
+    return spy.mock.calls.map((call, index) => ({
+      sql: statementSql(call),
+      connection: spy.mock.contexts[index],
+    }));
   } finally {
     spy.mockRestore();
   }
@@ -34,14 +45,7 @@ async function collectStatements(
 export async function countDbStatements(
   action: () => Promise<unknown>,
 ): Promise<number> {
-  return (await collectStatements(action)).length;
-}
-
-/** Test-only: returns captured SQL while `action` runs (for diagnosing flaky counts). */
-export async function collectDbStatementsForTest(
-  action: () => Promise<unknown>,
-): Promise<string[]> {
-  return collectStatements(action);
+  return (await collectDbStatements(action)).length;
 }
 
 export type FailedAuditInsertRun<T> = {

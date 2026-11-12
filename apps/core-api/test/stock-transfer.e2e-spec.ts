@@ -212,7 +212,7 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       Math.max(...quantities),
     );
     const statements = (send: () => Promise<{ status: number }>) =>
-      countStockTransferActionStatements(action, async () => {
+      countStockTransferActionStatements(async () => {
         expect((await send()).status).toBeLessThan(300);
       });
 
@@ -598,8 +598,14 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
   // quantity is distinct - its existing 2-vs-10 S1 case is the guard there.
   // AUT-909 adds exactly one constant statement per action: the response read
   // resolves line bins in a single StorageLocation query (write-path reads stay bin-free).
-  // Statement counts use BEGIN..COMMIT (+ transfer response tail) only so auth/tenant
-  // lookups and in-flight SQL from other suites are not included (global pg spy flake).
+  // Statement counts are the action's own transaction, BEGIN..COMMIT on the
+  // connection that ran it (stockTransferTransactionStatements), so auth/tenant
+  // lookups and SQL other work sends on other connections of this Jest process
+  // are not included (the pg spy is process-wide). The bounds are unchanged from
+  // the earlier BEGIN..COMMIT + response-tail window: every write and the
+  // response read (attachLineBins / settleAndStoreCommand) run on `tx`, and the
+  // only post-commit read is the realtime recipient lookup on site_memberships,
+  // which that tail never matched.
   const DISTINCT_QUANTITY_BOUND = {
     approve: { equalQuantityStatements: 15, groupsPerExtraQuantity: 1 },
     ship: { equalQuantityStatements: 28, groupsPerExtraQuantity: 2 },
