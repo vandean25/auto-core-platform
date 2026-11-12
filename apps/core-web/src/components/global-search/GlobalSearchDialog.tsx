@@ -22,6 +22,7 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import { canUseWorkshopCommand } from '@/features/actions/action-role-predicates'
 import { WorkshopCommandPanel } from '@/features/workshop-command/WorkshopCommandPanel'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { prefetchMainListRoute, prefetchPermittedMainListRoutes } from '@/app/route-chunk-prefetch'
 
 const GLOBAL_SEARCH_LAZY_NAMESPACES = ['settings', 'workshop', 'customers', 'vehicles', 'sales'] as const
 import { GlobalSearchContextActionGroup } from './GlobalSearchContextActionGroup'
@@ -203,17 +204,19 @@ function PaletteActionGroups({
   sections,
   manageSection,
   openHref,
+  onPrefetch,
   runContextAction,
 }: {
   sections: ReturnType<typeof getPaletteSections>
   manageSection: PaletteContextActionSection | null
   openHref: (href: string) => void
+  onPrefetch?: (href: string) => void
   runContextAction: (action: PaletteContextAction) => void
 }) {
   return (
     <>
       {sections.map((section) => (
-        <QuickActionGroup key={section.heading} section={section} onSelect={openHref} />
+        <QuickActionGroup key={section.heading} section={section} onSelect={openHref} onPrefetch={onPrefetch} />
       ))}
       {manageSection ? <GlobalSearchContextActionGroup section={manageSection} onSelect={runContextAction} /> : null}
     </>
@@ -299,6 +302,7 @@ function SearchPaletteBody({
   recent,
   openItem,
   openHref,
+  onPrefetch,
   onOpenCommand,
 }: {
   query: string
@@ -316,6 +320,7 @@ function SearchPaletteBody({
   recent: ReturnType<typeof useRecentItems>
   openItem: (item: RecentSearchItem) => void
   openHref: (href: string) => void
+  onPrefetch?: (href: string) => void
   onOpenCommand: () => void
 }) {
   return (
@@ -339,6 +344,7 @@ function SearchPaletteBody({
             sections={sections}
             manageSection={savedViewManageSection}
             openHref={openHref}
+            onPrefetch={onPrefetch}
             runContextAction={subPage.runContextAction}
           />
         </>
@@ -365,6 +371,12 @@ function SearchPalette({
   const sites = useMySites().data ?? []
   const { groups, isLoading, error } = useGlobalSearch(search)
   const recent = useRecentItems(sessionMeta.recentKey, open)
+
+  React.useEffect(() => {
+    if (open && sessionMeta.roleInfo) {
+      prefetchPermittedMainListRoutes(sessionMeta.roleInfo)
+    }
+  }, [open, sessionMeta.roleInfo])
 
   const query = search.trim()
   const paletteContext = useGlobalSearchPaletteContext(open, query)
@@ -442,6 +454,11 @@ function SearchPalette({
           recent={recent}
           openItem={openItem}
           openHref={openHref}
+          onPrefetch={(href) => {
+            if (sessionMeta.roleInfo) {
+              prefetchMainListRoute(href, sessionMeta.roleInfo)
+            }
+          }}
           onOpenCommand={onOpenCommand}
         />
       </CommandList>

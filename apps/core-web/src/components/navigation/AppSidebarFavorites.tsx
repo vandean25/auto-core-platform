@@ -3,11 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { Star, X } from 'lucide-react'
 import { SidebarMenu, SidebarMenuAction } from '@/components/ui/sidebar'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { prefetchMainListRoute } from '@/app/route-chunk-prefetch'
+import type { NavAccessContext } from './nav-config'
 import { NavGroupShell, SidebarNavItem } from './NavGroupMenu'
 import { normalizePathWithQuery } from './app-sidebar-path'
 
 /** Saved table views, kept in a group of their own below the navigation. */
-export function AppSidebarFavorites({ showPickerl }: { showPickerl: boolean }) {
+export function AppSidebarFavorites({
+  showPickerl,
+  accessContext,
+}: {
+  showPickerl: boolean
+  accessContext?: NavAccessContext
+}) {
   const { t } = useTranslation('nav')
   const location = useLocation()
   const { savedViews: allSavedViews, removeSavedView } = useSavedViews()
@@ -33,6 +41,7 @@ export function AppSidebarFavorites({ showPickerl }: { showPickerl: boolean }) {
               label={view.name}
               active={view.href === currentPathWithQuery}
               icon={<Star aria-hidden="true" />}
+              onPrefetch={accessContext ? () => prefetchMainListRoute(view.href, accessContext) : undefined}
               action={
                 <SidebarMenuAction
                   showOnHover

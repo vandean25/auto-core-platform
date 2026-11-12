@@ -11,7 +11,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import type { NavGroup } from './nav-config'
+import { prefetchMainListRoute } from '@/app/route-chunk-prefetch'
+import type { NavAccessContext, NavGroup } from './nav-config'
 import { useSidebarGroupOpen } from './sidebar-state'
 
 /**
@@ -76,16 +77,22 @@ type SidebarNavItemProps = {
   icon: ReactNode
   /** Sits beside the link, for example a remove button. */
   action?: ReactNode
+  onPrefetch?: () => void
 }
 
 /** A link in the sidebar. It marks the current page and closes the mobile sheet after a click. */
-export function SidebarNavItem({ to, label, active, icon, action }: SidebarNavItemProps) {
+export function SidebarNavItem({ to, label, active, icon, action, onPrefetch }: SidebarNavItemProps) {
   const { setOpenMobile } = useSidebar()
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={label} onClick={() => setOpenMobile(false)}>
-        <Link to={to} aria-current={active ? 'page' : undefined}>
+        <Link
+          to={to}
+          aria-current={active ? 'page' : undefined}
+          onPointerEnter={onPrefetch}
+          onFocus={onPrefetch}
+        >
           {icon}
           <span>{label}</span>
         </Link>
@@ -97,10 +104,11 @@ export function SidebarNavItem({ to, label, active, icon, action }: SidebarNavIt
 
 type NavGroupMenuProps = {
   group: NavGroup
+  accessContext?: NavAccessContext
 }
 
 /** One group of the navigation, with a link for each visible entry. */
-export function NavGroupMenu({ group }: NavGroupMenuProps) {
+export function NavGroupMenu({ group, accessContext }: NavGroupMenuProps) {
   const { t } = useTranslation('nav')
   const location = useLocation()
   const isItemActive = (item: NavGroup['items'][number]) => item.isActive(location.pathname, location.search)
@@ -117,6 +125,7 @@ export function NavGroupMenu({ group }: NavGroupMenuProps) {
               label={t(item.labelKey)}
               active={isItemActive(item)}
               icon={<Icon />}
+              onPrefetch={accessContext ? () => prefetchMainListRoute(item.to, accessContext) : undefined}
             />
           )
         })}

@@ -4,9 +4,10 @@ import type { QuickActionSection } from './global-search-quick-actions'
 interface QuickActionGroupProps {
   section: QuickActionSection
   onSelect: (href: string) => void
+  onPrefetch?: (href: string) => void
 }
 
-export function QuickActionGroup({ section, onSelect }: QuickActionGroupProps) {
+export function QuickActionGroup({ section, onSelect, onPrefetch }: QuickActionGroupProps) {
   return (
     <CommandGroup heading={section.heading}>
       {section.items.map((action) => {
@@ -17,6 +18,8 @@ export function QuickActionGroup({ section, onSelect }: QuickActionGroupProps) {
             key={action.href}
             value={`${action.href} ${action.label}`}
             onSelect={() => onSelect(action.href)}
+            onPointerEnter={onPrefetch ? () => onPrefetch(action.href) : undefined}
+            onFocus={onPrefetch ? () => onPrefetch(action.href) : undefined}
           >
             <Icon aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />
             <div className="flex min-w-0 flex-1 flex-col">
