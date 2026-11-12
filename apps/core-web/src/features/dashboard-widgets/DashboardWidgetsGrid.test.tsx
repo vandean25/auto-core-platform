@@ -267,7 +267,7 @@ describe('DashboardWidgetsGrid built-in widget titles (AUT-970)', () => {
 
     await waitFor(() => expect(screen.getByText('Fahrzeuge Liste')).toBeInTheDocument())
     expect(screen.getByText('Fahrzeuge Gesamt')).toBeInTheDocument()
-    expect(screen.getByText('Fahrzeuge Donut')).toBeInTheDocument()
+    expect(screen.getByText('Fahrzeuge Donut-Diagramm')).toBeInTheDocument()
     expect(screen.queryByText('Vehicles List')).not.toBeInTheDocument()
   })
 })

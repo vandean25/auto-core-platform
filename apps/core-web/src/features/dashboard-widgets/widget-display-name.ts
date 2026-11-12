@@ -1,8 +1,12 @@
 import type { TFunction } from 'i18next'
 import deCommon from '../../../../../locales/de/common.json' with { type: 'json' }
 import enCommon from '../../../../../locales/en/common.json' with { type: 'json' }
-import type { DashboardWidgetTableSource } from './types'
-import type { DashboardWidget } from './types'
+import type {
+  DashboardWidget,
+  DashboardWidgetDisplayType,
+  DashboardWidgetMetricCalculation,
+  DashboardWidgetTableSource,
+} from './types'
 
 type BuiltInTitleVariant = 'list' | 'donut' | 'metricCount' | 'metricSum' | 'legacyWidget'
 
@@ -14,7 +18,7 @@ type BuiltInSuffixRule = {
 const BUILTIN_SUFFIX_RULES: BuiltInSuffixRule[] = [
   { variant: 'list', suffixes: ['List', 'Liste'] },
   { variant: 'donut', suffixes: ['Donut', 'Donut chart', 'Donut-Diagramm'] },
-  { variant: 'metricCount', suffixes: ['Total', 'Metric', 'Metric card', 'Kennzahl'] },
+  { variant: 'metricCount', suffixes: ['Total', 'Metric', 'Metric card', 'Kennzahl', 'Gesamt'] },
   { variant: 'metricSum', suffixes: ['Sum', 'Summe'] },
   { variant: 'legacyWidget', suffixes: ['Widget', 'widget'] },
 ]
@@ -81,6 +85,15 @@ function resolveVariantForLegacyWidget(
     return 'donut'
   }
   return 'list'
+}
+
+export function defaultBuiltInWidgetTitleKey(
+  displayType: DashboardWidgetDisplayType,
+  metricCalculation?: DashboardWidgetMetricCalculation,
+): BuiltInTitleKey {
+  return BUILTIN_TITLE_KEY[
+    resolveVariantForLegacyWidget({ displayType, metricCalculation } as DashboardWidget)
+  ]
 }
 
 function builtInTitleKey(variant: BuiltInTitleVariant, widget: DashboardWidget): BuiltInTitleKey {

@@ -125,7 +125,7 @@
     "defaultWidgetName": "{{sourceLabel}} Widget",
     "builtInWidgetTitle": {
       "list": "{{sourceLabel}} Liste",
-      "donut": "{{sourceLabel}} Donut",
+      "donut": "{{sourceLabel}} Donut-Diagramm",
       "metricCount": "{{sourceLabel}} Gesamt",
       "metricSum": "{{sourceLabel}} Summe"
     },

@@ -73,6 +73,6 @@ describe('AddToDashboardButton', () => {
     fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByLabelText('Widget-Name')).toHaveValue('Kunden Widget')
+    expect(within(dialog).getByLabelText('Widget-Name')).toHaveValue('Kunden Liste')
   })
 })
