@@ -4,6 +4,8 @@ import { InventoryPriceOperationState } from '@prisma/client';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
+import { grantDemoSignIn } from './helpers/demo-sign-in-grant.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
@@ -504,21 +506,33 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
   it.each(['SALES', 'TECH', 'DEMO'] as const)(
     '%s gets 403 on list, get, and fence',
     async (role) => {
-      const salesBearer = await createMemberBearer(
+      const bearer = await createMemberBearer(
         prisma,
         app.get(AuthService),
         testTenant,
         role,
       );
-      const key = operationKey('4031');
-      await listOperations(salesBearer).expect(403);
-      await getOperation(key, salesBearer).expect(403);
-      const item = await seedItem();
-      await postFence(
-        key,
-        fenceBody(item.id, 10, revisionFromDb(item.revision)),
-        salesBearer,
-      ).expect(403);
+      const revokeDemo =
+        role === 'DEMO'
+          ? await grantDemoSignIn(
+              app.get(SystemPrismaService),
+              prisma,
+              `e2e-demo-${tenantId}`,
+            )
+          : null;
+      try {
+        const key = operationKey('4031');
+        await listOperations(bearer).expect(403);
+        await getOperation(key, bearer).expect(403);
+        const item = await seedItem();
+        await postFence(
+          key,
+          fenceBody(item.id, 10, revisionFromDb(item.revision)),
+          bearer,
+        ).expect(403);
+      } finally {
+        await revokeDemo?.();
+      }
     },
   );
 
