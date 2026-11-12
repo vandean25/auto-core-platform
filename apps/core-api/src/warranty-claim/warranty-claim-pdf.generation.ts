@@ -44,15 +44,36 @@ export const clearWarrantyClaimPdfArchiveData = () =>
 /** Same grace window as workshop order PDFs (metadata writes bump `updatedAt`). */
 export const WARRANTY_CLAIM_PDF_ARCHIVE_GRACE_MS = 2000;
 
-export const isWarrantyClaimPdfArchiveStale = (params: {
+export type WarrantyClaimPdfHeaderTimestamps = {
   claimUpdatedAt: Date;
-  pdfGeneratedAt: Date | null;
-}): boolean => {
+  orderUpdatedAt: Date;
+  vehicleUpdatedAt: Date;
+  legalEntityUpdatedAt: Date;
+};
+
+export const latestWarrantyClaimPdfSourceChange = (
+  sources: WarrantyClaimPdfHeaderTimestamps,
+): Date =>
+  new Date(
+    Math.max(
+      sources.claimUpdatedAt.getTime(),
+      sources.orderUpdatedAt.getTime(),
+      sources.vehicleUpdatedAt.getTime(),
+      sources.legalEntityUpdatedAt.getTime(),
+    ),
+  );
+
+export const isWarrantyClaimPdfArchiveStale = (
+  params: {
+    pdfGeneratedAt: Date | null;
+  } & WarrantyClaimPdfHeaderTimestamps,
+): boolean => {
   if (!params.pdfGeneratedAt) {
     return true;
   }
+  const latestChange = latestWarrantyClaimPdfSourceChange(params);
   return (
     params.pdfGeneratedAt.getTime() <=
-    params.claimUpdatedAt.getTime() - WARRANTY_CLAIM_PDF_ARCHIVE_GRACE_MS
+    latestChange.getTime() - WARRANTY_CLAIM_PDF_ARCHIVE_GRACE_MS
   );
 };

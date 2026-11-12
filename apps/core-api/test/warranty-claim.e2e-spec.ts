@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import {
   INestApplication,
+  InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -1156,8 +1157,40 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         .expect(403);
     });
 
+    it('regenerates the PDF when the workshop order odometer changes after printing', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const firstBody = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+      const firstText = await readPdfText(firstBody);
+      expect(firstText).toContain('84.210 km');
+
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+
+      await prisma.workshopOrder.update({
+        where: { id: fixture.orderId },
+        data: { odometer: 120_500 },
+      });
+
+      const secondBody = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+      const secondText = await readPdfText(secondBody);
+      expect(secondText).toContain('120.500 km');
+      expect(secondText).not.toContain('84.210 km');
+    });
+
     it('stores pdf_generation_error when the worker hits a non-retryable build failure', async () => {
       const workerSecret = 'warranty-claim-e2e-worker-secret';
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
       process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
 
       const fixture = await seedOrder();
@@ -1194,6 +1227,52 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         );
       } finally {
         renderSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
+      }
+    });
+
+    it('does not store pdf_generation_error when the worker hits a retryable render failure', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const renderer = app.get(WarrantyClaimPdfRenderer);
+      const renderSpy = jest.spyOn(renderer, 'render').mockRejectedValue(
+        new InternalServerErrorException('Playwright browser crashed'),
+      );
+
+      try {
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(500);
+
+        const stored = await prisma.warrantyClaim.findFirstOrThrow({
+          where: { id: claimId, tenant_id: tenant.tenantId },
+          select: { pdf_generation_error: true },
+        });
+        expect(stored.pdf_generation_error).toBeNull();
+      } finally {
+        renderSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
       }
     });
 

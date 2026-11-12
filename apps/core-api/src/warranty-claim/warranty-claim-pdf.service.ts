@@ -217,12 +217,14 @@ export class WarrantyClaimPdfService {
               operation: 'pdf.generate',
             },
           });
-          await this.safeStoreGenerationError(
-            orderId,
-            claimId,
-            message,
-            tenantId,
-          );
+          if (this.isNonRetryablePdfGenerationFailure(error)) {
+            await this.safeStoreGenerationError(
+              orderId,
+              claimId,
+              message,
+              tenantId,
+            );
+          }
           throw error;
         }
       },
@@ -311,17 +313,39 @@ export class WarrantyClaimPdfService {
         pdf_generated_at: true,
         pdf_generation_error: true,
         updatedAt: true,
-        workshop_order: { select: { order_number: true } },
+        workshop_order: {
+          select: {
+            order_number: true,
+            updatedAt: true,
+            vehicle: { select: { updatedAt: true } },
+            site: {
+              select: {
+                legal_entity: { select: { updatedAt: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!claim) {
       throw new NotFoundException(`Warranty claim ${claimId} not found`);
     }
+    const order = claim.workshop_order;
     return {
       tenantId,
       claim: {
-        ...claim,
-        order_number: claim.workshop_order.order_number,
+        id: claim.id,
+        type: claim.type,
+        pdf_storage_bucket: claim.pdf_storage_bucket,
+        pdf_storage_key: claim.pdf_storage_key,
+        pdf_generated_at: claim.pdf_generated_at,
+        pdf_generation_error: claim.pdf_generation_error,
+        updatedAt: claim.updatedAt,
+        order_number: order.order_number,
+        orderUpdatedAt: order.updatedAt,
+        vehicleUpdatedAt: order.vehicle.updatedAt,
+        legalEntityUpdatedAt:
+          order.site?.legal_entity?.updatedAt ?? new Date(0),
       },
     };
   }
@@ -475,6 +499,9 @@ export class WarrantyClaimPdfService {
 
   private readFreshCachedMetadata(claim: {
     updatedAt: Date;
+    orderUpdatedAt: Date;
+    vehicleUpdatedAt: Date;
+    legalEntityUpdatedAt: Date;
     pdf_storage_bucket: string | null;
     pdf_storage_key: string | null;
     pdf_generated_at: Date | null;
@@ -487,6 +514,9 @@ export class WarrantyClaimPdfService {
     if (
       isWarrantyClaimPdfArchiveStale({
         claimUpdatedAt: claim.updatedAt,
+        orderUpdatedAt: claim.orderUpdatedAt,
+        vehicleUpdatedAt: claim.vehicleUpdatedAt,
+        legalEntityUpdatedAt: claim.legalEntityUpdatedAt,
         pdfGeneratedAt: claim.pdf_generated_at,
       })
     ) {
@@ -500,6 +530,9 @@ export class WarrantyClaimPdfService {
     tenantId: string,
     claim: {
       updatedAt: Date;
+      orderUpdatedAt: Date;
+      vehicleUpdatedAt: Date;
+      legalEntityUpdatedAt: Date;
       pdf_storage_bucket: string | null;
       pdf_storage_key: string | null;
       pdf_generated_at: Date | null;
@@ -572,6 +605,10 @@ export class WarrantyClaimPdfService {
       },
       data: { pdf_generation_error: null },
     });
+  }
+
+  private isNonRetryablePdfGenerationFailure(error: unknown): boolean {
+    return error instanceof HttpException && error.getStatus() < 500;
   }
 
   private pdfGenerationErrorMessage(error: unknown): string {
