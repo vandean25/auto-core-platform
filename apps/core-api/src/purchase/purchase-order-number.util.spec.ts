@@ -54,23 +54,32 @@ describe('purchase order number helpers', () => {
     });
   });
 
-  it('seeds the sequence from the latest order suffix when the row is missing', async () => {
-    const create = jest.fn().mockResolvedValue({});
+  it('seeds a missing sequence row without a unique violation and only raises the counter', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 1 });
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
     const tx = {
       site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
       purchaseOrder: {
-        findFirst: jest.fn().mockResolvedValue({ order_number: 'PO-2026-7834' }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ order_number: 'PO-2026-7834' }),
       },
       purchaseOrderSequence: {
         findFirst: jest.fn().mockResolvedValue(null),
-        create,
+        createMany,
+        updateMany,
       },
     };
 
     await ensurePurchaseOrderSequenceRowForYear(tx as never, 'tenant-1', 2026);
 
-    expect(create).toHaveBeenCalledWith({
-      data: { tenant_id: 'tenant-1', year: 2026, current: 7834 },
+    expect(createMany).toHaveBeenCalledWith({
+      data: [{ tenant_id: 'tenant-1', year: 2026, current: 7834 }],
+      skipDuplicates: true,
+    });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-1', year: 2026, current: { lt: 7834 } },
+      data: { current: 7834 },
     });
   });
 
@@ -102,26 +111,34 @@ describe('purchase order number helpers', () => {
           });
         }
         used.add(data.order_number);
-        return Promise.resolve({ id: 'po-new', order_number: data.order_number });
+        return Promise.resolve({
+          id: 'po-new',
+          order_number: data.order_number,
+        });
       }),
     };
     const purchaseOrderSequence = {
       findFirst: jest.fn().mockImplementation(async () => ({ current })),
-      upsert: jest.fn().mockImplementation(
-        async (args: {
-          update?: { current?: number | { increment: number } };
-          create?: { current: number };
-        }) => {
-          if (args.update?.current && typeof args.update.current === 'object') {
-            current += args.update.current.increment;
-          } else if (typeof args.update?.current === 'number') {
-            current = args.update.current;
-          } else if (args.create) {
-            current = args.create.current;
-          }
-          return { current };
-        },
-      ),
+      upsert: jest
+        .fn()
+        .mockImplementation(
+          async (args: {
+            update?: { current?: number | { increment: number } };
+            create?: { current: number };
+          }) => {
+            if (
+              args.update?.current &&
+              typeof args.update.current === 'object'
+            ) {
+              current += args.update.current.increment;
+            } else if (typeof args.update?.current === 'number') {
+              current = args.update.current;
+            } else if (args.create) {
+              current = args.create.current;
+            }
+            return { current };
+          },
+        ),
     };
     const tx = {
       site: { findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]) },
@@ -139,9 +156,7 @@ describe('purchase order number helpers', () => {
 
     expect(created.order_number).toBe('PO-2026-0006');
     expect(purchaseOrder.create).toHaveBeenCalledTimes(2);
-    expect(purchaseOrder.create.mock.calls[0][0].data.order_number).toBe(
-      taken,
-    );
+    expect(purchaseOrder.create.mock.calls[0][0].data.order_number).toBe(taken);
     expect(used).toContain('PO-2026-0006');
   });
 

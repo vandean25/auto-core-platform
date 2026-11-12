@@ -22,6 +22,7 @@ import {
   IMPORT_SOURCE,
 } from '../src/import/import.constants.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { waitForBlockedLock } from './helpers/pg-lock-wait.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
@@ -1281,22 +1282,6 @@ describe('Import Undo (e2e)', () => {
     ).toEqual([]);
   });
 
-  /** True once some backend waits for a row lock, so the claim is queued behind the holder. */
-  async function waitForBlockedRowLock(): Promise<void> {
-    for (let poll = 0; poll < 400; poll += 1) {
-      const waiting = await prisma.$queryRaw<Array<{ waiting: number }>>`
-        SELECT count(*)::int AS waiting
-        FROM pg_locks blocked
-        JOIN pg_stat_activity backend ON backend.pid = blocked.pid
-        WHERE NOT blocked.granted AND backend.datname = current_database()`;
-      if (waiting[0].waiting > 0) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    throw new Error('the claim never waited on the holder row lock');
-  }
-
   it('worker lease: a claim from a stale read loses when the holder commits one more batch', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
     const stamp = Date.now();
@@ -1477,7 +1462,7 @@ describe('Import Undo (e2e)', () => {
 
     await rowLock;
     const staleClaim = attempt('worker-b');
-    await waitForBlockedRowLock();
+    await waitForBlockedLock(prisma);
     releaseBatch();
     await Promise.all([holderBatch, staleClaim]);
 

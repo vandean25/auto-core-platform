@@ -24,13 +24,6 @@ export function formatPurchaseOrderNumber(
   return `PO-${year}-${suffix.toString().padStart(4, '0')}`;
 }
 
-function isPurchaseOrderSequenceKeyConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  );
-}
-
 async function maxPurchaseOrderSuffixForYear(
   tx: PrismaTypes.TransactionClient,
   tenantId: string,
@@ -62,7 +55,9 @@ async function maxPurchaseOrderSuffixForYear(
 
 /**
  * When no sequence row exists, seeds it from the highest PO-YYYY-NNNN suffix (one row)
- * without lowering an existing counter.
+ * without lowering an existing counter. Both statements are conflict-free: a concurrent
+ * seed makes the insert a no-op (ON CONFLICT DO NOTHING) instead of a unique violation,
+ * which would abort the surrounding transaction.
  */
 export async function ensurePurchaseOrderSequenceRowForYear(
   tx: PrismaTypes.TransactionClient,
@@ -78,26 +73,14 @@ export async function ensurePurchaseOrderSequenceRowForYear(
   }
 
   const maxSuffix = await maxPurchaseOrderSuffixForYear(tx, tenantId, year);
-
-  try {
-    await tx.purchaseOrderSequence.create({
-      data: { tenant_id: tenantId, year, current: maxSuffix },
-    });
-  } catch (error) {
-    if (!isPurchaseOrderSequenceKeyConflict(error)) {
-      throw error;
-    }
-    const raced = await tx.purchaseOrderSequence.findFirst({
-      where: { tenant_id: tenantId, year },
-      select: { current: true },
-    });
-    if (raced && maxSuffix > raced.current) {
-      await tx.purchaseOrderSequence.update({
-        where: { tenant_id_year: { tenant_id: tenantId, year } },
-        data: { current: maxSuffix },
-      });
-    }
-  }
+  await tx.purchaseOrderSequence.createMany({
+    data: [{ tenant_id: tenantId, year, current: maxSuffix }],
+    skipDuplicates: true,
+  });
+  await tx.purchaseOrderSequence.updateMany({
+    where: { tenant_id: tenantId, year, current: { lt: maxSuffix } },
+    data: { current: maxSuffix },
+  });
 }
 
 async function nextPurchaseOrderSuffix(

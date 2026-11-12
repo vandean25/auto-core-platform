@@ -18,6 +18,7 @@ import { fetchGuardedPriceDiscoveryPage } from './guarded-price-discovery-list.j
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
 import { isUuidV7 } from './guarded-price.uuid.js';
 import { guardedRequestInvalid } from './guarded-price.errors.js';
+import { requireGuardedPricePrincipalId } from './guarded-price.helpers.js';
 
 @Injectable()
 export class GuardedPriceDiscoveryService {
@@ -31,7 +32,9 @@ export class GuardedPriceDiscoveryService {
   ): Promise<InventoryPriceOperationListResponseDto> {
     this.assertInventoryPriceRole();
     const tenantId = await this.tenantContext.getTenantId();
-    const principalId = this.requirePrincipalId();
+    const principalId = requireGuardedPricePrincipalId(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const decodedCursor = parsePriceOperationDiscoveryCursor(cursor);
 
     const { page, hasNextPage, scanTail } =
@@ -62,7 +65,9 @@ export class GuardedPriceDiscoveryService {
       guardedRequestInvalid('Operation key must be a UUIDv7.');
     }
     const tenantId = await this.tenantContext.getTenantId();
-    const principalId = this.requirePrincipalId();
+    const principalId = requireGuardedPricePrincipalId(
+      this.tenantContext.getAuthenticatedUser(),
+    );
 
     const row = await this.prisma.inventoryPriceOperation.findFirst({
       where: {
@@ -85,13 +90,5 @@ export class GuardedPriceDiscoveryService {
   private assertInventoryPriceRole(): void {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     assertCanMutateInventoryStock(role);
-  }
-
-  private requirePrincipalId(): string {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.userId) {
-      throw new NotFoundException('Authenticated principal is required.');
-    }
-    return user.userId;
   }
 }

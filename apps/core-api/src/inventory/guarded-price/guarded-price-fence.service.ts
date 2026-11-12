@@ -32,6 +32,7 @@ import {
   isInteractiveTransactionExpired,
   isLockTimeoutError,
   isUniqueViolation,
+  requireGuardedPricePrincipalId,
 } from './guarded-price.helpers.js';
 import { mapInventoryPriceOperation } from './guarded-price-operation.mapper.js';
 import { retailMajorToMinorUnits } from './guarded-price.money.js';
@@ -51,7 +52,9 @@ export class GuardedPriceFenceService {
   ): Promise<InventoryPriceOperationDto> {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     assertCanMutateInventoryStock(role);
-    const principalId = this.requirePrincipalId();
+    const principalId = requireGuardedPricePrincipalId(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const tenantId = await this.tenantContext.getTenantId();
 
     if (!isUuidV7(operationKey)) {
@@ -260,13 +263,5 @@ export class GuardedPriceFenceService {
       basisMinor: retailMajorToMinorUnits(Number(item.retail_price)),
       sku: item.sku,
     };
-  }
-
-  private requirePrincipalId(): string {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.userId) {
-      throw new NotFoundException('Authenticated principal is required.');
-    }
-    return user.userId;
   }
 }

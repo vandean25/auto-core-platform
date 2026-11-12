@@ -9,9 +9,11 @@ import {
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import {
+  allocatePurchaseOrderNumber,
   createPurchaseOrderWithAllocatedNumber,
   formatPurchaseOrderNumber,
 } from '../src/purchase/purchase-order-number.util.js';
+import { waitForBlockedLock } from './helpers/pg-lock-wait.js';
 import {
   passThroughPurchaseOrderCreateSavepoint,
   resetPurchaseOrderCreateSavepointPortForTests,
@@ -20,6 +22,7 @@ import {
 
 describe('Purchase order number allocation (e2e)', () => {
   let app: INestApplication;
+  let rootPrisma: PrismaService;
   let prisma: PrismaService;
   let tenantId: string;
   let siteId: string;
@@ -27,7 +30,7 @@ describe('Purchase order number allocation (e2e)', () => {
 
   beforeAll(async () => {
     app = await createE2eApp();
-    const rootPrisma = app.get(PrismaService);
+    rootPrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(rootPrisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(rootPrisma, tenantId);
@@ -51,7 +54,9 @@ describe('Purchase order number allocation (e2e)', () => {
   it('fails the same transaction when savepoint retry is disabled', async () => {
     const year = new Date().getFullYear();
     const takenNumber = formatPurchaseOrderNumber(year, 5);
-    setPurchaseOrderCreateSavepointPortForTests(passThroughPurchaseOrderCreateSavepoint);
+    setPurchaseOrderCreateSavepointPortForTests(
+      passThroughPurchaseOrderCreateSavepoint,
+    );
     try {
       await expect(
         prisma.$transaction(async (tx) => {
@@ -133,5 +138,50 @@ describe('Purchase order number allocation (e2e)', () => {
     expect(created.order_number).toBe(
       formatPurchaseOrderNumber(year, takenSuffix + 1),
     );
+  });
+
+  // Regression: when the tenant/year sequence row was missing, the second of two
+  // overlapping allocations hit a unique violation on the seed insert, which aborted
+  // its transaction and failed the purchase-order create.
+  it('seeds a missing sequence row under two overlapping allocations', async () => {
+    const now = new Date('2031-06-01T12:00:00.000Z');
+    const year = now.getFullYear();
+    await prisma.purchaseOrder.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vendor_id: vendorId,
+        order_number: formatPurchaseOrderNumber(year, 7),
+        status: PurchaseOrderStatus.DRAFT,
+      },
+    });
+
+    let releaseFirst!: () => void;
+    const firstMayCommit = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let firstSeeded!: () => void;
+    const seeded = new Promise<void>((resolve) => {
+      firstSeeded = resolve;
+    });
+    const first = prisma.$transaction(async (tx) => {
+      const orderNumber = await allocatePurchaseOrderNumber(tx, tenantId, now);
+      firstSeeded();
+      await firstMayCommit;
+      return orderNumber;
+    });
+    await seeded;
+    // The first transaction holds its uncommitted sequence row, so the second one
+    // still sees no row and its seed insert queues behind the first.
+    const second = prisma.$transaction((tx) =>
+      allocatePurchaseOrderNumber(tx, tenantId, now),
+    );
+    await waitForBlockedLock(rootPrisma);
+    releaseFirst();
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      formatPurchaseOrderNumber(year, 8),
+      formatPurchaseOrderNumber(year, 9),
+    ]);
   });
 });

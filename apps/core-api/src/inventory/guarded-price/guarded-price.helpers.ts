@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { InventoryPriceOperationState, type Prisma } from '@prisma/client';
 import {
   inventoryRevisionConflict,
@@ -72,4 +73,14 @@ export async function markJournalRevisionConflict(
       error_code: 'INVENTORY_REVISION_CONFLICT',
     },
   });
+}
+
+/** The price journal is per principal; a session without one is not allowed (403). */
+export function requireGuardedPricePrincipalId(
+  user: { userId?: string } | null | undefined,
+): string {
+  if (!user?.userId) {
+    throw new ForbiddenException('Authenticated principal is required.');
+  }
+  return user.userId;
 }
