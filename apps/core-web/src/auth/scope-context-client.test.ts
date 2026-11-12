@@ -6,6 +6,7 @@ import {
   handshakeScopeContext,
   isScopeContextQuarantined,
   isScopeExplicitRefreshRequired,
+  listQueryKeyForCurrentDigest,
   logoutScopeContextLineage,
   resetScopeContextClientForTests,
   seedValidatedScopeContextForTests,
@@ -152,5 +153,28 @@ describe('scope-context-client handshake epoch', () => {
     expect(posts).toBe(2)
     expect(isScopeContextQuarantined()).toBe(true)
     expect(isScopeExplicitRefreshRequired()).toBe(true)
+  })
+})
+
+describe('listQueryKeyForCurrentDigest', () => {
+  beforeEach(() => {
+    resetScopeContextClientForTests()
+    seedValidatedScopeContextForTests({ scopeContext: 'sc-a', scopeContextDigest: 'digest-a' })
+  })
+
+  // Regression: refresh overwrote the last segment of every list key, so generic infinite lists never reloaded page one.
+  it('leaves a list key that does not end in a scope digest unchanged', () => {
+    const key = ['items', { filter: 'B' }]
+    expect(listQueryKeyForCurrentDigest(key)).toBe(key)
+  })
+
+  it('rebinds a cursor-list key that ends in an earlier scope digest to the current digest', () => {
+    seedValidatedScopeContextForTests({ scopeContext: 'sc-b', scopeContextDigest: 'digest-b' })
+    expect(listQueryKeyForCurrentDigest(['inventory', 'cursor-list', {}, 'digest-a'])).toEqual([
+      'inventory',
+      'cursor-list',
+      {},
+      'digest-b',
+    ])
   })
 })

@@ -62,6 +62,13 @@ const store = createStore({
   continuityDigest: null,
 })
 
+/** Every digest this client has held; only a key ending in one of these is a scope-scoped cursor-list key. */
+const issuedScopeDigests = new Set<string>()
+store.subscribe(() => {
+  const digest = store.getState().context?.scopeContextDigest
+  if (digest) issuedScopeDigests.add(digest)
+})
+
 let handshakeInFlight: Promise<HandshakeResult> | null = null
 let handshakeEpoch = 0
 
@@ -103,6 +110,7 @@ export function resetScopeContextClientForTests() {
     episodeCounter: 0,
     continuityDigest: null,
   })
+  issuedScopeDigests.clear()
 }
 
 export function subscribeScopeContextClient(listener: Listener) {
@@ -117,9 +125,13 @@ export function getScopeContextDigest(): string | undefined {
   return getValidatedScopeContext()?.scopeContextDigest
 }
 
-/** Rebinds a scope-scoped infinite list key to the digest from the latest successful handshake. */
+/**
+ * Rebinds a scope-scoped cursor-list key (`[...base, digest]`) to the digest from the latest successful handshake.
+ * Any other list key is returned unchanged.
+ */
 export function listQueryKeyForCurrentDigest(queryKey: QueryKey, digest = getScopeContextDigest()): QueryKey {
-  if (!digest || queryKey.length === 0) return queryKey
+  const last = queryKey.at(-1)
+  if (!digest || typeof last !== 'string' || !issuedScopeDigests.has(last)) return queryKey
   return [...queryKey.slice(0, -1), digest] as QueryKey
 }
 
