@@ -16,6 +16,8 @@ type CursorListMockOptions<TRow> = {
   maxLimit?: number;
   /** Shape of the answer to a request without cursor mode: the classic `page`/`pageSize` envelope (default) or the unpaged array of the invoice list. */
   unpaged?: 'offset' | 'array';
+  /** When set, controls successive `POST /api/auth/scope-context` responses (for blocked-list specs). */
+  handshakePost?: () => typeof DEFAULT_SCOPE_CONTEXT;
 };
 
 /** Every request a mocked list received, in order, as parsed URLs. */
@@ -57,11 +59,30 @@ function listBody<TRow>(rows: TRow[], params: URLSearchParams, { maxLimit, unpag
  * blocks with an opaque `offset:<n>` cursor; offset requests get the classic `page`/`pageSize` response, so a page that falls
  * back to offset mode keeps working. Demo data only, no backend.
  */
+const DEFAULT_SCOPE_CONTEXT = {
+  scopeContext: 'e2e-scope-context-token',
+  scopeContextDigest: 'e2e-scope-context-digest',
+  continuityDigest: 'e2e-continuity',
+};
+
+/** Handshake for ADR-0038 P4; optional `onHandshake` can mint a new digest to block the list. */
+export async function mockScopeContextHandshake(
+  page: Page,
+  options?: { body?: typeof DEFAULT_SCOPE_CONTEXT; onPost?: () => typeof DEFAULT_SCOPE_CONTEXT },
+) {
+  await page.route(AutoCorePage.apiRouteMatcher('/api/auth/scope-context'), async (route) => {
+    const body = options?.onPost?.() ?? options?.body ?? DEFAULT_SCOPE_CONTEXT;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+}
+
 export async function mockCursorList<TRow>(
   page: Page,
-  { path, rows, count, failCount = false, maxLimit = 50, unpaged = 'offset' }: CursorListMockOptions<TRow>,
+  { path, rows, count, failCount = false, maxLimit = 50, unpaged = 'offset', handshakePost }: CursorListMockOptions<TRow>,
 ): Promise<CursorListRequests> {
   const requests: CursorListRequests = { list: [], count: [], failList: false };
+
+  await mockScopeContextHandshake(page, handshakePost ? { onPost: handshakePost } : undefined)
 
   await page.route(AutoCorePage.apiRouteMatcher(`${path}/capped-count`), async (route) => {
     requests.count.push(new URL(route.request().url()));
@@ -69,7 +90,7 @@ export async function mockCursorList<TRow>(
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
       return;
     }
-    const body: CappedCount = count ?? { count: Math.min(rows.length, 1000), isCapped: rows.length > 1000 };
+    const body = { ...(count ?? { count: Math.min(rows.length, 1000), isCapped: rows.length > 1000 }), scopeContextDigest: DEFAULT_SCOPE_CONTEXT.scopeContextDigest };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
@@ -80,7 +101,8 @@ export async function mockCursorList<TRow>(
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
       return;
     }
-    const body = listBody(rows, url.searchParams, { maxLimit, unpaged });
+    const body = listBody(rows, url.searchParams, { maxLimit, unpaged }) as { data?: unknown; meta?: Record<string, unknown> };
+    if (body.meta) body.meta.scopeContextDigest = DEFAULT_SCOPE_CONTEXT.scopeContextDigest;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 

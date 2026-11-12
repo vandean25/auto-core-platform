@@ -7,9 +7,14 @@ import { isInventoryCursorSort, useInventory, useInventoryCursorList } from './i
  */
 export function useInventoryListState(queryParams: DataTableQueryParams, filters: { search?: string; location?: string }) {
   const listParams = { ...filters, sortField: queryParams.sortField, sortDirection: queryParams.sortDirection }
-  const infiniteMode = isInventoryCursorSort(queryParams.sortField)
-  const offsetList = useInventory({ page: queryParams.page, pageSize: queryParams.pageSize, ...listParams }, { enabled: !infiniteMode })
-  const cursorList = useInventoryCursorList(listParams, infiniteMode)
+  const sortEligible = isInventoryCursorSort(queryParams.sortField)
+  const cursorList = useInventoryCursorList(listParams, sortEligible)
+  const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
+  const infiniteMode = sortEligible && !offsetLatched
+  const offsetList = useInventory(
+    { page: offsetLatched ? 1 : queryParams.page, pageSize: queryParams.pageSize, ...listParams },
+    { enabled: !infiniteMode },
+  )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }

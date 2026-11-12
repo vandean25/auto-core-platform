@@ -25,12 +25,21 @@ export function isInvoiceCursorSort(sortField?: string): boolean {
 }
 
 /** Infinite invoice list (cap 2,000 rows) with its capped count; idle while the unpaged list is in charge. */
+function invoiceCursorEpisodeKey(params: InvoiceCursorParams) {
+    return JSON.stringify({
+        search: params.search ?? '',
+        sortField: params.sortField ?? '',
+        sortDirection: params.sortDirection ?? '',
+    })
+}
+
 export function useInvoiceCursorList(params: InvoiceCursorParams, enabled: boolean) {
     const filters = { search: params.search }
     return useCursorList<Invoice>({
         enabled,
         path: '/api/sales/invoices',
         countPath: '/api/sales/invoices/capped-count',
+        semanticEpisodeKey: invoiceCursorEpisodeKey(params),
         listKey: invoiceKeys.cursorList(params),
         countKey: invoiceKeys.cappedCount(filters),
         params,

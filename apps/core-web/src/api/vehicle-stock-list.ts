@@ -8,9 +8,14 @@ import { isVehicleStockCursorMode, useVehicleStock, useVehicleStockCursorList } 
  */
 export function useVehicleStockListState(queryParams: DataTableQueryParams) {
   const stockStatus = queryParams.filters.find((filter) => filter.field === 'stock_status')?.value
-  const infiniteMode = isVehicleStockCursorMode({ stockStatus, sortField: queryParams.sortField })
-  const offsetList = useVehicleStock(queryParams, { enabled: !infiniteMode })
-  const cursorList = useVehicleStockCursorList(queryParams, infiniteMode)
+  const sortEligible = isVehicleStockCursorMode({ stockStatus, sortField: queryParams.sortField })
+  const cursorList = useVehicleStockCursorList(queryParams, sortEligible)
+  const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
+  const infiniteMode = sortEligible && !offsetLatched
+  const offsetList = useVehicleStock(
+    { ...queryParams, page: offsetLatched ? 1 : queryParams.page },
+    { enabled: !infiniteMode },
+  )
   if (infiniteMode) return cursorList
   return {
     rows: offsetList.data?.data ?? [],

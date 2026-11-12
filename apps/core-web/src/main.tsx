@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
+import { ScopeContextGate } from '@/auth/ScopeContextProvider'
 import { I18nProvider } from '@/lib/i18n'
 import { AppThemeProvider } from '@/components/theme/AppThemeProvider'
 import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
@@ -45,7 +46,9 @@ createRoot(document.getElementById('root')!, {
         <AppThemeProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <App />
+              <ScopeContextGate>
+                <App />
+              </ScopeContextGate>
             </AuthProvider>
           </QueryClientProvider>
         </AppThemeProvider>

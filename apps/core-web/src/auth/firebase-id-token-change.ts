@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { resetClientSession, runWithClientSessionPending } from '@/auth/client-session-reset'
+import { applyUserSessionLifecycle, handshakeScopeContext } from '@/auth/scope-context-client'
 import { extractAuthClaims, type AuthClaims } from '@/auth/auth-claims'
 import { releasePushRegistration } from '@/features/push/push-device'
 
@@ -34,6 +35,7 @@ export async function applyFirebaseIdTokenChange(params: {
   const nextUid = params.nextUser?.uid ?? null
   if (shouldResetClientSessionOnUidChange(params.previousUidRef.current, nextUid)) {
     // A uid change without an explicit sign-out still has to move this browser's push registration.
+    applyUserSessionLifecycle()
     await runWithClientSessionPending(async () => {
       await releasePushRegistration()
       // Drop every trace of the previous user before the next session is rendered.
@@ -60,6 +62,7 @@ export async function applyFirebaseIdTokenChange(params: {
       return
     }
     params.setClaims(extractAuthClaims(tokenResult.claims))
+    void handshakeScopeContext()
     params.finishAuthInit()
   } catch {
     if (!params.isActive()) {

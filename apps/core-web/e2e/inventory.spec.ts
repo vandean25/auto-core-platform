@@ -264,6 +264,53 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
     await expect(page.getByText(DE_COMMON.dataTable.infinite.countUnavailable)).toBeVisible();
     await expect(page.getByRole('button', { name: DE_COMMON.dataTable.loading.retry })).toBeVisible();
   });
+
+  test.describe('blocked list at 375px', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
+    test('WHEN the viewport is 375px and the list is blocked THEN "Liste aktualisieren" is visible with a ≥ 44 px target', async ({
+      page,
+    }) => {
+      let handshakePosts = 0;
+      const items = Array.from({ length: 60 }, (_, index) => {
+        const number = String(index).padStart(4, '0');
+        return createMockInventoryItem({ id: `item-${number}`, sku: `SKU-${number}`, name: `Bremsscheibe ${number}` });
+      });
+      await mockCursorList(page, {
+        path: '/api/inventory',
+        rows: items,
+        handshakePost: () => {
+          handshakePosts += 1;
+          if (handshakePosts === 1) {
+            return {
+              scopeContext: 'e2e-scope-context-token',
+              scopeContextDigest: 'e2e-scope-context-digest',
+              continuityDigest: 'e2e-continuity',
+            };
+          }
+          return {
+            scopeContext: 'e2e-scope-context-token-v2',
+            scopeContextDigest: 'e2e-scope-context-digest-v2',
+            continuityDigest: 'e2e-continuity',
+          };
+        },
+      });
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      });
+      await new AutoCorePage(page, 'Artikel').navigate('/inventory');
+      await expect(page.getByText('SKU-0000')).toBeVisible();
+
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+      const refresh = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
+      await expect(refresh).toBeVisible();
+      const box = await refresh.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(await pageOverflow(page)).toBe(0);
+    });
+  });
 });
 
 /**

@@ -98,12 +98,22 @@ export function useInventory(
 }
 
 /** Infinite parts list (cap 2,000 rows) with its capped count; idle while the offset list is in charge. */
+function inventoryCursorEpisodeKey(params: InventoryCursorParams) {
+    return JSON.stringify({
+        search: params.search ?? '',
+        location: params.location ?? '',
+        sortField: params.sortField ?? '',
+        sortDirection: params.sortDirection ?? '',
+    })
+}
+
 export function useInventoryCursorList(params: InventoryCursorParams, enabled: boolean) {
     const filters = { search: params.search, location: params.location }
     return useCursorList<InventoryItem>({
         enabled,
         path: '/api/inventory',
         countPath: '/api/inventory/capped-count',
+        semanticEpisodeKey: inventoryCursorEpisodeKey(params),
         listKey: inventoryKeys.cursorList(params),
         countKey: inventoryKeys.cappedCount(filters),
         params,

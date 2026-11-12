@@ -332,6 +332,15 @@ export function useVehicleStock(queryParams?: DataTableQueryParams, options?: { 
   })
 }
 
+function vehicleStockCursorEpisodeKey(params: Record<string, string | undefined>) {
+  return JSON.stringify({
+    search: params.search ?? '',
+    stock_status: params.stock_status ?? '',
+    sortField: params.sortField ?? '',
+    sortDirection: params.sortDirection ?? '',
+  })
+}
+
 /** Infinite dealer-stock list (cap 2,000 rows) with its capped count; idle while the offset list is in charge. */
 export function useVehicleStockCursorList(queryParams: DataTableQueryParams, enabled: boolean) {
   const filters = {
@@ -343,6 +352,7 @@ export function useVehicleStockCursorList(queryParams: DataTableQueryParams, ena
     enabled,
     path: '/api/vehicle-stock',
     countPath: '/api/vehicle-stock/capped-count',
+    semanticEpisodeKey: vehicleStockCursorEpisodeKey(params),
     listKey: vehicleStockKeys.cursorList(params),
     countKey: vehicleStockKeys.cappedCount(filters),
     params,

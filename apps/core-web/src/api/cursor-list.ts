@@ -1,9 +1,17 @@
-import { useInfiniteQuery, useQuery, type QueryKey } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { useScopeContextDigest, useScopeContextQuarantined, useScopeContextReady } from '@/auth/use-scope-context-digest'
 import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
-import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
+import { fetchCursorListCount, fetchCursorListPage } from './cursor-list-fetch'
+import {
+  cursorQueryShouldRetry,
+  isAuthBlockedForEpisode,
+  isOffsetLatchedForEpisode,
+  resolveCursorListFailure,
+} from './cursor-recovery'
+import { isCursorListApiError } from './cursor-list-api-error'
 
 /** Rows per block. Vehicle stock caps a page at 50, the API's smallest ceiling (ADR-0035). */
 export const CURSOR_PAGE_LIMIT = 50
@@ -19,10 +27,88 @@ function urlOf(path: string, params: QueryParams) {
   return query ? `${path}?${query}` : path
 }
 
-async function readJson<T>(path: string, params: QueryParams, signal: AbortSignal): Promise<T> {
-  const response = await fetchWithAuth(urlOf(path, params), { signal })
-  if (!response.ok) throw new Error(`Failed to fetch ${path}`)
-  return response.json() as Promise<T>
+async function runListQuery<TRow>(
+  client: QueryClient,
+  options: {
+    path: string
+    params: QueryParams
+    pageParam: string | undefined
+    signal: AbortSignal
+    semanticEpisodeKey: string
+    listKey: QueryKey
+    countKey: QueryKey
+  },
+): Promise<CursorListPage<TRow>> {
+  const { path, params, pageParam, signal, semanticEpisodeKey, listKey, countKey } = options
+  const queryClient = client
+  const cursorParams = {
+    pagination: 'cursor',
+    limit: String(CURSOR_PAGE_LIMIT),
+    ...params,
+    cursor: pageParam,
+  }
+
+  try {
+    return await fetchCursorListPage<TRow>(urlOf(path, cursorParams), signal)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'stale_scope_context_response') {
+      throw error
+    }
+    if (!isCursorListApiError(error)) throw error
+    const outcome = await resolveCursorListFailure(queryClient, {
+      error,
+      semanticKey: semanticEpisodeKey,
+      listKey,
+      countKey,
+      contextValid: true,
+    })
+    if (outcome.type === 'restart-page-one') {
+      return fetchCursorListPage<TRow>(urlOf(path, { ...cursorParams, cursor: undefined }), signal)
+    }
+    if (outcome.type === 'offset-latch') {
+      throw error
+    }
+    if (outcome.type === 'blocked' || outcome.type === 'throw') {
+      throw error
+    }
+    throw outcome.error
+  }
+}
+
+async function runCountQuery(
+  client: QueryClient,
+  options: {
+    countPath: string
+    countParams: QueryParams
+    signal: AbortSignal
+    semanticEpisodeKey: string
+    listKey: QueryKey
+    countKey: QueryKey
+  },
+): Promise<CappedListCount> {
+  const { countPath, countParams, signal, semanticEpisodeKey, listKey, countKey } = options
+  try {
+    return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'stale_scope_context_response') {
+      throw error
+    }
+    if (!isCursorListApiError(error)) throw error
+    const outcome = await resolveCursorListFailure(client, {
+      error,
+      semanticKey: semanticEpisodeKey,
+      listKey,
+      countKey,
+      contextValid: true,
+    })
+    if (outcome.type === 'restart-page-one') {
+      return fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal)
+    }
+    if (outcome.type === 'blocked' || outcome.type === 'throw' || outcome.type === 'pass-through') {
+      throw error
+    }
+    throw error
+  }
 }
 
 type CursorListOptions = {
@@ -30,11 +116,18 @@ type CursorListOptions = {
   /** List endpoint and its separate capped-count endpoint (ADR-0035 §5). */
   path: string
   countPath: string
+  /** Stable semantic key for the episode budget (filters + sort), without the scope digest. */
+  semanticEpisodeKey: string
   /** The list key carries filters and sort (a change restarts the chain); the count key carries the filters only. */
   listKey: QueryKey
   countKey: QueryKey
   params: QueryParams
   countParams: QueryParams
+}
+
+function scopeScopedKey(base: QueryKey, digest: string | undefined): QueryKey {
+  if (!digest) return base
+  return [...base, digest] as const
 }
 
 /**
@@ -45,38 +138,71 @@ export function useCursorList<TRow extends { id: string }>({
   enabled,
   path,
   countPath,
+  semanticEpisodeKey,
   listKey,
   countKey,
   params,
   countParams,
 }: CursorListOptions) {
+  const queryClient = useQueryClient()
+  const digest = useScopeContextDigest()
+  const scopeReady = useScopeContextReady()
+  const quarantined = useScopeContextQuarantined()
+  const offsetLatch = isOffsetLatchedForEpisode(semanticEpisodeKey)
+  const scopedListKey = useMemo(() => scopeScopedKey(listKey, digest), [digest, listKey])
+  const scopedCountKey = useMemo(() => scopeScopedKey(countKey, digest), [digest, countKey])
+  const authBlocked = isAuthBlockedForEpisode(semanticEpisodeKey)
+  const queryEnabled = enabled && scopeReady && !offsetLatch && !quarantined && !authBlocked
+
   const list = useInfiniteQuery({
-    ...infiniteListQueryOptions(countKey),
-    queryKey: listKey,
-    enabled,
+    ...infiniteListQueryOptions(scopedCountKey),
+    queryKey: scopedListKey,
+    enabled: queryEnabled,
     initialPageParam: undefined as string | undefined,
+    retry: cursorQueryShouldRetry,
     queryFn: ({ pageParam, signal }) =>
-      readJson<CursorListPage<TRow>>(path, { pagination: 'cursor', limit: String(CURSOR_PAGE_LIMIT), ...params, cursor: pageParam }, signal),
+      runListQuery<TRow>(queryClient, {
+        path,
+        params,
+        pageParam,
+        signal,
+        semanticEpisodeKey,
+        listKey: scopedListKey,
+        countKey: scopedCountKey,
+      }),
     getNextPageParam: (lastPage) => lastPage.meta.nextCursor ?? undefined,
   })
-  // `static`: the count is read on open, on a filter change and on explicit refresh only, never by realtime or focus.
+
   const count = useQuery({
-    queryKey: countKey,
-    enabled,
+    queryKey: scopedCountKey,
+    enabled: queryEnabled,
     staleTime: 'static',
-    queryFn: ({ signal }) => readJson<CappedListCount>(countPath, countParams, signal),
+    retry: cursorQueryShouldRetry,
+    queryFn: ({ signal }) =>
+      runCountQuery(queryClient, {
+        countPath,
+        countParams,
+        signal,
+        semanticEpisodeKey,
+        listKey: scopedListKey,
+        countKey: scopedCountKey,
+      }),
   })
 
-  const rows = useMemo(() => list.data?.pages.flatMap((page) => page.data) ?? [], [list.data])
+  const rows = useMemo(() => {
+    if (quarantined) return []
+    return list.data?.pages.flatMap((page) => page.data) ?? []
+  }, [list.data, quarantined])
   const tableProps = {
     isLoading: list.isLoading,
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
-    isError: list.isError && !list.isFetchNextPageError,
-    onRetry: () => void list.refetch(),
+    isError: list.isError && !list.isFetchNextPageError && !authBlocked,
+    onRetry: authBlocked ? undefined : () => void list.refetch(),
     hasUsableData: rows.length > 0,
+    scopeOffsetLatch: offsetLatch,
     infinite: {
-      queryKey: listKey,
+      queryKey: scopedListKey,
       hasNextPage: list.hasNextPage,
       isFetchingNextPage: list.isFetchingNextPage,
       isFetchNextPageError: list.isFetchNextPageError,

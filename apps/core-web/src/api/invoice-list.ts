@@ -44,12 +44,14 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
  * unpaged list with pages. Only the query of the active mode runs.
  */
 export function useInvoiceListState(queryParams: DataTableQueryParams) {
-  const infiniteMode = isInvoiceCursorSort(queryParams.sortField)
-  const unpaged = useUnpagedInvoiceList(queryParams, !infiniteMode)
+  const sortEligible = isInvoiceCursorSort(queryParams.sortField)
   const cursorList = useInvoiceCursorList(
     { search: queryParams.search?.trim() || undefined, sortField: queryParams.sortField, sortDirection: queryParams.sortDirection },
-    infiniteMode,
+    sortEligible,
   )
+  const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
+  const infiniteMode = sortEligible && !offsetLatched
+  const unpaged = useUnpagedInvoiceList(queryParams, !infiniteMode)
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }
