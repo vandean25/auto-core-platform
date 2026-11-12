@@ -445,7 +445,9 @@ describe('inventory price-operations discovery and fence (e2e)', () => {
 
     expect(catalogFindManySpy).not.toHaveBeenCalled();
     expect(journalFindManySpy).toHaveBeenCalledTimes(1);
-    const where = journalFindManySpy.mock.calls[0][0].where as {
+    const firstCall = journalFindManySpy.mock.calls[0]?.[0];
+    expect(firstCall).toBeDefined();
+    const where = firstCall!.where as {
       AND?: Array<Record<string, unknown>>;
     };
     const root = where?.AND?.[0] as {
