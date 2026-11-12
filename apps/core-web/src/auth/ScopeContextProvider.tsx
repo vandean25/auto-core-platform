@@ -24,6 +24,14 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
 
     let lastHandshakeAt = Number.NEGATIVE_INFINITY
 
+    const markInfiniteListsStaleForRefresh = () => {
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Boolean(query.meta && (query.meta as { listPagination?: string }).listPagination === 'infinite'),
+        refetchType: 'none',
+      })
+    }
+
     const runHandshake = () => {
       const now = Date.now()
       if (now - lastHandshakeAt < REALTIME_RESYNC_MIN_INTERVAL_MS) return
@@ -31,17 +39,17 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       invalidateProtectedScopeContext()
       // Generation-only bumps fence in-flight responses; quarantine waits for handshake below.
       void handshakeScopeContext().then((result) => {
-        if (result.kind === 'external-scope') {
-          queryClient.invalidateQueries({
-            predicate: (query) =>
-              Boolean(query.meta && (query.meta as { listPagination?: string }).listPagination === 'infinite'),
-            refetchType: 'none',
-          })
+        if (result.kind === 'external-scope' || result.kind === 'failed') {
+          markInfiniteListsStaleForRefresh()
         }
       })
     }
 
-    void handshakeScopeContext({ force: true })
+    void handshakeScopeContext({ force: true }).then((result) => {
+      if (result.kind === 'external-scope' || result.kind === 'failed') {
+        markInfiniteListsStaleForRefresh()
+      }
+    })
 
     window.addEventListener('focus', runHandshake)
     window.addEventListener('online', runHandshake)

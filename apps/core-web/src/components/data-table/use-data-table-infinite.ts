@@ -1,6 +1,7 @@
 import { QueryClientContext, hashKey, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
+import { handshakeBeforeExplicitListRefresh } from '@/auth/scope-context-client'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
 import {
   INFINITE_LIST_OUTDATED_AFTER_MS,
@@ -143,7 +144,11 @@ export function useDataTableInfinite<TData extends object>(
     isRefreshing: isRefreshing || keyChanging,
     refresh: () => {
       setEpoch((value) => value + 1)
-      void refresh().catch(() => undefined)
+      void (async () => {
+        const ready = await handshakeBeforeExplicitListRefresh()
+        if (!ready) return
+        await refresh().catch(() => undefined)
+      })()
     },
     epoch,
     restoreKey: keyHash,

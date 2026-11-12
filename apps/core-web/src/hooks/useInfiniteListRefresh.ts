@@ -1,7 +1,6 @@
 import { QueryClientContext } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { useCallback, useContext, useState, useSyncExternalStore } from 'react'
-import { acceptQuarantinedScopeForExplicitRefresh } from '@/auth/scope-context-client'
 import { refreshInfiniteList } from '@/lib/infinite-list-query'
 
 /** Without a `queryKey` (a DataTable in offset mode) the list never needs a refresh. */
@@ -23,7 +22,6 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
       if (!queryClient || queryKey === undefined) return
       setRunning((count) => count + 1)
       try {
-        acceptQuarantinedScopeForExplicitRefresh()
         await refreshInfiniteList(queryClient, queryKey, options)
         // query-core hands new data to observers in a timeout(0); unlocking before that lets the load-ahead fetch
         // the next page of the chain that was just replaced.

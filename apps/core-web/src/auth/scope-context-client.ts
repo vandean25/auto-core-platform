@@ -54,6 +54,18 @@ const store = createStore({
 })
 
 let handshakeInFlight: Promise<HandshakeResult> | null = null
+let handshakeEpoch = 0
+
+function bumpHandshakeEpoch(): number {
+  handshakeEpoch += 1
+  return handshakeEpoch
+}
+
+function applyHandshakeState(epochAtStart: number, partial: Partial<ScopeContextClientState>): boolean {
+  if (epochAtStart !== handshakeEpoch) return false
+  store.setState(partial)
+  return true
+}
 
 function readHandshakeBody(body: components['schemas']['ScopeContextHandshakeResponseDto']): ValidatedScopeContext {
   return { scopeContext: body.scopeContext, scopeContextDigest: body.scopeContextDigest }
@@ -70,6 +82,7 @@ export function seedValidatedScopeContextForTests(context: ValidatedScopeContext
 
 export function resetScopeContextClientForTests() {
   handshakeInFlight = null
+  handshakeEpoch = 0
   store.setState({
     context: null,
     quarantined: true,
@@ -141,6 +154,21 @@ export function acceptQuarantinedScopeForExplicitRefresh(): void {
   store.setState({ quarantined: false })
 }
 
+/**
+ * Handshake before an explicit list refresh while quarantined. Returns false when the handshake fails so
+ * refresh does not lift quarantine or repopulate rows.
+ */
+export async function handshakeBeforeExplicitListRefresh(): Promise<boolean> {
+  if (!store.getState().quarantined) return true
+  const result = await handshakeScopeContext({ force: true })
+  if (result.kind === 'failed') return false
+  if (result.kind === 'external-scope') {
+    acceptQuarantinedScopeForExplicitRefresh()
+    return true
+  }
+  return true
+}
+
 function broadcastSessionLineageToOtherTabs(): void {
   if (typeof window === 'undefined') return
   try {
@@ -175,44 +203,49 @@ function classifyHandshake(
 export async function handshakeScopeContext(options?: { force?: boolean }): Promise<HandshakeResult> {
   if (handshakeInFlight && !options?.force) return handshakeInFlight
 
-  const run = async (): Promise<HandshakeResult> => {
+  const epochAtStart = bumpHandshakeEpoch()
+  const flight = (async (): Promise<HandshakeResult> => {
     const previous = store.getState().context
     const previousContinuity = store.getState().continuityDigest
     let body: components['schemas']['ScopeContextHandshakeResponseDto']
     try {
       body = await postHandshake()
     } catch {
-      store.setState({ quarantined: true })
+      applyHandshakeState(epochAtStart, { quarantined: true })
       return { kind: 'failed' }
     }
+
+    if (epochAtStart !== handshakeEpoch) return { kind: 'failed' }
 
     const next = readHandshakeBody(body)
     const continuity = body.continuityDigest ?? next.scopeContextDigest
     const outcome = classifyHandshake(previous, next, previousContinuity, continuity)
 
     if (outcome.kind === 'session') {
-      bumpCursorEpisodeCounter()
-      store.setState({ continuityDigest: continuity, context: next, quarantined: false })
+      if (applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: false })) {
+        bumpCursorEpisodeCounter()
+      }
       return outcome
     }
 
     if (outcome.kind === 'external-scope') {
-      invalidateProtectedScopeContext()
-      store.setState({ continuityDigest: continuity, context: next, quarantined: true })
+      bumpProtectedScopeGeneration()
+      applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: true })
       return outcome
     }
 
-    store.setState({ continuityDigest: continuity, context: next, quarantined: false })
+    applyHandshakeState(epochAtStart, { continuityDigest: continuity, context: next, quarantined: false })
     return outcome
-  }
+  })()
 
-  handshakeInFlight = run().finally(() => {
-    handshakeInFlight = null
+  handshakeInFlight = flight.finally(() => {
+    if (handshakeInFlight === flight) handshakeInFlight = null
   })
   return handshakeInFlight
 }
 
 export async function logoutScopeContextLineage(): Promise<void> {
+  bumpHandshakeEpoch()
   try {
     await fetchWithAuth(SCOPE_CONTEXT_LOGOUT_PATH, { method: 'POST' })
   } catch {

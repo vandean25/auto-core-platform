@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   bumpProtectedScopeGeneration,
+  handshakeBeforeExplicitListRefresh,
+  handshakeScopeContext,
+  invalidateProtectedScopeContext,
+  isScopeContextQuarantined,
   resetScopeContextClientForTests,
   seedValidatedScopeContextForTests,
 } from '@/auth/scope-context-client'
@@ -75,8 +79,8 @@ describe('cursor scope (ADR-0038)', () => {
       }),
     } as Response)
 
-    await waitFor(() => expect(result.current.tableProps.isError || result.current.rows.length === 0).toBe(true))
-    expect(result.current.rows).toEqual([])
+    await waitFor(() => expect(result.current.rows).toEqual([]))
+    expect(result.current.tableProps.isError).toBe(false)
   })
 
   it('external scope change blocks', async () => {
@@ -123,7 +127,6 @@ describe('cursor scope (ADR-0038)', () => {
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
 
     await act(async () => {
-      const { handshakeScopeContext } = await import('@/auth/scope-context-client')
       await handshakeScopeContext({ force: true })
     })
 
@@ -133,11 +136,107 @@ describe('cursor scope (ADR-0038)', () => {
 
     const scopedListKey = [...baseOptions().listKey, 'digest-b'] as const
     await act(async () => {
-      scopeContextClient.acceptQuarantinedScopeForExplicitRefresh()
+      expect(await handshakeBeforeExplicitListRefresh()).toBe(true)
       await refreshInfiniteList(client, scopedListKey)
     })
 
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'refreshed' }]))
     expect(scopeContextClient.isScopeContextQuarantined()).toBe(false)
+  })
+
+  it('quarantined warm cache for the new digest stays hidden until explicit refresh', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const scopedListKey = [...baseOptions().listKey, 'digest-b'] as const
+    seedValidatedScopeContextForTests({ scopeContext: 'sc-new', scopeContextDigest: 'digest-b' }, 'lineage-1')
+    invalidateProtectedScopeContext()
+
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return {
+          ok: true,
+          json: async () => ({
+            scopeContext: 'sc-new',
+            scopeContextDigest: 'digest-b',
+            continuityDigest: 'lineage-1',
+          }),
+        } as Response
+      }
+      if (target.includes('capped-count')) {
+        return {
+          ok: true,
+          json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-b' }),
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'cached' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-b' },
+        }),
+      } as Response
+    })
+
+    client.setQueryData(scopedListKey, {
+      pages: [{ data: [{ id: 'cached' }], meta: { nextCursor: null, hasNextPage: false } }],
+      pageParams: [undefined],
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(result.current.rows).toEqual([])
+    expect(client.getQueryData(scopedListKey)).toBeDefined()
+
+    await act(async () => {
+      expect(await handshakeBeforeExplicitListRefresh()).toBe(true)
+      await refreshInfiniteList(client, scopedListKey)
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'cached' }]))
+  })
+
+  it('failed handshake marks the list stale for explicit refresh', async () => {
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).includes('/api/auth/scope-context')) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'hidden' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
+    })
+
+    resetScopeContextClientForTests()
+    seedValidatedScopeContextForTests(testScope)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const scopedListKey = [...baseOptions().listKey, 'digest-a'] as const
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'hidden' }]))
+
+    await act(async () => {
+      invalidateProtectedScopeContext()
+      const outcome = await handshakeScopeContext({ force: true })
+      expect(outcome.kind).toBe('failed')
+      client.invalidateQueries({
+        predicate: (query) =>
+          Boolean(query.meta && (query.meta as { listPagination?: string }).listPagination === 'infinite'),
+        refetchType: 'none',
+      })
+    })
+
+    expect(result.current.rows).toEqual([])
+    expect(result.current.tableProps.isError).toBe(false)
+    const query = client.getQueryCache().find({ queryKey: scopedListKey, exact: true })
+    expect(query?.state.isInvalidated).toBe(true)
+    expect(isScopeContextQuarantined()).toBe(true)
   })
 })
