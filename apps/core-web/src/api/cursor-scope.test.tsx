@@ -9,6 +9,7 @@ import {
   handshakeScopeContext,
   invalidateProtectedScopeContext,
   isScopeContextQuarantined,
+  isScopeExplicitRefreshRequired,
   resetScopeContextClientForTests,
   seedValidatedScopeContextForTests,
 } from '@/auth/scope-context-client'
@@ -296,28 +297,39 @@ describe('cursor scope (ADR-0038)', () => {
   })
 
   it('failed handshake marks the list stale for explicit refresh', async () => {
+    let handshakeFails = true
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       if (String(url).includes('/api/auth/scope-context')) {
-        return { ok: false, status: 503, json: async () => ({}) } as Response
+        if (handshakeFails) {
+          return { ok: false, status: 503, json: async () => ({}) } as Response
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            scopeContext: 'sc-test',
+            scopeContextDigest: 'digest-a',
+            continuityDigest: 'lineage-1',
+          }),
+        } as Response
       }
       return {
         ok: true,
         json: async () => ({
-          data: [{ id: 'hidden' }],
+          data: [{ id: 'refreshed' }],
           meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
         }),
       } as Response
     })
 
     resetScopeContextClientForTests()
-    seedValidatedScopeContextForTests(testScope)
+    seedValidatedScopeContextForTests(testScope, 'lineage-1')
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const scopedListKey = [...baseOptions().listKey, 'digest-a'] as const
     const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
       wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
     })
 
-    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'hidden' }]))
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'refreshed' }]))
 
     await act(async () => {
       invalidateProtectedScopeContext()
@@ -335,5 +347,24 @@ describe('cursor scope (ADR-0038)', () => {
     const query = client.getQueryCache().find({ queryKey: scopedListKey, exact: true })
     expect(query?.state.isInvalidated).toBe(true)
     expect(isScopeContextQuarantined()).toBe(true)
+    expect(isScopeExplicitRefreshRequired()).toBe(true)
+
+    handshakeFails = false
+    await act(async () => {
+      const sameAfterFail = await handshakeScopeContext({ force: true })
+      expect(sameAfterFail.kind).toBe('same')
+    })
+    expect(result.current.rows).toEqual([])
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(isScopeExplicitRefreshRequired()).toBe(true)
+
+    await act(async () => {
+      expect(await handshakeBeforeExplicitListRefresh()).toBe(true)
+      await refreshInfiniteList(client, scopedListKey)
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'refreshed' }]))
+    expect(isScopeContextQuarantined()).toBe(false)
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
   })
 })

@@ -1,5 +1,20 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { isInventoryCursorSort, useInventory, useInventoryCursorList } from './inventory'
+import { offsetPageWhileHandoffPending } from './cursor-recovery'
+
+function inventoryOffsetEpisodeKey(listParams: {
+  search?: string
+  location?: string
+  sortField?: string
+  sortDirection?: string
+}) {
+  return JSON.stringify({
+    search: listParams.search ?? '',
+    location: listParams.location ?? '',
+    sortField: listParams.sortField ?? '',
+    sortDirection: listParams.sortDirection ?? '',
+  })
+}
 
 /**
  * Rows and `<DataTable>` props of the parts list: cursor-supported sorts scroll without pages (cap 2,000 rows),
@@ -11,9 +26,13 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   const cursorList = useInventoryCursorList(listParams, sortEligible)
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
+  const episodeKey = inventoryOffsetEpisodeKey(listParams)
+  const offsetPage = offsetLatched
+    ? offsetPageWhileHandoffPending(episodeKey, queryParams.page)
+    : queryParams.page
   const offsetList = useInventory(
-    { page: offsetLatched ? 1 : queryParams.page, pageSize: queryParams.pageSize, ...listParams },
-    { enabled: !infiniteMode },
+    { page: offsetPage, pageSize: queryParams.pageSize, ...listParams },
+    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey },
   )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }

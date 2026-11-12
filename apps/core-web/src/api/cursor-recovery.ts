@@ -38,6 +38,7 @@ export function cursorQueryShouldRetry(failureCount: number, error: unknown): bo
 type EpisodeRecoveryState = {
   budget: 0 | 1
   offsetLatched: boolean
+  offsetHandoffPending: boolean
   authBlocked: boolean
   recoveryInFlight: Promise<CursorRecoveryOutcome> | null
 }
@@ -51,7 +52,13 @@ function episodeKeyOf(episodeCounter: number, semanticKey: string) {
 function readEpisodeState(key: string): EpisodeRecoveryState {
   const existing = episodes.get(key)
   if (existing) return existing
-  const created: EpisodeRecoveryState = { budget: 1, offsetLatched: false, authBlocked: false, recoveryInFlight: null }
+  const created: EpisodeRecoveryState = {
+    budget: 1,
+    offsetLatched: false,
+    offsetHandoffPending: false,
+    authBlocked: false,
+    recoveryInFlight: null,
+  }
   episodes.set(key, created)
   return created
 }
@@ -68,6 +75,19 @@ export function latchUnsupportedSortForEpisode(semanticKey: string) {
   const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
   const state = readEpisodeState(key)
   state.offsetLatched = true
+  state.offsetHandoffPending = true
+}
+
+export function offsetPageWhileHandoffPending(semanticKey: string, tablePage: number): number {
+  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
+  const state = readEpisodeState(key)
+  if (!state.offsetLatched || !state.offsetHandoffPending) return tablePage
+  return 1
+}
+
+export function completeOffsetLatchHandoff(semanticKey: string) {
+  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
+  readEpisodeState(key).offsetHandoffPending = false
 }
 
 export function isOffsetLatchedForEpisode(semanticKey: string): boolean {
@@ -190,6 +210,7 @@ export async function resolveCursorListFailure(
 
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
     episode.offsetLatched = true
+    episode.offsetHandoffPending = true
     await flushListCache(client, listKey, countKey, { cancelInFlight: false })
     return { type: 'offset-latch' }
   }

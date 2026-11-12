@@ -154,6 +154,44 @@ describe('scope-context-client handshake epoch', () => {
     expect(isScopeContextQuarantined()).toBe(true)
     expect(isScopeExplicitRefreshRequired()).toBe(true)
   })
+
+  it('clears external-scope acknowledgement on logout before the next session handshake', async () => {
+    seedValidatedScopeContextForTests(
+      { scopeContext: 'sc-old', scopeContextDigest: 'digest-old' },
+      'lineage-1',
+    )
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return {
+          ok: true,
+          json: async () => ({
+            scopeContext: 'sc-new',
+            scopeContextDigest: 'digest-new',
+            continuityDigest: 'lineage-1',
+          }),
+        } as Response
+      }
+      if (target.includes('/api/auth/logout')) {
+        return { ok: true, json: async () => ({}) } as Response
+      }
+      throw new Error(`unexpected ${url}`)
+    })
+
+    const external = await handshakeScopeContext({ force: true })
+    expect(external.kind).toBe('external-scope')
+    expect(isScopeContextQuarantined()).toBe(true)
+
+    await logoutScopeContextLineage()
+    expect(getScopeContextDigest()).toBeUndefined()
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+    expect(isScopeContextQuarantined()).toBe(true)
+
+    const session = await handshakeScopeContext({ force: true })
+    expect(session.kind).toBe('session')
+    expect(isScopeContextQuarantined()).toBe(false)
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+  })
 })
 
 describe('listQueryKeyForCurrentDigest', () => {

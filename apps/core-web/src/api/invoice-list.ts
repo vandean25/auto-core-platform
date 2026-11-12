@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { completeOffsetLatchHandoff, offsetPageWhileHandoffPending } from './cursor-recovery'
 import { isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
 import type { Invoice } from './types'
 
@@ -19,8 +20,17 @@ function sortValue(invoice: Invoice, field: string) {
 }
 
 /** The unpaged list for the sorts the cursor API does not approve: search, sort and paging happen in the browser. */
-function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const { data: invoices = [], isLoading, dataUpdatedAt } = useInvoices({ enabled })
+function useUnpagedInvoiceList(
+  queryParams: DataTableQueryParams,
+  enabled: boolean,
+  offsetEpisodeKey?: string,
+) {
+  const { data: invoices = [], isLoading, dataUpdatedAt, isSuccess } = useInvoices({ enabled })
+  useEffect(() => {
+    if (enabled && offsetEpisodeKey && isSuccess) {
+      completeOffsetLatchHandoff(offsetEpisodeKey)
+    }
+  }, [enabled, offsetEpisodeKey, isSuccess, dataUpdatedAt])
   const { search, sortField, sortDirection, page, pageSize } = queryParams
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
@@ -43,18 +53,33 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
  * blocks of 50 with a unique-id tiebreaker, so the fiscal order stays stable). Customer, status and total keep the
  * unpaged list with pages. Only the query of the active mode runs.
  */
+function invoiceOffsetEpisodeKey(listParams: {
+  search?: string
+  sortField?: string
+  sortDirection?: string
+}) {
+  return JSON.stringify({
+    search: listParams.search ?? '',
+    sortField: listParams.sortField ?? '',
+    sortDirection: listParams.sortDirection ?? '',
+  })
+}
+
 export function useInvoiceListState(queryParams: DataTableQueryParams) {
+  const listParams = {
+    search: queryParams.search?.trim() || undefined,
+    sortField: queryParams.sortField,
+    sortDirection: queryParams.sortDirection,
+  }
   const sortEligible = isInvoiceCursorSort(queryParams.sortField)
-  const cursorList = useInvoiceCursorList(
-    { search: queryParams.search?.trim() || undefined, sortField: queryParams.sortField, sortDirection: queryParams.sortDirection },
-    sortEligible,
-  )
+  const cursorList = useInvoiceCursorList(listParams, sortEligible)
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
-  const unpaged = useUnpagedInvoiceList(
-    offsetLatched ? { ...queryParams, page: 1 } : queryParams,
-    !infiniteMode,
-  )
+  const episodeKey = invoiceOffsetEpisodeKey(listParams)
+  const offsetPage = offsetLatched
+    ? offsetPageWhileHandoffPending(episodeKey, queryParams.page)
+    : queryParams.page
+  const unpaged = useUnpagedInvoiceList({ ...queryParams, page: offsetPage }, !infiniteMode, episodeKey)
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }

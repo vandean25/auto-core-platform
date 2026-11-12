@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { useCursorList } from './cursor-list'
+import { completeOffsetLatchHandoff } from './cursor-recovery'
 import { buildDataTableUrl, resolveListSearch } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
@@ -316,7 +317,11 @@ export type PatchVehicleStockInput = {
   emission_class?: string | null
 }
 
-export function useVehicleStock(queryParams?: DataTableQueryParams, options?: { enabled?: boolean }) {
+export function useVehicleStock(
+  queryParams?: DataTableQueryParams,
+  options?: { enabled?: boolean; offsetEpisodeKey?: string },
+) {
+  const offsetEpisodeKey = options?.offsetEpisodeKey
   return useQuery<VehicleStockListResponse>({
     queryKey: vehicleStockKeys.list(queryParams),
     enabled: options?.enabled ?? true,
@@ -327,7 +332,11 @@ export function useVehicleStock(queryParams?: DataTableQueryParams, options?: { 
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
-      return response.json()
+      const payload = (await response.json()) as VehicleStockListResponse
+      if (offsetEpisodeKey && queryParams?.page === 1) {
+        completeOffsetLatchHandoff(offsetEpisodeKey)
+      }
+      return payload
     },
   })
 }

@@ -1,5 +1,22 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import { resolveListSearch } from './data-table-query'
+
+const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
+import { offsetPageWhileHandoffPending } from './cursor-recovery'
 import { isVehicleStockCursorMode, useVehicleStock, useVehicleStockCursorList } from './vehicle-stock'
+
+function vehicleStockOffsetEpisodeKey(queryParams: DataTableQueryParams) {
+  const filters = {
+    search: resolveListSearch(queryParams, VEHICLE_STOCK_SEARCH_FILTER_FIELDS),
+    stock_status: queryParams.filters.find((filter) => filter.field === 'stock_status')?.value,
+  }
+  return JSON.stringify({
+    search: filters.search ?? '',
+    stock_status: filters.stock_status ?? '',
+    sortField: queryParams.sortField ?? '',
+    sortDirection: queryParams.sortDirection ?? '',
+  })
+}
 
 /**
  * Rows and `<DataTable>` props of the dealer stock list: a draft-free status with a cursor-supported sort scrolls
@@ -12,9 +29,13 @@ export function useVehicleStockListState(queryParams: DataTableQueryParams) {
   const cursorList = useVehicleStockCursorList(queryParams, sortEligible)
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
+  const episodeKey = vehicleStockOffsetEpisodeKey(queryParams)
+  const offsetPage = offsetLatched
+    ? offsetPageWhileHandoffPending(episodeKey, queryParams.page)
+    : queryParams.page
   const offsetList = useVehicleStock(
-    { ...queryParams, page: offsetLatched ? 1 : queryParams.page },
-    { enabled: !infiniteMode },
+    { ...queryParams, page: offsetPage },
+    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey },
   )
   if (infiniteMode) return cursorList
   return {

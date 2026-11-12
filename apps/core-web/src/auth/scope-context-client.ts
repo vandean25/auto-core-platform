@@ -185,7 +185,6 @@ export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observe
 
 /** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
 export function acceptQuarantinedScopeForExplicitRefresh(): void {
-  if (!store.getState().quarantined) return
   store.setState({
     quarantined: false,
     explicitRefreshRequired: false,
@@ -291,7 +290,11 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     try {
       body = await postHandshake()
     } catch {
-      applyHandshakeState(epochAtStart, { quarantined: true, explicitRefreshRequired: true })
+      applyHandshakeState(epochAtStart, {
+        quarantined: true,
+        explicitRefreshRequired: true,
+        pendingExternalScopeAck: true,
+      })
       return { kind: 'failed' }
     }
 
@@ -320,11 +323,22 @@ export async function logoutScopeContextLineage(): Promise<void> {
     // Fail closed on the server when reachable; offline sign-out still clears the client.
   }
   invalidateProtectedScopeContext()
-  store.setState({ context: null, continuityDigest: null })
+  store.setState({
+    context: null,
+    continuityDigest: null,
+    explicitRefreshRequired: false,
+    pendingExternalScopeAck: false,
+  })
   bumpCursorEpisodeCounter()
 }
 
 export function applyUserSessionLifecycle() {
+  store.setState({
+    context: null,
+    continuityDigest: null,
+    explicitRefreshRequired: false,
+    pendingExternalScopeAck: false,
+  })
   invalidateProtectedScopeContext()
   bumpCursorEpisodeCounter()
   broadcastSessionLineageToOtherTabs()
