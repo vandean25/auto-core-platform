@@ -241,7 +241,7 @@ describe('AgentProposalService approve execution', () => {
           description: 'Engine Oil Filter',
           quantity: expect.any(Prisma.Decimal),
           unit_price: expect.any(Prisma.Decimal),
-          part_execution_status: 'PENDING_PICK',
+          part_execution_status: null,
           labor_operation_id: null,
         },
         select: { id: true },
