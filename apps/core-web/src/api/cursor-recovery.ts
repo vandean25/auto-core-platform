@@ -142,6 +142,40 @@ async function recoverViaHandshake(
   return { type: 'restart-page-one' }
 }
 
+async function restartAfterInvalidCursor(
+  client: QueryClient,
+  episode: EpisodeRecoveryState,
+  listKey: QueryKey,
+  countKey: QueryKey,
+): Promise<CursorRecoveryOutcome> {
+  if (episode.budget === 0) {
+    return blockListEpisode(client, listKey, countKey)
+  }
+  episode.budget = 0
+  await client.cancelQueries({ queryKey: listKey, exact: true })
+  await client.cancelQueries({ queryKey: countKey, exact: true })
+  return { type: 'restart-page-one' }
+}
+
+function joinHandshakeRecovery(
+  client: QueryClient,
+  episode: EpisodeRecoveryState,
+  listKey: QueryKey,
+  countKey: QueryKey,
+): Promise<CursorRecoveryOutcome> {
+  episode.recoveryInFlight ??= recoverViaHandshake(client, episode, listKey, countKey).finally(() => {
+    episode.recoveryInFlight = null
+  })
+  return episode.recoveryInFlight
+}
+
+/** 401/403 always block the episode; 422 blocks unless its code is a known no-retry pass-through. */
+function blocksEpisodeForStatus(error: CursorListApiError): boolean {
+  if (error.status === 401 || error.status === 403) return true
+  if (error.status !== 422) return false
+  return !(error.code && CURSOR_NO_RETRY_CODES.has(error.code))
+}
+
 export async function resolveCursorListFailure(
   client: QueryClient,
   options: {
@@ -161,36 +195,14 @@ export async function resolveCursorListFailure(
   }
 
   if (error.code === 'LIST_CURSOR_INVALID' && scopeContextReadyForCursorList()) {
-    if (episode.budget === 0) {
-      return blockListEpisode(client, listKey, countKey)
-    }
-    episode.budget = 0
-    await client.cancelQueries({ queryKey: listKey, exact: true })
-    if (countKey) await client.cancelQueries({ queryKey: countKey, exact: true })
-    return { type: 'restart-page-one' }
+    return restartAfterInvalidCursor(client, episode, listKey, countKey)
   }
 
   if (error.code && CONTEXT_HANDSHAKE_CODES.has(error.code)) {
-    if (episode.recoveryInFlight) {
-      return episode.recoveryInFlight
-    }
-
-    episode.recoveryInFlight = recoverViaHandshake(client, episode, listKey, countKey).finally(() => {
-      episode.recoveryInFlight = null
-    })
-
-    return episode.recoveryInFlight
+    return joinHandshakeRecovery(client, episode, listKey, countKey)
   }
 
-  if (error.status === 401 || error.status === 403) {
-    episode.authBlocked = true
-    return blockListEpisode(client, listKey, countKey)
-  }
-
-  if (error.status === 422) {
-    if (error.code && CURSOR_NO_RETRY_CODES.has(error.code)) {
-      return { type: 'pass-through', error }
-    }
+  if (blocksEpisodeForStatus(error)) {
     episode.authBlocked = true
     return blockListEpisode(client, listKey, countKey)
   }

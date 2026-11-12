@@ -210,12 +210,55 @@ async function postHandshake(): Promise<components['schemas']['ScopeContextHands
   return response.json() as Promise<components['schemas']['ScopeContextHandshakeResponseDto']>
 }
 
+type HandshakeOutcome = Exclude<HandshakeResult, { kind: 'failed' } | { kind: 'superseded' }>
+
+function applyHandshakeOutcome(
+  epochAtStart: number,
+  outcome: HandshakeOutcome,
+  continuityDigest: string,
+  quarantinedAtStart: boolean,
+) {
+  const state = store.getState()
+  const base = { continuityDigest, context: outcome.context }
+
+  if (outcome.kind === 'session') {
+    const pending = state.pendingExternalScopeAck
+    const applied = applyHandshakeState(epochAtStart, {
+      ...base,
+      quarantined: pending,
+      explicitRefreshRequired: pending,
+      pendingExternalScopeAck: pending,
+    })
+    if (applied) bumpCursorEpisodeCounter()
+    return
+  }
+
+  if (outcome.kind === 'external-scope' || state.pendingExternalScopeAck) {
+    applyHandshakeState(epochAtStart, {
+      ...base,
+      quarantined: true,
+      explicitRefreshRequired: true,
+      pendingExternalScopeAck: true,
+      ...(outcome.kind === 'external-scope' ? { protectedGeneration: state.protectedGeneration + 1 } : {}),
+    })
+    return
+  }
+
+  const lifecycleQuarantine = !quarantinedAtStart && state.quarantined
+  applyHandshakeState(epochAtStart, {
+    ...base,
+    quarantined: lifecycleQuarantine,
+    explicitRefreshRequired: lifecycleQuarantine || state.explicitRefreshRequired,
+    pendingExternalScopeAck: false,
+  })
+}
+
 function classifyHandshake(
   previous: ValidatedScopeContext | null,
   next: ValidatedScopeContext,
   previousContinuity: string | null,
   nextContinuity: string,
-): HandshakeResult {
+): HandshakeOutcome {
   if (!previous) return { kind: 'session', context: next }
   if (previousContinuity !== nextContinuity) return { kind: 'session', context: next }
   if (previous.scopeContextDigest !== next.scopeContextDigest) {
@@ -246,55 +289,7 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     const continuity = body.continuityDigest ?? next.scopeContextDigest
     const outcome = classifyHandshake(previous, next, previousContinuity, continuity)
 
-    if (outcome.kind === 'session') {
-      const pendingExternalScopeAck = store.getState().pendingExternalScopeAck
-      if (
-        applyHandshakeState(epochAtStart, {
-          continuityDigest: continuity,
-          context: next,
-          quarantined: pendingExternalScopeAck,
-          explicitRefreshRequired: pendingExternalScopeAck,
-          pendingExternalScopeAck,
-        })
-      ) {
-        bumpCursorEpisodeCounter()
-      }
-      return outcome
-    }
-
-    if (outcome.kind === 'external-scope') {
-      applyHandshakeState(epochAtStart, {
-        continuityDigest: continuity,
-        context: next,
-        quarantined: true,
-        explicitRefreshRequired: true,
-        pendingExternalScopeAck: true,
-        protectedGeneration: store.getState().protectedGeneration + 1,
-      })
-      return outcome
-    }
-
-    if (store.getState().pendingExternalScopeAck) {
-      applyHandshakeState(epochAtStart, {
-        continuityDigest: continuity,
-        context: next,
-        quarantined: true,
-        explicitRefreshRequired: true,
-        pendingExternalScopeAck: true,
-      })
-      return outcome
-    }
-
-    const lifecycleQuarantine = !quarantinedAtStart && store.getState().quarantined
-    const pendingExternalScopeAck = store.getState().pendingExternalScopeAck
-    const keepQuarantined = pendingExternalScopeAck || lifecycleQuarantine
-    applyHandshakeState(epochAtStart, {
-      continuityDigest: continuity,
-      context: next,
-      quarantined: keepQuarantined,
-      explicitRefreshRequired: keepQuarantined || store.getState().explicitRefreshRequired,
-      pendingExternalScopeAck,
-    })
+    applyHandshakeOutcome(epochAtStart, outcome, continuity, quarantinedAtStart)
     return outcome
   })()
 
