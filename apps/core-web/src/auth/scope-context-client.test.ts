@@ -89,4 +89,31 @@ describe('scope-context-client handshake epoch', () => {
     expect(order).toEqual(['second', 'first'])
     expect(getScopeContextDigest()).toBe('digest-new')
   })
+
+  it('POSTs again when a new handshake is requested after the previous flight settled', async () => {
+    let posts = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (!String(url).includes('/api/auth/scope-context')) {
+        throw new Error(`unexpected ${url}`)
+      }
+      posts += 1
+      const digest = posts === 1 ? 'digest-old' : 'digest-new'
+      return {
+        ok: true,
+        json: async () => ({
+          scopeContext: `sc-${posts}`,
+          scopeContextDigest: digest,
+          continuityDigest: 'lineage-1',
+        }),
+      } as Response
+    })
+
+    await handshakeScopeContext({ force: true })
+    expect(posts).toBe(1)
+    expect(getScopeContextDigest()).toBe('digest-old')
+
+    await handshakeScopeContext()
+    expect(posts).toBe(2)
+    expect(getScopeContextDigest()).toBe('digest-new')
+  })
 })

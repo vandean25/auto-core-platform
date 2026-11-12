@@ -297,6 +297,8 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await page.waitForTimeout(10_500);
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
+      await expect.poll(() => handshakePosts).toBeGreaterThanOrEqual(2);
+
       const refresh = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
       await expect(refresh).toBeVisible();
       const box = await refresh.boundingBox();

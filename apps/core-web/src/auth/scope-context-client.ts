@@ -246,12 +246,12 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     }
 
     if (outcome.kind === 'external-scope') {
-      bumpProtectedScopeGeneration()
       applyHandshakeState(epochAtStart, {
         continuityDigest: continuity,
         context: next,
         quarantined: true,
         explicitRefreshRequired: true,
+        protectedGeneration: store.getState().protectedGeneration + 1,
       })
       return outcome
     }
@@ -265,10 +265,11 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     return outcome
   })()
 
-  handshakeInFlight = flight.finally(() => {
+  handshakeInFlight = flight
+  void flight.finally(() => {
     if (handshakeInFlight === flight) handshakeInFlight = null
   })
-  return handshakeInFlight
+  return flight
 }
 
 export async function logoutScopeContextLineage(): Promise<void> {
