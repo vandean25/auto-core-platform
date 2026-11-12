@@ -427,6 +427,22 @@ describe('Workshop free-text PART lines (AUT-972) (e2e)', () => {
   });
 
   it('migration backfill clears legacy free-text PART lines stuck in PENDING_PICK', async () => {
+    const dropPartStatusCheck = `ALTER TABLE workshop_task_line_items DROP CONSTRAINT IF EXISTS workshop_task_line_items_part_status_check`;
+    const backfillFreeTextPartStatus = `
+      UPDATE workshop_task_line_items
+      SET part_execution_status = NULL
+      WHERE type = 'PART'
+        AND catalog_item_id IS NULL
+        AND part_execution_status IS NOT NULL`;
+    const addPartStatusCheck = `
+      ALTER TABLE workshop_task_line_items
+      ADD CONSTRAINT workshop_task_line_items_part_status_check
+      CHECK (
+        (type IN ('LABOR', 'FEE') AND part_execution_status IS NULL)
+        OR (type = 'PART' AND catalog_item_id IS NOT NULL AND part_execution_status IS NOT NULL)
+        OR (type = 'PART' AND catalog_item_id IS NULL AND part_execution_status IS NULL)
+      )`;
+
     const { taskId } = await createOrderWithTask();
     const line = await prisma.workshopTaskLineItem.create({
       data: {
@@ -441,35 +457,24 @@ describe('Workshop free-text PART lines (AUT-972) (e2e)', () => {
       },
     });
 
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE workshop_task_line_items DROP CONSTRAINT IF EXISTS workshop_task_line_items_part_status_check`,
-    );
+    await prisma.$executeRawUnsafe(dropPartStatusCheck);
     await prisma.workshopTaskLineItem.update({
       where: { id: line.id },
       data: { part_execution_status: 'PENDING_PICK' },
     });
 
-    await prisma.$executeRawUnsafe(`
-      UPDATE workshop_task_line_items
-      SET part_execution_status = NULL
-      WHERE type = 'PART'
-        AND catalog_item_id IS NULL
-        AND part_execution_status IS NOT NULL
-    `);
+    try {
+      await prisma.$executeRawUnsafe(dropPartStatusCheck);
+      await prisma.$executeRawUnsafe(backfillFreeTextPartStatus);
+      await prisma.$executeRawUnsafe(addPartStatusCheck);
 
-    const updated = await prisma.workshopTaskLineItem.findFirstOrThrow({
-      where: { id: line.id, tenant_id: tenantId },
-    });
-    expect(updated.part_execution_status).toBeNull();
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE workshop_task_line_items
-      ADD CONSTRAINT workshop_task_line_items_part_status_check
-      CHECK (
-        (type IN ('LABOR', 'FEE') AND part_execution_status IS NULL)
-        OR (type = 'PART' AND catalog_item_id IS NOT NULL AND part_execution_status IS NOT NULL)
-        OR (type = 'PART' AND catalog_item_id IS NULL AND part_execution_status IS NULL)
-      )
-    `);
+      const updated = await prisma.workshopTaskLineItem.findFirstOrThrow({
+        where: { id: line.id, tenant_id: tenantId },
+      });
+      expect(updated.part_execution_status).toBeNull();
+    } finally {
+      await prisma.$executeRawUnsafe(dropPartStatusCheck);
+      await prisma.$executeRawUnsafe(addPartStatusCheck);
+    }
   });
 });
