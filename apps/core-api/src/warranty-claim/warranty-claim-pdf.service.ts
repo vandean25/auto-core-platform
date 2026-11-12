@@ -326,14 +326,39 @@ export class WarrantyClaimPdfService {
     };
   }
 
+  private async resolveClaimOrderSiteId(
+    tenantId: string,
+    orderId: string,
+    claimId: string,
+  ): Promise<string> {
+    const scope = await this.prisma.warrantyClaim.findFirst({
+      where: {
+        id: claimId,
+        tenant_id: tenantId,
+        workshop_order_id: orderId,
+      },
+      select: { workshop_order: { select: { site_id: true } } },
+    });
+    if (!scope) {
+      throw new NotFoundException(`Warranty claim ${claimId} not found`);
+    }
+    const siteId = scope.workshop_order.site_id;
+    if (!siteId) {
+      throw new NotFoundException(`Workshop order ${orderId} has no site`);
+    }
+    return siteId;
+  }
+
   private async buildPdfContent(
     orderId: string,
     claimId: string,
   ): Promise<WarrantyClaimPdfContent> {
-    const [tenantId, siteId] = await Promise.all([
-      this.tenantContext.getTenantId(),
-      this.siteContext.getSiteId(),
-    ]);
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.resolveClaimOrderSiteId(
+      tenantId,
+      orderId,
+      claimId,
+    );
 
     const order = await this.prisma.workshopOrder.findFirst({
       where: { id: orderId, tenant_id: tenantId, site_id: siteId },

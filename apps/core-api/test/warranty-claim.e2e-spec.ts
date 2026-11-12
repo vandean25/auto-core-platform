@@ -38,17 +38,12 @@ function claimsPath(orderId: string, claimId?: string): string {
   return claimId ? `${base}/${claimId}` : base;
 }
 
-async function requestClaimPdf(
+async function downloadClaimPdf(
   server: Parameters<typeof request>[0],
   orderId: string,
   claimId: string,
   token: string,
 ): Promise<Buffer> {
-  await request(server)
-    .post(`${claimsPath(orderId, claimId)}/pdf`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(201);
-
   const download = await request(server)
     .get(`${claimsPath(orderId, claimId)}/pdf`)
     .set('Authorization', `Bearer ${token}`)
@@ -61,6 +56,20 @@ async function requestClaimPdf(
     .expect(200);
 
   return download.body as Buffer;
+}
+
+async function requestClaimPdf(
+  server: Parameters<typeof request>[0],
+  orderId: string,
+  claimId: string,
+  token: string,
+): Promise<Buffer> {
+  await request(server)
+    .post(`${claimsPath(orderId, claimId)}/pdf`)
+    .set('Authorization', `Bearer ${token}`)
+    .expect(201);
+
+  return downloadClaimPdf(server, orderId, claimId, token);
 }
 
 function uniqueSuffix(): string {
@@ -1186,6 +1195,14 @@ describe('Warranty claims (AUT-464, e2e)', () => {
           .expect(204);
 
         expect(getBrowserSpy).toHaveBeenCalled();
+
+        const body = await downloadClaimPdf(
+          app.getHttpServer(),
+          fixture.orderId,
+          claimId,
+          adminToken,
+        );
+        expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
       } finally {
         getBrowserSpy.mockRestore();
       }
