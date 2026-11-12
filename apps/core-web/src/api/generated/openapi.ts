@@ -14821,7 +14821,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "idempotency-key": string;
                 "Idempotency-Key": string;
             };
             path: {
@@ -14849,7 +14848,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "idempotency-key": string;
                 "Idempotency-Key": string;
             };
             path: {
@@ -14933,7 +14931,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "idempotency-key": string;
                 "Idempotency-Key": string;
             };
             path: {
@@ -18550,7 +18547,6 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "idempotency-key": string;
                 "Idempotency-Key": string;
             };
             path?: never;
