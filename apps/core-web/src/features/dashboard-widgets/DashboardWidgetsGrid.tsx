@@ -18,6 +18,7 @@ import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidge
 import type { DashboardWidget, DashboardWidgetTableSource } from '@/features/dashboard-widgets/types'
 import { WidgetBody, WidgetEmptyMessage } from '@/features/dashboard-widgets/DashboardWidgetBodies'
 import { isPartialResult, type WidgetData } from '@/features/dashboard-widgets/widget-totals'
+import { resolveDashboardWidgetDisplayName } from '@/features/dashboard-widgets/widget-display-name'
 import { hasUtcDayChanged } from '@/lib/date-utils'
 
 const PICKERL_DUE_SOURCE_KEY = 'pickerl-due'
@@ -68,6 +69,7 @@ function DashboardWidgetCard({
   const { data, isLoading, error } = useWidgetRows(widget)
   const rows = useMemo(() => data?.rows ?? [], [data])
   const hasRows = !isLoading && !error && rows.length > 0
+  const displayName = resolveDashboardWidgetDisplayName(widget, source, t)
 
   return (
     <Card className="h-full">
@@ -79,11 +81,11 @@ function DashboardWidgetCard({
             onClick={() => navigate(widget.href)}
             title={t('dashboard.openSourceTitle')}
           >
-            <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{widget.name}</CardTitle>
+            <CardTitle className="text-base font-semibold hover:text-primary transition-colors">{displayName}</CardTitle>
           </button>
           <p className="text-xs text-muted-foreground mt-1">{t(source.labelKey)}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}>
+        <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t('dashboard.removeWidgetAria', { name: displayName })}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
@@ -141,16 +143,19 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 dashboard-widgets-grid">
       {visibleWidgets.map((widget) => {
         const source = sourcesByKey[widget.sourceKey]
+        const displayName = source
+          ? resolveDashboardWidgetDisplayName(widget, source, t)
+          : widget.name
         if (!source) {
           return (
             <Card key={widget.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
-                <CardTitle className="text-base font-semibold">{widget.name}</CardTitle>
+                <CardTitle className="text-base font-semibold">{displayName}</CardTitle>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => removeWidget(widget.id)}
-                  aria-label={t('dashboard.removeWidgetAria', { name: widget.name })}
+                  aria-label={t('dashboard.removeWidgetAria', { name: displayName })}
                 >
                   <X className="h-4 w-4" />
                 </Button>

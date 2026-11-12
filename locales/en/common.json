@@ -123,6 +123,12 @@
     "sumColumnRequired": "Select a column to sum.",
     "widgetAdded": "Widget added to dashboard.",
     "defaultWidgetName": "{{sourceLabel}} widget",
+    "builtInWidgetTitle": {
+      "list": "{{sourceLabel}} List",
+      "donut": "{{sourceLabel}} Donut",
+      "metricCount": "{{sourceLabel}} Total",
+      "metricSum": "{{sourceLabel}} Sum"
+    },
     "openSourceTitle": "Open source table with saved filters",
     "removeWidgetAria": "Remove widget {{name}}",
     "loadingWidget": "Loading widget…",

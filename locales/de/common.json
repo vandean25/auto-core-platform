@@ -123,6 +123,12 @@
     "sumColumnRequired": "Bitte wählen Sie eine Spalte für die Summe.",
     "widgetAdded": "Widget zum Dashboard hinzugefügt.",
     "defaultWidgetName": "{{sourceLabel}} Widget",
+    "builtInWidgetTitle": {
+      "list": "{{sourceLabel}} Liste",
+      "donut": "{{sourceLabel}} Donut-Diagramm",
+      "metricCount": "{{sourceLabel}} Gesamt",
+      "metricSum": "{{sourceLabel}} Summe"
+    },
     "openSourceTitle": "Quelltabelle mit gespeicherten Filtern öffnen",
     "removeWidgetAria": "Widget {{name}} entfernen",
     "loadingWidget": "Widget wird geladen…",

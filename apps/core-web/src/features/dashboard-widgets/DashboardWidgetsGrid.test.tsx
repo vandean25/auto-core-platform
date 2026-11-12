@@ -256,6 +256,22 @@ describe('DashboardWidgetsGrid totals beyond the fetched page (AUT-807)', () => 
   })
 })
 
+describe('DashboardWidgetsGrid built-in widget titles (AUT-970)', () => {
+  it('shows German titles for legacy English vehicle widget names', async () => {
+    mocks.widgets = [
+      widget('list', '/vehicles', { name: 'Vehicles List', displayType: 'list' }),
+      widget('total', '/vehicles', { name: 'Vehicles Total', displayType: 'metric', metricCalculation: 'count' }),
+      widget('donut', '/vehicles', { name: 'Vehicles Donut', displayType: 'donut', groupByField: 'make' }),
+    ]
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Fahrzeuge Liste')).toBeInTheDocument())
+    expect(screen.getByText('Fahrzeuge Gesamt')).toBeInTheDocument()
+    expect(screen.getByText('Fahrzeuge Donut-Diagramm')).toBeInTheDocument()
+    expect(screen.queryByText('Vehicles List')).not.toBeInTheDocument()
+  })
+})
+
 describe('DashboardWidgetsGrid empty state', () => {
   it('renders short empty state with how-to hint behind info icon', () => {
     mocks.widgets = []

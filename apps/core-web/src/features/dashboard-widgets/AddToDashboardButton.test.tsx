@@ -73,6 +73,28 @@ describe('AddToDashboardButton', () => {
     fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByLabelText('Widget-Name')).toHaveValue('Kunden Widget')
+    expect(within(dialog).getByLabelText('Widget-Name')).toHaveValue('Kunden Liste')
+  })
+
+  it('keeps a customised widget name when display type and calculation change', async () => {
+    renderAddButton()
+
+    fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }))
+    const dialog = await screen.findByRole('dialog')
+    const nameInput = within(dialog).getByLabelText('Widget-Name')
+    const customName = 'Meine Kundenübersicht'
+    fireEvent.change(nameInput, { target: { value: customName } })
+
+    fireEvent.click(within(dialog).getByLabelText('Anzeigeart'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Donut-Diagramm' }))
+    expect(nameInput).toHaveValue(customName)
+
+    fireEvent.click(within(dialog).getByLabelText('Anzeigeart'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Kennzahl' }))
+    expect(nameInput).toHaveValue(customName)
+
+    fireEvent.click(within(dialog).getByLabelText('Berechnen'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Summe (Zahlen / Währung)' }))
+    expect(nameInput).toHaveValue(customName)
   })
 })
