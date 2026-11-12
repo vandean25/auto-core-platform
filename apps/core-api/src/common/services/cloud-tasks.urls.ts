@@ -9,6 +9,11 @@ const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   'credit-note': (resourceId) => `credit-notes/${resourceId}/pdf/worker`,
   'vehicle-sale-kaufvertrag': (resourceId) =>
     `vehicle-sales/${resourceId}/kaufvertrag/pdf/worker`,
+  'warranty-claim': () => {
+    throw new InternalServerErrorException(
+      'Warranty claim PDF tasks require workerRelativePath (workshop order id)',
+    );
+  },
 };
 
 function withTrailingSlash(url: string): string {

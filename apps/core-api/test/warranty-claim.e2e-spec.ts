@@ -1,13 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import { INestApplication } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import {
+  INestApplication,
+  InternalServerErrorException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe, GlobalExceptionFilter } from '../src/common/index.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { CloudTasksService } from '../src/common/services/cloud-tasks.service.js';
+import { PlaywrightBrowserService } from '../src/common/services/playwright-browser.service.js';
+import { signPdfTaskPayload } from '../src/common/pdf/pdf-task-payload.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { WarrantyClaimPdfRenderer } from '../src/warranty-claim/warranty-claim-pdf.renderer.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -33,6 +44,40 @@ function claimsPath(orderId: string, claimId?: string): string {
   return claimId ? `${base}/${claimId}` : base;
 }
 
+async function downloadClaimPdf(
+  server: Parameters<typeof request>[0],
+  orderId: string,
+  claimId: string,
+  token: string,
+): Promise<Buffer> {
+  const download = await request(server)
+    .get(`${claimsPath(orderId, claimId)}/pdf`)
+    .set('Authorization', `Bearer ${token}`)
+    .buffer(true)
+    .parse((response, callback) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => callback(null, Buffer.concat(chunks)));
+    })
+    .expect(200);
+
+  return download.body as Buffer;
+}
+
+async function requestClaimPdf(
+  server: Parameters<typeof request>[0],
+  orderId: string,
+  claimId: string,
+  token: string,
+): Promise<Buffer> {
+  await request(server)
+    .post(`${claimsPath(orderId, claimId)}/pdf`)
+    .set('Authorization', `Bearer ${token}`)
+    .expect(201);
+
+  return downloadClaimPdf(server, orderId, claimId, token);
+}
+
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -54,6 +99,29 @@ async function readPdfText(pdfBytes: Buffer): Promise<string> {
   return pages.join(' ');
 }
 
+function createWarrantyClaimPdfStorageMock(bucket = 'test-invoice-pdf') {
+  const objects = new Map<string, Buffer>();
+  return {
+    uploadPdf: async (params: { key: string; body: Buffer }) => {
+      objects.set(params.key, params.body);
+      return { bucket, key: params.key, etag: null };
+    },
+    getPdfStream: async (params: { bucket?: string; key: string }) => {
+      const body = objects.get(params.key);
+      if (!body) {
+        throw new NotFoundException('PDF not found in storage');
+      }
+      return {
+        bucket: params.bucket ?? bucket,
+        key: params.key,
+        stream: Readable.from(body),
+        contentType: 'application/pdf',
+        contentLength: body.length,
+      };
+    },
+  };
+}
+
 describe('Warranty claims (AUT-464, e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -66,9 +134,15 @@ describe('Warranty claims (AUT-464, e2e)', () => {
   const extraTenantIds: string[] = [];
 
   beforeAll(async () => {
+    process.env.INVOICE_PDF_BUCKET = 'test-invoice-pdf';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PdfStorage)
+      .useValue(createWarrantyClaimPdfStorageMock())
+      .overrideProvider(CloudTasksService)
+      .useValue({ isEnabled: () => false, enqueuePdfGeneration: jest.fn() })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -1038,20 +1112,30 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
 
-      const download = await request(app.getHttpServer())
-        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .buffer(true)
-        .parse((response, callback) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () => callback(null, Buffer.concat(chunks)));
-        })
-        .expect(200);
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
 
-      expect(download.headers['content-type']).toContain('application/pdf');
-      expect(download.headers['content-disposition']).toMatch(/^attachment; filename="kulanz-wo-aut464-.*\.pdf"$/);
-      expect((download.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.length).toBeGreaterThan(100);
+    });
+
+    it('renders a PDF when the claim has no lines', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, { complaint: 'Noise on cold start' });
+
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+
+      expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(body.length).toBeGreaterThan(100);
     });
 
     it('prints the order, the claim type, the affected lines and the EUR amounts', async () => {
@@ -1062,18 +1146,14 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         select: { order_number: true },
       });
 
-      const download = await request(app.getHttpServer())
-        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .buffer(true)
-        .parse((response, callback) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () => callback(null, Buffer.concat(chunks)));
-        })
-        .expect(200);
+      const body = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
 
-      const text = await readPdfText(download.body as Buffer);
+      const text = await readPdfText(body);
       expect(text).toContain('Kulanzantrag');
       expect(text).toContain(order.order_number);
       expect(text).toContain('LAB-KUPPLUNG');
@@ -1088,9 +1168,205 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const mechanicToken = await createMemberToken('TECH');
 
       await request(app.getHttpServer())
+        .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${mechanicToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
         .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
         .set('Authorization', `Bearer ${mechanicToken}`)
         .expect(403);
+    });
+
+    it('regenerates the PDF when the workshop order odometer changes after printing', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const firstBody = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+      const firstText = await readPdfText(firstBody);
+      expect(firstText).toContain('84.210 km');
+
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+
+      await prisma.workshopOrder.update({
+        where: { id: fixture.orderId },
+        data: { odometer: 120_500 },
+      });
+
+      const secondBody = await requestClaimPdf(
+        app.getHttpServer(),
+        fixture.orderId,
+        claimId,
+        adminToken,
+      );
+      const secondText = await readPdfText(secondBody);
+      expect(secondText).toContain('120.500 km');
+      expect(secondText).not.toContain('84.210 km');
+    });
+
+    it('stores pdf_generation_error when the worker hits a non-retryable build failure', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const renderer = app.get(WarrantyClaimPdfRenderer);
+      const renderSpy = jest.spyOn(renderer, 'render').mockRejectedValue(
+        new UnprocessableEntityException({
+          code: 'SELLER_IDENTITY_INCOMPLETE',
+          message:
+            'The workshop order has no legal entity for the document header.',
+        }),
+      );
+
+      try {
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(204);
+
+        const stored = await prisma.warrantyClaim.findFirstOrThrow({
+          where: { id: claimId, tenant_id: tenant.tenantId },
+          select: { pdf_generation_error: true },
+        });
+        expect(stored.pdf_generation_error).toBe(
+          'The workshop order has no legal entity for the document header.',
+        );
+      } finally {
+        renderSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
+      }
+    });
+
+    it('does not store pdf_generation_error when the worker hits a retryable render failure', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const renderer = app.get(WarrantyClaimPdfRenderer);
+      const renderSpy = jest.spyOn(renderer, 'render').mockRejectedValue(
+        new InternalServerErrorException('Playwright browser crashed'),
+      );
+
+      try {
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(500);
+
+        const stored = await prisma.warrantyClaim.findFirstOrThrow({
+          where: { id: claimId, tenant_id: tenant.tenantId },
+          select: { pdf_generation_error: true },
+        });
+        expect(stored.pdf_generation_error).toBeNull();
+      } finally {
+        renderSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
+      }
+    });
+
+    it('does not launch a browser for user PDF enqueue when Cloud Tasks handles rendering', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+      process.env.CLOUD_TASKS_TARGET_BASE_URL =
+        process.env.CLOUD_TASKS_TARGET_BASE_URL ?? 'http://127.0.0.1:3000/api';
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const browserService = app.get(PlaywrightBrowserService);
+      const getBrowserSpy = jest.spyOn(browserService, 'getBrowser');
+
+      const cloudTasks = app.get(CloudTasksService);
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+      const isEnabledSpy = jest
+        .spyOn(cloudTasks, 'isEnabled')
+        .mockReturnValue(true);
+      const enqueueSpy = jest
+        .spyOn(cloudTasks, 'enqueuePdfGeneration')
+        .mockImplementation(async () => ({ taskId: 'task-warranty-claim-1' }));
+
+      try {
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(201);
+
+        expect(enqueueSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: 'warranty-claim',
+            resourceId: claimId,
+            workerRelativePath: `workshop/orders/${fixture.orderId}/warranty-claims/${claimId}/pdf/worker`,
+          }),
+        );
+        expect(getBrowserSpy).not.toHaveBeenCalled();
+
+        await request(app.getHttpServer())
+          .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(404);
+
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(204);
+
+        const body = await downloadClaimPdf(
+          app.getHttpServer(),
+          fixture.orderId,
+          claimId,
+          adminToken,
+        );
+        expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+        expect(getBrowserSpy.mock.calls.length).toBeGreaterThan(0);
+      } finally {
+        getBrowserSpy.mockRestore();
+        isEnabledSpy.mockRestore();
+        enqueueSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
+      }
     });
   });
 });

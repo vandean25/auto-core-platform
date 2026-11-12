@@ -233,6 +233,12 @@ export class WarrantyClaimResponseDto {
   submittedAt!: string | null;
   @ApiProperty({ nullable: true, type: String, format: 'date-time' })
   closedAt!: string | null;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Set when archived PDF generation failed',
+  })
+  pdfGenerationError!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
   @ApiProperty({ type: [WarrantyClaimLineResponseDto] })

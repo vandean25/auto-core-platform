@@ -46,6 +46,7 @@ function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
     decisionNote: null,
     submittedAt: null,
     closedAt: null,
+    pdfGenerationError: null,
     createdAt: "2026-10-10T08:00:00.000Z",
     updatedAt: "2026-10-10T08:00:00.000Z",
     lines: [],
@@ -340,6 +341,41 @@ describe("warranty claim API", () => {
       await updateWarrantyClaim("order-1", "claim-1", { complaint: "Kupplung" });
 
       expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops printing when the claim reports a PDF generation error", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation(async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        if (url.endsWith("/pdf") && method === "POST") {
+          return jsonResponse({ message: "PDF generation enqueued", enqueued: true }, 201);
+        }
+        if (url.includes("/warranty-claims/claim-1") && !url.endsWith("/pdf")) {
+          return jsonResponse(
+            claimFixture({
+              pdfGenerationError:
+                "The workshop order has no legal entity for the document header.",
+            }),
+          );
+        }
+        return new Promise<Response>(() => undefined);
+      });
+
+      const outcome = downloadWarrantyClaimPdf("order-1", "claim-1").catch(
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+
+      const error = await outcome;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        "The workshop order has no legal entity for the document header.",
+      );
     } finally {
       vi.useRealTimers();
     }

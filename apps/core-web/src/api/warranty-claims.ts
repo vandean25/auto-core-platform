@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  downloadPdfFromGetUrl,
+  generateAndDownloadPdfBlob,
+} from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import type {
   CreateWarrantyClaimPayload,
@@ -115,19 +119,48 @@ export function updateWarrantyClaim(
 /** The server renders the PDF within 15 seconds. The download gives up after this long, so Print cannot stay busy. */
 export const WARRANTY_CLAIM_PDF_TIMEOUT_MS = 45_000
 
-export function downloadWarrantyClaimPdf(orderId: string, claimId: string): Promise<Blob> {
+export async function fetchWarrantyClaimPdfGenerationError(
+  orderId: string,
+  claimId: string,
+): Promise<string | null> {
+  const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}`)
+  if (!response.ok) {
+    return null
+  }
+  const claim = (await response.json()) as WarrantyClaim
+  return claim.pdfGenerationError ?? null
+}
+
+export function downloadWarrantyClaimPdf(
+  orderId: string,
+  claimId: string,
+  options?: { signal?: AbortSignal },
+): Promise<Blob> {
+  const pdfUrl = `${claimsUrl(orderId)}/${claimId}/pdf`
   return withTimeout(
     WARRANTY_CLAIM_PDF_TIMEOUT_MS,
     'The PDF took too long to generate. Try again.',
-    async (signal) => {
-      const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}/pdf`, {
-        headers: { Accept: 'application/pdf' },
-        signal,
-      })
-      if (!response.ok) throw await readErrorMessage(response, 'Failed to generate the claim PDF')
-      return response.blob()
-    },
+    async (signal) =>
+      generateAndDownloadPdfBlob({
+        postUrl: pdfUrl,
+        getUrl: pdfUrl,
+        signal: options?.signal ?? signal,
+        timeoutMs: WARRANTY_CLAIM_PDF_TIMEOUT_MS,
+        timeoutErrorMessage: 'The PDF took too long to generate. Try again.',
+        errorFallbackMessage: 'Failed to generate the claim PDF',
+        checkGenerationFailed: () =>
+          fetchWarrantyClaimPdfGenerationError(orderId, claimId),
+      }),
   )
+}
+
+export function fetchWarrantyClaimPdfBlob(
+  orderId: string,
+  claimId: string,
+): Promise<Blob> {
+  return downloadPdfFromGetUrl(`${claimsUrl(orderId)}/${claimId}/pdf`, {
+    poll: false,
+  })
 }
 
 export function useWarrantyClaims(orderId: string, status?: WarrantyClaimStatus) {

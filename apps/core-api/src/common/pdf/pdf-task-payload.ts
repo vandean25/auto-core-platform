@@ -7,6 +7,7 @@ export const PDF_TASK_KINDS = [
   'workshop-estimate',
   'credit-note',
   'vehicle-sale-kaufvertrag',
+  'warranty-claim',
 ] as const;
 export type PdfTaskKind = (typeof PDF_TASK_KINDS)[number];
 export const PDF_TASK_KIND_KEY = 'pdfTaskKind';

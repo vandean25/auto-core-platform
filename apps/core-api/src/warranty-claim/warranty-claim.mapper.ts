@@ -34,6 +34,7 @@ export type WarrantyClaimResponse = {
   decisionNote: string | null;
   submittedAt: string | null;
   closedAt: string | null;
+  pdfGenerationError: string | null;
   createdAt: string;
   updatedAt: string;
   lines: WarrantyClaimLineResponse[];
@@ -69,6 +70,7 @@ export function toWarrantyClaimResponse(
     decisionNote: row.decision_note,
     submittedAt: row.submitted_at?.toISOString() ?? null,
     closedAt: row.closed_at?.toISOString() ?? null,
+    pdfGenerationError: row.pdf_generation_error ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     lines: row.lines.map((line) => ({

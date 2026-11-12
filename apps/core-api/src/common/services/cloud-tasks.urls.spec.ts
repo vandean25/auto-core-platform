@@ -56,6 +56,17 @@ describe('buildPdfTaskUrl', () => {
     },
   );
 
+  it('refuses warranty-claim URLs without an explicit workerRelativePath', () => {
+    expect(() =>
+      buildPdfTaskUrl('https://app.example.com/api', 'warranty-claim', 'claim-1'),
+    ).toThrow(InternalServerErrorException);
+    expect(() =>
+      buildPdfTaskUrl('https://app.example.com/api', 'warranty-claim', 'claim-1'),
+    ).toThrow(
+      'Warranty claim PDF tasks require workerRelativePath (workshop order id)',
+    );
+  });
+
   it('wraps an invalid base URL with the parser message', () => {
     expect(() => buildPdfTaskUrl('not a url', 'invoice', 'invoice-1')).toThrow(
       InternalServerErrorException,

@@ -52,6 +52,7 @@ describe('toMcpWarrantyClaimListRow', () => {
       closedAt: null,
       createdAt: '2026-10-01T08:00:00.000Z',
       updatedAt: '2026-10-01T08:00:00.000Z',
+      pdfGenerationError: null,
       lines: [{ id: 'line-1' } as never],
     });
 

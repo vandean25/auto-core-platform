@@ -139,6 +139,10 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
     'service_job',
     'Cloud Tasks worker. Cloud Tasks identity and task-tenant guards.',
   ),
+  'WarrantyClaimController.generatePdfWorker': classified(
+    'service_job',
+    'Cloud Tasks worker. Cloud Tasks identity and task-tenant guards.',
+  ),
   'VehicleSaleController.generateKaufvertragPdfWorker': classified(
     'service_job',
     'Cloud Tasks worker. Cloud Tasks identity and task-tenant guards.',

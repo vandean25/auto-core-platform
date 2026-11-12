@@ -3043,7 +3043,7 @@ export interface paths {
         };
         get: operations["WarrantyClaimController_downloadPdf"];
         put?: never;
-        post?: never;
+        post: operations["WarrantyClaimController_requestPdf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9417,6 +9417,8 @@ export interface components {
             submittedAt: string | null;
             /** Format: date-time */
             closedAt: string | null;
+            /** @description Set when archived PDF generation failed */
+            pdfGenerationError: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -18960,6 +18962,28 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": string;
+                };
+            };
+        };
+    };
+    WarrantyClaimController_requestPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
             };
         };

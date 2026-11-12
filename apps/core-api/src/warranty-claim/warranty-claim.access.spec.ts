@@ -55,6 +55,8 @@ describe('warranty claim access for technicians', () => {
     untouched<SiteContextService>(),
     untouched(),
     untouched(),
+    untouched(),
+    untouched(),
   );
 
   it.each([
@@ -62,7 +64,14 @@ describe('warranty claim access for technicians', () => {
     ['get', () => service.get('order-1', 'claim-1')],
     ['create', () => service.create('order-1', { type: 'GARANTIE' })],
     ['update', () => service.update('order-1', 'claim-1', {})],
-    ['render the PDF', () => pdf.render('order-1', 'claim-1')],
+    ['download the PDF', () => pdf.getPdf('order-1', 'claim-1')],
+    [
+      'enqueue PDF generation',
+      () =>
+        pdf.requestGeneration('order-1', 'claim-1', {
+          targetBaseUrl: 'http://127.0.0.1:3000/api',
+        }),
+    ],
   ])('refuses to %s before it reaches any data', async (_name, call) => {
     await expect(call()).rejects.toThrow(ForbiddenException);
   });

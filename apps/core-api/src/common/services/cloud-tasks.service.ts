@@ -101,13 +101,20 @@ export class CloudTasksService {
     targetBaseUrl: string;
     delaySeconds?: number;
     tenantId: string;
+    workerRelativePath?: string;
   }): Promise<{ taskId: string }> {
     SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
     return Sentry.startSpan(
       { name: 'Enqueue PDF generation task', op: 'cloudtasks.enqueue' },
       async (span) => {
-        const { kind, resourceId, tenantId, targetBaseUrl, delaySeconds } =
-          params;
+        const {
+          kind,
+          resourceId,
+          tenantId,
+          targetBaseUrl,
+          delaySeconds,
+          workerRelativePath,
+        } = params;
         span.setAttribute('pdfKind', kind);
         span.setAttribute('resourceId', resourceId);
 
@@ -118,7 +125,9 @@ export class CloudTasksService {
           env.location,
           env.queue,
         );
-        const url = buildPdfTaskUrl(targetBaseUrl, kind, resourceId);
+        const url = workerRelativePath
+          ? buildDocumentBrandingTaskUrl(targetBaseUrl, workerRelativePath)
+          : buildPdfTaskUrl(targetBaseUrl, kind, resourceId);
 
         span.setAttribute('queue', env.queue);
         span.setAttribute('location', env.location);

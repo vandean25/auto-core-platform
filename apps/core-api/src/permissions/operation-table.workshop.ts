@@ -507,6 +507,12 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
     'site',
     ['document_site', 'business_state'],
   ),
+  'WarrantyClaimController.requestPdf': op(
+    'warranty_claim.read',
+    BACK_OFFICE,
+    'site',
+    ['document_site'],
+  ),
   'WarrantyClaimController.downloadPdf': op(
     'warranty_claim.read',
     BACK_OFFICE,

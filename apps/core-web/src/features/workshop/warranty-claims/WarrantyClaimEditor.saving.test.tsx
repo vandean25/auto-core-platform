@@ -163,20 +163,54 @@ describe("WarrantyClaimEditor: saving", () => {
 
   it("saves the pending edits, then downloads the PDF", async () => {
     triggerBlobDownloadMock.mockClear();
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(claimFixture({ complaint: "Kupplung rutscht stark" })))
-      .mockResolvedValueOnce(
-        new Response("%PDF-1.4", { status: 200, headers: { "Content-Type": "application/pdf" } }),
-      );
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = (init as RequestInit | undefined)?.method ?? "GET";
+      if (method === "PATCH") {
+        return jsonResponse(claimFixture({ complaint: "Kupplung rutscht stark" }));
+      }
+      if (method === "POST" && url.endsWith("/pdf")) {
+        return jsonResponse({ mode: "generated" }, 201);
+      }
+      if (method === "GET" && url.endsWith("/pdf")) {
+        return new Response("%PDF-1.4", {
+          status: 200,
+          headers: { "Content-Type": "application/pdf" },
+        });
+      }
+      if (method === "GET" && url.includes("warranty-claims/claim-1")) {
+        return jsonResponse(
+          claimFixture({ complaint: "Kupplung rutscht stark", pdfGenerationError: null }),
+        );
+      }
+      return jsonResponse(claimFixture());
+    });
     renderEditor(claimFixture());
 
     fireEvent.change(screen.getByLabelText(we.complaint), { target: { value: "Kupplung rutscht stark" } });
     fireEvent.click(screen.getByRole("button", { name: we.print }));
 
     await waitFor(() => expect(triggerBlobDownloadMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht stark" });
-    expect(String(fetchMock.mock.calls[1][0])).toMatch(/\/pdf$/);
+
+    const patches = fetchMock.mock.calls.filter(
+      ([, callInit]) => (callInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(patches.length).toBeGreaterThanOrEqual(1);
+    expect(payloadOf(patches[0])).toEqual({ complaint: "Kupplung rutscht stark" });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, callInit]) =>
+          (callInit as RequestInit | undefined)?.method === "POST" && String(url).endsWith("/pdf"),
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, callInit]) =>
+          ((callInit as RequestInit | undefined)?.method ?? "GET") === "GET" &&
+          String(url).endsWith("/pdf"),
+      ),
+    ).toBe(true);
     await settle();
   });
 
