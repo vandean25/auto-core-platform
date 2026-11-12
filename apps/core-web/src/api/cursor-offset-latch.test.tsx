@@ -65,7 +65,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
   it('inventory renders offset list at page 1', async () => {
     seedMocks({ cursorPath: '/api/inventory', offsetPath: '/api/inventory?', offsetRow: { id: 'inv-1' } })
     const { result } = renderHook(
-      () => useInventoryListState({ page: 2, pageSize: 10, sortField: 'sku', sortDirection: 'asc' }, {}),
+      () => useInventoryListState({ page: 2, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
       { wrapper: wrapper() },
     )
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'inv-1' }]))
@@ -103,7 +103,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
     renderHook(() => useInvoiceCursorList(listParams, true), { wrapper: wrapper() })
     await waitFor(() => expect(isOffsetLatchedForEpisode(episodeKey)).toBe(true))
     const { result } = renderHook(
-      () => useInvoiceListState({ page: 1, pageSize: 10, sortField: 'invoice_number', sortDirection: 'asc' }),
+      () => useInvoiceListState({ page: 1, pageSize: 10, sortField: 'invoice_number', sortDirection: 'asc', filters: [] }),
       { wrapper: wrapper() },
     )
     await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['inv-doc-1']))
