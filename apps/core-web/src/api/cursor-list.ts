@@ -1,4 +1,11 @@
-import { useInfiniteQuery, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+  type QueryKey,
+} from '@tanstack/react-query'
 import { useMemo } from 'react'
 
 import {
@@ -236,7 +243,13 @@ export function useCursorList<TRow extends { id: string }>({
   const authBlocked = isAuthBlockedForEpisode(semanticEpisodeKey)
   const queryEnabled = enabled && scopeReady && !offsetLatch && !quarantined && !authBlocked
 
-  const list = useInfiniteQuery({
+  const list = useInfiniteQuery<
+    CursorListPage<TRow>,
+    Error,
+    InfiniteData<CursorListPage<TRow>, string | undefined>,
+    QueryKey,
+    string | undefined
+  >({
     ...infiniteListQueryOptions(scopedCountKey),
     queryKey: scopedListKey,
     enabled: queryEnabled,
