@@ -647,9 +647,8 @@ export class MechanicExecutionService {
    * Creates a new free-text part request line (`WorkshopTaskLineItem` of type PART)
    * without catalog pick workflow (`part_execution_status` null).
    *
-   * Stock is NOT deducted by this operation.  The parts department picks and
-   * stages the part through the kitting/tote workflow (ADR-0014 §6.1,
-   * ADR-0012).
+   * Stock is NOT deducted by this operation.  Free-text lines skip catalog
+   * pick/staging; parts staff handle sourcing and pricing in back office.
    *
    * Cost and pricing fields are intentionally excluded from the DTO;
    * mechanics must not see or set financial data (ADR-0014 §6.3, §8.2).
