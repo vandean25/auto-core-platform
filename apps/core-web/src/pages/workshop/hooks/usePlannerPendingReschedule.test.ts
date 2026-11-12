@@ -70,6 +70,8 @@ describe('usePlannerPendingReschedule', () => {
       result.current.performReschedule('order-1', 'bay-1', '2026-08-21T11:00:00.000Z', 3_600_000)
     })
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('planner.page.rescheduleFailed'),
+    )
   })
 })
