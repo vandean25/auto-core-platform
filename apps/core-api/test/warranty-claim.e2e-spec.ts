@@ -156,6 +156,15 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         unit_price: 100,
       },
     });
+    const partCatalogItem = await prisma.catalogItem.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        sku: `WARRANTY-PART-${Date.now()}`,
+        name: 'Geberzylinder',
+        cost_price: 500,
+        retail_price: 1000,
+      },
+    });
     const partLine = await prisma.workshopTaskLineItem.create({
       data: {
         tenant_id: tenant.tenantId,
@@ -165,7 +174,8 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         description: 'Geberzylinder',
         quantity: 1,
         unit_price: 1000,
-        part_execution_status: null,
+        catalog_item_id: partCatalogItem.id,
+        part_execution_status: 'PENDING_PICK',
       },
     });
     const cancelledCatalogItem = await prisma.catalogItem.create({
