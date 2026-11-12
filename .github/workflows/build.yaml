@@ -463,6 +463,12 @@ jobs:
       - name: PDF worker Playwright smoke (built image)
         run: docker run --rm acp-pdf-worker:ci node scripts/pdf-worker-image-smoke.mjs
 
+      - name: Build api image
+        run: docker build -f apps/core-api/Dockerfile --target api -t acp-api:ci .
+
+      - name: Verify Node 26 in api image
+        run: docker run --rm acp-api:ci node -e "const v = process.versions.node; console.log('api node -v:', v); if (!v.startsWith('26.')) process.exit(1);"
+
   backend-gate:
     # Aggregator: keeps the original required-check name and passes only when every backend job passed.
     name: Backend Build and Test
