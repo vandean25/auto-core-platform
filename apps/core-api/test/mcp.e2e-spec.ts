@@ -399,7 +399,7 @@ describe('MCP server (e2e)', () => {
         tenant_id: tenantId,
         workshop_task_id: workshopTaskId,
         type: 'PART',
-        part_execution_status: 'PENDING_PICK',
+        part_execution_status: part.catalog_item_id ? 'PENDING_PICK' : null,
         quantity: 1,
         ...part,
       },

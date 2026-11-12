@@ -7,6 +7,7 @@ import {
 import {
   allocateStagedConsumption,
   deriveRequisitionStatus,
+  isCatalogPartLineBlockingCompletion,
   isTaskBlockedByParts,
   recomputeRequisitionStatus,
   type ReservationSliceState,
@@ -136,6 +137,32 @@ describe('allocateStagedConsumption', () => {
   });
 });
 
+describe('isCatalogPartLineBlockingCompletion', () => {
+  it('ignores free-text lines stuck at PENDING_PICK', () => {
+    expect(
+      isCatalogPartLineBlockingCompletion({
+        catalog_item_id: null,
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks catalog-backed PENDING_PICK and STAGED lines', () => {
+    expect(
+      isCatalogPartLineBlockingCompletion({
+        catalog_item_id: 'catalog-1',
+        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+      }),
+    ).toBe(true);
+    expect(
+      isCatalogPartLineBlockingCompletion({
+        catalog_item_id: 'catalog-1',
+        part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('isTaskBlockedByParts', () => {
   it('ignores cancelled formula demand and fulfilled slices', () => {
     expect(
@@ -143,6 +170,39 @@ describe('isTaskBlockedByParts', () => {
         lines: [
           {
             part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+          },
+        ],
+        reservations: [],
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks only catalog-backed incomplete part lines when mixed with free-text', () => {
+    expect(
+      isTaskBlockedByParts({
+        lines: [
+          {
+            catalog_item_id: null,
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+          },
+          {
+            catalog_item_id: 'catalog-1',
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+          },
+        ],
+        reservations: [],
+      }),
+    ).toBe(true);
+    expect(
+      isTaskBlockedByParts({
+        lines: [
+          {
+            catalog_item_id: null,
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+          },
+          {
+            catalog_item_id: 'catalog-1',
+            part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
           },
         ],
         reservations: [],

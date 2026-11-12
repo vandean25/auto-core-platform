@@ -10,7 +10,6 @@ import {
   NotificationEventType,
   Prisma,
   WorkshopLineItemType,
-  WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
@@ -41,7 +40,6 @@ import {
 import {
   ACTIVE_OR_BLOCKED_STATUSES,
   QUEUE_ORDER_STATUSES,
-  VISIBLE_PART_LINE_STATUSES,
   buildScheduledDateFilter,
   mapToMechanicQueueItem,
   mapToMechanicTaskDetail,
@@ -117,7 +115,7 @@ export class MechanicExecutionService {
         },
         bay: { select: { id: true, name: true } },
         line_items: {
-          where: { part_execution_status: { in: VISIBLE_PART_LINE_STATUSES } },
+          where: { type: WorkshopLineItemType.PART },
           select: {
             id: true,
             description: true,
@@ -646,12 +644,11 @@ export class MechanicExecutionService {
   // ─── Parts Requisition ─────────────────────────────────────────────────────
 
   /**
-   * Creates a new part request line (`WorkshopTaskLineItem` of type PART) with
-   * `part_execution_status = PENDING_PICK`.
+   * Creates a new free-text part request line (`WorkshopTaskLineItem` of type PART)
+   * without catalog pick workflow (`part_execution_status` null).
    *
-   * Stock is NOT deducted by this operation.  The parts department picks and
-   * stages the part through the kitting/tote workflow (ADR-0014 §6.1,
-   * ADR-0012).
+   * Stock is NOT deducted by this operation.  Free-text lines skip catalog
+   * pick/staging; parts staff handle sourcing and pricing in back office.
    *
    * Cost and pricing fields are intentionally excluded from the DTO;
    * mechanics must not see or set financial data (ADR-0014 §6.3, §8.2).
@@ -687,7 +684,7 @@ export class MechanicExecutionService {
         tenant_id: tenantId,
         workshop_task_id: taskId,
         type: WorkshopLineItemType.PART,
-        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+        part_execution_status: null,
         item_no: dto.itemNo,
         description: dto.description,
         quantity: new Prisma.Decimal(dto.qty),
@@ -720,9 +717,7 @@ export class MechanicExecutionService {
       itemNo: lineItem.item_no,
       description: lineItem.description,
       qty: Number(lineItem.quantity),
-      partExecutionStatus:
-        lineItem.part_execution_status ??
-        WorkshopPartLineExecutionStatus.PENDING_PICK,
+      partExecutionStatus: lineItem.part_execution_status,
     } satisfies RequestPartResponseDto;
   }
 

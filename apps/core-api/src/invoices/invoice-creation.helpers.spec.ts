@@ -354,6 +354,7 @@ describe('invoice-creation.helpers', () => {
             {
               line_items: [
                 {
+                  catalog_item_id: 'catalog-1',
                   part_execution_status:
                     WorkshopPartLineExecutionStatus.PENDING_PICK,
                   parts_reservations: [
@@ -371,6 +372,29 @@ describe('invoice-creation.helpers', () => {
           ],
         }),
       ).toThrow(ConflictException);
+    });
+
+    it('does not block invoicing for free-text PENDING_PICK lines without catalog', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.COMPLETED,
+          invoice: null,
+          customer_id: 'cust-1',
+          site_id: 'site-1',
+          tasks: [
+            {
+              line_items: [
+                {
+                  catalog_item_id: null,
+                  part_execution_status:
+                    WorkshopPartLineExecutionStatus.PENDING_PICK,
+                  parts_reservations: [],
+                },
+              ],
+            },
+          ],
+        }),
+      ).not.toThrow();
     });
 
     it('throws BadRequestException when order has no customer', () => {
@@ -588,6 +612,7 @@ describe('invoice-creation.helpers', () => {
             id: 'task-1',
             line_items: [
               {
+                catalog_item_id: 'catalog-1',
                 part_execution_status:
                   WorkshopPartLineExecutionStatus.PENDING_PICK,
                 parts_reservations: [

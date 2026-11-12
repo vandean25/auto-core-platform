@@ -303,12 +303,14 @@ function assertOrderNotBlockedByParts(
     line_items?: Array<{
       parts_reservations?: Array<ReservationSliceState> | null;
       part_execution_status?: WorkshopPartLineExecutionStatus | null;
+      catalog_item_id?: string | null;
     }>;
   }>,
 ): void {
   const isBlocked = tasks.some((task) =>
     isTaskBlockedByParts({
       lines: (task.line_items ?? []).map((line) => ({
+        catalog_item_id: line.catalog_item_id ?? null,
         part_execution_status: line.part_execution_status ?? null,
       })),
       reservations: (task.line_items ?? []).flatMap(
@@ -330,6 +332,7 @@ export function assertOrderInvoiceable(order: {
     line_items?: Array<{
       parts_reservations?: Array<ReservationSliceState> | null;
       part_execution_status?: WorkshopPartLineExecutionStatus | null;
+      catalog_item_id?: string | null;
     }>;
   }>;
   customer_id?: string | null;

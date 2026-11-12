@@ -32,8 +32,13 @@ export function resolveWorkshopLineItemType(
 
 export function partExecutionStatusForNewLine(
   type: WorkshopLineItemType,
+  catalogItemId?: string | null,
 ): WorkshopPartLineExecutionStatus | null {
-  if (type === WorkshopLineItemType.PART) {
+  if (
+    type === WorkshopLineItemType.PART &&
+    catalogItemId != null &&
+    catalogItemId !== ''
+  ) {
     return WorkshopPartLineExecutionStatus.PENDING_PICK;
   }
   return null;

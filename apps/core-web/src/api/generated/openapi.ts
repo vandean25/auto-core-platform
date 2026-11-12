@@ -9620,8 +9620,8 @@ export interface components {
             itemNo: string;
             description: string;
             qty: number;
-            /** @enum {string} */
-            partExecutionStatus: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED";
+            /** @enum {string|null} */
+            partExecutionStatus: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
         };
         RequestMediaUploadDto: {
             /**

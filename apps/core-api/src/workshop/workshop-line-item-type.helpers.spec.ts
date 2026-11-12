@@ -28,10 +28,14 @@ describe('workshop-line-item-type.helpers', () => {
     ).toBeNull();
   });
 
-  it('only parts get a pick status on create', () => {
-    expect(partExecutionStatusForNewLine(WorkshopLineItemType.PART)).toBe(
-      'PENDING_PICK',
-    );
+  it('only catalog-backed parts get PENDING_PICK on create', () => {
+    expect(
+      partExecutionStatusForNewLine(
+        WorkshopLineItemType.PART,
+        'catalog-item-1',
+      ),
+    ).toBe('PENDING_PICK');
+    expect(partExecutionStatusForNewLine(WorkshopLineItemType.PART)).toBeNull();
     expect(partExecutionStatusForNewLine(WorkshopLineItemType.FEE)).toBeNull();
     expect(partExecutionStatusForNewLine(WorkshopLineItemType.LABOR)).toBeNull();
   });

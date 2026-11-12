@@ -534,6 +534,7 @@ export function computePartItemExecutionStatus(
 export function derivePartExecutionStatusMap(
   existingItems: ExistingLineItemToUpdate[],
   reservationsByLine: Map<string, LineReservationRecord[]>,
+  catalogItemIdByLineId: ReadonlyMap<string, string | null>,
 ): Map<string, WorkshopPartLineExecutionStatus> {
   const partExecutionStatusById = new Map<
     string,
@@ -541,6 +542,9 @@ export function derivePartExecutionStatusMap(
   >();
   for (const item of existingItems) {
     if (item.type !== WorkshopLineItemType.PART) {
+      continue;
+    }
+    if (!catalogItemIdByLineId.get(item.id)) {
       continue;
     }
     const lineReservations = reservationsByLine.get(item.id) ?? [];
@@ -630,9 +634,24 @@ export async function updateExistingTaskLineItems(
     partLineIds,
   );
   const reservationsByLine = groupReservationsByLine(reservations);
+  const catalogRows =
+    partLineIds.length > 0
+      ? await ctx.tx.workshopTaskLineItem.findMany({
+          where: {
+            id: { in: partLineIds },
+            tenant_id: ctx.tenantId,
+            workshop_task_id: ctx.taskId,
+          },
+          select: { id: true, catalog_item_id: true },
+        })
+      : [];
+  const catalogItemIdByLineId = new Map(
+    catalogRows.map((row) => [row.id, row.catalog_item_id] as const),
+  );
   const partExecutionStatusById = derivePartExecutionStatusMap(
     existingItemsToUpdate,
     reservationsByLine,
+    catalogItemIdByLineId,
   );
 
   await executeExistingLineItemUpdates(
