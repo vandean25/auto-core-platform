@@ -1,290 +1,95 @@
-import * as React from 'react'
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
+import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { Calendar, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
-import { toast } from 'sonner'
-import { getPermissionAwareErrorMessage } from '@/lib/error-utils'
-import {
-  useUpdateWorkshopOrder,
-  useWorkshopPlanner,
-  useWorkshopSettings,
-} from '@/api/workshop'
+import { useTranslation } from 'react-i18next'
+import type { PlannerBooking } from '@/api/workshop'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  buildSlots,
-  buildDayWindow,
-  getEffectiveHours,
-} from '@/features/workshop/planner/planner-hours'
-import {
-  addLocalDays,
-  eachLocalDateInRange,
-  formatDateLabel,
-  formatLocalDate,
-  localDateRangeToUtc,
-  localWallClockOnDate,
-  startOfWeekMonday,
-} from '@/features/workshop/planner/planner-time'
 import { PlannerBookingBlock } from '@/components/workshop/planner/PlannerBookingBlock'
 import { PlannerPendingMovesContext } from '@/components/workshop/planner/planner-pending-moves'
-import {
-  PlannerCreateSheet,
-  type PlannerCreatePrefill,
-} from '@/components/workshop/planner/PlannerCreateSheet'
-import { PlannerDayGrid, parsePlannerSlotId } from '@/components/workshop/planner/PlannerDayGrid'
-import { PlannerWeekGrid, parsePlannerWeekSlotId } from '@/components/workshop/planner/PlannerWeekGrid'
+import { PlannerCreateSheet } from '@/components/workshop/planner/PlannerCreateSheet'
+import { PlannerEmptyState } from '@/components/workshop/planner/PlannerEmptyState'
+import { PlannerModeGrid } from '@/components/workshop/planner/PlannerModeGrid'
 import { PlannerViewToggle, type PlannerViewMode } from '@/components/workshop/planner/PlannerViewToggle'
-import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PlannerCreateUrlOpener } from '@/components/workshop/planner/PlannerCreateUrlOpener'
-import { useTranslation } from 'react-i18next'
+import type { EffectiveHours, PlannerSlot } from '@/features/workshop/planner/planner-hours'
+import type { usePlannerCreateSheet } from './hooks/usePlannerCreateSheet'
+import type { usePlannerDragAndDrop } from './hooks/usePlannerDragAndDrop'
+import { useWorkshopPlannerPage } from './hooks/useWorkshopPlannerPage'
+import type { TFunction } from 'i18next'
+import type { NavigateFunction } from 'react-router-dom'
+import type { components } from '@/api/generated/openapi'
 
-const VIEW_MODE_KEY = 'workshop-planner-view'
+type WorkshopOpeningHour = components['schemas']['WorkshopOpeningHourDto']
+type PlannerHoliday = components['schemas']['PlannerHolidayDto']
 
-function readViewMode(): PlannerViewMode {
-  try {
-    const stored = window.localStorage.getItem(VIEW_MODE_KEY)
-    if (stored === 'day' || stored === 'week') return stored
-  } catch {
-    // ignore
-  }
-  return 'day'
-}
-
-function PlannerEmptyState({
-  icon,
-  title,
-  description,
-  onGoToSettings,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-  onGoToSettings: () => void
-}) {
+function PlannerGoToSettingsButton({ onGoToSettings }: { onGoToSettings: () => void }) {
   const { t } = useTranslation('workshop')
   return (
-    <Empty className="mx-auto my-6 max-w-sm border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">{icon}</EmptyMedia>
-        <EmptyTitle className="text-base">{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={onGoToSettings}>
-          {t('planner.page.goToSettings')}
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={onGoToSettings}>
+      {t('planner.page.goToSettings')}
+    </Button>
   )
 }
 
-export default function WorkshopPlannerPage() {
-  const { t } = useTranslation('workshop')
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [viewMode, setViewMode] = React.useState<PlannerViewMode>(readViewMode)
-  const { data: settings } = useWorkshopSettings()
-  const defaultTimezone = settings?.timezone ?? 'Europe/Vienna'
-  const dateParam = searchParams.get('date')
-  const [anchorDate, setAnchorDate] = React.useState(() => {
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      return dateParam
-    }
-    return formatLocalDate(new Date(), defaultTimezone)
-  })
+type WorkshopPlannerPageViewProps = {
+  t: TFunction<'workshop'>
+  navigate: NavigateFunction
+  viewMode: PlannerViewMode
+  setViewMode: (mode: PlannerViewMode) => void
+  anchorDate: string
+  shiftAnchor: (days: number) => void
+  pendingMoves: ReadonlySet<string>
+  isLoading: boolean
+  bays: Array<{ id: string; name: string }>
+  openings: WorkshopOpeningHour[]
+  holidays: PlannerHoliday[]
+  bookings: PlannerBooking[]
+  employeesAway: components['schemas']['PlannerEmployeeAwayDto'][]
+  plannerTimezone: string
+  subtitle: string
+  weekDates: string[]
+  daySlots: PlannerSlot[]
+  dayHours: EffectiveHours | null
+  showClosedDay: boolean
+  createSheet: ReturnType<typeof usePlannerCreateSheet>
+  drag: ReturnType<typeof usePlannerDragAndDrop>
+}
 
-  React.useEffect(() => {
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      setAnchorDate(dateParam)
-    }
-  }, [dateParam])
+function WorkshopPlannerPageSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-48 w-full" />
+    </div>
+  )
+}
 
-  React.useEffect(() => {
-    if (settings?.timezone && !dateParam) {
-      setAnchorDate(formatLocalDate(new Date(), settings.timezone))
-    }
-  }, [settings?.timezone, dateParam])
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const [createPrefill, setCreatePrefill] = React.useState<PlannerCreatePrefill | null>(null)
-  const [activeBookingId, setActiveBookingId] = React.useState<string | null>(null)
-
-  const updateOrder = useUpdateWorkshopOrder()
-  const [pendingMoves, setPendingMoves] = React.useState<ReadonlySet<string>>(new Set())
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
-
-  React.useEffect(() => {
-    try {
-      window.localStorage.setItem(VIEW_MODE_KEY, viewMode)
-    } catch {
-      // ignore
-    }
-  }, [viewMode])
-
-  const timezone = settings?.timezone ?? 'Europe/Vienna'
-  const weekStart = startOfWeekMonday(anchorDate)
-  const rangeFromDate = viewMode === 'day' ? anchorDate : weekStart
-  const rangeToDate =
-    viewMode === 'day' ? addLocalDays(anchorDate, 1) : addLocalDays(weekStart, 7)
-  const queryRange = localDateRangeToUtc(rangeFromDate, rangeToDate, timezone)
-
-  const { data: plannerData, isLoading } = useWorkshopPlanner(queryRange.from, queryRange.to)
-  const plannerTimezone = plannerData?.timezone ?? timezone
-  const slotMinutes = plannerData?.slotMinutes ?? 30
-  const bays = plannerData?.bays ?? []
-  const openings = plannerData?.openings ?? []
-  const holidays = plannerData?.holidays ?? []
-  const bookings = plannerData?.bookings ?? []
-  const employeesAway = plannerData?.employeesAway ?? []
-
-  const subtitle =
-    viewMode === 'day'
-      ? formatDateLabel(anchorDate, plannerTimezone)
-      : `${formatDateLabel(weekStart, plannerTimezone)} – ${formatDateLabel(
-          addLocalDays(weekStart, 6),
-          plannerTimezone,
-        )}`
-
-  const dayHours =
-    viewMode === 'day'
-      ? getEffectiveHours(anchorDate, openings, holidays)
-      : null
-
-  const weekDates = eachLocalDateInRange(weekStart, addLocalDays(weekStart, 7))
-
-  const daySlots =
-    viewMode === 'day' && dayHours
-      ? buildSlots(dayHours, slotMinutes, plannerTimezone, anchorDate)
-      : []
-
-  const activeBooking = activeBookingId
-    ? bookings.find((booking) => booking.orderId === activeBookingId)
-    : null
-
-  const openCreateSheet = (bayId: string, startIso: string, endIso?: string) => {
-    const start = new Date(startIso)
-    const startDate = formatLocalDate(start, plannerTimezone)
-    const hours = getEffectiveHours(startDate, openings, holidays)
-    let end = endIso
-      ? new Date(endIso)
-      : new Date(start.getTime() + 60 * 60 * 1000)
-    if (hours.closeTime && hours.openTime && !hours.isClosed) {
-      const window = buildDayWindow(hours, plannerTimezone, startDate)
-      if (end > window.end) {
-        end = window.end
-      }
-    }
-    setCreatePrefill({
-      bayId,
-      scheduledStartAt: start.toISOString(),
-      scheduledEndAt: end.toISOString(),
-    })
-    setCreateOpen(true)
-  }
-
-  const handleDaySlotClick = (bayId: string, startIso: string) => {
-    openCreateSheet(bayId, startIso)
-  }
-
-  const handleWeekDayClick = (bayId: string, date: string, startIso: string) => {
-    const hours = getEffectiveHours(date, openings, holidays)
-    const start = new Date(startIso)
-    let end = new Date(start.getTime() + 60 * 60 * 1000)
-    if (hours.closeTime && hours.openTime && !hours.isClosed) {
-      const window = buildDayWindow(hours, plannerTimezone, date)
-      if (end > window.end) {
-        end = window.end
-      }
-    }
-    openCreateSheet(bayId, startIso, end.toISOString())
-  }
-
-  // Server-confirmed (ADR-0036 R1): capacity and conflict checks run on the server, so the booking stays put and
-  // shows pending until it answers. Nothing is written to the planner cache here.
-  const performReschedule = (orderId: string, bayId: string, startIso: string, durationMs: number) => {
-    if (pendingMoves.has(orderId)) return
-    const start = new Date(startIso)
-    const end = new Date(start.getTime() + durationMs)
-    setPendingMoves((previous) => new Set(previous).add(orderId))
-
-    // mutateAsync, not mutate's callbacks: those only fire for the latest call of a hook instance, so a second drop
-    // would leave this booking pending and swallow its error.
-    updateOrder
-      .mutateAsync({
-        id: orderId,
-        bayId,
-        scheduledStartAt: start.toISOString(),
-        scheduledEndAt: end.toISOString(),
-      })
-      .catch((error: unknown) => {
-        toast.error(getPermissionAwareErrorMessage(error, t('planner.page.rescheduleFailed')))
-      })
-      .finally(() => {
-        setPendingMoves((previous) => {
-          const next = new Set(previous)
-          next.delete(orderId)
-          return next
-        })
-      })
-  }
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveBookingId(String(event.active.id))
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveBookingId(null)
-    const { active, over } = event
-    if (!over) return
-
-    const booking = bookings.find((row) => row.orderId === String(active.id))
-    if (!booking || booking.status !== 'SCHEDULED') return
-
-    const slot = parsePlannerSlotId(String(over.id))
-    const weekSlot = parsePlannerWeekSlotId(String(over.id))
-
-    const durationMs =
-      new Date(booking.scheduledEndAt).getTime() -
-      new Date(booking.scheduledStartAt).getTime()
-
-    if (slot) {
-      performReschedule(booking.orderId, slot.bayId, slot.startIso, durationMs)
-      return
-    }
-
-    if (weekSlot) {
-      const hours = getEffectiveHours(weekSlot.date, openings, holidays)
-      const preservedStart = localWallClockOnDate(
-        new Date(booking.scheduledStartAt),
-        weekSlot.date,
-        plannerTimezone,
-      )
-      const startIso =
-        hours.isClosed || !hours.openTime || !hours.closeTime
-          ? buildDayWindow(hours, plannerTimezone, weekSlot.date).start.toISOString()
-          : preservedStart.toISOString()
-      performReschedule(booking.orderId, weekSlot.bayId, startIso, durationMs)
-    }
-  }
-
-  const shiftAnchor = (days: number) => {
-    setAnchorDate((current) => addLocalDays(current, days))
-  }
-
-  const showClosedDay =
-    viewMode === 'day' &&
-    dayHours &&
-    dayHours.isClosed &&
-    bays.length > 0
+function WorkshopPlannerPageContent(props: WorkshopPlannerPageViewProps) {
+  const {
+    t,
+    navigate,
+    viewMode,
+    setViewMode,
+    anchorDate,
+    shiftAnchor,
+    pendingMoves,
+    isLoading,
+    bays,
+    openings,
+    holidays,
+    bookings,
+    employeesAway,
+    plannerTimezone,
+    subtitle,
+    weekDates,
+    daySlots,
+    dayHours,
+    showClosedDay,
+    createSheet,
+    drag,
+  } = props
+  const { setCreatePrefill, setCreateOpen } = createSheet
 
   return (
     <div className="space-y-6">
@@ -327,71 +132,45 @@ export default function WorkshopPlannerPage() {
       />
 
       {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
+        <WorkshopPlannerPageSkeleton />
       ) : bays.length === 0 ? (
         <PlannerEmptyState
           icon={<Wrench aria-hidden />}
           title={t('planner.page.noBaysTitle')}
           description={t('planner.page.noBaysDescription')}
-          onGoToSettings={() => navigate('/settings?tab=bays')}
+          settingsAction={
+            <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings?tab=bays')} />
+          }
         />
       ) : (
-        <PlannerPendingMovesContext.Provider value={pendingMoves}>
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          {showClosedDay && (
-            <PlannerEmptyState
-              icon={<Calendar aria-hidden />}
-              title={
-                dayHours?.holidayName
-                  ? t('planner.grid.closedWithHoliday', { name: dayHours.holidayName })
-                  : t('planner.page.closedTitle')
-              }
-              description={t('planner.page.closedDescription')}
-              onGoToSettings={() => navigate('/settings?tab=hours')}
-            />
-          )}
-
-          {viewMode === 'day' ? (
-            <PlannerDayGrid
-              bays={bays}
-              date={anchorDate}
-              timezone={plannerTimezone}
-              slots={daySlots}
-              hours={dayHours ?? { isClosed: true, openTime: null, closeTime: null }}
-              bookings={bookings}
-              onSlotClick={handleDaySlotClick}
-            />
-          ) : (
-            <PlannerWeekGrid
-              bays={bays}
-              dates={weekDates}
-              timezone={plannerTimezone}
-              openings={openings}
-              holidays={holidays}
-              bookings={bookings}
-              onDayClick={handleWeekDayClick}
-            />
-          )}
-
-          <DragOverlay>
-            {activeBooking && <PlannerBookingBlock booking={activeBooking} isDragging />}
-          </DragOverlay>
-        </DndContext>
-        </PlannerPendingMovesContext.Provider>
+        <WorkshopPlannerBoard
+          viewMode={viewMode}
+          anchorDate={anchorDate}
+          pendingMoves={pendingMoves}
+          bays={bays}
+          openings={openings}
+          holidays={holidays}
+          bookings={bookings}
+          plannerTimezone={plannerTimezone}
+          weekDates={weekDates}
+          daySlots={daySlots}
+          dayHours={dayHours}
+          showClosedDay={showClosedDay}
+          createSheet={createSheet}
+          drag={drag}
+          t={t}
+          navigate={navigate}
+        />
       )}
 
-      <PlannerCreateUrlOpener setPrefill={setCreatePrefill} setOpen={setCreateOpen} />
+      <PlannerCreateUrlOpener
+        setPrefill={createSheet.setCreatePrefill}
+        setOpen={createSheet.setCreateOpen}
+      />
       <PlannerCreateSheet
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        prefill={createPrefill}
+        open={createSheet.createOpen}
+        onOpenChange={createSheet.setCreateOpen}
+        prefill={createSheet.createPrefill}
         bays={bays}
         timezone={plannerTimezone}
         openings={openings}
@@ -401,4 +180,93 @@ export default function WorkshopPlannerPage() {
       />
     </div>
   )
+}
+
+type WorkshopPlannerBoardProps = Pick<
+  WorkshopPlannerPageViewProps,
+  | 'viewMode'
+  | 'anchorDate'
+  | 'pendingMoves'
+  | 'bays'
+  | 'openings'
+  | 'holidays'
+  | 'bookings'
+  | 'plannerTimezone'
+  | 'weekDates'
+  | 'daySlots'
+  | 'dayHours'
+  | 'showClosedDay'
+  | 'createSheet'
+  | 'drag'
+  | 't'
+  | 'navigate'
+>
+
+function WorkshopPlannerBoard({
+  viewMode,
+  anchorDate,
+  pendingMoves,
+  bays,
+  openings,
+  holidays,
+  bookings,
+  plannerTimezone,
+  weekDates,
+  daySlots,
+  dayHours,
+  showClosedDay,
+  createSheet,
+  drag,
+  t,
+  navigate,
+}: WorkshopPlannerBoardProps) {
+  return (
+    <PlannerPendingMovesContext.Provider value={pendingMoves}>
+      <DndContext
+        sensors={drag.sensors}
+        onDragStart={drag.handleDragStart}
+        onDragEnd={drag.handleDragEnd}
+      >
+        {showClosedDay && (
+          <PlannerEmptyState
+            icon={<Calendar aria-hidden />}
+            title={
+              dayHours?.holidayName
+                ? t('planner.grid.closedWithHoliday', { name: dayHours.holidayName })
+                : t('planner.page.closedTitle')
+            }
+            description={t('planner.page.closedDescription')}
+            settingsAction={
+              <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings?tab=hours')} />
+            }
+          />
+        )}
+
+        <PlannerModeGrid
+          viewMode={viewMode}
+          bays={bays}
+          anchorDate={anchorDate}
+          plannerTimezone={plannerTimezone}
+          daySlots={daySlots}
+          dayHours={dayHours}
+          weekDates={weekDates}
+          openings={openings}
+          holidays={holidays}
+          bookings={bookings}
+          onDaySlotClick={createSheet.handleDaySlotClick}
+          onWeekDayClick={createSheet.handleWeekDayClick}
+        />
+
+        <DragOverlay>
+          {drag.activeBooking && (
+            <PlannerBookingBlock booking={drag.activeBooking} isDragging />
+          )}
+        </DragOverlay>
+      </DndContext>
+    </PlannerPendingMovesContext.Provider>
+  )
+}
+
+export default function WorkshopPlannerPage() {
+  return <WorkshopPlannerPageContent {...useWorkshopPlannerPage()} />
 }
