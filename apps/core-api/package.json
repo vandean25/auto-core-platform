@@ -7,7 +7,7 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "scripts": {
     "build": "node ../../node_modules/@typescript/native/bin/tsc -p tsconfig.build.json && node scripts/copy-document-branding-assets.mjs",

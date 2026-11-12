@@ -346,7 +346,7 @@ The full UI smoke suite (`npm run test:e2e` without a file filter) and `test:e2e
 ## Building and Running
 
 ### Prerequisites
-- Node.js v22+
+- Node.js v26+
 - PostgreSQL v15+
 - npm v9+
 
@@ -468,7 +468,7 @@ Cloud Agents for this repository should use the versioned environment in `.curso
 
 | Component | Detail |
 | --- | --- |
-| Node.js | **24.22.3** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
+| Node.js | **26.13.1** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
 | Dependencies | Root `npm ci`, then `prisma generate` for `core-api` |
 | PostgreSQL | **17** (PGDG), started on every agent boot via `start` |
 | Dev database | `core_platform` owned by role `acp_cloud` (local-only password in install scripts) |

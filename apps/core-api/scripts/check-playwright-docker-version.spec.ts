@@ -28,7 +28,7 @@ const VERIFY_SCRIPT_PATH = path.join(
   'verify-pdf-worker-node.sh',
 );
 const NODE_SLIM_DIGEST =
-  'sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54';
+  'sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc';
 
 interface PackageManifest {
   engines?: {
@@ -219,7 +219,7 @@ describe('Production image version pins (AUT-167)', () => {
     );
   });
 
-  it('keeps every listed Node pin identical to .nvmrc (AUT-991 scenario 1)', () => {
+  it('keeps every listed Node pin identical to .nvmrc (AUT-975)', () => {
     const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
     const cursorDockerfile = fs.readFileSync(CURSOR_DOCKERFILE_PATH, 'utf8');
@@ -228,17 +228,16 @@ describe('Production image version pins (AUT-167)', () => {
     const verifyScript = fs.readFileSync(VERIFY_SCRIPT_PATH, 'utf8');
     const agentsMd = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
 
-    expect(expected).toBe('24.22.3');
+    expect(expected).toBe('26.13.1');
+    const expectedMajor = Number(expected.split('.')[0]);
     const builderPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
     const apiPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
-    const pdfWorkerArg = dockerfile.match(/^ARG PDF_WORKER_NODE_VERSION=([0-9.]+)/m);
     expect(builderPin?.[1]).toBe(expected);
     expect(apiPin?.[1]).toBe(expected);
-    expect(pdfWorkerArg?.[1]).toBe(expected);
     const cursorNodeArgs = [
       ...cursorDockerfile.matchAll(/^ARG NODE_VERSION=([0-9.]+)$/gm),
     ].map((match) => match[1]);
@@ -249,11 +248,11 @@ describe('Production image version pins (AUT-167)', () => {
     expect(cloudBuildPins).toEqual([expected, expected]);
     const stagingPin = cloudBuildStaging.match(/^\s*name: node:([0-9.]+)\s*$/m);
     expect(stagingPin?.[1]).toBe(expected);
-    expect(verifyScript).toContain(`PDF_WORKER_NODE_VERSION:-${expected}`);
+    expect(verifyScript).toContain(`PDF_WORKER_NODE_MAJOR:-${expectedMajor}`);
     expect(agentsMd).toContain(`**${expected}** from`);
   });
 
-  it('requires digest-pinned node stages for builder and api (AUT-991 scenario 2)', () => {
+  it('requires digest-pinned node stages for builder and api (AUT-975)', () => {
     const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
@@ -279,14 +278,16 @@ describe('Production image version pins (AUT-167)', () => {
     expect(apiPin?.[1]).toBe(expected);
   });
 
-  it('bans apt-get only in the worker stage and copies Node from pinned builder (AUT-991 scenario 3)', () => {
+  it('uses Playwright Node 26 in worker without reinstalling Node or running apt-get (AUT-975)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
     const { builder, worker } = splitDockerStages(dockerfile);
 
-    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/bin\//);
-    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/include\//);
-    expect(dockerfile).toMatch(/COPY --from=builder \/usr\/local\/lib\//);
-    expect(dockerfile).toMatch(/verify-pdf-worker-node\.sh/);
+    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/bin\//);
+    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/include\//);
+    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/lib\//);
+    expect(worker).not.toMatch(/rm -f \/usr\/bin\/node/);
+    expect(worker).not.toMatch(/PDF_WORKER_NODE_VERSION/);
+    expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
     expect(dockerfile).not.toMatch(/setup_24\.x/);
     expect(worker).not.toMatch(/apt-get/);
     expect(worker).not.toMatch(/sha256sum -c -/);
@@ -299,26 +300,27 @@ describe('Production image version pins (AUT-167)', () => {
     );
   });
 
-  it('declares a CI job that builds the pdf-worker image and runs smoke', () => {
+  it('declares a CI job that builds api and pdf-worker images and runs Node 26 smoke', () => {
     const workflow = fs.readFileSync(BUILD_WORKFLOW_PATH, 'utf8');
     expect(workflow).toMatch(/^\s*pdf-worker-image:/m);
     expect(workflow).toMatch(/--target worker/);
+    expect(workflow).toMatch(/--target api/);
     expect(workflow).toMatch(/pdf-worker-image-smoke\.mjs/);
   });
 
-  it('requires Node 22 in the root engine declaration', () => {
+  it('requires Node 26 in the root engine declaration', () => {
     const rootNodeVersion = readEngineVersion(
       path.join(REPO_ROOT, 'package.json'),
     );
 
-    expect(rootNodeVersion).toBe('>=22');
+    expect(rootNodeVersion).toBe('>=26');
   });
 
-  it('requires Node 22 in the API engine declaration', () => {
+  it('requires Node 26 in the API engine declaration', () => {
     const apiNodeVersion = readEngineVersion(
       path.join(CORE_API_ROOT, 'package.json'),
     );
 
-    expect(apiNodeVersion).toBe('>=22');
+    expect(apiNodeVersion).toBe('>=26');
   });
 });
