@@ -3,6 +3,7 @@ import { Menu, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 
+import { prefetchMainListRoute } from '@/app/route-chunk-prefetch'
 import { useSidebar } from '@/components/ui/sidebar'
 import { PhoneBottomNav } from './PhoneBottomNav'
 import { PhoneCreateSheet } from './PhoneCreateSheet'
@@ -31,6 +32,7 @@ export function AdminPhoneNav({ platformRole, activeRole, onOpenSearch }: AdminP
           icon: item.icon,
           to: item.to,
           active: item.isActive(pathname, search),
+          onPrefetch: () => prefetchMainListRoute(item.to, { platformRole, activeRole }),
         }))}
         create={{ label: t('phoneNav.create'), onSelect: () => setCreateOpen(true) }}
         end={[

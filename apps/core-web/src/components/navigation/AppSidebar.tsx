@@ -24,6 +24,7 @@ import { NavUser } from './NavUser'
 import { ShellGlossaryHints } from './ShellGlossaryHints'
 import { TeamSwitcher } from './TeamSwitcher'
 import { getVisibleNavGroups } from './nav-config'
+import { useIdleMainListPrefetch } from '@/app/route-chunk-prefetch'
 
 type AppSidebarProps = {
   userEmail: string | null
@@ -42,6 +43,56 @@ type AppSidebarProps = {
   onSignOut: () => void
 }
 
+type AppSidebarNavProps = {
+  groups: ReturnType<typeof getVisibleNavGroups>
+  accessContext: {
+    platformRole: string | null
+    activeRole: components['schemas']['TenantMemberRole'] | null
+    capabilities: ReturnType<typeof selectEffectiveCapabilities>
+  }
+  showPickerl: boolean
+}
+
+function AppSidebarNav({ groups, accessContext, showPickerl }: AppSidebarNavProps) {
+  const { t } = useTranslation('nav')
+
+  return (
+    <nav aria-label={t('aria.mainNavigation')}>
+      {groups.map((group, index) => (
+        <Fragment key={group.id}>
+          {index > 0 ? <SidebarSeparator /> : null}
+          <NavGroupMenu group={group} accessContext={accessContext} />
+        </Fragment>
+      ))}
+      <SidebarSeparator />
+      <AppSidebarFavorites showPickerl={showPickerl} accessContext={accessContext} />
+    </nav>
+  )
+}
+
+function AppSidebarSearchItem({ onOpenSearch }: { onOpenSearch: () => void }) {
+  const { t } = useTranslation('nav')
+  const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+  return (
+    <SidebarMenu className="px-2 pt-2">
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          tooltip={t('search.label')}
+          aria-label={t('search.openAria')}
+          onClick={onOpenSearch}
+        >
+          <Search aria-hidden="true" />
+          <span>{t('search.label')}</span>
+          <kbd className="ml-auto rounded border border-sidebar-border px-1.5 font-sans text-xs text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+            {isMac ? t('search.shortcutMac') : t('search.shortcut')}
+          </kbd>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
 export function AppSidebar({
   userEmail,
   platformRole,
@@ -58,11 +109,12 @@ export function AppSidebar({
   onSwitchSite,
   onSignOut,
 }: AppSidebarProps) {
-  const { t } = useTranslation('nav')
   const capabilities = selectEffectiveCapabilities(useAuthSession().data)
-  const groups = getVisibleNavGroups({ platformRole, activeRole, capabilities })
+  const accessContext = { platformRole, activeRole, capabilities }
+  const groups = getVisibleNavGroups(accessContext)
   const { isMobile } = useSidebar()
-  const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+  useIdleMainListPrefetch(accessContext)
 
   return (
     <Sidebar collapsible="icon">
@@ -87,32 +139,13 @@ export function AppSidebar({
         The thin scrollbar keeps that scroll visible on desktop, where the list is longer than the window.
       */}
       <SidebarContent className="group-data-[collapsible=icon]:overflow-auto [scrollbar-width:thin]">
-        <SidebarMenu className="px-2 pt-2">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={t('search.label')}
-              aria-label={t('search.openAria')}
-              onClick={onOpenSearch}
-            >
-              <Search aria-hidden="true" />
-              <span>{t('search.label')}</span>
-              <kbd className="ml-auto rounded border border-sidebar-border px-1.5 font-sans text-xs text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-                {isMac ? t('search.shortcutMac') : t('search.shortcut')}
-              </kbd>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <AppSidebarSearchItem onOpenSearch={onOpenSearch} />
 
-        <nav aria-label={t('aria.mainNavigation')}>
-          {groups.map((group, index) => (
-            <Fragment key={group.id}>
-              {index > 0 ? <SidebarSeparator /> : null}
-              <NavGroupMenu group={group} />
-            </Fragment>
-          ))}
-          <SidebarSeparator />
-          <AppSidebarFavorites showPickerl={capabilities?.pickerl57a === true} />
-        </nav>
+        <AppSidebarNav
+          groups={groups}
+          accessContext={accessContext}
+          showPickerl={Boolean(capabilities?.pickerl57a)}
+        />
 
         <ShellGlossaryHints />
       </SidebarContent>
@@ -122,7 +155,7 @@ export function AppSidebar({
       </SidebarFooter>
 
       {/* The rail toggles the desktop sidebar only. The mobile sheet closes from its header. */}
-      {isMobile ? null : <SidebarRail />}
+      {!isMobile && <SidebarRail />}
     </Sidebar>
   )
 }

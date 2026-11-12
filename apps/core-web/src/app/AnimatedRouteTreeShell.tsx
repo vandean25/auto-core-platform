@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { ReactNode } from 'react'
 import { Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
-import { PageLoader } from '@/components/ui/PageLoader'
+import { RoutePendingFallback } from './RoutePendingFallback'
 
 export function AnimatedRouteTreeShell({
   layoutGroupId,
@@ -15,7 +15,7 @@ export function AnimatedRouteTreeShell({
 
   return (
     <LayoutGroup id={layoutGroupId}>
-      <React.Suspense fallback={<PageLoader />}>
+      <React.Suspense fallback={<RoutePendingFallback pathname={location.pathname} />}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}

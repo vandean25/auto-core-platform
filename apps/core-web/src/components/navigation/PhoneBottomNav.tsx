@@ -11,6 +11,7 @@ export type PhoneNavEntry = {
   icon: LucideIcon
   to?: string
   onSelect?: () => void
+  onPrefetch?: () => void
   active?: boolean
   disabled?: boolean
 }
@@ -28,7 +29,13 @@ function PhoneNavSlot({ entry }: { entry: PhoneNavEntry }) {
   )
 
   return entry.to ? (
-    <Link to={entry.to} className={className} aria-current={entry.active ? 'page' : undefined}>
+    <Link
+      to={entry.to}
+      className={className}
+      aria-current={entry.active ? 'page' : undefined}
+      onPointerEnter={entry.onPrefetch}
+      onFocus={entry.onPrefetch}
+    >
       {content}
     </Link>
   ) : (

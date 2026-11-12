@@ -48,6 +48,7 @@ function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
     'ADMIN',
     'TECH',
     'SALES',
+    'DEMO',
   ])
   const activeRole =
     roleOverride && validRoles.has(roleOverride as AuthSession['activeRole'])
