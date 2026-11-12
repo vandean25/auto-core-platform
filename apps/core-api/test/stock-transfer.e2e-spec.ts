@@ -601,14 +601,15 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
   // Statement counts are the action's own transaction, BEGIN..COMMIT on the
   // connection that ran it (stockTransferTransactionStatements), so auth/tenant
   // lookups and SQL other work sends on other connections of this Jest process
-  // are not included (the pg spy is process-wide). The bounds are unchanged from
-  // the earlier BEGIN..COMMIT + response-tail window: every write and the
-  // response read (attachLineBins / settleAndStoreCommand) run on `tx`, and the
-  // only post-commit read is the realtime recipient lookup on site_memberships,
-  // which that tail never matched.
+  // are not included (the pg spy is process-wide). Every write and the response
+  // read (attachLineBins / settleAndStoreCommand) run on `tx`. Ship is 2 below the
+  // earlier BEGIN..COMMIT window (28): its ledger posting resolves authorized
+  // sites through listAuthorizedSiteIds() on the pool, outside `tx` (receive
+  // passes authorizedSiteIds). That lookup is constant per request, so it does not
+  // change the per-quantity growth this bound guards.
   const DISTINCT_QUANTITY_BOUND = {
     approve: { equalQuantityStatements: 15, groupsPerExtraQuantity: 1 },
-    ship: { equalQuantityStatements: 28, groupsPerExtraQuantity: 2 },
+    ship: { equalQuantityStatements: 26, groupsPerExtraQuantity: 2 },
     receive: { equalQuantityStatements: 27, groupsPerExtraQuantity: 2 },
   } as const;
 
