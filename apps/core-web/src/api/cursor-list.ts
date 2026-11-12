@@ -14,8 +14,9 @@ import {
   isAuthBlockedForEpisode,
   isOffsetLatchedForEpisode,
   resolveCursorListFailure,
+  type CursorRecoveryOutcome,
 } from './cursor-recovery'
-import { isCursorListApiError } from './cursor-list-api-error'
+import { isCursorListApiError, type CursorListApiError } from './cursor-list-api-error'
 
 /** Rows per block. Vehicle stock caps a page at 50, the API's smallest ceiling (ADR-0035). */
 export const CURSOR_PAGE_LIMIT = 50
@@ -53,6 +54,92 @@ function urlOf(path: string, params: QueryParams) {
   return query ? `${path}?${query}` : path
 }
 
+type RecoveryQueryContext = {
+  semanticEpisodeKey: string
+  listKey: QueryKey
+  countKey: QueryKey
+}
+
+function throwQueryAborted(): never {
+  throw new DOMException('Query aborted', 'AbortError')
+}
+
+function assertCursorListApiError(error: unknown): asserts error is CursorListApiError {
+  if (error instanceof Error && error.message === 'stale_scope_context_response') {
+    throw error
+  }
+  if (!isCursorListApiError(error)) {
+    throw error
+  }
+}
+
+function recoveryContextValid(): boolean {
+  return scopeContextReadyForCursorList() && !isScopeContextQuarantined()
+}
+
+async function recoverCursorListFailure(
+  client: QueryClient,
+  ctx: RecoveryQueryContext,
+  error: CursorListApiError,
+): Promise<CursorRecoveryOutcome> {
+  return resolveCursorListFailure(client, {
+    error,
+    semanticKey: ctx.semanticEpisodeKey,
+    listKey: ctx.listKey,
+    countKey: ctx.countKey,
+    contextValid: recoveryContextValid(),
+  })
+}
+
+function throwCursorRecoveryFailure(outcome: CursorRecoveryOutcome, original: CursorListApiError): never {
+  if (outcome.type === 'pass-through' || outcome.type === 'throw') {
+    throw outcome.error
+  }
+  throw original
+}
+
+async function fetchCountAfterRecovery(
+  countPath: string,
+  countParams: QueryParams,
+  signal: AbortSignal,
+): Promise<CappedListCount> {
+  if (signal.aborted) throwQueryAborted()
+  const count = await fetchCursorListCount<CappedListCount>(
+    urlOf(countPath, countParams),
+    restartListFetchSignal(signal),
+  )
+  if (signal.aborted) throwQueryAborted()
+  return count
+}
+
+async function handleListQueryRecovery<TRow>(
+  client: QueryClient,
+  ctx: RecoveryQueryContext,
+  error: unknown,
+  restart: () => Promise<CursorListPage<TRow>>,
+): Promise<CursorListPage<TRow>> {
+  assertCursorListApiError(error)
+  const outcome = await recoverCursorListFailure(client, ctx, error)
+  if (outcome.type === 'restart-page-one') {
+    return restart()
+  }
+  throwCursorRecoveryFailure(outcome, error)
+}
+
+async function handleCountQueryRecovery(
+  client: QueryClient,
+  ctx: RecoveryQueryContext,
+  error: unknown,
+  restart: () => Promise<CappedListCount>,
+): Promise<CappedListCount> {
+  assertCursorListApiError(error)
+  const outcome = await recoverCursorListFailure(client, ctx, error)
+  if (outcome.type === 'restart-page-one') {
+    return restart()
+  }
+  throwCursorRecoveryFailure(outcome, error)
+}
+
 async function runListQuery<TRow>(
   client: QueryClient,
   options: {
@@ -74,30 +161,13 @@ async function runListQuery<TRow>(
     cursor: pageParam,
   }
 
+  const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
   try {
     return await fetchCursorListPage<TRow>(urlOf(path, cursorParams), signal)
   } catch (error) {
-    if (error instanceof Error && error.message === 'stale_scope_context_response') {
-      throw error
-    }
-    if (!isCursorListApiError(error)) throw error
-    const outcome = await resolveCursorListFailure(queryClient, {
-      error,
-      semanticKey: semanticEpisodeKey,
-      listKey,
-      countKey,
-      contextValid: scopeContextReadyForCursorList() && !isScopeContextQuarantined(),
-    })
-    if (outcome.type === 'restart-page-one') {
-      return fetchListPageAfterRecovery<TRow>(path, cursorParams, signal)
-    }
-    if (outcome.type === 'offset-latch') {
-      throw error
-    }
-    if (outcome.type === 'blocked' || outcome.type === 'throw') {
-      throw error
-    }
-    throw outcome.error
+    return handleListQueryRecovery(queryClient, recoveryCtx, error, () =>
+      fetchListPageAfterRecovery<TRow>(path, cursorParams, signal),
+    )
   }
 }
 
@@ -113,33 +183,13 @@ async function runCountQuery(
   },
 ): Promise<CappedListCount> {
   const { countPath, countParams, signal, semanticEpisodeKey, listKey, countKey } = options
+  const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
   try {
     return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal)
   } catch (error) {
-    if (error instanceof Error && error.message === 'stale_scope_context_response') {
-      throw error
-    }
-    if (!isCursorListApiError(error)) throw error
-    const outcome = await resolveCursorListFailure(client, {
-      error,
-      semanticKey: semanticEpisodeKey,
-      listKey,
-      countKey,
-      contextValid: scopeContextReadyForCursorList() && !isScopeContextQuarantined(),
-    })
-    if (outcome.type === 'restart-page-one') {
-      if (signal.aborted) throw new DOMException('Query aborted', 'AbortError')
-      const count = await fetchCursorListCount<CappedListCount>(
-        urlOf(countPath, countParams),
-        restartListFetchSignal(signal),
-      )
-      if (signal.aborted) throw new DOMException('Query aborted', 'AbortError')
-      return count
-    }
-    if (outcome.type === 'blocked' || outcome.type === 'throw' || outcome.type === 'pass-through') {
-      throw error
-    }
-    throw error
+    return handleCountQueryRecovery(client, recoveryCtx, error, () =>
+      fetchCountAfterRecovery(countPath, countParams, signal),
+    )
   }
 }
 
