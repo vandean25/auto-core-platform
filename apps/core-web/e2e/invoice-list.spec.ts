@@ -150,12 +150,15 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       }
       expect(await pageOverflow(page)).toBe(0);
 
+      // Measure while block 2 is still pending: once the scroll below has also loaded the last block, the button is gone.
+      const loadMore = page.getByRole('button', { name: dataTable.infinite.loadMore });
+      await expect(loadMore).toBeVisible();
+      expect((await loadMore.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
       await expect(async () => {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
         expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
       }).toPass();
-      const loadMoreBox = await page.getByRole('button', { name: dataTable.infinite.loadMore }).boundingBox();
-      expect(loadMoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     });
   });
 });
