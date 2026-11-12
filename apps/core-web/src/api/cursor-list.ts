@@ -1,4 +1,5 @@
 import {
+  CancelledError,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
@@ -6,13 +7,8 @@ import {
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query'
-import { CancelledError } from '@tanstack/query-core'
 import { useMemo } from 'react'
 
-import {
-  isScopeContextQuarantined,
-  scopeContextReadyForCursorList,
-} from '@/auth/scope-context-client'
 import { useScopeContextDigest, useScopeContextQuarantined, useScopeContextReady } from '@/auth/use-scope-context-digest'
 import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
 import type { components } from './generated/openapi'
@@ -76,10 +72,6 @@ function assertCursorListApiError(error: unknown): asserts error is CursorListAp
   }
 }
 
-function recoveryContextValid(): boolean {
-  return scopeContextReadyForCursorList() && !isScopeContextQuarantined()
-}
-
 async function recoverCursorListFailure(
   client: QueryClient,
   ctx: RecoveryQueryContext,
@@ -90,7 +82,6 @@ async function recoverCursorListFailure(
     semanticKey: ctx.semanticEpisodeKey,
     listKey: ctx.listKey,
     countKey: ctx.countKey,
-    contextValid: recoveryContextValid(),
   })
 }
 

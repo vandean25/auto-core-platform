@@ -1,4 +1,4 @@
-import { CancelledError } from '@tanstack/query-core'
+import { CancelledError } from '@tanstack/react-query'
 
 import { fetchWithAuth } from './client'
 import { throwCursorListApiError } from './cursor-list-api-error'

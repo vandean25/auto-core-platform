@@ -75,14 +75,12 @@ describe('cursor recovery (ADR-0038 §9)', () => {
         semanticKey: 'inventory:{}',
         listKey,
         countKey,
-        contextValid: true,
       }),
       resolveCursorListFailure(client, {
         error: mismatch,
         semanticKey: 'inventory:{}',
         listKey,
         countKey,
-        contextValid: true,
       }),
     ])
 
@@ -158,7 +156,6 @@ describe('cursor recovery (ADR-0038 §9)', () => {
       semanticKey: 'inventory:{}',
       listKey: ['inventory', 'cursor-list', {}, 'digest-a'],
       countKey: ['inventory', 'capped-count', {}, 'digest-a'],
-      contextValid: true,
     })
     expect(outcome.type).toBe('restart-page-one')
   })

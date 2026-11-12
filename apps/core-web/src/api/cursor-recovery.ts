@@ -1,5 +1,4 @@
-import type { QueryClient, QueryKey } from '@tanstack/react-query'
-import { CancelledError } from '@tanstack/query-core'
+import { CancelledError, type QueryClient, type QueryKey } from '@tanstack/react-query'
 
 import { cancelInfiniteList, markInfiniteListStale } from '@/lib/infinite-list-query'
 import {
@@ -111,6 +110,38 @@ export type CursorRecoveryOutcome =
   | { type: 'blocked'; externalScope: boolean }
   | { type: 'pass-through'; error: CursorListApiError }
 
+async function recoverViaHandshake(
+  client: QueryClient,
+  episode: EpisodeRecoveryState,
+  listKey: QueryKey,
+  countKey: QueryKey,
+): Promise<CursorRecoveryOutcome> {
+  if (episode.budget === 0) {
+    return blockListEpisode(client, listKey, countKey)
+  }
+
+  episode.budget = 0
+  await flushListCache(client, listKey, countKey, { cancelInFlight: false })
+
+  const handshake = await handshakeScopeContext()
+  if (handshake.kind === 'external-scope') {
+    markInfiniteListStale(client, listKey)
+    return { type: 'blocked', externalScope: true }
+  }
+  if (handshake.kind === 'failed') {
+    return { type: 'blocked', externalScope: false }
+  }
+  if (handshake.kind === 'superseded') {
+    return { type: 'restart-page-one' }
+  }
+  if (handshake.kind === 'session') {
+    startNewCursorRecoveryEpisode()
+    return { type: 'blocked', externalScope: false }
+  }
+
+  return { type: 'restart-page-one' }
+}
+
 export async function resolveCursorListFailure(
   client: QueryClient,
   options: {
@@ -118,10 +149,9 @@ export async function resolveCursorListFailure(
     semanticKey: string
     listKey: QueryKey
     countKey: QueryKey
-    contextValid: boolean
   },
 ): Promise<CursorRecoveryOutcome> {
-  const { error, semanticKey, listKey, countKey, contextValid } = options
+  const { error, semanticKey, listKey, countKey } = options
   const episode = readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
 
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
@@ -145,32 +175,7 @@ export async function resolveCursorListFailure(
       return episode.recoveryInFlight
     }
 
-    episode.recoveryInFlight = (async (): Promise<CursorRecoveryOutcome> => {
-      if (episode.budget === 0) {
-        return blockListEpisode(client, listKey, countKey)
-      }
-
-      episode.budget = 0
-      await flushListCache(client, listKey, countKey, { cancelInFlight: false })
-
-      const handshake = await handshakeScopeContext()
-      if (handshake.kind === 'external-scope') {
-        markInfiniteListStale(client, listKey)
-        return { type: 'blocked', externalScope: true }
-      }
-      if (handshake.kind === 'failed') {
-        return { type: 'blocked', externalScope: false }
-      }
-      if (handshake.kind === 'superseded') {
-        return { type: 'restart-page-one' }
-      }
-      if (handshake.kind === 'session') {
-        startNewCursorRecoveryEpisode()
-        return { type: 'blocked', externalScope: false }
-      }
-
-      return { type: 'restart-page-one' }
-    })().finally(() => {
+    episode.recoveryInFlight = recoverViaHandshake(client, episode, listKey, countKey).finally(() => {
       episode.recoveryInFlight = null
     })
 
