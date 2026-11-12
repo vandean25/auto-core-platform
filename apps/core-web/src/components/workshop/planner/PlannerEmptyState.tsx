@@ -1,5 +1,3 @@
-import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
 import {
   Empty,
   EmptyContent,
@@ -14,14 +12,13 @@ export function PlannerEmptyState({
   icon,
   title,
   description,
-  onGoToSettings,
+  settingsAction,
 }: {
   icon: React.ReactNode
   title: string
   description: string
-  onGoToSettings: () => void
+  settingsAction: React.ReactNode
 }) {
-  const { t } = useTranslation('workshop')
   return (
     <Empty className="mx-auto my-6 max-w-sm border">
       <EmptyHeader>
@@ -29,11 +26,7 @@ export function PlannerEmptyState({
         <EmptyTitle className="text-base">{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={onGoToSettings}>
-          {t('planner.page.goToSettings')}
-        </Button>
-      </EmptyContent>
+      <EmptyContent>{settingsAction}</EmptyContent>
     </Empty>
   )
 }
