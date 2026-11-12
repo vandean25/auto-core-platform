@@ -11,7 +11,12 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { i18n } from '@/lib/i18n'
 import InventoryList from '@/pages/InventoryList'
 
-vi.mock('@/api/inventory')
+vi.mock('@/api/inventory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/inventory')>()),
+  useInventory: vi.fn(),
+  useInventoryCursorList: vi.fn(),
+  useCreateInventoryItem: vi.fn(),
+}))
 vi.mock('@/api/locations', () => ({ useLocations: vi.fn() }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
@@ -92,6 +97,36 @@ beforeEach(() => {
       meta: { total: 1, page: 1, limit: 10, pageCount: 1 },
     },
     isLoading: false,
+  })
+  asMock(inventoryApi.useInventoryCursorList).mockReturnValue({
+    rows: [
+      {
+        id: 'item-1',
+        sku: 'BRK-001',
+        name: 'Brake Pad',
+        brand: 'Bosch',
+        price: 49.9,
+        status: 'IN_STOCK',
+        quantity_available: 4,
+        warehouse_location: 'A-1',
+      },
+    ],
+    tableProps: {
+      isLoading: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: false,
+      onRetry: vi.fn(),
+      hasUsableData: true,
+      infinite: {
+        queryKey: ['inventory', 'cursor-list', {}],
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        isFetchNextPageError: false,
+        fetchNextPage: vi.fn(),
+        totalCount: { count: 1, isCapped: false },
+      },
+    },
   })
   asMock(locationsApi.useLocations).mockReturnValue({
     data: [{ id: 'loc-1', name: 'A-1', code: 'A-1', type: 'warehouse' }],

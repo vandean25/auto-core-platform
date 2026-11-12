@@ -113,10 +113,6 @@ export async function resolveCursorListFailure(
   const { error, semanticKey, listKey, countKey, contextValid } = options
   const episode = readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
 
-  if (error.code && CONTEXT_HANDSHAKE_CODES.has(error.code) && episode.recoveryInFlight) {
-    return episode.recoveryInFlight
-  }
-
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
     episode.offsetLatched = true
     await flushAndFence(client, listKey, countKey)
@@ -138,7 +134,11 @@ export async function resolveCursorListFailure(
   }
 
   if (error.code && CONTEXT_HANDSHAKE_CODES.has(error.code)) {
-    const work = (async (): Promise<CursorRecoveryOutcome> => {
+    if (episode.recoveryInFlight) {
+      return episode.recoveryInFlight
+    }
+
+    episode.recoveryInFlight = (async (): Promise<CursorRecoveryOutcome> => {
       if (episode.budget === 0) {
         return blockListEpisode(client, listKey, countKey)
       }
@@ -160,11 +160,10 @@ export async function resolveCursorListFailure(
       }
 
       return { type: 'restart-page-one' }
-    })()
-
-    episode.recoveryInFlight = work.finally(() => {
+    })().finally(() => {
       episode.recoveryInFlight = null
     })
+
     return episode.recoveryInFlight
   }
 

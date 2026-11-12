@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import * as scopeContextClient from '@/auth/scope-context-client'
 import {
   getCursorEpisodeCounter,
   resetScopeContextClientForTests,
@@ -58,21 +59,9 @@ describe('cursor recovery (ADR-0038 §9)', () => {
   afterEach(() => vi.clearAllMocks())
 
   it('cursorRecovery_shared_episode_budget', async () => {
-    let handshakeCalls = 0
-    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
-      const target = String(url)
-      if (!target.includes('scope-context')) {
-        return apiError(400, 'LIST_CURSOR_INVALID')
-      }
-      handshakeCalls += 1
-      return {
-        ok: true,
-        json: async () => ({
-          scopeContext: 'sc',
-          scopeContextDigest: 'digest-a',
-          continuityDigest: 'lineage-1',
-        }),
-      } as Response
+    const handshakeSpy = vi.spyOn(scopeContextClient, 'handshakeScopeContext').mockResolvedValue({
+      kind: 'same',
+      context: testScope,
     })
 
     const client = new QueryClient()
@@ -97,8 +86,9 @@ describe('cursor recovery (ADR-0038 §9)', () => {
       }),
     ])
 
-    expect(handshakeCalls).toBe(1)
+    expect(handshakeSpy).toHaveBeenCalledTimes(1)
     expect(cursorEpisodeBudgetForTests('inventory:{}')).toBe(0)
+    handshakeSpy.mockRestore()
   })
 
   it('403 blocks without retry', async () => {

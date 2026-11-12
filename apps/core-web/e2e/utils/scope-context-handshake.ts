@@ -8,13 +8,29 @@ export const E2E_SCOPE_CONTEXT = {
 
 const SCOPE_CONTEXT_ROUTE = /\/api\/auth\/scope-context(\?.*)?$/;
 
+type ScopeHandshakePage = Page & { __acpScopeHandshakeInstalled?: boolean };
+
 /** Handshake for ADR-0038 P4; optional `onPost` can mint a new digest to block the list. */
 export async function mockScopeContextHandshake(
   page: Page,
   options?: { body?: typeof E2E_SCOPE_CONTEXT; onPost?: () => typeof E2E_SCOPE_CONTEXT },
 ) {
+  const scoped = page as ScopeHandshakePage;
+  await page.unroute(SCOPE_CONTEXT_ROUTE);
   await page.route(SCOPE_CONTEXT_ROUTE, async (route) => {
     const body = options?.onPost?.() ?? options?.body ?? E2E_SCOPE_CONTEXT;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
+  scoped.__acpScopeHandshakeInstalled = true;
+}
+
+export function scopeContextHandshakeInstalled(page: Page): boolean {
+  return Boolean((page as ScopeHandshakePage).__acpScopeHandshakeInstalled);
+}
+
+export async function ensureDefaultScopeContextHandshake(page: Page) {
+  if (scopeContextHandshakeInstalled(page)) {
+    return;
+  }
+  await mockScopeContextHandshake(page);
 }

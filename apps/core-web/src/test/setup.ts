@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import { afterEach, beforeAll, beforeEach, expect } from 'vitest'
-import { resetScopeContextClientForTests, seedValidatedScopeContextForTests } from '@/auth/scope-context-client'
 import { changeUiLanguage, ensureNamespaceLoaded, initI18n } from '@/lib/i18n'
 import './setup-dom-mocks'
 
@@ -25,12 +24,14 @@ beforeAll(async () => {
   await ensureNamespaceLoaded('agent')
 })
 
-beforeEach(() => {
+beforeEach(async () => {
+  const { resetScopeContextClientForTests, seedValidatedScopeContextForTests } = await import('@/auth/scope-context-client')
   resetScopeContextClientForTests()
   seedValidatedScopeContextForTests(vitestScopeContext)
 })
 
 afterEach(async () => {
+  const { resetScopeContextClientForTests } = await import('@/auth/scope-context-client')
   resetScopeContextClientForTests()
   await changeUiLanguage('de')
 })

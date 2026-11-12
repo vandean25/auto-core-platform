@@ -1,5 +1,5 @@
 import { Page, expect, Locator } from "@playwright/test";
-import { mockScopeContextHandshake } from "../utils/scope-context-handshake";
+import { ensureDefaultScopeContextHandshake } from "../utils/scope-context-handshake";
 
 /**
  * AutoCorePage encapsulates the "Golden Rules" of the Auto Core Platform UI.
@@ -55,7 +55,7 @@ export class AutoCorePage {
    * are served before any assertions are made.
    */
   async navigate(path: string) {
-    await mockScopeContextHandshake(this.page);
+    await ensureDefaultScopeContextHandshake(this.page);
     await this.page.route(
       AutoCorePage.apiRouteMatcher("/api/auth/session"),
       async (route) => {
