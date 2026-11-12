@@ -32447,7 +32447,8 @@
               "STAGED",
               "CONSUMED",
               "CANCELLED"
-            ]
+            ],
+            "nullable": true
           }
         },
         "required": [
