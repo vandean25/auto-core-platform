@@ -26,33 +26,6 @@ const unsupportedCursor = {
   json: async () => ({ statusCode: 400, code: 'LIST_CURSOR_SORT_UNSUPPORTED', message: 'LIST_CURSOR_SORT_UNSUPPORTED' }),
 } as Response
 
-function seedMocks(options: {
-  cursorPath: string
-  offsetPath: string
-  offsetRow: { id: string }
-  cursorParams?: string
-}) {
-  vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
-    const target = String(url)
-    if (target.includes('capped-count')) {
-      return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: testScope.scopeContextDigest }) } as Response
-    }
-    if (target.includes(options.cursorPath) && target.includes('pagination=cursor')) {
-      return unsupportedCursor
-    }
-    if (target.includes(options.offsetPath)) {
-      return {
-        ok: true,
-        json: async () => ({
-          data: [options.offsetRow],
-          meta: { total: 1, page: 1, pageSize: 10, pageCount: 1, scopeContextDigest: testScope.scopeContextDigest },
-        }),
-      } as Response
-    }
-    return unsupportedCursor
-  })
-}
-
 describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
   beforeEach(() => {
     resetScopeContextClientForTests()
