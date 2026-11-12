@@ -65,6 +65,27 @@ const DEFAULT_SCOPE_CONTEXT = {
   continuityDigest: 'e2e-continuity',
 };
 
+export const E2E_SCOPE_CONTEXT_DIGEST = DEFAULT_SCOPE_CONTEXT.scopeContextDigest;
+
+export function e2eCappedCountBody(count: number, isCapped = false) {
+  return { count, isCapped, scopeContextDigest: E2E_SCOPE_CONTEXT_DIGEST };
+}
+
+export function e2eCursorPageBody<TRow>(
+  data: TRow[],
+  meta: { nextCursor?: string | null; hasNextPage?: boolean; limit?: number } = {},
+) {
+  return {
+    data,
+    meta: {
+      nextCursor: meta.nextCursor ?? null,
+      hasNextPage: meta.hasNextPage ?? false,
+      limit: meta.limit,
+      scopeContextDigest: E2E_SCOPE_CONTEXT_DIGEST,
+    },
+  };
+}
+
 /** Handshake for ADR-0038 P4; optional `onHandshake` can mint a new digest to block the list. */
 export async function mockScopeContextHandshake(
   page: Page,

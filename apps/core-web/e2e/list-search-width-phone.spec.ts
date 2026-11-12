@@ -11,6 +11,7 @@ import {
   createMockVendor,
   createMockWorkshopOrder,
 } from './utils/mock-factories'
+import { mockCursorList } from './utils/cursor-list-mock'
 
 /**
  * AUT-767: the search field of a list toolbar keeps the full row width after the rows have loaded, at 375 and
@@ -37,9 +38,16 @@ test.describe('List search width on a phone (AUT-767)', () => {
   for (const [name, path, api, row] of LISTS) {
     test(`${name}: the search field is full width after load and after a resize`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.route(AutoCorePage.apiRouteMatcher(api), (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createMockListResponse([row()])) }),
-      )
+      if (api === '/api/inventory') {
+        await mockCursorList(page, { path: api, rows: [row()] });
+        await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
+          route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+        );
+      } else {
+        await page.route(AutoCorePage.apiRouteMatcher(api), (route) =>
+          route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createMockListResponse([row()])) }),
+        );
+      }
       await new AutoCorePage(page, '').navigate(path)
       await page.waitForLoadState('networkidle')
       await expect(page.locator('[data-table-row="true"]').first()).toBeVisible()

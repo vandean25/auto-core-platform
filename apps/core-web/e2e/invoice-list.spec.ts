@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON } from './helpers/de-common';
 import { DE_SALES } from './helpers/de-sales';
-import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
+import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { pageOverflow } from './utils/phone-layout';
 
 /**
@@ -94,7 +94,7 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ count: 9, isCapped: false }),
+        body: JSON.stringify(e2eCappedCountBody(9)),
       });
     });
     await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
@@ -107,10 +107,7 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: rows,
-          meta: { nextCursor: null, hasNextPage: false },
-        }),
+        body: JSON.stringify(e2eCursorPageBody(rows)),
       });
     });
     await openList(page, '?sortField=invoice_number&sortDirection=asc');

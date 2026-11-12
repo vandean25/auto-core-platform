@@ -18,6 +18,7 @@ import { DE_VEHICLE_STOCK } from './helpers/de-vehicle-stock';
 import { DE_FINANCE } from './helpers/de-finance';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { waitForDeNamespace } from './helpers/wait-for-i18n';
+import { mockCursorList } from './utils/cursor-list-mock';
 
 /**
  * Blueprint Validation Suite — Core Management Workflows
@@ -129,13 +130,18 @@ test.describe('Blueprint: Golden Rules — Core List Pages', () => {
       const corePage = new AutoCorePage(page, module.entity);
 
       // ── Step 1: Mock primary API before navigating (network isolation) ────────
-      await page.route(AutoCorePage.apiRouteMatcher(module.apiPath), async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(createMockListResponse([module.mockFactory()])),
+      const mockRows = [module.mockFactory()];
+      if (module.path === '/inventory' || module.path === '/vehicle-stock') {
+        await mockCursorList(page, { path: module.apiPath, rows: mockRows });
+      } else {
+        await page.route(AutoCorePage.apiRouteMatcher(module.apiPath), async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(createMockListResponse(mockRows)),
+          });
         });
-      });
+      }
 
       // ── Step 1b: Mock secondary APIs with empty payloads ──────────────────────
       // Prevents unmocked background requests from adding flakiness when the

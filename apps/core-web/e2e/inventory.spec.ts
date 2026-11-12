@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
-import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
+import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { pageOverflow } from './utils/phone-layout';
 
@@ -92,13 +92,7 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
   }) => {
     const item = createMockInventoryItem({ sku: 'MOCK-SKU-001', name: 'Mock Oil Filter' });
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([item])),
-      });
-    });
+    await mockCursorList(page, { path: '/api/inventory', rows: [item] });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
@@ -141,7 +135,7 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ count: 9, isCapped: false }),
+        body: JSON.stringify(e2eCappedCountBody(9)),
       });
     });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
@@ -161,10 +155,7 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: rows,
-          meta: { nextCursor: null, hasNextPage: false },
-        }),
+        body: JSON.stringify(e2eCursorPageBody(rows)),
       });
     });
     await new AutoCorePage(page, 'Artikel').navigate('/inventory?sortField=sku&sortDirection=asc');
