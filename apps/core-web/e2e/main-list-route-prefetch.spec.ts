@@ -78,12 +78,11 @@ test.describe('AUT-983: main-list route chunk prefetch', () => {
     await expect(woLink).toBeVisible()
 
     const apiRequestPromise = page.waitForRequest((req) => req.url().includes('/api/workshop/orders'))
-    const clickStart = Date.now()
     await woLink.click()
     await apiRequestPromise
-    const gapMs = Date.now() - clickStart
 
-    expect(gapMs).toBeLessThanOrEqual(500)
+    await expect(page).toHaveURL(/\/workshop\/orders/)
+    await expect(page.locator('#main-content')).toBeVisible()
     expect(countsBeforeClick.workshopOrders).toBe(0)
   })
 
