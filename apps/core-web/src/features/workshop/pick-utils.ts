@@ -34,7 +34,8 @@ export function getRequiredPartLines(order: WorkshopOrder | null | undefined): W
   for (const task of order.tasks ?? []) {
     for (const lineItem of task.lineItems ?? []) {
       const requiredQuantity = Number(lineItem.qty)
-      if (lineItem.type !== 'PART' || !Number.isFinite(requiredQuantity) || requiredQuantity <= 0) {
+      // Free-text PART lines (no catalog item) cannot be picked (AUT-988).
+      if (lineItem.type !== 'PART' || !lineItem.catalogItemId || !Number.isFinite(requiredQuantity) || requiredQuantity <= 0) {
         continue
       }
 

@@ -308,7 +308,6 @@ export class WorkshopPickPartsService {
         tenant_id: tenantId,
         site_id: siteId,
         deletedAt: null,
-        type: LocationType.staging_tote,
         site: { is_active: true },
       },
       select: {
@@ -322,6 +321,11 @@ export class WorkshopPickPartsService {
     if (!destinationLocation) {
       throw new NotFoundException(
         `Destination location ${destinationLocationId} is not available in the active site`,
+      );
+    }
+    if (destinationLocation.type !== LocationType.staging_tote) {
+      throw new UnprocessableEntityException(
+        'Destination location is not a staging tote.',
       );
     }
 

@@ -64,6 +64,7 @@ function createWorkshopOrder(
           {
             id: "line-1",
             type: "PART",
+            catalogItemId: "catalog-1",
             itemNo: "PART-1",
             description: "Part 1",
             qty: 1,

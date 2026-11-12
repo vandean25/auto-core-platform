@@ -177,11 +177,7 @@ export function calculatePickAllocations(
         `Line item ${requestedPick.workshopTaskLineItemId} not found`,
       );
     }
-    if (!line.catalog_item_id) {
-      throw new UnprocessableEntityException(
-        'Only catalog-backed part lines can be picked.',
-      );
-    }
+    assertCatalogBackedPickLines([line]);
 
     const reservations = (reservationsByLine.get(line.id) ?? []).filter(
       (reservation) => reservation.status === PartsReservationStatus.OPEN,
@@ -311,6 +307,16 @@ export async function findLatestInboundCosts(
   return costs;
 }
 
+function assertCatalogBackedPickLines(
+  lines: ReadonlyArray<{ catalog_item_id: string | null }>,
+): void {
+  if (lines.some((line) => !line.catalog_item_id)) {
+    throw new UnprocessableEntityException(
+      'Only catalog-backed part lines can be picked.',
+    );
+  }
+}
+
 /**
  * Async. Loads lines and reservations for the requested pick context and acquires row-level locks.
  */
@@ -322,18 +328,24 @@ export async function loadAndLockPickContext(
   lockRows: LockRowsFn,
 ): Promise<PickContextResult> {
   const requestedLineIds = [...requestedPicks.keys()];
-  const lineWhere = {
+  const lineWhere: Prisma.WorkshopTaskLineItemWhereInput = {
     tenant_id: tenantId,
     id: { in: requestedLineIds },
     type: WorkshopLineItemType.PART,
-    part_execution_status: {
-      not: WorkshopPartLineExecutionStatus.CANCELLED,
-    },
+    // NULL means a free-text line; SQL `<> CANCELLED` would drop it before the catalog check.
+    OR: [
+      { part_execution_status: null },
+      {
+        part_execution_status: {
+          not: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      },
+    ],
     workshop_task: {
       tenant_id: tenantId,
       workshop_order_id: orderId,
     },
-  } as const;
+  };
   const initialLines = await tx.workshopTaskLineItem.findMany({
     where: lineWhere,
     select: {
@@ -350,6 +362,7 @@ export async function loadAndLockPickContext(
       'One or more workshop part line items were not found for this order',
     );
   }
+  assertCatalogBackedPickLines(initialLines);
 
   await lockRows(tx, 'workshop_tasks', tenantId, [
     ...new Set(initialLines.map((line) => line.workshop_task_id)),

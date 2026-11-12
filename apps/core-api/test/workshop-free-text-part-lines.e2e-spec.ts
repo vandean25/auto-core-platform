@@ -250,6 +250,63 @@ describe('Workshop free-text PART lines (AUT-972) (e2e)', () => {
     ).toBe(0);
   });
 
+  // AUT-988: the CANCELLED filter dropped NULL-status free-text lines, so pick-parts answered 404 instead of 422.
+  it('rejects pick-parts for a NULL-status free-text PART line with 422, not 404', async () => {
+    const { orderId, taskId } = await createOrderWithTask();
+
+    await request(app.getHttpServer())
+      .patch(`/api/workshop/orders/${orderId}/tasks/${taskId}/line-items`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedLineItemsVersion: 0,
+        items: [
+          {
+            type: 'PART',
+            itemNo: 'MISC-FT-PICK',
+            description: 'Free-text pick attempt',
+            qty: 2,
+            unitPrice: 10,
+          },
+        ],
+      })
+      .expect(200);
+
+    const partLine = await prisma.workshopTaskLineItem.findFirstOrThrow({
+      where: { workshop_task_id: taskId, type: 'PART', tenant_id: tenantId },
+      select: { id: true, part_execution_status: true },
+    });
+    expect(partLine.part_execution_status).toBeNull();
+    const order = await prisma.workshopOrder.update({
+      where: { id: orderId },
+      data: { status: 'IN_PROGRESS' },
+      select: { site_id: true },
+    });
+    if (!order.site_id) throw new Error('Workshop order has no site');
+    const tote = await prisma.storageLocation.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: order.site_id,
+        code: `AUT988-TOTE-${Date.now()}`,
+        name: 'Staging tote',
+        type: 'staging_tote',
+      },
+      select: { id: true },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/pick-parts`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        destinationLocationId: tote.id,
+        items: [{ workshopTaskLineItemId: partLine.id, quantity: 1 }],
+      })
+      .expect(422);
+
+    expect(res.body.message).toBe(
+      'Only catalog-backed part lines can be picked.',
+    );
+  });
+
   it('still blocks DONE and invoicing for catalog-backed PENDING_PICK lines', async () => {
     const { orderId, taskId } = await createOrderWithTask();
     const catalogItem = await prisma.catalogItem.create({
@@ -465,8 +522,13 @@ describe('Workshop free-text PART lines (AUT-972) (e2e)', () => {
 
     try {
       await prisma.$executeRawUnsafe(dropPartStatusCheck);
-      await prisma.$executeRawUnsafe(backfillFreeTextPartStatus);
+      const backfilledRows = await prisma.$executeRawUnsafe(
+        backfillFreeTextPartStatus,
+      );
       await prisma.$executeRawUnsafe(addPartStatusCheck);
+
+      // AUT-988: the backfill must have touched the legacy row; zero rows means it proved nothing.
+      expect(backfilledRows).toBeGreaterThan(0);
 
       const updated = await prisma.workshopTaskLineItem.findFirstOrThrow({
         where: { id: line.id, tenant_id: tenantId },

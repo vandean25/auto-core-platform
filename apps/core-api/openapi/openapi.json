@@ -26735,6 +26735,10 @@
           "unitPrice": {
             "type": "number"
           },
+          "catalogItemId": {
+            "type": "string",
+            "nullable": true
+          },
           "partExecutionStatus": {
             "type": "string",
             "enum": [

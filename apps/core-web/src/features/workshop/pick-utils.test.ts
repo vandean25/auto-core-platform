@@ -4,6 +4,7 @@ import { ensureNamespaceLoaded } from "@/lib/i18n";
 import type { WorkshopOrder } from "@/api/types";
 import {
   PICK_ELIGIBLE_WORKSHOP_ORDER_STATUSES,
+  getRequiredPartLines,
   getWorkshopCustomerDisplayName,
   isWorkshopOrderPickEligible,
 } from "./pick-utils";
@@ -96,6 +97,7 @@ describe("pick-utils", () => {
                 {
                   id: "line-1",
                   type: "PART",
+                  catalogItemId: "catalog-1",
                   itemNo: "PART-1",
                   description: "Part 1",
                   qty: 1,
@@ -107,5 +109,78 @@ describe("pick-utils", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  // AUT-988: free-text PART lines (no catalog item) kept free-text-only orders on the pick list.
+  it("drops a work order whose PART lines are all free-text", () => {
+    expect(
+      isWorkshopOrderPickEligible(
+        createWorkshopOrder({
+          status: "IN_PROGRESS",
+          tasks: [
+            {
+              id: "task-1",
+              title: "Inspect",
+              lineItemsVersion: 0,
+              status: "IN_PROGRESS",
+              done: false,
+              lineItems: [
+                {
+                  id: "line-free",
+                  type: "PART",
+                  catalogItemId: null,
+                  itemNo: "QA-FREE",
+                  description: "Free-text part",
+                  qty: 2,
+                  unitPrice: 10,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  // AUT-988: mixed orders offered free-text lines in the drawer and in "pick all".
+  it("keeps only catalog-backed PART lines for a mixed work order", () => {
+    const lines = getRequiredPartLines(
+      createWorkshopOrder({
+        status: "IN_PROGRESS",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Inspect",
+            lineItemsVersion: 0,
+            status: "IN_PROGRESS",
+            done: false,
+            lineItems: [
+              {
+                id: "line-free",
+                type: "PART",
+                catalogItemId: null,
+                itemNo: "QA-FREE",
+                description: "Free-text part",
+                qty: 2,
+                unitPrice: 10,
+              },
+              {
+                id: "line-catalog",
+                type: "PART",
+                catalogItemId: "catalog-1",
+                itemNo: "PART-1",
+                description: "Catalog part",
+                qty: 1,
+                unitPrice: 10,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(lines.map((line) => line.workshopTaskLineItemId)).toEqual([
+      "line-catalog",
+    ]);
   });
 });

@@ -406,6 +406,7 @@ type MockWorkshopTask = {
 type MockWorkshopTaskLineItem = {
   id: string;
   type: 'PART' | 'LABOR';
+  catalogItemId?: string | null;
   itemNo: string;
   description: string;
   qty: number;
@@ -447,6 +448,7 @@ export const createMockWorkshopOrder = (
         {
           id: 'line-1',
           type: 'PART',
+          catalogItemId: 'catalog-oil-filter',
           itemNo: '06J-115-403-Q',
           description: 'Oil Filter',
           qty: 2,
