@@ -36,16 +36,17 @@ describe('warranty-claim-pdf.generation', () => {
   });
 
   it('treats the archive as stale when the claim changed after generation', () => {
+    const generatedAt = new Date('2026-11-12T10:00:00.000Z');
     expect(
       isWarrantyClaimPdfArchiveStale({
         claimUpdatedAt: new Date('2026-11-12T12:00:00.000Z'),
-        pdfSourceUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
+        pdfGeneratedAt: generatedAt,
       }),
     ).toBe(true);
     expect(
       isWarrantyClaimPdfArchiveStale({
-        claimUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
-        pdfSourceUpdatedAt: new Date('2026-11-12T10:00:00.000Z'),
+        claimUpdatedAt: new Date('2026-11-12T10:00:01.000Z'),
+        pdfGeneratedAt: generatedAt,
       }),
     ).toBe(false);
   });

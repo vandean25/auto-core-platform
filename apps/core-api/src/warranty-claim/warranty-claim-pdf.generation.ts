@@ -38,13 +38,21 @@ export const clearWarrantyClaimPdfArchiveData = () =>
     pdf_storage_bucket: null,
     pdf_storage_key: null,
     pdf_generated_at: null,
-    pdf_source_updated_at: null,
     pdf_generation_error: null,
   }) as const;
 
+/** Same grace window as workshop order PDFs (metadata writes bump `updatedAt`). */
+export const WARRANTY_CLAIM_PDF_ARCHIVE_GRACE_MS = 2000;
+
 export const isWarrantyClaimPdfArchiveStale = (params: {
   claimUpdatedAt: Date;
-  pdfSourceUpdatedAt: Date | null;
-}): boolean =>
-  params.pdfSourceUpdatedAt === null ||
-  params.claimUpdatedAt.getTime() > params.pdfSourceUpdatedAt.getTime();
+  pdfGeneratedAt: Date | null;
+}): boolean => {
+  if (!params.pdfGeneratedAt) {
+    return true;
+  }
+  return (
+    params.pdfGeneratedAt.getTime() <=
+    params.claimUpdatedAt.getTime() - WARRANTY_CLAIM_PDF_ARCHIVE_GRACE_MS
+  );
+};
