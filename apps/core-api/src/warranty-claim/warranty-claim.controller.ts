@@ -21,6 +21,7 @@ import {
 import * as Sentry from '@sentry/node';
 import type { Readable } from 'node:stream';
 import { PdfWorker } from '../common/pdf/index.js';
+import { WorkshopPdfGenerationResponseDto } from '../workshop/dto/workshop-pdf-generation-response.dto.js';
 import {
   CreateWarrantyClaimDto,
   ListWarrantyClaimsQueryDto,
@@ -132,7 +133,7 @@ export class WarrantyClaimController {
   }
 
   @Post(':claimId/pdf')
-  @ApiCreatedResponse({ schema: { type: 'object' } })
+  @ApiCreatedResponse({ type: WorkshopPdfGenerationResponseDto })
   async requestPdf(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Param('claimId', ParseUUIDPipe) claimId: string,

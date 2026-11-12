@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { expectNoCriticalA11yViolations } from './utils/a11y'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_WORKSHOP } from './helpers/de-workshop'
@@ -50,6 +50,86 @@ function createMockClaim(overrides: Partial<MockClaim> = {}): MockClaim {
     lines: [],
     ...overrides,
   }
+}
+
+type WarrantyCopy = typeof W
+
+async function expectClaimPdfPrintWithoutError(
+  page: Page,
+  copy: WarrantyCopy,
+  options?: { switchToEnglish?: boolean },
+) {
+  const corePage = new AutoCorePage(page, 'Order')
+  const order = createMockWorkshopOrder({ id: ORDER_ID, order_number: 'WO-2026-0410' })
+  const claim = createMockClaim()
+  const pdfRequests = { post: 0, get: 0 }
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+  })
+  await page.route(
+    AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims`),
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [claim], meta: { total: 1 } }),
+      })
+    },
+  )
+  await page.route(
+    AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}`),
+    async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...claim, pdfGenerationError: null }),
+        })
+        return
+      }
+      await route.continue()
+    },
+  )
+  await page.route(
+    AutoCorePage.apiRouteMatcher(
+      `/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}/pdf`,
+    ),
+    async (route) => {
+      const method = route.request().method()
+      if (method === 'POST') {
+        pdfRequests.post += 1
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'PDF is ready', enqueued: false }),
+        })
+        return
+      }
+      if (method === 'GET') {
+        pdfRequests.get += 1
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.4 warranty claim e2e'),
+        })
+        return
+      }
+      await route.abort()
+    },
+  )
+
+  await corePage.navigate(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
+  if (options?.switchToEnglish) {
+    await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
+    await page.getByTestId('language-option-en').click()
+    await page.keyboard.press('Escape')
+  }
+  await page.getByRole('button', { name: copy.editor.print }).click()
+  await expect(page.getByText(copy.editor.pdfDownloaded)).toBeVisible()
+  await expect(page.getByText(copy.editor.pdfFailed)).not.toBeVisible()
+  expect(pdfRequests.post).toBe(1)
+  expect(pdfRequests.get).toBeGreaterThanOrEqual(1)
 }
 
 test.describe('Garantie/Kulanz claims on a workshop order', () => {
@@ -150,124 +230,12 @@ test.describe('Garantie/Kulanz claims on a workshop order', () => {
   })
 
   test('starts the claim PDF download without an error toast (DE)', async ({ page }) => {
-    const corePage = new AutoCorePage(page, 'Order')
-    const order = createMockWorkshopOrder({ id: ORDER_ID, order_number: 'WO-2026-0410' })
-    const claim = createMockClaim()
-
-    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
-    })
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims`),
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: [claim], meta: { total: 1 } }),
-        })
-      },
-    )
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}`),
-      async (route) => {
-        if (route.request().method() === 'GET') {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ ...claim, pdfGenerationError: null }),
-          })
-          return
-        }
-        await route.continue()
-      },
-    )
-    await page.route(
-      AutoCorePage.apiRouteMatcher(
-        `/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}/pdf`,
-      ),
-      async (route) => {
-        if (route.request().method() === 'POST') {
-          await route.fulfill({
-            status: 201,
-            contentType: 'application/json',
-            body: JSON.stringify({ message: 'PDF is ready', enqueued: false }),
-          })
-          return
-        }
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/pdf',
-          body: Buffer.from('%PDF-1.4 warranty claim e2e'),
-        })
-      },
-    )
-
-    await corePage.navigate(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
-    await page.getByRole('button', { name: W.editor.print }).click()
-    await expect(page.getByText(W.editor.pdfDownloaded)).toBeVisible()
-    await expect(page.getByText(W.editor.pdfFailed)).not.toBeVisible()
+    await expectClaimPdfPrintWithoutError(page, W)
   })
 
   test('starts the claim PDF download without an error toast (EN)', async ({ page }) => {
-    const WEn = enWorkshop.warranty
-    const corePage = new AutoCorePage(page, 'Order')
-    const order = createMockWorkshopOrder({ id: ORDER_ID, order_number: 'WO-2026-0410' })
-    const claim = createMockClaim()
-
-    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+    await expectClaimPdfPrintWithoutError(page, enWorkshop.warranty, {
+      switchToEnglish: true,
     })
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims`),
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: [claim], meta: { total: 1 } }),
-        })
-      },
-    )
-    await page.route(
-      AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}`),
-      async (route) => {
-        if (route.request().method() === 'GET') {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ ...claim, pdfGenerationError: null }),
-          })
-          return
-        }
-        await route.continue()
-      },
-    )
-    await page.route(
-      AutoCorePage.apiRouteMatcher(
-        `/api/workshop/orders/${ORDER_ID}/warranty-claims/${claim.id}/pdf`,
-      ),
-      async (route) => {
-        if (route.request().method() === 'POST') {
-          await route.fulfill({
-            status: 201,
-            contentType: 'application/json',
-            body: JSON.stringify({ message: 'PDF is ready', enqueued: false }),
-          })
-          return
-        }
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/pdf',
-          body: Buffer.from('%PDF-1.4 warranty claim e2e'),
-        })
-      },
-    )
-
-    await corePage.navigate(`/workshop/orders/${ORDER_ID}/garantie-kulanz`)
-    await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
-    await page.getByTestId('language-option-en').click()
-    await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: WEn.editor.print }).click()
-    await expect(page.getByText(WEn.editor.pdfDownloaded)).toBeVisible()
-    await expect(page.getByText(WEn.editor.pdfFailed)).not.toBeVisible()
   })
 })

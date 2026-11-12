@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { INestApplication, NotFoundException } from '@nestjs/common';
+import {
+  INestApplication,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Prisma } from '@prisma/client';
 import request from 'supertest';
@@ -13,6 +17,7 @@ import { PlaywrightBrowserService } from '../src/common/services/playwright-brow
 import { signPdfTaskPayload } from '../src/common/pdf/pdf-task-payload.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { WarrantyClaimPdfRenderer } from '../src/warranty-claim/warranty-claim-pdf.renderer.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -1151,6 +1156,47 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         .expect(403);
     });
 
+    it('stores pdf_generation_error when the worker hits a non-retryable build failure', async () => {
+      const workerSecret = 'warranty-claim-e2e-worker-secret';
+      process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
+
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      const renderer = app.get(WarrantyClaimPdfRenderer);
+      const renderSpy = jest.spyOn(renderer, 'render').mockRejectedValue(
+        new UnprocessableEntityException({
+          code: 'SELLER_IDENTITY_INCOMPLETE',
+          message:
+            'The workshop order has no legal entity for the document header.',
+        }),
+      );
+
+      try {
+        const payload = signPdfTaskPayload(
+          { kind: 'warranty-claim', resourceId: claimId, tenantId: tenant.tenantId },
+          workerSecret,
+        );
+
+        await request(app.getHttpServer())
+          .post(`${claimsPath(fixture.orderId, claimId)}/pdf/worker`)
+          .set('x-cloud-tasks-secret', workerSecret)
+          .set('x-tenant-id', tenant.tenantId)
+          .send(payload)
+          .expect(204);
+
+        const stored = await prisma.warrantyClaim.findFirstOrThrow({
+          where: { id: claimId, tenant_id: tenant.tenantId },
+          select: { pdf_generation_error: true },
+        });
+        expect(stored.pdf_generation_error).toBe(
+          'The workshop order has no legal entity for the document header.',
+        );
+      } finally {
+        renderSpy.mockRestore();
+      }
+    });
+
     it('does not launch a browser for user PDF enqueue when Cloud Tasks handles rendering', async () => {
       const workerSecret = 'warranty-claim-e2e-worker-secret';
       process.env.CLOUD_TASKS_WORKER_SECRET = workerSecret;
@@ -1164,8 +1210,11 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const getBrowserSpy = jest.spyOn(browserService, 'getBrowser');
 
       const cloudTasks = app.get(CloudTasksService);
-      jest.spyOn(cloudTasks, 'isEnabled').mockReturnValue(true);
-      jest
+      const previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+      const isEnabledSpy = jest
+        .spyOn(cloudTasks, 'isEnabled')
+        .mockReturnValue(true);
+      const enqueueSpy = jest
         .spyOn(cloudTasks, 'enqueuePdfGeneration')
         .mockImplementation(async () => ({ taskId: 'task-warranty-claim-1' }));
 
@@ -1175,6 +1224,13 @@ describe('Warranty claims (AUT-464, e2e)', () => {
           .set('Authorization', `Bearer ${adminToken}`)
           .expect(201);
 
+        expect(enqueueSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: 'warranty-claim',
+            resourceId: claimId,
+            workerRelativePath: `workshop/orders/${fixture.orderId}/warranty-claims/${claimId}/pdf/worker`,
+          }),
+        );
         expect(getBrowserSpy).not.toHaveBeenCalled();
 
         await request(app.getHttpServer())
@@ -1194,8 +1250,6 @@ describe('Warranty claims (AUT-464, e2e)', () => {
           .send(payload)
           .expect(204);
 
-        expect(getBrowserSpy).toHaveBeenCalled();
-
         const body = await downloadClaimPdf(
           app.getHttpServer(),
           fixture.orderId,
@@ -1203,8 +1257,16 @@ describe('Warranty claims (AUT-464, e2e)', () => {
           adminToken,
         );
         expect(body.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+        expect(getBrowserSpy.mock.calls.length).toBeGreaterThan(0);
       } finally {
         getBrowserSpy.mockRestore();
+        isEnabledSpy.mockRestore();
+        enqueueSpy.mockRestore();
+        if (previousWorkerSecret === undefined) {
+          delete process.env.CLOUD_TASKS_WORKER_SECRET;
+        } else {
+          process.env.CLOUD_TASKS_WORKER_SECRET = previousWorkerSecret;
+        }
       }
     });
   });

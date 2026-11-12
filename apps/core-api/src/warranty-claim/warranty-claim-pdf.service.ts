@@ -1,4 +1,5 @@
 import {
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
@@ -167,10 +168,10 @@ export class WarrantyClaimPdfService {
           };
         }
 
-        const content = await this.buildPdfContent(orderId, claimId);
         const key = warrantyClaimPdfObjectKey(claimId);
 
         try {
+          const content = await this.buildPdfContent(orderId, claimId);
           const upload = await renderAndUploadPdf({
             render: () => this.renderer.render(content),
             upload: (pdf) =>
@@ -204,8 +205,7 @@ export class WarrantyClaimPdfService {
             generatedAt,
           };
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = this.pdfGenerationErrorMessage(error);
           this.logger.error(
             `Warranty claim PDF generation failed (claimId=${claimId}): ${message}`,
             error instanceof Error ? error.stack : undefined,
@@ -572,6 +572,25 @@ export class WarrantyClaimPdfService {
       },
       data: { pdf_generation_error: null },
     });
+  }
+
+  private pdfGenerationErrorMessage(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (typeof response === 'string') {
+        return response;
+      }
+      if (response && typeof response === 'object' && 'message' in response) {
+        const message = (response as { message?: string | string[] }).message;
+        if (typeof message === 'string') {
+          return message;
+        }
+        if (Array.isArray(message)) {
+          return message.join('; ');
+        }
+      }
+    }
+    return error instanceof Error ? error.message : String(error);
   }
 
   private async safeStoreGenerationError(
