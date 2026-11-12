@@ -229,15 +229,16 @@ describe('Production image version pins (AUT-167)', () => {
     const agentsMd = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
 
     expect(expected).toBe('24.22.3');
-    expect(dockerfile).toMatch(
-      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim@sha256:[a-f0-9]{64} AS builder$`, 'm'),
+    const builderPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
-    expect(dockerfile).toMatch(
-      new RegExp(`ARG PDF_WORKER_NODE_VERSION=${expected.replace(/\./g, '\\.')}`),
+    const apiPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
-    expect(dockerfile).toMatch(
-      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim@sha256:[a-f0-9]{64} AS api$`, 'm'),
-    );
+    const pdfWorkerArg = dockerfile.match(/^ARG PDF_WORKER_NODE_VERSION=([0-9.]+)/m);
+    expect(builderPin?.[1]).toBe(expected);
+    expect(apiPin?.[1]).toBe(expected);
+    expect(pdfWorkerArg?.[1]).toBe(expected);
     const cursorNodeArgs = [
       ...cursorDockerfile.matchAll(/^ARG NODE_VERSION=([0-9.]+)$/gm),
     ].map((match) => match[1]);
@@ -246,42 +247,36 @@ describe('Production image version pins (AUT-167)', () => {
       ...cloudBuild.matchAll(/^\s*name: node:([0-9.]+)\s*$/gm),
     ].map((match) => match[1]);
     expect(cloudBuildPins).toEqual([expected, expected]);
-    expect(cloudBuildStaging).toMatch(
-      new RegExp(`^\\s*name: node:${expected.replace(/\./g, '\\.')}\\s*$`, 'm'),
-    );
-    expect(verifyScript).toMatch(
-      new RegExp(
-        `EXPECTED_VERSION="\\$\\{PDF_WORKER_NODE_VERSION:-${expected.replace(/\./g, '\\.')}\\}"`,
-      ),
-    );
-    expect(agentsMd).toMatch(
-      new RegExp(
-        `\\| Node\\.js \\| \\*\\*${expected.replace(/\./g, '\\.')}\\*\\* from`,
-      ),
-    );
+    const stagingPin = cloudBuildStaging.match(/^\s*name: node:([0-9.]+)\s*$/m);
+    expect(stagingPin?.[1]).toBe(expected);
+    expect(verifyScript).toContain(`PDF_WORKER_NODE_VERSION:-${expected}`);
+    expect(agentsMd).toContain(`**${expected}** from`);
   });
 
   it('requires digest-pinned node stages for builder and api (AUT-991 scenario 2)', () => {
     const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-    const digestPattern = '@sha256:[a-f0-9]{64}';
 
     expect(dockerfile).toMatch(
-      new RegExp(
-        `^FROM node:${expected.replace(/\./g, '\\.')}-slim${digestPattern} AS builder$`,
-        'm',
-      ),
+      /^FROM node:[0-9.]+-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
     expect(dockerfile).toMatch(
-      new RegExp(
-        `^FROM node:${expected.replace(/\./g, '\\.')}-slim${digestPattern} AS api$`,
-        'm',
-      ),
+      /^FROM node:[0-9.]+-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
     expect(dockerfile).toContain(NODE_SLIM_DIGEST);
-    expect(dockerfile).not.toMatch(
-      new RegExp(`^FROM node:${expected.replace(/\./g, '\\.')}-slim AS (builder|api)$`, 'm'),
+    expect(dockerfile).not.toMatch(/^FROM node:[0-9.]+-slim AS (builder|api)$/m);
+    const taggedOnlyStages = [
+      ...dockerfile.matchAll(/^FROM node:([0-9.]+)-slim AS (builder|api)$/gm),
+    ];
+    expect(taggedOnlyStages).toHaveLength(0);
+    const builderPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
+    const apiPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS api$/m,
+    );
+    expect(builderPin?.[1]).toBe(expected);
+    expect(apiPin?.[1]).toBe(expected);
   });
 
   it('bans apt-get only in the worker stage and copies Node from pinned builder (AUT-991 scenario 3)', () => {

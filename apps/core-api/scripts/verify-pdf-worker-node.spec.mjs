@@ -28,7 +28,10 @@ test('verify-pdf-worker-node.sh passes on the pinned Node runtime', () => {
     },
     encoding: 'utf8',
   });
-  assert.match(output, new RegExp(`^node -v: v${nvmrcVersion.replace(/\./g, '\\.')}$`, 'm'));
+  const nodeVersionLine = output
+    .split('\n')
+    .find((line) => line.startsWith('node -v:'));
+  assert.equal(nodeVersionLine, `node -v: v${nvmrcVersion}`);
   assert.match(output, /^npm -v: /m);
   assert.match(output, /^which -a node: /m);
   for (const line of output.split('\n')) {
@@ -40,15 +43,12 @@ test('verify-pdf-worker-node.sh passes on the pinned Node runtime', () => {
 });
 
 test('Dockerfile pins digest Node from .nvmrc and runs verify-pdf-worker-node.sh', () => {
-  const versionPattern = nvmrcVersion.replace(/\./g, '\\.');
-  assert.match(dockerfile, new RegExp(`ARG PDF_WORKER_NODE_VERSION=${versionPattern}`));
-  assert.match(
-    dockerfile,
-    new RegExp(
-      `^FROM node:${versionPattern}-slim@sha256:[a-f0-9]{64} AS builder$`,
-      'm',
-    ),
+  const pdfWorkerArg = dockerfile.match(/^ARG PDF_WORKER_NODE_VERSION=([0-9.]+)/m);
+  assert.equal(pdfWorkerArg?.[1], nvmrcVersion);
+  const builderPin = dockerfile.match(
+    /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
   );
+  assert.equal(builderPin?.[1], nvmrcVersion);
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/bin\//);
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/include\//);
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/lib\//);
