@@ -4,6 +4,8 @@ import { fetchWithAuth } from '@/api/client'
 import {
   getScopeContextDigest,
   handshakeScopeContext,
+  isScopeContextQuarantined,
+  isScopeExplicitRefreshRequired,
   logoutScopeContextLineage,
   resetScopeContextClientForTests,
   seedValidatedScopeContextForTests,
@@ -25,9 +27,11 @@ describe('scope-context-client handshake epoch', () => {
       resolveHandshake = resolve
     })
 
+    let logoutPosts = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       if (String(url).includes('/api/auth/scope-context')) return handshakePromise
       if (String(url).includes('/api/auth/logout')) {
+        logoutPosts += 1
         return { ok: true, json: async () => ({}) } as Response
       }
       throw new Error(`unexpected ${url}`)
@@ -36,6 +40,7 @@ describe('scope-context-client handshake epoch', () => {
     const inFlight = handshakeScopeContext({ force: true })
     await logoutScopeContextLineage()
 
+    expect(logoutPosts).toBe(1)
     expect(getScopeContextDigest()).toBeUndefined()
 
     resolveHandshake!({
@@ -115,5 +120,37 @@ describe('scope-context-client handshake epoch', () => {
     await handshakeScopeContext()
     expect(posts).toBe(2)
     expect(getScopeContextDigest()).toBe('digest-new')
+  })
+
+  it('keeps quarantine after a same handshake while external-scope acknowledgement is pending', async () => {
+    seedValidatedScopeContextForTests(
+      { scopeContext: 'sc-old', scopeContextDigest: 'digest-old' },
+      'lineage-1',
+    )
+    let posts = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (!String(url).includes('/api/auth/scope-context')) {
+        throw new Error(`unexpected ${url}`)
+      }
+      posts += 1
+      return {
+        ok: true,
+        json: async () => ({
+          scopeContext: 'sc-new',
+          scopeContextDigest: 'digest-new',
+          continuityDigest: 'lineage-1',
+        }),
+      } as Response
+    })
+
+    const first = await handshakeScopeContext({ force: true })
+    expect(first.kind).toBe('external-scope')
+    expect(isScopeContextQuarantined()).toBe(true)
+
+    const second = await handshakeScopeContext()
+    expect(second.kind).toBe('same')
+    expect(posts).toBe(2)
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(isScopeExplicitRefreshRequired()).toBe(true)
   })
 })

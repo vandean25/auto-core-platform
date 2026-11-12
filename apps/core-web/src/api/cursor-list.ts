@@ -240,6 +240,12 @@ export function useCursorList<TRow extends { id: string }>({
     ...infiniteListQueryOptions(scopedCountKey),
     queryKey: scopedListKey,
     enabled: queryEnabled,
+    placeholderData: (previousData, previousQuery) => {
+      const prevDigest = previousQuery?.queryKey.at(-1)
+      const nextDigest = scopedListKey.at(-1)
+      if (prevDigest !== nextDigest) return undefined
+      return previousData
+    },
     initialPageParam: undefined as string | undefined,
     retry: cursorQueryShouldRetry,
     queryFn: ({ pageParam, signal }) =>

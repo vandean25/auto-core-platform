@@ -144,6 +144,98 @@ describe('cursor scope (ADR-0038)', () => {
     expect(scopeContextClient.isScopeContextQuarantined()).toBe(false)
   })
 
+  it('keeps rows empty when a same handshake follows external-scope', async () => {
+    seedValidatedScopeContextForTests(testScope, 'lineage-1')
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return {
+          ok: true,
+          json: async () => ({
+            scopeContext: 'sc-new',
+            scopeContextDigest: 'digest-b',
+            continuityDigest: 'lineage-1',
+          }),
+        } as Response
+      }
+      if (target.includes('capped-count')) {
+        return {
+          ok: true,
+          json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }),
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'a' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+
+    await act(async () => {
+      await handshakeScopeContext({ force: true })
+      await handshakeScopeContext()
+    })
+
+    expect(result.current.rows).toEqual([])
+    expect(isScopeContextQuarantined()).toBe(true)
+  })
+
+  it('does not show rows from the previous digest as placeholder after a session lineage change', async () => {
+    seedValidatedScopeContextForTests(testScope, 'lineage-1')
+    let sessionDigestActive = false
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        sessionDigestActive = true
+        return {
+          ok: true,
+          json: async () => ({
+            scopeContext: 'sc-session',
+            scopeContextDigest: 'digest-c',
+            continuityDigest: 'lineage-2',
+          }),
+        } as Response
+      }
+      const listDigest = sessionDigestActive ? 'digest-c' : 'digest-a'
+      if (target.includes('capped-count')) {
+        return {
+          ok: true,
+          json: async () => ({ count: 1, isCapped: false, scopeContextDigest: listDigest }),
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: sessionDigestActive ? 'session-row' : 'a' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: listDigest },
+        }),
+      } as Response
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+
+    await act(async () => {
+      await handshakeScopeContext({ force: true })
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'session-row' }]))
+    expect(result.current.rows.some((row) => row.id === 'a')).toBe(false)
+  })
+
   it('quarantined warm cache for the new digest stays hidden until explicit refresh', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const scopedListKey = [...baseOptions().listKey, 'digest-b'] as const

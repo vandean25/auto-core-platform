@@ -298,6 +298,7 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
       await expect.poll(() => handshakePosts).toBeGreaterThanOrEqual(2);
+      await expect(page.getByText('SKU-0000')).toHaveCount(0);
 
       const refresh = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
       await expect(refresh).toBeVisible();
