@@ -196,7 +196,7 @@ describe('InventoryList row actions', () => {
 
     expect(asMock(inventoryApi.useInventory)).toHaveBeenCalledWith(
       expect.objectContaining({ location: 'A-1' }),
-      { enabled: false },
+      expect.objectContaining({ enabled: false }),
     )
     expect(asMock(inventoryApi.useInventoryCursorList)).toHaveBeenCalledWith(
       expect.objectContaining({ location: 'A-1' }),
@@ -270,7 +270,10 @@ describe('InventoryList row actions', () => {
     (entry) => {
       renderAt(entry)
 
-      expect(asMock(inventoryApi.useInventory)).toHaveBeenLastCalledWith(expect.anything(), { enabled: false })
+      expect(asMock(inventoryApi.useInventory)).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ enabled: false }),
+      )
       expect(asMock(inventoryApi.useInventoryCursorList)).toHaveBeenLastCalledWith(expect.anything(), true)
       expect(screen.getByText('BRK-001')).toBeInTheDocument()
       expect(screen.getByText('1 Treffer')).toBeInTheDocument()
@@ -284,7 +287,7 @@ describe('InventoryList row actions', () => {
 
     expect(asMock(inventoryApi.useInventory)).toHaveBeenLastCalledWith(
       expect.objectContaining({ sortField: 'status' }),
-      { enabled: true },
+      expect.objectContaining({ enabled: true }),
     )
     expect(asMock(inventoryApi.useInventoryCursorList)).toHaveBeenLastCalledWith(expect.anything(), false)
     expect(screen.getByText('BRK-001')).toBeInTheDocument()

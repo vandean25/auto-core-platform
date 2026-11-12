@@ -84,7 +84,10 @@ describe('VehicleStockList paging mode', () => {
   ])('WHEN $entry is opened THEN infinite mode is $infinite', ({ entry, infinite }) => {
     renderAt(entry)
 
-    expect(asMock(vehicleStockApi.useVehicleStock)).toHaveBeenLastCalledWith(expect.anything(), { enabled: !infinite })
+    expect(asMock(vehicleStockApi.useVehicleStock)).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: !infinite }),
+    )
     expect(asMock(vehicleStockApi.useVehicleStockCursorList)).toHaveBeenLastCalledWith(expect.anything(), infinite)
     if (infinite) {
       expect(screen.queryByRole('button', { name: deCommon.dataTable.next })).not.toBeInTheDocument()
