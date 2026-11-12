@@ -1,5 +1,5 @@
 import { Page, expect, Locator } from "@playwright/test";
-import { mockScopeContextHandshake } from "../utils/cursor-list-mock";
+import { mockScopeContextHandshake } from "../utils/scope-context-handshake";
 
 /**
  * AutoCorePage encapsulates the "Golden Rules" of the Auto Core Platform UI.
