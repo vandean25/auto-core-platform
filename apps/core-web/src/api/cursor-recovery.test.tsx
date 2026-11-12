@@ -151,6 +151,18 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     expect(listsForFreshEpisode).toBeGreaterThanOrEqual(1)
   })
 
+  it('LIST_CURSOR_INVALID returns restart-page-one when context is valid', async () => {
+    const client = new QueryClient()
+    const outcome = await resolveCursorListFailure(client, {
+      error: new CursorListApiError('LIST_CURSOR_INVALID', 400, 'LIST_CURSOR_INVALID'),
+      semanticKey: 'inventory:{}',
+      listKey: ['inventory', 'cursor-list', {}, 'digest-a'],
+      countKey: ['inventory', 'capped-count', {}, 'digest-a'],
+      contextValid: true,
+    })
+    expect(outcome.type).toBe('restart-page-one')
+  })
+
   it('LIST_CURSOR_INVALID restarts page one with a live signal', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let servedFirstPage = false
@@ -187,10 +199,11 @@ describe('cursor recovery (ADR-0038 §9)', () => {
 
     const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
-  await act(async () => {
+    await waitFor(() => expect(result.current.tableProps.infinite.hasNextPage).toBe(true))
+    await act(async () => {
       await result.current.tableProps.infinite.fetchNextPage()
     })
-    await waitFor(() => expect(result.current.rows.some((row) => row.id === 'restarted')).toBe(true))
     expect(sawRestartWithoutCursor).toBe(true)
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'restarted' }]))
   })
 })

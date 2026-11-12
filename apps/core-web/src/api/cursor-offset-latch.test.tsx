@@ -103,7 +103,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
     renderHook(() => useInvoiceCursorList(listParams, true), { wrapper: wrapper() })
     await waitFor(() => expect(isOffsetLatchedForEpisode(episodeKey)).toBe(true))
     const { result } = renderHook(
-      () => useInvoiceListState({ page: 1, pageSize: 10, sortField: 'invoice_number', sortDirection: 'asc', filters: [] }),
+      () => useInvoiceListState({ page: 2, pageSize: 10, sortField: 'invoice_number', sortDirection: 'asc', filters: [] }),
       { wrapper: wrapper() },
     )
     await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['inv-doc-1']))

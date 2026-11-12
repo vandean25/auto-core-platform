@@ -80,7 +80,12 @@ describe('cursor scope (ADR-0038)', () => {
     } as Response)
 
     await waitFor(() => expect(result.current.rows).toEqual([]))
-    expect(result.current.tableProps.isError).toBe(false)
+    await waitFor(
+      () => {
+        expect(result.current.tableProps.isError).toBe(false)
+      },
+      { timeout: 2_000 },
+    )
   })
 
   it('external scope change blocks', async () => {

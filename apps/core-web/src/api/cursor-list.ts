@@ -6,6 +6,7 @@ import {
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query'
+import { CancelledError } from '@tanstack/query-core'
 import { useMemo } from 'react'
 
 import {
@@ -32,26 +33,21 @@ export type CappedListCount = components['schemas']['CappedListCountResponseDto'
 type CursorListPage<TRow> = { data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean } }
 type QueryParams = Record<string, string | undefined>
 
-function restartListFetchSignal(querySignal: AbortSignal): AbortSignal {
-  return querySignal.aborted ? querySignal : new AbortController().signal
+function restartListFetchSignal(_querySignal: AbortSignal): AbortSignal {
+  return new AbortController().signal
 }
 
 async function fetchListPageAfterRecovery<TRow>(
   path: string,
   cursorParams: QueryParams,
-  querySignal: AbortSignal,
+  _querySignal: AbortSignal,
+  expectedScopeDigest?: string,
 ): Promise<CursorListPage<TRow>> {
-  if (querySignal.aborted) {
-    throw new DOMException('Query aborted', 'AbortError')
-  }
-  const page = await fetchCursorListPage<TRow>(
+  return fetchCursorListPage<TRow>(
     urlOf(path, { ...cursorParams, cursor: undefined }),
-    restartListFetchSignal(querySignal),
+    new AbortController().signal,
+    { expectedScopeDigest },
   )
-  if (querySignal.aborted) {
-    throw new DOMException('Query aborted', 'AbortError')
-  }
-  return page
 }
 
 function urlOf(path: string, params: QueryParams) {
@@ -124,10 +120,16 @@ async function handleListQueryRecovery<TRow>(
   ctx: RecoveryQueryContext,
   error: unknown,
   restart: () => Promise<CursorListPage<TRow>>,
+  pageParam: string | undefined,
 ): Promise<CursorListPage<TRow>> {
   assertCursorListApiError(error)
   const outcome = await recoverCursorListFailure(client, ctx, error)
   if (outcome.type === 'restart-page-one') {
+    if (pageParam !== undefined) {
+      const pageOne = await restart()
+      client.setQueryData(ctx.listKey, { pages: [pageOne], pageParams: [undefined as string | undefined] })
+      throw new CancelledError({ revert: false })
+    }
     return restart()
   }
   throwCursorRecoveryFailure(outcome, error)
@@ -169,11 +171,16 @@ async function runListQuery<TRow>(
   }
 
   const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
+  const expectedScopeDigest = typeof listKey.at(-1) === 'string' ? String(listKey.at(-1)) : undefined
   try {
-    return await fetchCursorListPage<TRow>(urlOf(path, cursorParams), signal)
+    return await fetchCursorListPage<TRow>(urlOf(path, cursorParams), signal, { expectedScopeDigest })
   } catch (error) {
-    return handleListQueryRecovery(queryClient, recoveryCtx, error, () =>
-      fetchListPageAfterRecovery<TRow>(path, cursorParams, signal),
+    return handleListQueryRecovery(
+      queryClient,
+      recoveryCtx,
+      error,
+      () => fetchListPageAfterRecovery<TRow>(path, cursorParams, signal, expectedScopeDigest),
+      pageParam,
     )
   }
 }
@@ -191,8 +198,9 @@ async function runCountQuery(
 ): Promise<CappedListCount> {
   const { countPath, countParams, signal, semanticEpisodeKey, listKey, countKey } = options
   const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
+  const expectedScopeDigest = typeof countKey.at(-1) === 'string' ? String(countKey.at(-1)) : undefined
   try {
-    return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal)
+    return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal, { expectedScopeDigest })
   } catch (error) {
     return handleCountQueryRecovery(client, recoveryCtx, error, () =>
       fetchCountAfterRecovery(countPath, countParams, signal),

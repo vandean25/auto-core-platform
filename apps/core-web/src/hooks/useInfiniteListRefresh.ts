@@ -4,6 +4,7 @@ import { useCallback, useContext, useState, useSyncExternalStore } from 'react'
 import {
   isScopeContextQuarantined,
   isScopeExplicitRefreshRequired,
+  listQueryKeyForCurrentDigest,
   subscribeScopeContextClient,
 } from '@/auth/scope-context-client'
 import { refreshInfiniteList } from '@/lib/infinite-list-query'
@@ -38,7 +39,7 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
       if (!queryClient || queryKey === undefined) return
       setRunning((count) => count + 1)
       try {
-        await refreshInfiniteList(queryClient, queryKey, options)
+        await refreshInfiniteList(queryClient, listQueryKeyForCurrentDigest(queryKey), options)
         // query-core hands new data to observers in a timeout(0); unlocking before that lets the load-ahead fetch
         // the next page of the chain that was just replaced.
         await new Promise((resolve) => setTimeout(resolve, 0))

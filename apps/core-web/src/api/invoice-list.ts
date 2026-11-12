@@ -51,7 +51,10 @@ export function useInvoiceListState(queryParams: DataTableQueryParams) {
   )
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
-  const unpaged = useUnpagedInvoiceList(queryParams, !infiniteMode)
+  const unpaged = useUnpagedInvoiceList(
+    offsetLatched ? { ...queryParams, page: 1 } : queryParams,
+    !infiniteMode,
+  )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }

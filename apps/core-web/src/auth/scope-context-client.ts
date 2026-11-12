@@ -1,3 +1,5 @@
+import type { QueryKey } from '@tanstack/react-query'
+
 import { fetchWithAuth } from '@/api/client'
 import type { components } from '@/api/generated/openapi'
 import {
@@ -19,6 +21,7 @@ type HandshakeResult =
   | { kind: 'external-scope'; context: ValidatedScopeContext; previousDigest: string }
   | { kind: 'session'; context: ValidatedScopeContext }
   | { kind: 'failed' }
+  | { kind: 'superseded' }
 
 type ScopeContextClientState = {
   context: ValidatedScopeContext | null
@@ -112,6 +115,12 @@ function getValidatedScopeContext(): ValidatedScopeContext | null {
 
 export function getScopeContextDigest(): string | undefined {
   return getValidatedScopeContext()?.scopeContextDigest
+}
+
+/** Rebinds a scope-scoped infinite list key to the digest from the latest successful handshake. */
+export function listQueryKeyForCurrentDigest(queryKey: QueryKey, digest = getScopeContextDigest()): QueryKey {
+  if (!digest || queryKey.length === 0) return queryKey
+  return [...queryKey.slice(0, -1), digest] as QueryKey
 }
 
 export function getProtectedGeneration(): number {
@@ -220,6 +229,7 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
 
   const epochAtStart = bumpHandshakeEpoch()
   const flight = (async (): Promise<HandshakeResult> => {
+    const quarantinedAtStart = store.getState().quarantined
     const previous = store.getState().context
     const previousContinuity = store.getState().continuityDigest
     let body: components['schemas']['ScopeContextHandshakeResponseDto']
@@ -230,20 +240,21 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
       return { kind: 'failed' }
     }
 
-    if (epochAtStart !== handshakeEpoch) return { kind: 'failed' }
+    if (epochAtStart !== handshakeEpoch) return { kind: 'superseded' }
 
     const next = readHandshakeBody(body)
     const continuity = body.continuityDigest ?? next.scopeContextDigest
     const outcome = classifyHandshake(previous, next, previousContinuity, continuity)
 
     if (outcome.kind === 'session') {
+      const pendingExternalScopeAck = store.getState().pendingExternalScopeAck
       if (
         applyHandshakeState(epochAtStart, {
           continuityDigest: continuity,
           context: next,
-          quarantined: false,
-          explicitRefreshRequired: false,
-          pendingExternalScopeAck: false,
+          quarantined: pendingExternalScopeAck,
+          explicitRefreshRequired: pendingExternalScopeAck,
+          pendingExternalScopeAck,
         })
       ) {
         bumpCursorEpisodeCounter()
@@ -274,12 +285,15 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
       return outcome
     }
 
+    const lifecycleQuarantine = !quarantinedAtStart && store.getState().quarantined
+    const pendingExternalScopeAck = store.getState().pendingExternalScopeAck
+    const keepQuarantined = pendingExternalScopeAck || lifecycleQuarantine
     applyHandshakeState(epochAtStart, {
       continuityDigest: continuity,
       context: next,
-      quarantined: false,
-      explicitRefreshRequired: false,
-      pendingExternalScopeAck: false,
+      quarantined: keepQuarantined,
+      explicitRefreshRequired: keepQuarantined || store.getState().explicitRefreshRequired,
+      pendingExternalScopeAck,
     })
     return outcome
   })()

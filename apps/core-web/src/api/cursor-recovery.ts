@@ -1,10 +1,12 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
+import { CancelledError } from '@tanstack/query-core'
 
 import { cancelInfiniteList, markInfiniteListStale } from '@/lib/infinite-list-query'
 import {
   bumpCursorEpisodeCounter,
   getCursorEpisodeCounter,
   handshakeScopeContext,
+  scopeContextReadyForCursorList,
 } from '@/auth/scope-context-client'
 import { isCursorListApiError, type CursorListApiError } from './cursor-list-api-error'
 
@@ -22,6 +24,8 @@ export const CURSOR_NO_RETRY_CODES = new Set([
 const CONTEXT_HANDSHAKE_CODES = new Set(['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH'])
 
 export function cursorQueryShouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return false
+  if (error instanceof CancelledError) return false
   if (isCursorListApiError(error)) {
     if (error.status === 401 || error.status === 403 || error.status === 422) return false
     if (error.code && CURSOR_NO_RETRY_CODES.has(error.code)) return false
@@ -126,12 +130,13 @@ export async function resolveCursorListFailure(
     return { type: 'offset-latch' }
   }
 
-  if (error.code === 'LIST_CURSOR_INVALID' && contextValid) {
+  if (error.code === 'LIST_CURSOR_INVALID' && scopeContextReadyForCursorList()) {
     if (episode.budget === 0) {
       return blockListEpisode(client, listKey, countKey)
     }
     episode.budget = 0
-    await flushListCache(client, listKey, countKey, { cancelInFlight: false })
+    await client.cancelQueries({ queryKey: listKey, exact: true })
+    if (countKey) await client.cancelQueries({ queryKey: countKey, exact: true })
     return { type: 'restart-page-one' }
   }
 
@@ -155,6 +160,9 @@ export async function resolveCursorListFailure(
       }
       if (handshake.kind === 'failed') {
         return { type: 'blocked', externalScope: false }
+      }
+      if (handshake.kind === 'superseded') {
+        return { type: 'restart-page-one' }
       }
       if (handshake.kind === 'session') {
         startNewCursorRecoveryEpisode()

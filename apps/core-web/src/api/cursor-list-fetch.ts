@@ -1,3 +1,5 @@
+import { CancelledError } from '@tanstack/query-core'
+
 import { fetchWithAuth } from './client'
 import { throwCursorListApiError } from './cursor-list-api-error'
 import {
@@ -23,6 +25,10 @@ function headersWithScopeContext(extra?: HeadersInit): Headers {
   return headers
 }
 
+function rejectStaleScopeResponse(): never {
+  throw new CancelledError({ silent: true })
+}
+
 async function onceWithNetworkRetry<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
@@ -34,9 +40,23 @@ async function onceWithNetworkRetry<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+type ScopeEchoOptions = { expectedScopeDigest?: string }
+
+function discardScopeEcho(
+  echoedDigest: string | undefined,
+  observedGeneration: number,
+  expectedScopeDigest?: string,
+): boolean {
+  if (expectedScopeDigest !== undefined && echoedDigest !== undefined && echoedDigest !== expectedScopeDigest) {
+    return true
+  }
+  return shouldDiscardScopeEcho(echoedDigest, observedGeneration)
+}
+
 export async function fetchCursorListPage<TRow>(
   url: string,
   signal: AbortSignal,
+  options?: ScopeEchoOptions,
 ): Promise<{ data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }> {
   const observedGeneration = getProtectedGeneration()
   const body = await onceWithNetworkRetry(async () =>
@@ -44,19 +64,23 @@ export async function fetchCursorListPage<TRow>(
       await fetchWithAuth(url, { signal, headers: headersWithScopeContext() }),
     ),
   )
-  if (shouldDiscardScopeEcho(body.meta?.scopeContextDigest, observedGeneration)) {
-    throw new Error('stale_scope_context_response')
+  if (discardScopeEcho(body.meta?.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)) {
+    rejectStaleScopeResponse()
   }
   return body
 }
 
-export async function fetchCursorListCount<T extends ScopeEchoCount>(url: string, signal: AbortSignal): Promise<T> {
+export async function fetchCursorListCount<T extends ScopeEchoCount>(
+  url: string,
+  signal: AbortSignal,
+  options?: ScopeEchoOptions,
+): Promise<T> {
   const observedGeneration = getProtectedGeneration()
   const body = await onceWithNetworkRetry(async () =>
     parseJson<T>(await fetchWithAuth(url, { signal, headers: headersWithScopeContext() })),
   )
-  if (shouldDiscardScopeEcho(body.scopeContextDigest, observedGeneration)) {
-    throw new Error('stale_scope_context_response')
+  if (discardScopeEcho(body.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)) {
+    rejectStaleScopeResponse()
   }
   return body
 }
