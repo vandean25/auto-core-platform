@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { useCursorList } from './cursor-list'
+import { readOffsetPage } from './cursor-recovery'
 import { buildDataTableUrl, resolveListSearch } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
@@ -16,7 +19,7 @@ type VehicleStockCursorParams = VehicleStockCursorFilters & { sortField?: string
 
 /** Statuses of the filter select. ON_ORDER also lists the draft purchases, which only the offset list can merge in. */
 export const VEHICLE_STOCK_STATUS_OPTIONS = ['IN_STOCK', 'RESERVED', 'IN_PREP', 'SOLD', 'ON_ORDER'] as const
-const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
+export const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
 const VEHICLE_STOCK_CURSOR_SORT_FIELDS = new Set(['make', 'model', 'year', 'vin', 'plate', 'color', 'updatedAt'])
 
 /**
@@ -316,19 +319,35 @@ export type PatchVehicleStockInput = {
   emission_class?: string | null
 }
 
-export function useVehicleStock(queryParams?: DataTableQueryParams, options?: { enabled?: boolean }) {
+export function useVehicleStock(
+  queryParams?: DataTableQueryParams,
+  /** `fresh`: read even when cached (page 1 of an offset-latch handoff). `scopeDigest`: the stock list's scope gate. */
+  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
+) {
+  const offsetEpisodeKey = options?.offsetEpisodeKey
+  const scopeDigest = options?.scopeDigest
   return useQuery<VehicleStockListResponse>({
-    queryKey: vehicleStockKeys.list(queryParams),
+    queryKey: scopedOffsetKey(vehicleStockKeys.list(queryParams), scopeDigest),
     enabled: options?.enabled ?? true,
-    queryFn: async () => {
+    ...(options?.fresh ? { staleTime: 0 } : {}),
+    queryFn: () => readScopedOffset(scopeDigest, () => readOffsetPage(offsetEpisodeKey, queryParams?.page, async () => {
       const url = buildDataTableUrl('/api/vehicle-stock', queryParams, {
         searchFallbackFilterFields: VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
         exactFilterMap: { stock_status: 'stock_status' },
       })
-      const response = await fetchWithAuth(url)
+      const response = await fetchWithAuth(url, withScopeContextHeader())
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
-      return response.json()
-    },
+      return (await response.json()) as VehicleStockListResponse
+    })),
+  })
+}
+
+function vehicleStockCursorEpisodeKey(params: Record<string, string | undefined>) {
+  return JSON.stringify({
+    search: params.search ?? '',
+    stock_status: params.stock_status ?? '',
+    sortField: params.sortField ?? '',
+    sortDirection: params.sortDirection ?? '',
   })
 }
 
@@ -343,6 +362,7 @@ export function useVehicleStockCursorList(queryParams: DataTableQueryParams, ena
     enabled,
     path: '/api/vehicle-stock',
     countPath: '/api/vehicle-stock/capped-count',
+    semanticEpisodeKey: vehicleStockCursorEpisodeKey(params),
     listKey: vehicleStockKeys.cursorList(params),
     countKey: vehicleStockKeys.cappedCount(filters),
     params,

@@ -11,6 +11,7 @@ import {
   createMockVendor,
   createMockWorkshopOrder,
 } from './utils/mock-factories'
+import { mockCursorList } from './utils/cursor-list-mock'
 import { expectNoPageScroll } from './utils/phone-layout'
 
 /**
@@ -34,9 +35,16 @@ async function boxes(locator: Locator) {
 }
 
 async function mockList(page: Page, api: string, row: unknown) {
+  if (api === '/api/inventory') {
+    await mockCursorList(page, { path: api, rows: [row] });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    return;
+  }
   await page.route(AutoCorePage.apiRouteMatcher(api), (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createMockListResponse([row])) }),
-  )
+  );
 }
 
 for (const width of [375, 390]) {

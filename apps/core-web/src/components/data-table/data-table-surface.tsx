@@ -15,6 +15,7 @@ type DataTableSurfaceExtras = {
   csvFileName?: string
   emptyState?: DataTableEmptyState
   onRetry?: () => void
+  onScopeRefresh?: () => Promise<void>
 }
 
 export type DataTableSurfaceProps<TData extends object> = DataTableViewModel<TData> & DataTableSurfaceExtras
@@ -28,6 +29,7 @@ export function DataTableSurface<TData extends object>({
   csvFileName,
   emptyState,
   onRetry,
+  onScopeRefresh,
   ...mainProps
 }: DataTableSurfaceProps<TData>) {
   const { table, presentation, rootRef } = mainProps
@@ -48,7 +50,7 @@ export function DataTableSurface<TData extends object>({
           refreshIndicator={<DataTableRefreshIndicator visible={presentation.showRefreshIndicator} />}
         />
       </DataTableDensityContext.Provider>
-      <DataTableSurfaceMain {...mainProps} emptyState={emptyState} onRetry={onRetry} />
+      <DataTableSurfaceMain {...mainProps} emptyState={emptyState} onRetry={onRetry} onScopeRefresh={onScopeRefresh} />
     </div>
   )
 }

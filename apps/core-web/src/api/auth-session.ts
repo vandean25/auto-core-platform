@@ -1,7 +1,7 @@
 import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { resetClientSession } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/context-switch-reset'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath } from '@/lib/shell-paths'
@@ -126,7 +126,7 @@ export function useSwitchTenant() {
       await firebaseAuth?.currentUser?.getIdToken(true)
       // Nothing cached for the tenant being left may stay rendered while the new session loads. The same user
       // keeps saved views, the dashboard layout and the push registration across a tenant switch.
-      await resetClientSession(queryClient, 'context')
+      await resetClientContextAndRescope(queryClient, true)
     },
   });
 }

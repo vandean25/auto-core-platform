@@ -102,7 +102,7 @@ export function useDataTableInfinite<TData extends object>(
   const client = useContext(QueryClientContext)
   const { queryKey, changing: keyChanging, settled } = useStableQueryKey(infinite?.queryKey)
   const keyHash = queryKey === undefined ? undefined : hashKey(queryKey)
-  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
+  const { needsRefresh, refresh, refreshExplicitly, isRefreshing } = useInfiniteListRefresh(queryKey)
   const [epoch, setEpoch] = useState(0)
   const isInfinite = infinite !== undefined
   const rows = useMemo(() => (isInfinite ? mergeLoadedRows(data) : data), [data, isInfinite])
@@ -143,7 +143,7 @@ export function useDataTableInfinite<TData extends object>(
     isRefreshing: isRefreshing || keyChanging,
     refresh: () => {
       setEpoch((value) => value + 1)
-      void refresh().catch(() => undefined)
+      void refreshExplicitly().catch(() => undefined)
     },
     epoch,
     restoreKey: keyHash,

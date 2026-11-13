@@ -1,8 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query'
 import { getRealtimeResyncQueryKeys } from '@/features/realtime/dashboard-entity-map'
-
-/** A reconnect and a tab that becomes visible in the same moment catch up once, not twice. */
-export const REALTIME_RESYNC_MIN_INTERVAL_MS = 10_000
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/resync-interval'
 
 type RealtimeResyncOptions = {
   invalidate: (queryKey: QueryKey) => void

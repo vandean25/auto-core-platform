@@ -10,8 +10,14 @@ import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/Dashboard
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { i18n } from '@/lib/i18n'
 import InventoryList from '@/pages/InventoryList'
+import { mockInventoryListHooks } from '@/test/inventory-list-hook-mocks'
 
-vi.mock('@/api/inventory')
+vi.mock('@/api/inventory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/inventory')>()),
+  useInventory: vi.fn(),
+  useInventoryCursorList: vi.fn(),
+  useCreateInventoryItem: vi.fn(),
+}))
 vi.mock('@/api/locations', () => ({ useLocations: vi.fn() }))
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
@@ -75,32 +81,7 @@ async function switchTo(language: 'de' | 'en') {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  asMock(inventoryApi.useInventory).mockReturnValue({
-    data: {
-      data: [
-        {
-          id: 'item-1',
-          sku: 'BRK-001',
-          name: 'Brake Pad',
-          brand: 'Bosch',
-          price: 49.9,
-          status: 'IN_STOCK',
-          quantity_available: 4,
-          warehouse_location: 'A-1',
-        },
-      ],
-      meta: { total: 1, page: 1, limit: 10, pageCount: 1 },
-    },
-    isLoading: false,
-  })
-  asMock(locationsApi.useLocations).mockReturnValue({
-    data: [{ id: 'loc-1', name: 'A-1', code: 'A-1', type: 'warehouse' }],
-    isLoading: false,
-  })
-  asMock(inventoryApi.useCreateInventoryItem).mockReturnValue({
-    isPending: false,
-    mutateAsync: vi.fn(),
-  })
+  mockInventoryListHooks(asMock, inventoryApi, locationsApi)
 })
 
 afterEach(async () => {

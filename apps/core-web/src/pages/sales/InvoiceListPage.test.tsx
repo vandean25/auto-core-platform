@@ -218,9 +218,9 @@ describe('InvoiceListPage', () => {
       const first = Object.fromEntries(cursorRequests()[0].searchParams)
       expect(first).toMatchObject({ pagination: 'cursor', limit: '50', ...expectedSort })
       expect(first).not.toHaveProperty('page')
-      expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith({ enabled: false })
+      expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }))
     } else {
-      await waitFor(() => expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith({ enabled: true }))
+      await waitFor(() => expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith(expect.objectContaining({ enabled: true })))
       expect(listRequests()).toHaveLength(0)
     }
   })

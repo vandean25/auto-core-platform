@@ -2,9 +2,10 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
-import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
+import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { pageOverflow } from './utils/phone-layout';
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '../src/features/realtime/resync-interval';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
 
@@ -92,13 +93,7 @@ test.describe('Inventory — Blueprint Validation (mocked)', () => {
   }) => {
     const item = createMockInventoryItem({ sku: 'MOCK-SKU-001', name: 'Mock Oil Filter' });
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([item])),
-      });
-    });
+    await mockCursorList(page, { path: '/api/inventory', rows: [item] });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
@@ -141,7 +136,7 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ count: 9, isCapped: false }),
+        body: JSON.stringify(e2eCappedCountBody(9)),
       });
     });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
@@ -161,10 +156,7 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          data: rows,
-          meta: { nextCursor: null, hasNextPage: false },
-        }),
+        body: JSON.stringify(e2eCursorPageBody(rows)),
       });
     });
     await new AutoCorePage(page, 'Artikel').navigate('/inventory?sortField=sku&sortDirection=asc');
@@ -263,6 +255,60 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
     await expect(page.getByText('SKU-0000')).toBeVisible();
     await expect(page.getByText(DE_COMMON.dataTable.infinite.countUnavailable)).toBeVisible();
     await expect(page.getByRole('button', { name: DE_COMMON.dataTable.loading.retry })).toBeVisible();
+  });
+
+  test.describe('blocked list at 375px', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
+    test('WHEN the viewport is 375px and the list is blocked THEN "Liste aktualisieren" is visible with a ≥ 44 px target', async ({
+      page,
+    }) => {
+      let handshakePosts = 0;
+      const items = Array.from({ length: 60 }, (_, index) => {
+        const number = String(index).padStart(4, '0');
+        return createMockInventoryItem({ id: `item-${number}`, sku: `SKU-${number}`, name: `Bremsscheibe ${number}` });
+      });
+      await mockCursorList(page, {
+        path: '/api/inventory',
+        rows: items,
+        handshakePost: () => {
+          handshakePosts += 1;
+          if (handshakePosts === 1) {
+            return {
+              scopeContext: 'e2e-scope-context-token',
+              scopeContextDigest: 'e2e-scope-context-digest',
+              continuityDigest: 'e2e-continuity',
+            };
+          }
+          return {
+            scopeContext: 'e2e-scope-context-token-v2',
+            scopeContextDigest: 'e2e-scope-context-digest-v2',
+            continuityDigest: 'e2e-continuity',
+          };
+        },
+      });
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      });
+      await new AutoCorePage(page, 'Artikel').navigate('/inventory');
+      await expect(page.getByText('SKU-0000')).toBeVisible();
+
+      // ScopeContextProvider throttles lifecycle handshakes; wait just past that interval.
+      await page.waitForTimeout(REALTIME_RESYNC_MIN_INTERVAL_MS + 500);
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+      await expect.poll(() => handshakePosts).toBeGreaterThanOrEqual(2);
+      await expect(page.getByText('SKU-0000')).toHaveCount(0);
+
+      const refresh = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
+      await expect(refresh).toBeVisible();
+      const box = await refresh.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      await refresh.click();
+      await expect(page.getByText('SKU-0000')).toBeVisible();
+      expect(await pageOverflow(page)).toBe(0);
+    });
   });
 });
 

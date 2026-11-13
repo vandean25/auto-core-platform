@@ -3,6 +3,9 @@ import type { InventoryItem, InventoryResponse, InventoryTransaction } from './t
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
+import { readOffsetPage } from './cursor-recovery'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 type InventoryApiResponse = {
@@ -67,12 +70,16 @@ export function useInventory(
         sortField?: string
         sortDirection?: 'asc' | 'desc'
     } = {},
-    options?: { enabled?: boolean },
+    /** `fresh`: read even when cached (page 1 of an offset-latch handoff). `scopeDigest`: the parts list's scope gate. */
+    options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
 ) {
+    const offsetEpisodeKey = options?.offsetEpisodeKey
+    const scopeDigest = options?.scopeDigest
     return useQuery<InventoryResponse>({
-        queryKey: [...inventoryKeys.list(params)],
+        queryKey: scopedOffsetKey(inventoryKeys.list(params), scopeDigest),
         enabled: options?.enabled ?? true,
-        queryFn: async () => {
+        ...(options?.fresh ? { staleTime: 0 } : {}),
+        queryFn: () => readScopedOffset(scopeDigest, () => readOffsetPage(offsetEpisodeKey, params.page, async () => {
             const searchParams = new URLSearchParams()
             const query = {
                 page: params.page,
@@ -87,23 +94,33 @@ export function useInventory(
                 if (value) searchParams.append(key, String(value))
             }
 
-            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`, withScopeContextHeader())
             if (!response.ok) {
                 throw new Error('Network response was not ok')
             }
             const payload = (await response.json()) as InventoryApiResponse
             return normalizeInventoryResponse(payload)
-        },
+        })),
     })
 }
 
 /** Infinite parts list (cap 2,000 rows) with its capped count; idle while the offset list is in charge. */
+function inventoryCursorEpisodeKey(params: InventoryCursorParams) {
+    return JSON.stringify({
+        search: params.search ?? '',
+        location: params.location ?? '',
+        sortField: params.sortField ?? '',
+        sortDirection: params.sortDirection ?? '',
+    })
+}
+
 export function useInventoryCursorList(params: InventoryCursorParams, enabled: boolean) {
     const filters = { search: params.search, location: params.location }
     return useCursorList<InventoryItem>({
         enabled,
         path: '/api/inventory',
         countPath: '/api/inventory/capped-count',
+        semanticEpisodeKey: inventoryCursorEpisodeKey(params),
         listKey: inventoryKeys.cursorList(params),
         countKey: inventoryKeys.cappedCount(filters),
         params,
@@ -167,7 +184,7 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
             const searchParams = new URLSearchParams()
             searchParams.append('search', sku)
             searchParams.append('pageSize', '10')
-            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`, withScopeContextHeader())
             if (!response.ok) {
                 throw new Error('Failed to fetch inventory item')
             }

@@ -16,6 +16,7 @@ import {
 import { DataTableGrid } from './data-table-grid'
 import { DataTableList } from './data-table-list'
 import { DataTableInfiniteCount, DataTableInfiniteFooter, DataTableInfiniteRefresh } from './data-table-infinite-footer'
+import { ScopeRefreshNotice } from '@/components/list/InfiniteListRefreshNotice'
 import { DataTablePagination } from './data-table-pagination'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { DataTableSelectionBar } from './data-table-selection'
@@ -38,22 +39,31 @@ type DataTableSurfaceBodyProps<TData extends object> = {
   density: DataTableDensity
   emptyState?: DataTableEmptyState
   onRetry?: () => void
+  onScopeRefresh?: () => Promise<void>
   openRowContextMenu: (row: TData, x: number, y: number) => boolean
   infiniteView?: DataTableInfiniteView
 }
 
 type DataTableBannersProps = Pick<
   DataTableSurfaceBodyProps<object>,
-  'presentation' | 'isError' | 'resolvedFetchErrorMessage' | 'onRetry' | 'infiniteView'
+  'presentation' | 'isError' | 'resolvedFetchErrorMessage' | 'onRetry' | 'infiniteView' | 'onScopeRefresh'
 >
 
 /** Status lines above the rows: stale preview, "Liste aktualisieren" and a failed fetch with retry. */
-function DataTableBanners({ presentation, isError, resolvedFetchErrorMessage, onRetry, infiniteView }: DataTableBannersProps) {
+function DataTableBanners({
+  presentation,
+  isError,
+  resolvedFetchErrorMessage,
+  onRetry,
+  infiniteView,
+  onScopeRefresh,
+}: DataTableBannersProps) {
   const showFetchError = shouldShowDataTableFetchError(resolvedFetchErrorMessage, onRetry, presentation, isError)
   return (
     <>
       <DataTableStaleStatus visible={presentation.isStalePreview} />
       <DataTableInfiniteRefresh view={infiniteView} />
+      {!infiniteView && onScopeRefresh ? <ScopeRefreshNotice onRefresh={onScopeRefresh} /> : null}
       <DataTableInfiniteCount view={infiniteView} />
       {showFetchError && resolvedFetchErrorMessage && onRetry ? (
         <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />

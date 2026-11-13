@@ -13,6 +13,7 @@ import { releasePushRegistration } from '@/features/push/push-device'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
 import type { AuthClaims } from '@/auth/auth-claims'
 import { resetClientSession, runWithClientSessionPending } from '@/auth/client-session-reset'
+import { logoutScopeContextLineage } from '@/auth/scope-context-client'
 import { applyFirebaseIdTokenChange } from '@/auth/firebase-id-token-change'
 import {
   DEFAULT_E2E_TEST_TOKEN_IDENTITY,
@@ -245,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isE2ETestTokenAuthEnabled()) {
       await runWithClientSessionPending(async () => {
         await releasePushRegistration()
+        await logoutScopeContextLineage()
         await resetClientSession(queryClient, 'session')
         previousUidRef.current = null
         setUser(null)
@@ -263,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await runWithClientSessionPending(async () => {
       // Remove this browser's push registration while the session is still valid.
       await releasePushRegistration()
+      await logoutScopeContextLineage()
       await signOut(auth)
       // The next user of this device must not see anything from this session.
       await resetClientSession(queryClient, 'session')

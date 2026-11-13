@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetScopeContextClientForTests, seedValidatedScopeContextForTests, SCOPE_CONTEXT_HEADER } from '@/auth/scope-context-client'
+import { resetCursorRecoveryForTests } from './cursor-recovery'
 import { fetchWithAuth } from './client'
 import { CURSOR_PAGE_LIMIT, useCursorList } from './cursor-list'
 
@@ -22,6 +24,7 @@ const options = (overrides: Partial<Parameters<typeof useCursorList<Row>>[0]> = 
   enabled: true,
   path: '/api/inventory',
   countPath: '/api/inventory/capped-count',
+  semanticEpisodeKey: 'inventory:test',
   listKey: ['inventory', 'cursor', 'brake', 'sku'],
   countKey: ['inventory', 'capped-count', 'brake'],
   params: { search: 'brake', sortField: 'sku', sortDirection: 'asc' },
@@ -29,17 +32,36 @@ const options = (overrides: Partial<Parameters<typeof useCursorList<Row>>[0]> = 
   ...overrides,
 })
 
+const REGRESSION_SCOPE_DIGEST = 'digest-regression'
+
 /** Routes the list and the capped count of one mocked API. */
 function mockApi({ pages, count }: { pages: Array<{ data: Row[]; nextCursor: string | null }>; count?: Response }) {
   let served = 0
   vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
-    if (String(url).includes('capped-count')) return count ?? jsonResponse({ count: 3, isCapped: false })
+    const target = String(url)
+    if (target.includes('capped-count')) {
+      if (count) return count
+      return jsonResponse({ count: 3, isCapped: false, scopeContextDigest: REGRESSION_SCOPE_DIGEST })
+    }
     const page = pages[served++]
-    return jsonResponse({ data: page.data, meta: { nextCursor: page.nextCursor, hasNextPage: page.nextCursor !== null } })
+    return jsonResponse({
+      data: page.data,
+      meta: {
+        nextCursor: page.nextCursor,
+        hasNextPage: page.nextCursor !== null,
+        scopeContextDigest: REGRESSION_SCOPE_DIGEST,
+      },
+    })
   })
 }
 
 describe('useCursorList', () => {
+  beforeEach(() => {
+    resetScopeContextClientForTests()
+    resetCursorRecoveryForTests()
+    seedValidatedScopeContextForTests({ scopeContext: 'sc-regression', scopeContextDigest: 'digest-regression' })
+  })
+
   afterEach(() => vi.clearAllMocks())
 
   // Regression: a cursor list that kept sending page/pageSize (or dropped the filters) would silently fall back to
@@ -49,6 +71,12 @@ describe('useCursorList', () => {
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
 
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
+    expect(result.current.tableProps.infinite.queryKey.at(-1)).toBe(REGRESSION_SCOPE_DIGEST)
+    const listHeaderCall = vi
+      .mocked(fetchWithAuth)
+      .mock.calls.find((call) => !String(call[0]).includes('capped-count'))
+    const headers = new Headers((listHeaderCall?.[1] as { headers?: HeadersInit } | undefined)?.headers)
+    expect(headers.get(SCOPE_CONTEXT_HEADER)).toBe('sc-regression')
     expect(result.current.tableProps.infinite.hasNextPage).toBe(true)
     await act(async () => {
       await result.current.tableProps.infinite.fetchNextPage()
@@ -89,25 +117,34 @@ describe('useCursorList', () => {
     mockApi({ pages: [{ data: [{ id: 'a' }], nextCursor: null }], count: failure() })
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
 
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
     await waitFor(() => expect(result.current.tableProps.infinite.isCountError).toBe(true))
-    expect(result.current.rows).toEqual([{ id: 'a' }])
     expect(result.current.tableProps.isError).toBe(false)
     expect(result.current.tableProps.infinite.totalCount).toBeUndefined()
   })
 
-  it('reports a failed first page as a list error and loads the rows when the retry succeeds', async () => {
+  // Regression: a 5xx was retried inside the fetch and again by the query, so one failure sent four list requests.
+  it('reports a failed first page as a list error after one retry and loads the rows when the user retries', async () => {
     let failing = true
+    let listRequests = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       if (String(url).includes('capped-count')) return jsonResponse({ count: 1, isCapped: false })
+      listRequests += 1
       return failing ? failure() : jsonResponse({ data: [{ id: 'a' }], meta: { nextCursor: null, hasNextPage: false } })
     })
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
 
-    await waitFor(() => expect(result.current.tableProps.isError).toBe(true))
-    expect(result.current.rows).toEqual([])
+    await waitFor(
+      () => {
+        expect(result.current.tableProps.isError).toBe(true)
+        expect(result.current.rows).toEqual([])
+      },
+      { timeout: 3000 },
+    )
+    expect(listRequests).toBe(2)
 
     failing = false
-    act(() => result.current.tableProps.onRetry())
+    act(() => result.current.tableProps.onRetry?.())
     await waitFor(() => expect(result.current.rows).toEqual([{ id: 'a' }]))
     expect(result.current.tableProps.isError).toBe(false)
   })

@@ -17,6 +17,7 @@ export function DataTable<TData extends object>(props: DataTableProps<TData>) {
       csvFileName={props.csvFileName}
       emptyState={props.emptyState}
       onRetry={props.onRetry}
+      onScopeRefresh={props.onScopeRefresh}
     />
   )
 }

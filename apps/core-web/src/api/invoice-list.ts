@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
+import { invoiceKeys, isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
+import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import type { Invoice } from './types'
 
 export function formatInvoiceCustomerName(invoice: Invoice) {
@@ -18,10 +19,16 @@ function sortValue(invoice: Invoice, field: string) {
   return String((invoice as unknown as Record<string, unknown>)[field] ?? '')
 }
 
-/** The unpaged list for the sorts the cursor API does not approve: search, sort and paging happen in the browser. */
+/**
+ * The unpaged list for the sorts the cursor API does not approve: search, sort and paging happen in the browser.
+ * It fetches every invoice in one request, so an offset latch needs no page-1 handoff: the table page is sliced here.
+ */
 function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const { data: invoices = [], isLoading, dataUpdatedAt } = useInvoices({ enabled })
+  const scope = useOffsetScopeGate([...invoiceKeys.all, 'unpaged'])
+  const query = useInvoices({ enabled: enabled && scope.enabled, scopeDigest: scope.digest })
   const { search, sortField, sortDirection, page, pageSize } = queryParams
+  const invoices = useMemo(() => (scope.hidden ? [] : (query.data ?? [])), [scope.hidden, query.data])
+  const { dataUpdatedAt } = query
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
     let rows = needle ? invoices.filter((invoice) => matchesSearch(invoice, needle)) : [...invoices]
@@ -33,9 +40,9 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
     return {
       rows: rows.slice(start, start + pageSize),
       dataUpdatedAt,
-      tableProps: { pageCount: Math.max(1, Math.ceil(rows.length / pageSize)), isLoading },
+      tableProps: scopedOffsetTableProps(query, scope, Math.max(1, Math.ceil(rows.length / pageSize))),
     }
-  }, [dataUpdatedAt, invoices, isLoading, search, sortField, sortDirection, page, pageSize])
+  }, [dataUpdatedAt, invoices, query, scope, search, sortField, sortDirection, page, pageSize])
 }
 
 /**
@@ -44,12 +51,16 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
  * unpaged list with pages. Only the query of the active mode runs.
  */
 export function useInvoiceListState(queryParams: DataTableQueryParams) {
-  const infiniteMode = isInvoiceCursorSort(queryParams.sortField)
+  const listParams = {
+    search: queryParams.search?.trim() || undefined,
+    sortField: queryParams.sortField,
+    sortDirection: queryParams.sortDirection,
+  }
+  const sortEligible = isInvoiceCursorSort(queryParams.sortField)
+  const cursorList = useInvoiceCursorList(listParams, sortEligible)
+  const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
+  const infiniteMode = sortEligible && !offsetLatched
   const unpaged = useUnpagedInvoiceList(queryParams, !infiniteMode)
-  const cursorList = useInvoiceCursorList(
-    { search: queryParams.search?.trim() || undefined, sortField: queryParams.sortField, sortDirection: queryParams.sortDirection },
-    infiniteMode,
-  )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }

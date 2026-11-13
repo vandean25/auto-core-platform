@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import { useCursorList } from './cursor-list'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
 import { isInvoiceUpdateOptimisticEligible } from '@/features/interaction/invoice-update-eligibility'
@@ -25,12 +27,21 @@ export function isInvoiceCursorSort(sortField?: string): boolean {
 }
 
 /** Infinite invoice list (cap 2,000 rows) with its capped count; idle while the unpaged list is in charge. */
+function invoiceCursorEpisodeKey(params: InvoiceCursorParams) {
+    return JSON.stringify({
+        search: params.search ?? '',
+        sortField: params.sortField ?? '',
+        sortDirection: params.sortDirection ?? '',
+    })
+}
+
 export function useInvoiceCursorList(params: InvoiceCursorParams, enabled: boolean) {
     const filters = { search: params.search }
     return useCursorList<Invoice>({
         enabled,
         path: '/api/sales/invoices',
         countPath: '/api/sales/invoices/capped-count',
+        semanticEpisodeKey: invoiceCursorEpisodeKey(params),
         listKey: invoiceKeys.cursorList(params),
         countKey: invoiceKeys.cappedCount(filters),
         params,
@@ -126,15 +137,17 @@ export function useFinalizeInvoice() {
     })
 }
 
-export function useInvoices(options?: { enabled?: boolean }) {
+/** `scopeDigest`: the invoice list's scope gate (its own key, so a detail entry `[...all, id]` is never shadowed). */
+export function useInvoices(options?: { enabled?: boolean; scopeDigest?: string }) {
+    const scopeDigest = options?.scopeDigest
     return useQuery<Invoice[]>({
-        queryKey: invoiceKeys.all,
+        queryKey: scopeDigest === undefined ? invoiceKeys.all : scopedOffsetKey([...invoiceKeys.all, 'unpaged'], scopeDigest),
         enabled: options?.enabled ?? true,
-        queryFn: async () => {
-            const response = await fetchWithAuth('/api/sales/invoices')
+        queryFn: () => readScopedOffset(scopeDigest, async () => {
+            const response = await fetchWithAuth('/api/sales/invoices', withScopeContextHeader())
             if (!response.ok) throw new Error('Failed to fetch invoices')
             return response.json() as Promise<Invoice[]>
-        },
+        }),
     })
 }
 

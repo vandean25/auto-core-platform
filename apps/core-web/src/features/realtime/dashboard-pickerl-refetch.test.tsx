@@ -59,7 +59,10 @@ function handler(eventName: string) {
 }
 
 function requestedUrls() {
-  return mocks.fetchWithAuth.mock.calls.map(([url]) => url as string)
+  // A site switch also runs the scope-context handshake; only tile requests count here.
+  return mocks.fetchWithAuth.mock.calls
+    .map(([url]) => url as string)
+    .filter((url) => !url.includes('/api/auth/scope-context'))
 }
 
 beforeEach(() => {

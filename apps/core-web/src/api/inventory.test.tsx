@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { isInventoryCursorSort, useInventory } from './inventory'
 import { fetchWithAuth } from './client'
+import { SCOPE_CONTEXT_HEADER } from '@/auth/scope-context-client'
 
 vi.mock('./client', () => ({
   fetchWithAuth: vi.fn(),
@@ -40,9 +41,10 @@ describe('inventory api hooks', () => {
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
-    expect(fetchWithAuth).toHaveBeenCalledWith(
-      '/api/inventory?page=2&pageSize=10&sortField=sku&sortDirection=desc',
-    )
+    const [url, init] = vi.mocked(fetchWithAuth).mock.calls[0]
+    expect(url).toBe('/api/inventory?page=2&pageSize=10&sortField=sku&sortDirection=desc')
+    // Regression: the offset read (unsupported-sort fallback) omitted the scope header the cursor reads send.
+    expect(new Headers(init?.headers).get(SCOPE_CONTEXT_HEADER)).toBe('vitest-sc')
   })
 
   it('omits sort parameters when no sort is requested', async () => {
@@ -57,7 +59,7 @@ describe('inventory api hooks', () => {
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
-    expect(fetchWithAuth).toHaveBeenCalledWith('/api/inventory?page=1&pageSize=10')
+    expect(vi.mocked(fetchWithAuth).mock.calls[0][0]).toBe('/api/inventory?page=1&pageSize=10')
   })
 })
 
