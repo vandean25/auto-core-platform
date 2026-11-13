@@ -127,7 +127,7 @@ describe('WorkshopOrderPickDrawer', () => {
     ['de', 'IN_PROGRESS', 'In Bearbeitung'],
     ['en', 'INTAKE', 'Check-in'],
     ['en', 'IN_PROGRESS', 'In Progress'],
-  ])('shows the localized %s label for a %s order in the header', async (language, status, label) => {
+  ] as const)('shows the localized %s label for a %s order in the header', async (language, status, label) => {
     await changeUiLanguage(language)
     mocked(workshopApi.useWorkshopOrder).mockReturnValue({ data: createOrder('tote-1', 2, status), isLoading: false })
 
