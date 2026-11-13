@@ -193,7 +193,11 @@ describe('Workshop orders cursor list (AUT-956 e2e)', () => {
 
   // Regression: offset params silently mixed into a cursor chain.
   it('forbidden page param', async () => {
-    for (const query of [{ page: '2' }, { pageSize: '10' }]) {
+    const queries: Record<string, string>[] = [
+      { page: '2' },
+      { pageSize: '10' },
+    ];
+    for (const query of queries) {
       const response = await list(query).expect(400);
       expect(response.body.code).toBe('LIST_CURSOR_PARAM_FORBIDDEN');
     }
