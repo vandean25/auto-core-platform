@@ -60,32 +60,28 @@ function assertKeyMatchesCurrentScope(expectedScopeDigest: string | undefined) {
   }
 }
 
-export async function fetchCursorListPage<TRow>(
+/** One scoped read: not sent for an outdated key, retried once on a network error or 5xx, dropped on a stale echo. */
+async function fetchScoped<T>(
   url: string,
   signal: AbortSignal,
-  options?: ScopeEchoOptions,
-): Promise<{ data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }> {
-  assertKeyMatchesCurrentScope(options?.expectedScopeDigest)
-  const observedGeneration = getProtectedGeneration()
-  const body = await onceWithNetworkRetry(async () =>
-    parseJson<{ data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }>(
-      await fetchWithAuth(url, { signal, headers: headersWithScopeContext() }),
-    ),
-  )
-  rejectForeignOrStaleEcho(body.meta?.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)
-  return body
-}
-
-export async function fetchCursorListCount<T extends ScopeEchoCount>(
-  url: string,
-  signal: AbortSignal,
-  options?: ScopeEchoOptions,
+  options: ScopeEchoOptions | undefined,
+  echoOf: (body: T) => string | undefined,
 ): Promise<T> {
   assertKeyMatchesCurrentScope(options?.expectedScopeDigest)
   const observedGeneration = getProtectedGeneration()
   const body = await onceWithNetworkRetry(async () =>
     parseJson<T>(await fetchWithAuth(url, { signal, headers: headersWithScopeContext() })),
   )
-  rejectForeignOrStaleEcho(body.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)
+  rejectForeignOrStaleEcho(echoOf(body), observedGeneration, options?.expectedScopeDigest)
   return body
+}
+
+type CursorPageBody<TRow> = { data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }
+
+export function fetchCursorListPage<TRow>(url: string, signal: AbortSignal, options?: ScopeEchoOptions) {
+  return fetchScoped<CursorPageBody<TRow>>(url, signal, options, (body) => body.meta?.scopeContextDigest)
+}
+
+export function fetchCursorListCount<T extends ScopeEchoCount>(url: string, signal: AbortSignal, options?: ScopeEchoOptions) {
+  return fetchScoped<T>(url, signal, options, (body) => body.scopeContextDigest)
 }

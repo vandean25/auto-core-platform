@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthSession } from './auth-session'
 import type { components } from './generated/openapi'
 import { clearLocalSiteSwitch, markLocalSiteSwitch } from './local-site-switch'
-import { resetClientContextAndRescope } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/context-switch-reset'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']

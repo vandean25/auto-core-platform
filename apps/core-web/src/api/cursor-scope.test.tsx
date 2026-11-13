@@ -14,7 +14,7 @@ import {
   SCOPE_CONTEXT_HEADER,
   seedValidatedScopeContextForTests,
 } from '@/auth/scope-context-client'
-import { resetClientContextAndRescope } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/context-switch-reset'
 import { refreshInfiniteList } from '@/lib/infinite-list-query'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'

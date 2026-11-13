@@ -20,7 +20,7 @@ import { CursorListApiError } from './cursor-list-api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
-import { resetClientContextAndRescope } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/context-switch-reset'
 
 vi.mock('./client', () => ({ fetchWithAuth: vi.fn() }))
 

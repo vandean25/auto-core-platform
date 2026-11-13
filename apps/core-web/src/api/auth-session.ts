@@ -1,7 +1,7 @@
 import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
-import { resetClientContextAndRescope } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/context-switch-reset'
 import { firebaseAuth } from '@/lib/firebase'
 import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath } from '@/lib/shell-paths'
