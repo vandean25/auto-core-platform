@@ -1,7 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { handshakeBeforeExplicitListRefresh } from '@/auth/scope-context-client'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
 
 type InfiniteListRefreshButtonProps = {
@@ -27,18 +26,12 @@ export function InfiniteListRefreshButton({ isRefreshing, onRefresh }: InfiniteL
 }
 
 export function InfiniteListRefreshNotice({ queryKey }: { queryKey: QueryKey }) {
-  const { needsRefresh, refresh, isRefreshing } = useInfiniteListRefresh(queryKey)
+  const { needsRefresh, refreshExplicitly, isRefreshing } = useInfiniteListRefresh(queryKey)
   if (!needsRefresh) return null
   return (
     <InfiniteListRefreshButton
       isRefreshing={isRefreshing}
-      onRefresh={() => {
-        void (async () => {
-          const ready = await handshakeBeforeExplicitListRefresh()
-          if (!ready) return
-          await refresh().catch(() => undefined)
-        })()
-      }}
+      onRefresh={() => void refreshExplicitly().catch(() => undefined)}
     />
   )
 }

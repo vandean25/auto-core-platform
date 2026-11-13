@@ -1,7 +1,8 @@
 import { QueryClientContext } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
-import { useCallback, useContext, useState, useSyncExternalStore } from 'react'
+import { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react'
 import {
+  handshakeBeforeExplicitListRefresh,
   isScopeContextQuarantined,
   isScopeExplicitRefreshRequired,
   listQueryKeyForCurrentDigest,
@@ -50,5 +51,20 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
     [queryClient, queryKey],
   )
 
-  return { needsRefresh, refresh, isRefreshing: running > 0 }
+  // "Liste aktualisieren": handshake first while quarantined, then reload. Busy from the click, so a second click
+  // cannot start a newer handshake that supersedes this one.
+  const explicitInFlight = useRef(false)
+  const refreshExplicitly = useCallback(async () => {
+    if (explicitInFlight.current) return
+    explicitInFlight.current = true
+    setRunning((count) => count + 1)
+    try {
+      if (await handshakeBeforeExplicitListRefresh()) await refresh()
+    } finally {
+      explicitInFlight.current = false
+      setRunning((count) => count - 1)
+    }
+  }, [refresh])
+
+  return { needsRefresh, refresh, refreshExplicitly, isRefreshing: running > 0 }
 }

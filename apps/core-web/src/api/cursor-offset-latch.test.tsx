@@ -35,70 +35,85 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
 
   afterEach(() => vi.clearAllMocks())
 
-  it('inventory requests page 1 on latch then honors later pages', async () => {
+  const offsetPagedLists = [
+    {
+      name: 'inventory',
+      path: '/api/inventory',
+      rowPrefix: 'inv',
+      render: (page: number) =>
+        useInventoryListState({ page, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
+    },
+    {
+      name: 'vehicle stock',
+      path: '/api/vehicle-stock',
+      rowPrefix: 'vs',
+      render: (page: number) =>
+        useVehicleStockListState({
+          page,
+          pageSize: 10,
+          sortField: 'vin',
+          sortDirection: 'asc',
+          filters: [{ field: 'stock_status', value: 'IN_STOCK' }],
+          search: undefined,
+        }),
+    },
+  ]
+
+  // Regression: on an unsupported sort the offset list stayed on page 1 instead of the table page.
+  it.each(offsetPagedLists)('$name requests page 1 on latch, then shows the table page', async ({ path, rowPrefix, render }) => {
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
         return { ok: true, json: async () => ({ count: 2, isCapped: false, scopeContextDigest: testScope.scopeContextDigest }) } as Response
       }
-      if (target.includes('/api/inventory') && target.includes('pagination=cursor')) {
-        return unsupportedCursor
-      }
-      if (target.includes('/api/inventory?')) {
+      if (target.includes(path) && !target.includes('pagination=cursor')) {
         const page = new URL(target, 'http://acp.test').searchParams.get('page') ?? '1'
         return {
           ok: true,
           json: async () => ({
-            data: [{ id: `inv-page-${page}` }],
+            data: [{ id: `${rowPrefix}-page-${page}` }],
             meta: { total: 2, page: Number(page), pageSize: 10, pageCount: 2, scopeContextDigest: testScope.scopeContextDigest },
           }),
         } as Response
       }
       return unsupportedCursor
     })
-    const { result, rerender } = renderHook(
-      ({ page }: { page: number }) =>
-        useInventoryListState({ page, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
-      { initialProps: { page: 2 }, wrapper: wrapper() },
-    )
-    const inventoryOffsetPages = () =>
+    const { result, rerender } = renderHook(({ page }: { page: number }) => render(page), {
+      initialProps: { page: 2 },
+      wrapper: wrapper(),
+    })
+    const offsetPages = () =>
       vi
         .mocked(fetchWithAuth)
-        .mock.calls.filter(
-          (call) => String(call[0]).includes('/api/inventory?') && !String(call[0]).includes('pagination=cursor'),
-        )
-        .map((call) => new URL(String(call[0]), 'http://acp.test').searchParams.get('page'))
+        .mock.calls.map((call) => String(call[0]))
+        .filter((target) => target.includes(path) && !target.includes('pagination=cursor') && !target.includes('capped-count'))
+        .map((target) => new URL(target, 'http://acp.test').searchParams.get('page'))
 
-    await waitFor(() => expect(inventoryOffsetPages()[0]).toBe('1'))
-    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'inv-page-2' }]))
-    expect(inventoryOffsetPages()).toContain('2')
+    await waitFor(() => expect(offsetPages()[0]).toBe('1'))
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
+    expect(offsetPages()).toContain('2')
 
     rerender({ page: 2 })
-    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'inv-page-2' }]))
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
   })
 
-  it('invoices latch hands off to unpaged list at page 1', async () => {
+  // Regression: the invoice fallback list stayed on the page-1 slice while the pager showed page 2.
+  it('invoices latch to the unpaged list and show the table page', async () => {
     const listParams = { sortField: 'invoice_number', sortDirection: 'asc' as const }
     const episodeKey = JSON.stringify({ search: '', sortField: 'invoice_number', sortDirection: 'asc' })
+    const invoices = Array.from({ length: 11 }, (_, index) => ({
+      id: `inv-doc-${index + 1}`,
+      invoice_number: `INV-${index + 1}`,
+      status: 'DRAFT',
+      customer: { type: 'PERSON', first_name: 'A', last_name: 'B' },
+    }))
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
-        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: testScope.scopeContextDigest }) } as Response
+        return { ok: true, json: async () => ({ count: 11, isCapped: false, scopeContextDigest: testScope.scopeContextDigest }) } as Response
       }
       if (target.includes('pagination=cursor')) return unsupportedCursor
-      if (target.includes('/api/sales/invoices') && !target.includes('capped-count')) {
-        return {
-          ok: true,
-          json: async () => [
-            {
-              id: 'inv-doc-1',
-              invoice_number: 'INV-1',
-              status: 'DRAFT',
-              customer: { type: 'PERSON', first_name: 'A', last_name: 'B' },
-            },
-          ],
-        } as Response
-      }
+      if (target.includes('/api/sales/invoices')) return { ok: true, json: async () => invoices } as Response
       return unsupportedCursor
     })
     renderHook(() => useInvoiceCursorList(listParams, true), { wrapper: wrapper() })
@@ -107,56 +122,6 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       () => useInvoiceListState({ page: 2, pageSize: 10, sortField: 'invoice_number', sortDirection: 'asc', filters: [] }),
       { wrapper: wrapper() },
     )
-    await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['inv-doc-1']))
-  })
-
-  it('vehicle stock requests page 1 on latch then honors later pages', async () => {
-    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
-      const target = String(url)
-      if (target.includes('capped-count')) {
-        return { ok: true, json: async () => ({ count: 2, isCapped: false, scopeContextDigest: testScope.scopeContextDigest }) } as Response
-      }
-      if (target.includes('/api/vehicle-stock') && target.includes('pagination=cursor')) {
-        return unsupportedCursor
-      }
-      if (target.includes('/api/vehicle-stock') && !target.includes('capped-count')) {
-        const page = new URL(target, 'http://acp.test').searchParams.get('page') ?? '1'
-        return {
-          ok: true,
-          json: async () => ({
-            data: [{ id: `vs-page-${page}` }],
-            meta: { total: 2, page: Number(page), pageSize: 10, pageCount: 2, scopeContextDigest: testScope.scopeContextDigest },
-          }),
-        } as Response
-      }
-      return unsupportedCursor
-    })
-    const queryParams = {
-      pageSize: 10,
-      sortField: 'vin' as const,
-      sortDirection: 'asc' as const,
-      filters: [{ field: 'stock_status' as const, value: 'IN_STOCK' as const }],
-      search: undefined,
-    }
-    const { result, rerender } = renderHook(
-      ({ page }: { page: number }) => useVehicleStockListState({ ...queryParams, page }),
-      { initialProps: { page: 2 }, wrapper: wrapper() },
-    )
-    const vehicleOffsetPages = () =>
-      vi
-        .mocked(fetchWithAuth)
-        .mock.calls.filter(
-          (call) =>
-            String(call[0]).includes('/api/vehicle-stock') &&
-            !String(call[0]).includes('pagination=cursor') &&
-            !String(call[0]).includes('capped-count'),
-        )
-        .map((call) => new URL(String(call[0]), 'http://acp.test').searchParams.get('page'))
-
-    await waitFor(() => expect(vehicleOffsetPages()[0]).toBe('1'))
-    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'vs-page-2' }]))
-    expect(vehicleOffsetPages()).toContain('2')
-    rerender({ page: 2 })
-    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'vs-page-2' }]))
+    await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['inv-doc-11']))
   })
 })

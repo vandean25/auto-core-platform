@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import {
   getScopeContextDigest,
+  handshakeBeforeExplicitListRefresh,
   handshakeScopeContext,
+  invalidateProtectedScopeContext,
   isScopeContextQuarantined,
   isScopeExplicitRefreshRequired,
   listQueryKeyForCurrentDigest,
@@ -94,6 +96,31 @@ describe('scope-context-client handshake epoch', () => {
 
     expect(order).toEqual(['second', 'first'])
     expect(getScopeContextDigest()).toBe('digest-new')
+  })
+
+  // Regression: a superseded explicit-refresh handshake lifted quarantine although the newer handshake had failed.
+  it('keeps the failed-handshake latch when an older explicit refresh handshake is superseded', async () => {
+    invalidateProtectedScopeContext()
+    let call = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        return {
+          ok: true,
+          json: async () => ({ scopeContext: 'sc-old', scopeContextDigest: 'digest-old', continuityDigest: 'digest-old' }),
+        } as Response
+      }
+      return { ok: false, status: 503, json: async () => ({}) } as Response
+    })
+
+    const older = handshakeBeforeExplicitListRefresh()
+    const newer = handshakeBeforeExplicitListRefresh()
+
+    expect(await newer).toBe(false)
+    expect(await older).toBe(false)
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(isScopeExplicitRefreshRequired()).toBe(true)
   })
 
   it('POSTs again when a new handshake is requested after the previous flight settled', async () => {

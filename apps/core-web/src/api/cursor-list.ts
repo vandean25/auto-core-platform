@@ -96,11 +96,13 @@ async function fetchCountAfterRecovery(
   countPath: string,
   countParams: QueryParams,
   signal: AbortSignal,
+  expectedScopeDigest?: string,
 ): Promise<CappedListCount> {
   if (signal.aborted) throwQueryAborted()
   const count = await fetchCursorListCount<CappedListCount>(
     urlOf(countPath, countParams),
     restartListFetchSignal(signal),
+    { expectedScopeDigest },
   )
   if (signal.aborted) throwQueryAborted()
   return count
@@ -194,7 +196,7 @@ async function runCountQuery(
     return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal, { expectedScopeDigest })
   } catch (error) {
     return handleCountQueryRecovery(client, recoveryCtx, error, () =>
-      fetchCountAfterRecovery(countPath, countParams, signal),
+      fetchCountAfterRecovery(countPath, countParams, signal, expectedScopeDigest),
     )
   }
 }

@@ -193,13 +193,13 @@ export function acceptQuarantinedScopeForExplicitRefresh(): void {
 }
 
 /**
- * Handshake before an explicit list refresh while quarantined. Returns false when the handshake fails so
- * refresh does not lift quarantine or repopulate rows.
+ * Handshake before an explicit list refresh while quarantined. Returns false when the handshake fails or a newer
+ * handshake supersedes it, so only the current handshake may lift quarantine or repopulate rows.
  */
 export async function handshakeBeforeExplicitListRefresh(): Promise<boolean> {
   if (!store.getState().quarantined) return true
   const result = await handshakeScopeContext({ force: true })
-  if (result.kind === 'failed') return false
+  if (result.kind === 'failed' || result.kind === 'superseded') return false
   acceptQuarantinedScopeForExplicitRefresh()
   return true
 }
