@@ -40,14 +40,14 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       name: 'inventory',
       path: '/api/inventory',
       rowPrefix: 'inv',
-      render: (page: number) =>
+      useList: (page: number) =>
         useInventoryListState({ page, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
     },
     {
       name: 'vehicle stock',
       path: '/api/vehicle-stock',
       rowPrefix: 'vs',
-      render: (page: number) =>
+      useList: (page: number) =>
         useVehicleStockListState({
           page,
           pageSize: 10,
@@ -60,7 +60,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
   ]
 
   // Regression: on an unsupported sort the offset list stayed on page 1 instead of the table page.
-  it.each(offsetPagedLists)('$name requests page 1 on latch, then shows the table page', async ({ path, rowPrefix, render }) => {
+  it.each(offsetPagedLists)('$name requests page 1 on latch, then shows the table page', async ({ path, rowPrefix, useList }) => {
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
@@ -78,7 +78,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       }
       return unsupportedCursor
     })
-    const { result, rerender } = renderHook(({ page }: { page: number }) => render(page), {
+    const { result, rerender } = renderHook(({ page }: { page: number }) => useList(page), {
       initialProps: { page: 2 },
       wrapper: wrapper(),
     })
