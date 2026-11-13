@@ -116,6 +116,11 @@ describe('SiteService characterization', () => {
 
       expect(result).toEqual({ activeSiteId: 'site-2' });
       expect(harness.prisma.$transaction).toHaveBeenCalled();
+      // AUT-979: without this stamp a tenant switch cannot restore the site.
+      expect(harness.prisma.siteMembership.updateMany).toHaveBeenCalledWith({
+        where: { id: 'sm-1', tenant_id: TENANT_ID },
+        data: { last_active_at: expect.any(Date) },
+      });
       expect(harness.dashboardRealtime.emitSiteContextUpdated).toHaveBeenCalledWith(
         'fb-admin',
         'site-2',

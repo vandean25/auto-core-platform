@@ -16,7 +16,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  *   exists (ADR-0025 §7). The token row names its tenant. Every later query runs through PrismaService.
  * - landingDemoAccessRequest, landingDemoSignInGrant, publicRateLimitCounter: AUT-547 public landing demo flow
  *   (before tenant context; global abuse counters).
- * - site, siteMembership: AUT-547 demo user provisioning (membership on the landing demo tenant only).
+ * - site, siteMembership: AUT-547 demo user provisioning (membership on the landing demo tenant only); AUT-979
+ *   session-site restore on a tenant change (always filtered by the new tenant id).
  * - notificationOutbox: AUT-547 outbox writes in the same transaction as demo access grants (tenant id on row).
  * - customerConsentUnsubscribeToken: public marketing opt-out lookup by token hash before tenant context (AUT-589).
  * - scheduledJobRun: scheduled background job execution timestamps and distributed lease claims (AUT-839).

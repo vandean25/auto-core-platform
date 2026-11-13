@@ -17,6 +17,8 @@ import {
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import type { UserRecord } from 'firebase-admin/auth';
+import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
 
 describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
   let app: INestApplication;
@@ -67,25 +69,30 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
     });
   }
 
-  async function createSecondSite() {
-    const tenantPrisma = tenantAPrisma();
+  /** Creates a site in `tenantId` and grants it to tenant A's user. */
+  async function createSiteFor(tenantId: string, code: string) {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     const legalEntity = await tenantPrisma.legalEntity.findFirstOrThrow({
-      where: { tenant_id: tenantA.tenantId },
+      where: { tenant_id: tenantId },
     });
-    const user = await tenantPrisma.user.findFirstOrThrow({
+    const user = await prisma.user.findFirstOrThrow({
       where: { email: tenantA.email },
     });
-    const site = await runWithTenantContext(tenantA.tenantId, () =>
+    const site = await runWithTenantContext(tenantId, () =>
       siteService.createSite({
         legalEntityId: legalEntity.id,
-        code: 'SECOND',
-        name: 'Second Site',
+        code,
+        name: `${code} Site`,
       }),
     );
-    await runWithTenantContext(tenantA.tenantId, () =>
+    await runWithTenantContext(tenantId, () =>
       siteService.addSiteMembership(site.id, { userId: user.id }),
     );
     return site;
+  }
+
+  async function createSecondSite() {
+    return createSiteFor(tenantA.tenantId, 'SECOND');
   }
 
   describe('GET /api/me/sites (ruling 47)', () => {
@@ -375,6 +382,114 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
       );
 
       expect(scopeSpy).toHaveBeenCalledWith(tenantA.firebaseUid);
+    });
+  });
+
+  describe('tenant switch picks the active site (AUT-979)', () => {
+    beforeEach(() => {
+      const firebaseAuth = getFirebaseAdminAuth();
+      jest
+        .spyOn(firebaseAuth, 'getUser')
+        .mockResolvedValue({ customClaims: {} } as UserRecord);
+      jest
+        .spyOn(firebaseAuth, 'setCustomUserClaims')
+        .mockResolvedValue(undefined);
+    });
+
+    /** Makes tenant A's user an ADMIN of tenant B with access to B's MAIN site. */
+    async function joinTenantB() {
+      const user = await prisma.user.findFirstOrThrow({
+        where: { email: tenantA.email },
+        select: { id: true },
+      });
+      const tenantBPrisma = createTenantAwarePrisma(prisma, tenantB.tenantId);
+      await tenantBPrisma.tenantMember.create({
+        data: {
+          tenant_id: tenantB.tenantId,
+          user_id: user.id,
+          role: 'ADMIN',
+          is_active: true,
+        },
+      });
+      const bMain = await tenantBPrisma.site.findFirstOrThrow({
+        where: { tenant_id: tenantB.tenantId, code: 'MAIN' },
+      });
+      await runWithTenantContext(tenantB.tenantId, () =>
+        siteService.addSiteMembership(bMain.id, { userId: user.id }),
+      );
+      return { userId: user.id, bMain };
+    }
+
+    function switchTenant(tenantId: string) {
+      return request(app.getHttpServer())
+        .post('/api/auth/switch-tenant')
+        .set('Authorization', `Bearer ${token()}`)
+        .send({ tenantId })
+        .expect(200);
+    }
+
+    function pickSite(siteId: string) {
+      return request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', `Bearer ${token()}`)
+        .send({ siteId })
+        .expect(200);
+    }
+
+    // Regression: the switch nulled active_site_id, so every site list answered 422 ACTIVE_SITE_REQUIRED.
+    it('activates the only accessible site of the target tenant and the WO list loads', async () => {
+      const { bMain } = await joinTenantB();
+
+      const switched = await switchTenant(tenantB.tenantId);
+
+      expect(switched.body.activeSiteId).toBe(bMain.id);
+      await request(app.getHttpServer())
+        .get('/api/workshop/orders')
+        .set('Authorization', `Bearer ${token()}`)
+        .expect(200);
+    });
+
+    // Regression: switching back lost the site the user had picked in that tenant (MAIN).
+    it('restores the previously active site when switching back', async () => {
+      await joinTenantB();
+      await createSecondSite();
+      const aMain = await mainSite();
+      await pickSite(aMain.id);
+
+      await switchTenant(tenantB.tenantId);
+      const back = await switchTenant(tenantA.tenantId);
+
+      expect(back.body.activeSiteId).toBe(aMain.id);
+    });
+
+    // Regression guard: with several sites and no last site the server must not guess one.
+    it('leaves the site empty when several sites are accessible and none was used', async () => {
+      await joinTenantB();
+      await createSiteFor(tenantB.tenantId, 'SECOND');
+
+      const switched = await switchTenant(tenantB.tenantId);
+
+      expect(switched.body.activeSiteId).toBeNull();
+    });
+
+    // Regression guard: a revoked last site must never be restored; the single-site rule applies instead.
+    it('does not restore a last site whose membership was revoked', async () => {
+      const { userId } = await joinTenantB();
+      const second = await createSecondSite();
+      await pickSite(second.id);
+      await switchTenant(tenantB.tenantId);
+      await runWithTenantContext(tenantA.tenantId, () =>
+        siteService.removeSiteMembership(second.id, userId),
+      );
+
+      const back = await switchTenant(tenantA.tenantId);
+
+      expect(back.body.activeSiteId).toBe((await mainSite()).id);
+      await request(app.getHttpServer())
+        .patch('/api/me/active-site')
+        .set('Authorization', `Bearer ${token()}`)
+        .send({ siteId: second.id })
+        .expect(422);
     });
   });
 });

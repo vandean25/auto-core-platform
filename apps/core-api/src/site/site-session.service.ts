@@ -104,6 +104,11 @@ export class SiteSessionService {
         where: { id: user.id },
         data: { active_site_id: targetSiteId },
       });
+      // AUT-979: a later tenant switch back to this tenant restores this site.
+      await tx.siteMembership.updateMany({
+        where: { id: siteMembership.id, tenant_id: tenantId },
+        data: { last_active_at: new Date() },
+      });
     });
 
     this.dashboardRealtime.emitSiteContextUpdated(

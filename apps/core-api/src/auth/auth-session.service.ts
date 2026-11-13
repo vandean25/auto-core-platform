@@ -10,6 +10,7 @@ import type { DashboardRealtimeService } from '../dashboard-realtime/dashboard-r
 import { DASHBOARD_REALTIME_SERVICE_TOKEN } from '../dashboard-realtime/dashboard-realtime.tokens.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
+import { restoreActiveSiteForTenant } from '../site/site-restore.js';
 import { getFirebaseAdminAuth } from './firebase-admin.js';
 import { LandingDemoSignInGrantService } from '../landing-demo-access/landing-demo-sign-in-grant.service.js';
 import type {
@@ -325,21 +326,8 @@ export class AuthSessionService {
     }
 
     if (userRecord.active_tenant_id !== requestedMembership.tenant_id) {
-      // Ruling 11: the shared helper atomically nulls active_site_id so the
-      // composite FK (active_tenant_id, active_site_id) is never violated.
-      await setActiveTenant(
-        this.systemPrisma.user,
-        userRecord.id,
-        requestedMembership.tenant_id,
-      );
-      userRecord.active_tenant_id = requestedMembership.tenant_id;
-      userRecord.active_site_id = null;
-      // Ruling 9/11: every socket for this user leaves the previous tenant's
-      // site room (siteId: null). auth:claims_updated is emitted below.
-      this.dashboardRealtime?.emitSiteContextUpdated(
-        userRecord.firebaseUid,
-        null,
-      );
+      // auth:claims_updated is emitted below.
+      await this.changeActiveTenant(userRecord, requestedMembership.tenant_id);
     }
 
     await this.syncUserClaimsFromRecord(userRecord, requestedMembership);
@@ -410,20 +398,31 @@ export class AuthSessionService {
     }
 
     if ((user.active_tenant_id ?? null) !== activeMembership.tenant_id) {
-      // Ruling 11: the shared helper atomically nulls active_site_id so the
-      // composite FK (active_tenant_id, active_site_id) is never violated.
-      await setActiveTenant(
-        this.systemPrisma.user,
-        user.id,
-        activeMembership.tenant_id,
-      );
-      user.active_tenant_id = activeMembership.tenant_id;
-      user.active_site_id = null;
-      // Ruling 9/11: second tabs learn the session site was cleared.
-      this.dashboardRealtime?.emitSiteContextUpdated(user.firebaseUid, null);
+      await this.changeActiveTenant(user, activeMembership.tenant_id);
     }
 
     return activeMembership;
+  }
+
+  /**
+   * Ruling 11: the shared helper atomically nulls active_site_id so the composite FK
+   * (active_tenant_id, active_site_id) is never violated. AUT-979: then the last or only
+   * activatable site of the new tenant becomes active, if there is one.
+   */
+  private async changeActiveTenant(
+    user: UserAccessRecord,
+    tenantId: string,
+  ): Promise<void> {
+    await setActiveTenant(this.systemPrisma.user, user.id, tenantId);
+    const siteId = await restoreActiveSiteForTenant(
+      this.systemPrisma,
+      user.id,
+      tenantId,
+    );
+    user.active_tenant_id = tenantId;
+    user.active_site_id = siteId;
+    // Ruling 9/11: every socket for this user leaves the previous tenant's site room.
+    this.dashboardRealtime?.emitSiteContextUpdated(user.firebaseUid, siteId);
   }
 
   private buildSession(

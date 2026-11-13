@@ -78,6 +78,11 @@ describe('Bearer auth (e2e)', () => {
     user: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    siteMembership: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -115,6 +120,10 @@ describe('Bearer auth (e2e)', () => {
     prismaMock.tenant.findFirst.mockReset();
     systemPrismaMock.user.findFirst.mockReset();
     systemPrismaMock.user.update.mockReset();
+    systemPrismaMock.user.updateMany.mockReset();
+    // No site in the target tenant: a tenant change leaves the session site empty.
+    systemPrismaMock.siteMembership.findFirst.mockReset().mockResolvedValue(null);
+    systemPrismaMock.siteMembership.findMany.mockReset().mockResolvedValue([]);
     firebaseAuthMock.getUser.mockReset();
     firebaseAuthMock.setCustomUserClaims.mockReset();
     firebaseAuthMock.revokeRefreshTokens.mockReset();

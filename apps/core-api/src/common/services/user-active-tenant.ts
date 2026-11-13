@@ -6,8 +6,9 @@ import type { SystemPrismaClient } from '../../prisma/system-prisma.types.js';
  * Every mutation of `active_tenant_id` must go through this helper so that the
  * composite FK `(active_tenant_id, active_site_id) → sites (tenant_id, id)` is
  * never violated: changing the active tenant atomically nulls the previous
- * tenant's `active_site_id`. It never auto-picks a site in the destination
- * tenant — recovery is `GET /me/sites` then `PATCH /me/active-site`.
+ * tenant's `active_site_id`. It never picks a site itself: on a switch,
+ * AuthSessionService then runs `restoreActiveSiteForTenant` (AUT-979); without
+ * a restorable site, recovery is `GET /me/sites` then `PATCH /me/active-site`.
  *
  * Call sites (must not be bypassed):
  *  - AuthSessionService.switchTenant

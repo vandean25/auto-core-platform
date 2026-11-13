@@ -1,5 +1,6 @@
 import { firebaseAuth } from '@/lib/firebase'
 import { getE2ETestToken, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
+import { reportIfActiveSiteRequired } from './active-site-required'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
 
@@ -120,5 +121,7 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
     signal: requestSignal,
   }
 
-  return fetch(resolvedInput, config)
+  const response = await fetch(resolvedInput, config)
+  void reportIfActiveSiteRequired(response)
+  return response
 }

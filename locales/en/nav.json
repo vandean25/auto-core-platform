@@ -105,7 +105,9 @@
     "currentSite": "Current Site",
     "switchSite": "Switch site",
     "noActiveSite": "No active site",
-    "activateSite": "Activate {{name}}"
+    "activateSite": "Activate {{name}}",
+    "chooseSite": "Choose a site",
+    "noSiteAvailable": "No site assigned."
   },
   "glossaryHints": {
     "sectionLabel": "Terms"
