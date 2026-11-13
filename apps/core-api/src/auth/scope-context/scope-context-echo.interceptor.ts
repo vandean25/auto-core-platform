@@ -11,12 +11,14 @@ import {
   passthroughUnlessHttpContext,
 } from '../../common/nest/http-execution-context.js';
 import {
+  SCOPE_CONTEXT_CURSOR_LIST_PATHS,
   SCOPE_CONTEXT_ECHO_PATHS,
   SCOPE_CONTEXT_HEADER,
 } from './scope-context.constants.js';
 import { ScopeContextService } from './scope-context.service.js';
 
 const ECHO_PATHS = new Set<string>(SCOPE_CONTEXT_ECHO_PATHS);
+const CURSOR_LIST_PATHS = new Set<string>(SCOPE_CONTEXT_CURSOR_LIST_PATHS);
 
 function normalizePath(request: Request): string {
   const path =
@@ -46,11 +48,7 @@ export class ScopeContextEchoInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    if (
-      path === '/api/inventory' ||
-      path === '/api/sales/invoices' ||
-      path === '/api/vehicle-stock'
-    ) {
+    if (CURSOR_LIST_PATHS.has(path)) {
       const pagination = request.query.pagination;
       const cursor = request.query.cursor;
       const useCursor = pagination === 'cursor' || Boolean(cursor);

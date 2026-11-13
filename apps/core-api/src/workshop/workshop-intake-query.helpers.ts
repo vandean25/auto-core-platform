@@ -146,6 +146,27 @@ export function buildWorkshopOrderFindAllWhere(
   };
 }
 
+/**
+ * The one visibility resolver of the workshop order list: tenant, active site, search and the
+ * `customerId` + live-status restriction. Offset list, cursor list and capped count all use it.
+ */
+export function buildWorkshopOrderListWhere(
+  tenantId: string,
+  siteId: string,
+  params: Pick<FindAllWorkshopOrdersParams, 'search' | 'customerId'>,
+): Prisma.WorkshopOrderWhereInput {
+  return {
+    ...buildWorkshopOrderFindAllWhere(tenantId, siteId, params.search),
+    site_id: siteId,
+    ...(params.customerId
+      ? {
+          customer_id: params.customerId,
+          status: { in: LIVE_ORDER_STATUSES },
+        }
+      : {}),
+  };
+}
+
 export function buildWorkshopOrderOrderBy(
   sortField?: string,
   sortDirection: 'asc' | 'desc' = 'desc',
@@ -250,31 +271,21 @@ export async function executeFindAllWorkshopOrders(
     params.page,
     params.pageSize,
   );
-  const where = buildWorkshopOrderFindAllWhere(tenantId, siteId, params.search);
   const orderBy = buildWorkshopOrderOrderBy(
     params.sortField,
     params.sortDirection,
   );
-  const scopedWhere: Prisma.WorkshopOrderWhereInput = {
-    ...where,
-    site_id: siteId,
-    ...(params.customerId
-      ? {
-          customer_id: params.customerId,
-          status: { in: LIVE_ORDER_STATUSES },
-        }
-      : {}),
-  };
-
   const [data, total] = await Promise.all([
     prisma.workshopOrder.findMany({
-      where: scopedWhere,
+      where: buildWorkshopOrderListWhere(tenantId, siteId, params),
       include: ORDER_WITH_RELATIONS,
       skip,
       take: pageSize,
       orderBy,
     }),
-    prisma.workshopOrder.count({ where: scopedWhere }),
+    prisma.workshopOrder.count({
+      where: buildWorkshopOrderListWhere(tenantId, siteId, params),
+    }),
   ]);
 
   return {

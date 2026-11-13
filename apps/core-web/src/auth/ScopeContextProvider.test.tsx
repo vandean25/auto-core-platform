@@ -3,7 +3,11 @@ import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
-import { isScopeContextQuarantined } from '@/auth/scope-context-client'
+import {
+  handshakeScopeContext,
+  isScopeContextQuarantined,
+  resetScopeContextClientForTests,
+} from '@/auth/scope-context-client'
 import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/resync-interval'
 import { ScopeContextProvider } from './ScopeContextProvider'
 
@@ -19,9 +23,37 @@ function showPage(state: DocumentVisibilityState) {
 
 describe('ScopeContextProvider lifecycle handshake', () => {
   afterEach(() => {
+    resetScopeContextClientForTests()
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
     vi.restoreAllMocks()
     vi.clearAllMocks()
+  })
+
+  it('joins an in-flight sign-in handshake on mount instead of sending a duplicate POST', async () => {
+    let resolveHandshake: (value: Response) => void = () => undefined
+    let handshakes = 0
+    vi.mocked(fetchWithAuth).mockImplementation(() => {
+      handshakes += 1
+      return new Promise<Response>((resolve) => {
+        resolveHandshake = resolve
+      })
+    })
+
+    void handshakeScopeContext()
+    expect(handshakes).toBe(1)
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ScopeContextProvider enabled>{null}</ScopeContextProvider>
+      </QueryClientProvider>,
+    )
+    expect(handshakes).toBe(1)
+
+    await act(async () => {
+      resolveHandshake({ ok: true, json: async () => handshakeBody } as Response)
+    })
+    await waitFor(() => expect(isScopeContextQuarantined()).toBe(false))
+    expect(handshakes).toBe(1)
   })
 
   // Regression: a phone resume fires visibilitychange but often no focus, so lists kept the previous scope's rows.

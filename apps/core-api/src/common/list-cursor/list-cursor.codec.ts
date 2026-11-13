@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   LIST_CURSOR_INVALID_CODE,
+  LIST_CURSOR_PARAM_FORBIDDEN_CODE,
   LIST_CURSOR_SORT_UNSUPPORTED_CODE,
   LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE,
   LIST_CURSOR_VERSION,
@@ -127,6 +128,32 @@ export function listCursorStockFilterRequiredException(): BadRequestException {
   });
 }
 
+export function listCursorParamForbiddenException(
+  param: string,
+): BadRequestException {
+  return new BadRequestException({
+    code: LIST_CURSOR_PARAM_FORBIDDEN_CODE,
+    message: `The parameter "${param}" is not allowed in cursor pagination mode.`,
+  });
+}
+
+/** UTC ISO with millisecond precision, exactly as {@link serializeSortValueForCursor} writes a Date. */
+const CURSOR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/** Strict round trip: anything the server did not write itself is an invalid cursor, never a 500. */
+function deserializeCursorDate(serialized: string | number | boolean): Date {
+  const text = String(serialized);
+  const date = new Date(text);
+  if (
+    !CURSOR_DATE_PATTERN.test(text) ||
+    Number.isNaN(date.getTime()) ||
+    date.toISOString() !== text
+  ) {
+    throw listCursorInvalidException();
+  }
+  return date;
+}
+
 export function parseListCursorParam(
   cursor: string | undefined,
   context: ListCursorBindingContext,
@@ -180,7 +207,7 @@ export function deserializeSortValueFromCursor(
     case 'decimal':
       return typeof serialized === 'number' ? serialized : String(serialized);
     case 'date':
-      return new Date(String(serialized));
+      return deserializeCursorDate(serialized);
     case 'enum':
     case 'string':
     default:

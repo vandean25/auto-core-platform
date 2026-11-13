@@ -11,11 +11,13 @@ import {
 } from './scope-context-idp.port.js';
 import { ScopeContextLogoutService } from './scope-context-logout.service.js';
 import { ScopeContextService } from './scope-context.service.js';
+import { ScopeContextSnapshotService } from './scope-context-snapshot.service.js';
 
 @Module({
   imports: [JwtModule.register({})],
   providers: [
     ScopeContextService,
+    ScopeContextSnapshotService,
     ScopeContextLogoutService,
     EndedSessionLineageService,
     ScopeContextEchoInterceptor,
@@ -35,6 +37,10 @@ import { ScopeContextService } from './scope-context.service.js';
       useClass: ScopeContextEchoInterceptor,
     },
   ],
-  exports: [ScopeContextService, ScopeContextLogoutService],
+  exports: [
+    ScopeContextService,
+    ScopeContextLogoutService,
+    ScopeContextSnapshotService,
+  ],
 })
 export class ScopeContextModule {}

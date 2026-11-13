@@ -76,6 +76,12 @@ describe('client-safe HTTP error codes', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('NOT_A_CATALOG_LINE')).toBe(true);
   });
 
+  // Regression: the global filter drops unlisted codes, so a cursor request with page/pageSize lost its typed 400.
+  it('lists the ADR-0035 cursor param code', () => {
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(true);
+    expect(readWebPublicErrorCodes().has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(true);
+  });
+
   it('lists ADR-0038 scope context wire codes', () => {
     for (const code of ['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH']) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);

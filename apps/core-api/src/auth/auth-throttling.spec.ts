@@ -148,14 +148,21 @@ describe('auth throttling integration', () => {
       await request(server).get('/customers').expect(200);
     }
 
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let attempt = 0; attempt < 11; attempt += 1) {
       await request(server)
         .post('/auth/scope-context')
         .set('Authorization', 'Bearer test-token')
         .expect(200);
     }
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await request(server)
+        .post('/auth/logout')
+        .set('Authorization', 'Bearer test-token')
+        .expect(204);
+    }
     await request(server)
-      .post('/auth/scope-context')
+      .post('/auth/logout')
       .set('Authorization', 'Bearer test-token')
       .expect(429);
   });

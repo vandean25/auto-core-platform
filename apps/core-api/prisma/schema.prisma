@@ -3908,6 +3908,7 @@ model WorkshopOrder {
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
+  @@index([tenant_id, site_id, createdAt, id])
   @@index([staging_location_id], map: "idx_workshop_orders_staging_location_id")
   @@index([mechanic_id], map: "idx_workshop_orders_mechanic_id")
   @@index([bay_id], map: "idx_workshop_orders_bay_id")

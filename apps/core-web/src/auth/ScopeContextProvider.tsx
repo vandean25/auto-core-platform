@@ -56,7 +56,7 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
 
     // The mount handshake counts toward the throttle, so the first focus does not quarantine lists that just loaded.
     lastHandshakeAt = Date.now()
-    void handshakeScopeContext({ force: true }).then((result) => {
+    void handshakeScopeContext().then((result) => {
       if (result.kind === 'external-scope' || result.kind === 'failed') {
         markInfiniteListsStaleForRefresh()
       }
