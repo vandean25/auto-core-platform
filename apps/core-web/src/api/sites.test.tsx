@@ -2,12 +2,29 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { authSessionKeys, useSwitchTenant, type AuthSession } from './auth-session'
 import { fetchWithAuth } from './client'
 import { consumeLocalSiteSwitch } from './local-site-switch'
-import { useSetActiveSite } from './sites'
+import { siteKeys, useMySites, useSetActiveSite } from './sites'
+import { resetClientSession } from '@/auth/client-session-reset'
+
+const mocks = vi.hoisted(() => ({
+  firebaseAuth: {
+    currentUser: {
+      uid: 'user-1',
+      email: 'user-1@auto.core.at',
+      getIdToken: vi.fn(),
+    } as { uid: string; email: string; getIdToken: ReturnType<typeof vi.fn> } | null,
+  },
+}))
 
 vi.mock('./client', () => ({
   fetchWithAuth: vi.fn(),
+}))
+
+vi.mock('@/lib/firebase', () => ({
+  firebaseAuth: mocks.firebaseAuth,
+  firebaseConfigMissing: false,
 }))
 
 function createQueryClient() {
@@ -198,5 +215,201 @@ describe('useSetActiveSite', () => {
     await waitFor(() => {
       expect(screen.getByText('Idle')).toBeInTheDocument()
     })
+  })
+})
+
+function makeAuthSession(tenantId: string, userId = 'user-1'): AuthSession {
+  return {
+    userId,
+    email: `${userId}@auto.core.at`,
+    activeTenant: { id: tenantId, name: `Tenant ${tenantId}`, slug: tenantId },
+    activeRole: 'ADMIN',
+    activeSiteId: 'site-1',
+    memberships: [],
+    locale: null,
+    effectiveLocale: 'de',
+    defaultLocale: 'de',
+    formatLocale: 'de-AT',
+    effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+  }
+}
+
+function DualSitesProbe({ shellTenantId }: { shellTenantId: string }) {
+  const shellSites = useMySites(true, shellTenantId)
+  const searchSites = useMySites()
+  return (
+    <div>
+      <span data-testid="shell-sites">{(shellSites.data ?? []).map((s) => s.id).join(',')}</span>
+      <span data-testid="search-sites">{(searchSites.data ?? []).map((s) => s.id).join(',')}</span>
+    </div>
+  )
+}
+
+describe('useMySites (AUT-984)', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    mocks.firebaseAuth.currentUser = {
+      uid: 'user-1',
+      email: 'user-1@auto.core.at',
+      getIdToken: vi.fn(),
+    }
+  })
+
+  it('shares one query key and one GET /api/me/sites request between app shell and global search', async () => {
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (url === '/api/auth/me') {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue(makeAuthSession('tenant-1')),
+        } as unknown as Response
+      }
+      if (url === '/api/me/sites') {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }]),
+        } as unknown as Response
+      }
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    const queryClient = createQueryClient()
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-1'))
+
+    render(<DualSitesProbe shellTenantId="tenant-1" />, { wrapper: createWrapper(queryClient) })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('shell-sites')).toHaveTextContent('site-1')
+      expect(screen.getByTestId('search-sites')).toHaveTextContent('site-1')
+    })
+
+    const meSitesCalls = vi.mocked(fetchWithAuth).mock.calls.filter(([url]) => url === '/api/me/sites')
+    expect(meSitesCalls).toHaveLength(1)
+    const siteQueries = queryClient.getQueryCache().findAll({ queryKey: siteKeys.all })
+    expect(siteQueries).toHaveLength(1)
+    expect(siteQueries[0].queryKey).toEqual(siteKeys.me('tenant-1'))
+  })
+
+  it('refetches /api/me/sites once without duplicates and resets site-scoped queries on site switch', async () => {
+    let sitesCalls = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (url === '/api/me/sites') {
+        sitesCalls += 1
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([{ id: 'site-1', code: 'W', name: 'Wien', legalEntityId: 'le-1' }]),
+        } as unknown as Response
+      }
+      if (url === '/api/me/active-site') {
+        return { ok: true, json: vi.fn().mockResolvedValue({ activeSiteId: 'site-new' }) } as unknown as Response
+      }
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    const queryClient = createQueryClient()
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-1'))
+    queryClient.setQueryData(['customers', 'list'], [{ id: 'cust-1' }])
+
+    render(
+      <>
+        <SwitchSiteProbe />
+        <DualSitesProbe shellTenantId="tenant-1" />
+      </>,
+      { wrapper: createWrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(sitesCalls).toBe(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch site' }))
+    await waitFor(() => expect(queryClient.getQueryData(['customers', 'list'])).toBeUndefined())
+
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-1'))
+    await waitFor(() => expect(sitesCalls).toBe(2))
+  })
+
+  it('refetches /api/me/sites for the new tenant on tenant switch instead of serving stale cache', async () => {
+    let currentTenant = 'tenant-a'
+    let sitesCalls = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (url === '/api/me/sites') {
+        sitesCalls += 1
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([
+            { id: `site-${currentTenant}`, code: currentTenant, name: currentTenant, legalEntityId: 'le-1' },
+          ]),
+        } as unknown as Response
+      }
+      if (url === '/api/auth/switch-tenant') {
+        currentTenant = 'tenant-b'
+        return { ok: true, json: vi.fn().mockResolvedValue(makeAuthSession('tenant-b')) } as unknown as Response
+      }
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    const queryClient = createQueryClient()
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-a'))
+
+    function TenantSwitchProbe() {
+      const switchTenant = useSwitchTenant()
+      const sites = useMySites()
+      return (
+        <>
+          <span data-testid="sites">{(sites.data ?? []).map((s) => s.id).join(',')}</span>
+          <button type="button" onClick={() => void switchTenant.mutateAsync('tenant-b')}>
+            Switch tenant
+          </button>
+        </>
+      )
+    }
+
+    render(<TenantSwitchProbe />, { wrapper: createWrapper(queryClient) })
+    await waitFor(() => expect(screen.getByTestId('sites')).toHaveTextContent('site-tenant-a'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch tenant' }))
+    await waitFor(() => expect(screen.getByTestId('sites')).toHaveTextContent(''))
+
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-b'))
+    await waitFor(() => expect(screen.getByTestId('sites')).toHaveTextContent('site-tenant-b'))
+    expect(sitesCalls).toBe(2)
+  })
+
+  it('fetches sites fresh when logging out and logging in as another user', async () => {
+    let activeUser = 'user-1'
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (url === '/api/me/sites') {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([
+            { id: `site-${activeUser}`, code: activeUser, name: activeUser, legalEntityId: 'le-1' },
+          ]),
+        } as unknown as Response
+      }
+      throw new Error(`Unexpected request: ${String(url)}`)
+    })
+
+    const queryClient = createQueryClient()
+    queryClient.setQueryData(authSessionKeys.user('user-1'), makeAuthSession('tenant-1', 'user-1'))
+
+    function SitesProbe() {
+      const sites = useMySites()
+      return <span data-testid="user-sites">{(sites.data ?? []).map((s) => s.id).join(',')}</span>
+    }
+
+    const { rerender } = render(<SitesProbe />, { wrapper: createWrapper(queryClient) })
+    await waitFor(() => expect(screen.getByTestId('user-sites')).toHaveTextContent('site-user-1'))
+
+    await act(async () => {
+      await resetClientSession(queryClient, 'session')
+    })
+    activeUser = 'user-2'
+    mocks.firebaseAuth.currentUser = {
+      uid: 'user-2',
+      email: 'user-2@auto.core.at',
+      getIdToken: vi.fn(),
+    }
+    queryClient.setQueryData(authSessionKeys.user('user-2'), makeAuthSession('tenant-2', 'user-2'))
+    rerender(<SitesProbe />)
+
+    await waitFor(() => expect(screen.getByTestId('user-sites')).toHaveTextContent('site-user-2'))
   })
 })
