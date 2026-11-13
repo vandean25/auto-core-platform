@@ -117,11 +117,7 @@ test('Dockerfile pins digest Node from .nvmrc for builder/api and purges+copies 
   assert.match(workerStage, /COPY --from=builder \/usr\/local\/bin\/node\b/);
   assert.match(
     workerStage,
-    /COPY --from=builder \/usr\/local\/lib\/node_modules\/npm\b/,
-  );
-  assert.match(
-    workerStage,
-    /COPY --from=builder \/usr\/local\/lib\/node_modules\/corepack\b/,
+    /COPY --from=builder \/usr\/local\/lib\/node_modules\b/,
   );
   assert.match(workerStage, /COPY \.nvmrc /);
   assert.match(workerStage, /verify-pdf-worker-node\.sh/);

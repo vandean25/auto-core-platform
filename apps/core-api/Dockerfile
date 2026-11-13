@@ -34,11 +34,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get purge -y nodejs \
     && rm -rf /usr/lib/node_modules
 
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
-COPY --from=builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
-COPY --from=builder /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/corepack
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-    && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 ENV PATH="/usr/local/bin:${PATH}"
 

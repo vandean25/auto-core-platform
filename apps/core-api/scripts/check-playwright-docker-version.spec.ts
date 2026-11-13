@@ -291,10 +291,7 @@ describe('Production image version pins (AUT-167)', () => {
     expect(worker).not.toMatch(/apt-get (update|install)/);
     expect(worker).toMatch(/COPY --from=builder \/usr\/local\/bin\/node\b/);
     expect(worker).toMatch(
-      /COPY --from=builder \/usr\/local\/lib\/node_modules\/npm\b/,
-    );
-    expect(worker).toMatch(
-      /COPY --from=builder \/usr\/local\/lib\/node_modules\/corepack\b/,
+      /COPY --from=builder \/usr\/local\/lib\/node_modules\b/,
     );
     expect(worker).toMatch(/COPY \.nvmrc /);
     expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
