@@ -24,9 +24,25 @@ RUN npm run build
 RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
-# Pinned by digest: v1.65.0-noble ships Node 26 upstream; use the image's own Node 26 (AUT-673, AUT-975).
+# Pinned by digest: v1.65.0-noble ships Node 26.13.0 upstream; purge it locally and copy exact .nvmrc Node from builder (AUT-673, AUT-981, AUT-993).
 FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
 
+RUN DEBIAN_FRONTEND=noninteractive apt-get purge -y nodejs \
+    && rm -f /etc/apt/sources.list.d/nodesource.list \
+    && rm -f /usr/bin/node /usr/bin/npm /usr/bin/npx /usr/bin/corepack \
+    && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    && rm -rf /usr/lib/node_modules
+
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=builder /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/corepack
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+COPY .nvmrc /usr/local/etc/nvmrc
 COPY apps/core-api/scripts/verify-pdf-worker-node.sh /usr/local/bin/verify-pdf-worker-node.sh
 RUN chmod +x /usr/local/bin/verify-pdf-worker-node.sh \
     && verify-pdf-worker-node.sh

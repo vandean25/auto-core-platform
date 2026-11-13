@@ -219,9 +219,10 @@ describe('Production image version pins (AUT-167)', () => {
     );
   });
 
-  it('keeps every listed Node pin identical to .nvmrc (AUT-975)', () => {
+  it('keeps every listed Node pin identical to .nvmrc (AUT-975, AUT-993)', () => {
     const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const { worker } = splitDockerStages(dockerfile);
     const cursorDockerfile = fs.readFileSync(CURSOR_DOCKERFILE_PATH, 'utf8');
     const cloudBuild = fs.readFileSync(CLOUDBUILD_PATH, 'utf8');
     const cloudBuildStaging = fs.readFileSync(CLOUDBUILD_STAGING_PATH, 'utf8');
@@ -229,7 +230,6 @@ describe('Production image version pins (AUT-167)', () => {
     const agentsMd = fs.readFileSync(AGENTS_MD_PATH, 'utf8');
 
     expect(expected).toBe('26.13.1');
-    const expectedMajor = Number(expected.split('.')[0]);
     const builderPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
@@ -238,6 +238,9 @@ describe('Production image version pins (AUT-167)', () => {
     );
     expect(builderPin?.[1]).toBe(expected);
     expect(apiPin?.[1]).toBe(expected);
+    expect(worker).toMatch(/COPY --from=builder \/usr\/local\/bin\/node\b/);
+    expect(worker).toMatch(/COPY \.nvmrc /);
+    expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
     const cursorNodeArgs = [
       ...cursorDockerfile.matchAll(/^ARG NODE_VERSION=([0-9.]+)$/gm),
     ].map((match) => match[1]);
@@ -248,7 +251,8 @@ describe('Production image version pins (AUT-167)', () => {
     expect(cloudBuildPins).toEqual([expected, expected]);
     const stagingPin = cloudBuildStaging.match(/^\s*name: node:([0-9.]+)\s*$/m);
     expect(stagingPin?.[1]).toBe(expected);
-    expect(verifyScript).toContain(`PDF_WORKER_NODE_MAJOR:-${expectedMajor}`);
+    expect(verifyScript).not.toContain('PDF_WORKER_NODE_MAJOR');
+    expect(verifyScript).toMatch(/process\.versions\.node !== expected/);
     expect(agentsMd).toContain(`**${expected}** from`);
   });
 
@@ -278,26 +282,31 @@ describe('Production image version pins (AUT-167)', () => {
     expect(apiPin?.[1]).toBe(expected);
   });
 
-  it('uses Playwright Node 26 in worker without reinstalling Node or running apt-get (AUT-975)', () => {
+  it('purges base nodejs and copies exact .nvmrc Node from builder into worker without apt network downloads (AUT-993)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
     const { builder, worker } = splitDockerStages(dockerfile);
 
-    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/bin\//);
-    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/include\//);
-    expect(worker).not.toMatch(/COPY --from=builder \/usr\/local\/lib\//);
-    expect(worker).not.toMatch(/rm -f \/usr\/bin\/node/);
-    expect(worker).not.toMatch(/PDF_WORKER_NODE_VERSION/);
+    expect(worker).toMatch(/apt-get purge -y nodejs\b/);
+    expect(worker).not.toMatch(/apt-get purge[^\n]*\|\| true/);
+    expect(worker).not.toMatch(/apt-get (update|install)/);
+    expect(worker).toMatch(/COPY --from=builder \/usr\/local\/bin\/node\b/);
+    expect(worker).toMatch(
+      /COPY --from=builder \/usr\/local\/lib\/node_modules\/npm\b/,
+    );
+    expect(worker).toMatch(
+      /COPY --from=builder \/usr\/local\/lib\/node_modules\/corepack\b/,
+    );
+    expect(worker).toMatch(/COPY \.nvmrc /);
     expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
     expect(dockerfile).not.toMatch(/setup_24\.x/);
-    expect(worker).not.toMatch(/apt-get/);
     expect(worker).not.toMatch(/sha256sum -c -/);
-    expect(worker).not.toMatch(/node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/);
+    expect(worker).not.toMatch(
+      /node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/,
+    );
     // Non-worker stages are not subject to the worker apt ban guard.
     expect(builder.length).toBeGreaterThan(0);
     const verifyScript = fs.readFileSync(VERIFY_SCRIPT_PATH, 'utf8');
-    expect(verifyScript).toMatch(
-      /process\.versions\.node\.split\('\.'\)\.map\(Number\)/,
-    );
+    expect(verifyScript).toMatch(/process\.versions\.node !== expected/);
   });
 
   it('declares a CI job that builds api and pdf-worker images and runs Node 26 smoke', () => {

@@ -1,9 +1,36 @@
 #!/usr/bin/env bash
-# Fails the image build (or CI) unless only a Node 26 runtime is on PATH.
+# Fails the image build (or CI) unless only the exact .nvmrc Node runtime is on PATH.
 set -euo pipefail
 
-EXPECTED_MAJOR="${PDF_WORKER_NODE_MAJOR:-26}"
-EXPECTED_PREFIX="v${EXPECTED_MAJOR}."
+SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+NVMRC_FILE="${PDF_WORKER_NVMRC_PATH:-}"
+if [[ -z "${NVMRC_FILE}" ]]; then
+  if [[ -f /usr/local/etc/nvmrc ]]; then
+    NVMRC_FILE="/usr/local/etc/nvmrc"
+  elif [[ -f "${SCRIPT_DIR}/../../../.nvmrc" ]]; then
+    NVMRC_FILE="${SCRIPT_DIR}/../../../.nvmrc"
+  fi
+fi
+
+if [[ -z "${NVMRC_FILE}" || ! -f "${NVMRC_FILE}" ]]; then
+  echo "Missing .nvmrc file for exact Node version verification" >&2
+  exit 1
+fi
+
+EXPECTED_VERSION="$(<"${NVMRC_FILE}")"
+EXPECTED_VERSION="${EXPECTED_VERSION//[[:space:]]/}"
+if [[ -z "${EXPECTED_VERSION}" ]]; then
+  echo "Empty .nvmrc file at ${NVMRC_FILE}" >&2
+  exit 1
+fi
+EXPECTED_TAG="v${EXPECTED_VERSION}"
+
+if command -v dpkg-query >/dev/null 2>&1; then
+  if dpkg-query -W -f='${Status}\n' nodejs 2>/dev/null | grep -q 'install ok installed'; then
+    echo "nodesource nodejs package is still installed" >&2
+    exit 1
+  fi
+fi
 
 NODE_V="$(node -v)"
 NPM_V="$(npm -v)"
@@ -41,30 +68,29 @@ echo "node -v: ${NODE_V}"
 echo "npm -v: ${NPM_V}"
 echo "which -a node: ${NODE_PATHS}"
 
-if [[ "${NODE_V}" != "${EXPECTED_PREFIX}"* ]]; then
-  echo "Expected Node ${EXPECTED_PREFIX}*, got ${NODE_V}" >&2
+if [[ "${NODE_V}" != "${EXPECTED_TAG}" ]]; then
+  echo "Expected Node ${EXPECTED_TAG}, got ${NODE_V}" >&2
   exit 1
 fi
 
-if (( ${#NODE_BINARIES[@]} == 0 )); then
-  echo "No node binary found on PATH" >&2
+if (( ${#NODE_BINARIES[@]} != 1 )); then
+  echo "Expected exactly one node binary on PATH, found ${#NODE_BINARIES[@]}: ${NODE_PATHS}" >&2
   exit 1
 fi
 
 for path in "${NODE_BINARIES[@]}"; do
   resolved="$(readlink -f "${path}" 2>/dev/null || echo "${path}")"
   ver="$("${path}" -v)"
-  if [[ "${ver}" != "${EXPECTED_PREFIX}"* ]]; then
-    echo "Node at ${path} (resolved ${resolved}) is ${ver}, expected ${EXPECTED_PREFIX}*" >&2
+  if [[ "${ver}" != "${EXPECTED_TAG}" ]]; then
+    echo "Node at ${path} (resolved ${resolved}) is ${ver}, expected ${EXPECTED_TAG}" >&2
     exit 1
   fi
 done
 
-node -e "
-  const expectedMajor = Number(process.env.PDF_WORKER_NODE_MAJOR || '${EXPECTED_MAJOR}');
-  const [major] = process.versions.node.split('.').map(Number);
-  if (major !== expectedMajor) {
-    console.error('process.versions.node=' + process.versions.node + ', expected major ' + expectedMajor);
+EXPECTED_VERSION="${EXPECTED_VERSION}" node -e "
+  const expected = process.env.EXPECTED_VERSION;
+  if (process.versions.node !== expected) {
+    console.error('process.versions.node=' + process.versions.node + ', expected ' + expected);
     process.exit(1);
   }
 "
