@@ -24,6 +24,8 @@ import { isWorkshopTaskStatusUpdateOptimisticEligible } from '@/features/interac
 import { applyChecklistEdits, revertChecklistEdits } from '@/api/inspection-checklist-patch'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import {
+  getRequiredPartLines,
+  getTotalRequiredQuantity,
   getWorkshopCustomerDisplayName,
   isWorkshopOrderPickEligible,
 } from '@/features/workshop/pick-utils'
@@ -381,27 +383,11 @@ function normalizeOrder(order: RawWorkshopOrder): WorkshopOrder {
 }
 
 function countPickablePartLines(order: WorkshopOrder) {
-  let count = 0
-  for (const task of order.tasks ?? []) {
-    for (const lineItem of task.lineItems ?? []) {
-      if (lineItem.type === 'PART' && Number(lineItem.qty) > 0) {
-        count += 1
-      }
-    }
-  }
-  return count
+  return getRequiredPartLines(order).length
 }
 
 function totalPickablePartQuantity(order: WorkshopOrder) {
-  let total = 0
-  for (const task of order.tasks ?? []) {
-    for (const lineItem of task.lineItems ?? []) {
-      if (lineItem.type === 'PART' && Number(lineItem.qty) > 0) {
-        total += Number(lineItem.qty)
-      }
-    }
-  }
-  return total
+  return getTotalRequiredQuantity(getRequiredPartLines(order))
 }
 
 function comparePickListOrders(

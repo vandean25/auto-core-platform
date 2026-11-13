@@ -176,6 +176,12 @@ describe('WorkshopPickPartsService', () => {
     await expect(pick).rejects.toThrow(
       'Destination location is not a staging tote.',
     );
+    // The lookup must not filter on type, or a real bin would come back as missing (404).
+    expect(mockPrisma.storageLocation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ type: expect.anything() }),
+      }),
+    );
     expect(mockPrisma.workshopTaskLineItem.findMany).not.toHaveBeenCalled();
   });
 

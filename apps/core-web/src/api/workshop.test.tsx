@@ -263,6 +263,79 @@ describe("useWorkshopPickList", () => {
     expect(result.current.data?.meta.total).toBe(1);
   });
 
+  // AUT-988: the pick-list sort counted free-text PART lines, so rows sorted by numbers they did not show.
+  it.each(["partLines", "requiredQty"])(
+    "sorts by %s using only catalog-backed PART lines",
+    async (sortField) => {
+      const partLine = (id: string, catalogItemId: string | null, qty: number) => ({
+        id,
+        type: "PART" as const,
+        catalogItemId,
+        itemNo: id,
+        description: id,
+        qty,
+        unitPrice: 10,
+      });
+      const withLines = (id: string, lineItems: ReturnType<typeof partLine>[]) =>
+        createWorkshopOrder({
+          id,
+          tasks: [
+            {
+              id: `${id}-task`,
+              title: "Service",
+              lineItemsVersion: 0,
+              status: "IN_PROGRESS",
+              done: false,
+              lineItems,
+            },
+          ],
+        });
+      vi.mocked(fetchWithAuth).mockResolvedValueOnce(
+        createJsonResponse({
+          data: [
+            withLines("mixed-order", [
+              partLine("catalog-a", "catalog-1", 1),
+              partLine("free-1", null, 5),
+              partLine("free-2", null, 5),
+              partLine("free-3", null, 5),
+            ]),
+            withLines("catalog-order", [
+              partLine("catalog-b", "catalog-2", 2),
+              partLine("catalog-c", "catalog-3", 2),
+            ]),
+          ],
+          meta: { total: 2, page: 1, pageSize: 100, pageCount: 1 },
+        }),
+      );
+
+      const queryClient = createQueryClient();
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      const { result } = renderHook(
+        () =>
+          useWorkshopPickList({
+            page: 1,
+            pageSize: 25,
+            filters: [],
+            sortField,
+            sortDirection: "desc",
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(result.current.data?.data.map((order) => order.id)).toEqual([
+        "catalog-order",
+        "mixed-order",
+      ]);
+    },
+  );
+
   it("surfaces backend error messages when creating workshop orders", async () => {
     vi.mocked(fetchWithAuth).mockResolvedValue(
       createJsonResponse(
