@@ -2,6 +2,7 @@ import * as React from 'react'
 import { getCurrentScope, setUser } from '@sentry/react'
 import type { QueryClient } from '@tanstack/react-query'
 import { clearPersistedQueryCache } from '@/auth/persisted-query-cache'
+import { rescopeAfterContextSwitch } from '@/auth/scope-context-client'
 import { clearListScrollAnchors } from '@/lib/list-scroll-anchors'
 
 /**
@@ -135,6 +136,18 @@ function clearSentryUser(): void {
 function bumpClientSessionGeneration(): void {
   generation += 1
   emit()
+}
+
+/**
+ * Tenant or site switch: a `context` reset that keeps the session pending until the scope context of the new tenant or
+ * site is in, so no list loads with the previous scope header. `initiatedHere` is false for a switch made in another tab.
+ */
+export function resetClientContextAndRescope(queryClient: QueryClient, initiatedHere: boolean): Promise<void> {
+  return runWithClientSessionPending(async () => {
+    const rescoped = rescopeAfterContextSwitch(initiatedHere)
+    await resetClientSession(queryClient, 'context')
+    await rescoped
+  })
 }
 
 /**

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react'
 import {
   getScopeContextDigest,
   isScopeContextQuarantined,
+  isScopeExplicitRefreshRequired,
   subscribeScopeContextClient,
   scopeContextReadyForCursorList,
 } from '@/auth/scope-context-client'
@@ -17,6 +18,10 @@ export function useScopeContextReady(): boolean {
     scopeContextReadyForCursorList,
     scopeContextReadyForCursorList,
   )
+}
+
+export function useScopeExplicitRefreshRequired(): boolean {
+  return useSyncExternalStore(subscribeScopeContextClient, isScopeExplicitRefreshRequired, isScopeExplicitRefreshRequired)
 }
 
 export function useScopeContextQuarantined(): boolean {

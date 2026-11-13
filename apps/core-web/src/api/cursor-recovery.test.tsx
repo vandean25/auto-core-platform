@@ -239,6 +239,31 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     expect(handshakes).toBe(2)
   })
 
+  // Regression: after a spent handshake budget the list kept "Erneut laden" beside "Liste aktualisieren".
+  it('offers no retry controls once a spent handshake budget latches the explicit refresh', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return { ok: true, json: async () => ({ ...testScope, continuityDigest: 'lineage-1' }) } as Response
+      }
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      return apiError(412, 'CONTEXT_MISMATCH')
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+    await waitFor(() => expect(result.current.tableProps.isError).toBe(true))
+
+    act(() => result.current.tableProps.onRetry?.())
+
+    await waitFor(() => expect(scopeContextClient.isScopeExplicitRefreshRequired()).toBe(true))
+    await waitFor(() => expect(result.current.tableProps.onRetry).toBeUndefined())
+    expect(result.current.tableProps.isError).toBe(false)
+    expect(result.current.tableProps.infinite.retryCount).toBeUndefined()
+  })
+
   it('LIST_CURSOR_INVALID restarts page one with a live signal', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let servedFirstPage = false

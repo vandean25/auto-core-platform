@@ -191,6 +191,19 @@ export function latchScopeExplicitRefresh(): void {
   store.setState({ quarantined: true, explicitRefreshRequired: true, pendingExternalScopeAck: true })
 }
 
+/**
+ * Site or tenant switch: lists stay quarantined until the new scope is in. The tab that switched accepts the result as
+ * its explicit refresh, so its next list request sends the new scope; another tab joins any running handshake and keeps
+ * an external-scope quarantine until "Liste aktualisieren".
+ */
+export async function rescopeAfterContextSwitch(initiatedHere: boolean): Promise<void> {
+  invalidateProtectedScopeContext()
+  const result = await handshakeScopeContext(initiatedHere ? { force: true } : undefined)
+  if (initiatedHere && result.kind !== 'failed' && result.kind !== 'superseded') {
+    acceptQuarantinedScopeForExplicitRefresh()
+  }
+}
+
 /** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
 export function acceptQuarantinedScopeForExplicitRefresh(): void {
   store.setState({

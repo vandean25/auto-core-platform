@@ -8,7 +8,7 @@ import { stockTransferKeys } from '@/api/stock-transfers'
 import { inventoryKeys } from '@/api/inventory'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
-import { resetClientSession } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/client-session-reset'
 import { getQueryKeysToInvalidateForEntityType, getRealtimeInvalidationWindowMs, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { createRealtimeResync } from '@/features/realtime/realtime-resync'
@@ -183,7 +183,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
           // Refresh the token before any refetch so every request carries the new claims.
           const refreshedToken = await currentUser.getIdToken(true)
           setToken(refreshedToken)
-          await resetClientSession(queryClient, 'context')
+          await resetClientContextAndRescope(queryClient, false)
         } catch (error) {
           console.error('Failed to refresh claims after realtime auth update event.', error)
           await signOutUser()
@@ -198,7 +198,7 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       if (consumeLocalSiteSwitch(payload.siteId)) return
 
       // Another tab switched the site: every cached query may belong to the site being left.
-      void resetClientSession(queryClient, 'context')
+      void resetClientContextAndRescope(queryClient, false)
     }
 
     const onSiteAccessScopeUpdated = (payload: unknown) => {

@@ -11,8 +11,10 @@ import {
   isScopeContextQuarantined,
   isScopeExplicitRefreshRequired,
   resetScopeContextClientForTests,
+  SCOPE_CONTEXT_HEADER,
   seedValidatedScopeContextForTests,
 } from '@/auth/scope-context-client'
+import { resetClientContextAndRescope } from '@/auth/client-session-reset'
 import { refreshInfiniteList } from '@/lib/infinite-list-query'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
@@ -137,6 +139,51 @@ describe('cursor scope (ADR-0038)', () => {
     expect(result.current.tableProps.isLoading).toBe(true)
     expect(result.current.rows).toEqual([])
     expect(fetchWithAuth).not.toHaveBeenCalled()
+  })
+
+  // Regression: a site switch refetched lists with the previous scope header, and the late handshake then hid the rows.
+  it('loads the list with the new scope after an in-tab site switch and keeps it through a focus handshake', async () => {
+    seedValidatedScopeContextForTests(testScope, 'lineage-1')
+    let serverScope = testScope
+    const listHeaders: Array<string | null> = []
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
+      const target = String(url)
+      const digest = serverScope.scopeContextDigest
+      if (target.includes('/api/auth/scope-context')) {
+        return { ok: true, json: async () => ({ ...serverScope, continuityDigest: 'lineage-1' }) } as Response
+      }
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: digest }) } as Response
+      }
+      listHeaders.push(new Headers(init?.headers).get(SCOPE_CONTEXT_HEADER))
+      return {
+        ok: true,
+        json: async () => ({ data: [{ id: digest }], meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: digest } }),
+      } as Response
+    })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'digest-a' }]))
+
+    serverScope = { scopeContext: 'sc-b', scopeContextDigest: 'digest-b' }
+    await act(async () => {
+      await resetClientContextAndRescope(client, true)
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'digest-b' }]))
+    expect(listHeaders).toEqual(['sc-test', 'sc-b'])
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+
+    await act(async () => {
+      invalidateProtectedScopeContext()
+      await handshakeScopeContext()
+    })
+
+    expect(isScopeContextQuarantined()).toBe(false)
+    expect(result.current.rows).toEqual([{ id: 'digest-b' }])
   })
 
   it('external scope change blocks', async () => {

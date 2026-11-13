@@ -9,7 +9,12 @@ import {
 } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
-import { useScopeContextDigest, useScopeContextQuarantined, useScopeContextReady } from '@/auth/use-scope-context-digest'
+import {
+  useScopeContextDigest,
+  useScopeContextQuarantined,
+  useScopeContextReady,
+  useScopeExplicitRefreshRequired,
+} from '@/auth/use-scope-context-digest'
 import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
 import type { components } from './generated/openapi'
 import { fetchCursorListCount, fetchCursorListPage } from './cursor-list-fetch'
@@ -215,6 +220,20 @@ type CursorListOptions = {
   countParams: QueryParams
 }
 
+type RetryableQuery = { isError: boolean; refetch: () => Promise<unknown> }
+
+/** A blocked list (403, scope quarantine, pending explicit refresh) would resend the same request on retry: no retry
+ * controls then, only "Liste aktualisieren". */
+function retryControls(list: RetryableQuery & { isFetchNextPageError: boolean }, count: RetryableQuery, blocked: boolean) {
+  if (blocked) return { isError: false, onRetry: undefined, isCountError: false, retryCount: undefined }
+  return {
+    isError: list.isError && !list.isFetchNextPageError,
+    onRetry: () => void list.refetch(),
+    isCountError: count.isError,
+    retryCount: () => void count.refetch(),
+  }
+}
+
 function scopeScopedKey(base: QueryKey, digest: string | undefined): QueryKey {
   if (!digest) return base
   return [...base, digest] as const
@@ -238,6 +257,7 @@ export function useCursorList<TRow extends { id: string }>({
   const digest = useScopeContextDigest()
   const scopeReady = useScopeContextReady()
   const quarantined = useScopeContextQuarantined()
+  const explicitRefreshRequired = useScopeExplicitRefreshRequired()
   const offsetLatch = isOffsetLatchedForEpisode(semanticEpisodeKey)
   const scopedListKey = useMemo(() => scopeScopedKey(listKey, digest), [digest, listKey])
   const scopedCountKey = useMemo(() => scopeScopedKey(countKey, digest), [digest, countKey])
@@ -295,13 +315,14 @@ export function useCursorList<TRow extends { id: string }>({
     if (quarantined || authBlocked) return []
     return list.data?.pages.flatMap((page) => page.data) ?? []
   }, [list.data, quarantined, authBlocked])
+  const retry = retryControls(list, count, authBlocked || quarantined || explicitRefreshRequired)
   const tableProps = {
     // Before the first handshake the query is disabled and idle; keep the skeleton instead of "Keine Ergebnisse.".
     isLoading: list.isLoading || (enabled && !scopeReady),
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
-    isError: list.isError && !list.isFetchNextPageError && !authBlocked,
-    onRetry: authBlocked ? undefined : () => void list.refetch(),
+    isError: retry.isError,
+    onRetry: retry.onRetry,
     hasUsableData: rows.length > 0,
     scopeOffsetLatch: offsetLatch,
     infinite: {
@@ -311,8 +332,8 @@ export function useCursorList<TRow extends { id: string }>({
       isFetchNextPageError: list.isFetchNextPageError,
       fetchNextPage: list.fetchNextPage,
       totalCount: authBlocked ? undefined : count.data,
-      isCountError: count.isError,
-      retryCount: () => void count.refetch(),
+      isCountError: retry.isCountError,
+      retryCount: retry.retryCount,
     },
   }
   return { rows, dataUpdatedAt: list.dataUpdatedAt, tableProps }

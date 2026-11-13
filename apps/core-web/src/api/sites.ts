@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthSession } from './auth-session'
 import type { components } from './generated/openapi'
 import { clearLocalSiteSwitch, markLocalSiteSwitch } from './local-site-switch'
-import { resetClientSession } from '@/auth/client-session-reset'
+import { resetClientContextAndRescope } from '@/auth/client-session-reset'
 
 export type MeSite = components['schemas']['MeSiteDto']
 export type SetActiveSitePayload = components['schemas']['SetActiveSiteDto']
@@ -86,7 +86,7 @@ export function useSetActiveSite() {
     onSuccess: async () => {
       // Every cached query may belong to the site being left, not only the operational families. The same user
       // keeps saved views, the dashboard layout and the push registration across a site switch.
-      await resetClientSession(queryClient, 'context')
+      await resetClientContextAndRescope(queryClient, true)
     },
   });
 }
