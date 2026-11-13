@@ -38,6 +38,11 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   return {
     rows: offsetList.data?.data ?? [],
     dataUpdatedAt: offsetList.dataUpdatedAt,
-    tableProps: { pageCount: offsetList.data?.meta.pageCount ?? 1, isLoading: offsetList.isLoading },
+    tableProps: {
+      pageCount: offsetList.data?.meta.pageCount ?? 1,
+      isLoading: offsetList.isLoading,
+      isError: offsetList.isError,
+      onRetry: () => void offsetList.refetch(),
+    },
   }
 }

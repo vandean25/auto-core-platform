@@ -127,6 +127,22 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
     await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
   })
 
+  // Regression: a failed page-1 read never ended the handoff, so the list stayed on an empty page 1.
+  it.each(offsetPagedLists)('$name requests the table page after a failed page-1 read', async ({ path, rowPrefix, useList }) => {
+    mockOffsetPagedList(path, rowPrefix)
+    const servePage = vi.mocked(fetchWithAuth).getMockImplementation()!
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
+      const target = String(url)
+      const pageOne = new URL(target, 'http://acp.test').searchParams.get('page') === '1'
+      if (target.includes(path) && !target.includes('pagination=cursor') && pageOne) return { ok: false, status: 500 } as Response
+      return servePage(url, init)
+    })
+    const { result } = renderHook(() => useList(2), { wrapper: wrapper() })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
+    expect(offsetPagesRequested(path)).toEqual(['1', '2'])
+  })
+
   // Regression: the invoice fallback list stayed on the page-1 slice while the pager showed page 2.
   it('invoices latch to the unpaged list and show the table page', async () => {
     const listParams = { sortField: 'invoice_number', sortDirection: 'asc' as const }

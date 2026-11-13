@@ -38,6 +38,11 @@ export function useVehicleStockListState(queryParams: DataTableQueryParams) {
   if (infiniteMode) return cursorList
   return {
     rows: offsetList.data?.data ?? [],
-    tableProps: { pageCount: offsetList.data?.meta?.pageCount ?? 1, isLoading: offsetList.isLoading },
+    tableProps: {
+      pageCount: offsetList.data?.meta?.pageCount ?? 1,
+      isLoading: offsetList.isLoading,
+      isError: offsetList.isError,
+      onRetry: () => void offsetList.refetch(),
+    },
   }
 }

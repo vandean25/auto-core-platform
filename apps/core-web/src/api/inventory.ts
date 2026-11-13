@@ -3,7 +3,7 @@ import type { InventoryItem, InventoryResponse, InventoryTransaction } from './t
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
-import { completeOffsetLatchHandoff } from './cursor-recovery'
+import { readOffsetPage } from './cursor-recovery'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 type InventoryApiResponse = {
@@ -76,7 +76,7 @@ export function useInventory(
         queryKey: [...inventoryKeys.list(params)],
         enabled: options?.enabled ?? true,
         ...(options?.fresh ? { staleTime: 0 } : {}),
-        queryFn: async () => {
+        queryFn: () => readOffsetPage(offsetEpisodeKey, params.page, async () => {
             const searchParams = new URLSearchParams()
             const query = {
                 page: params.page,
@@ -96,12 +96,8 @@ export function useInventory(
                 throw new Error('Network response was not ok')
             }
             const payload = (await response.json()) as InventoryApiResponse
-            const normalized = normalizeInventoryResponse(payload)
-            if (offsetEpisodeKey && params.page === 1) {
-                completeOffsetLatchHandoff(offsetEpisodeKey)
-            }
-            return normalized
-        },
+            return normalizeInventoryResponse(payload)
+        }),
     })
 }
 

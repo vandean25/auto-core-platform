@@ -108,11 +108,23 @@ function isOffsetHandoffPending(semanticKey: string): boolean {
 }
 
 /** Called once the offset list has read page 1 after an unsupported-sort latch; lists then switch to the table page. */
-export function completeOffsetLatchHandoff(semanticKey: string) {
+function completeOffsetLatchHandoff(semanticKey: string) {
   const state = episodes.get(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
   if (!state?.offsetHandoffPending) return
   state.offsetHandoffPending = false
   publishHandoffChange()
+}
+
+/**
+ * Reads an offset page. Page 1 of a latched episode ends the handoff whether it succeeds or fails: after that attempt
+ * the list asks for the table page, so a failed page 1 cannot pin the list to an empty first page.
+ */
+export async function readOffsetPage<T>(offsetEpisodeKey: string | undefined, page: number | undefined, read: () => Promise<T>) {
+  try {
+    return await read()
+  } finally {
+    if (offsetEpisodeKey && page === 1) completeOffsetLatchHandoff(offsetEpisodeKey)
+  }
 }
 
 function subscribeOffsetHandoff(listener: () => void) {
