@@ -226,7 +226,7 @@ function createSnapshot(fixture: VisualFixture): InvoiceSnapshot {
 
 /**
  * Full-document Stornorechnung of the fixture invoice, mapped through the same adapter the credit-note
- * PDF path uses. Credit notes are unbranded, so the fixture branding is not carried over.
+ * PDF path uses, preserving the LegalEntity branding and logo.
  */
 function createCreditNoteRenderable(fixture: VisualFixture): InvoiceSnapshot {
   const original = createSnapshot({ ...fixture, documentKind: 'INVOICE' });

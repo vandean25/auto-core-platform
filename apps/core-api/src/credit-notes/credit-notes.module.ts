@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
+import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { InvoicePdfRenderer } from '../invoices/invoice-pdf.renderer.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { CreditNotePdfService } from './credit-note-pdf.service.js';
@@ -10,7 +11,7 @@ import {
 import { CreditNotesService } from './credit-notes.service.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule],
+  imports: [PrismaModule, CommonModule, DocumentBrandingModule],
   controllers: [CreditNotesController, InvoiceCreditNotesController],
   providers: [CreditNotesService, CreditNotePdfService, InvoicePdfRenderer],
   exports: [CreditNotesService],

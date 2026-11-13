@@ -28,6 +28,16 @@ export function toRenderableCreditNoteSnapshot(
 
   const localeFields = readDocumentSnapshotLocaleFields(snapshot);
 
+  const record = snapshot as Record<string, unknown>;
+  const templateVersion =
+    record.template_version === 'invoice-brand-v1'
+      ? ('invoice-brand-v1' as const)
+      : undefined;
+  const branding =
+    record.branding && typeof record.branding === 'object'
+      ? (record.branding as InvoiceSnapshot['branding'])
+      : undefined;
+
   return {
     id: creditNoteId,
     invoice_number: creditNumber,
@@ -52,6 +62,8 @@ export function toRenderableCreditNoteSnapshot(
     })),
     snapshot_created_at: snapshot.snapshot_created_at,
     schema_version: 2,
+    ...(templateVersion ? { template_version: templateVersion } : {}),
+    ...(branding ? { branding } : {}),
     seller: snapshot.seller,
     supply_date_from: snapshot.supply_date_from,
     supply_date_to: snapshot.supply_date_to,

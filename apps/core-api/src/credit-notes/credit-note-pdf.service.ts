@@ -1,7 +1,18 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DocumentBrandingAssetStorage } from '../document-branding/document-branding-asset-storage.js';
+import {
+  loadBrandLogoBytes,
+  resolveLegalEntityBrandingAndLogo,
+} from '../invoices/invoice-pdf-branding.helpers.js';
+import { INVOICE_BRANDED_TEMPLATE_VERSION } from '../invoices/invoice-snapshot-v2.js';
 import { InvoicePdfRenderer } from '../invoices/invoice-pdf.renderer.js';
 import { CloudTasksService, PdfStorage } from '../common/index.js';
 import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
@@ -40,6 +51,7 @@ export class CreditNotePdfService {
     private storage: PdfStorage,
     private cloudTasks: CloudTasksService,
     private tenantContext: TenantContextService,
+    @Optional() private brandingStorage?: DocumentBrandingAssetStorage,
   ) {}
 
   async requestGeneration(
@@ -175,11 +187,33 @@ export class CreditNotePdfService {
           );
         }
 
+        const { branding, logoPng } = snapshot.branding
+          ? {
+              branding: snapshot.branding,
+              logoPng: await loadBrandLogoBytes(
+                this.brandingStorage,
+                snapshot.branding.logo,
+              ),
+            }
+          : await resolveLegalEntityBrandingAndLogo(
+              this.prisma,
+              this.brandingStorage,
+              tenantId,
+              creditNote.legal_entity_id,
+            );
+        const renderSnapshot = branding
+          ? {
+              ...snapshot,
+              template_version: INVOICE_BRANDED_TEMPLATE_VERSION,
+              branding,
+            }
+          : snapshot;
+
         const key = creditNotePdfObjectKey(creditNoteId);
 
         try {
           const upload = await renderAndUploadPdf({
-            render: () => this.renderer.render(snapshot),
+            render: () => this.renderer.render(renderSnapshot, { logoPng }),
             upload: (pdf) =>
               this.storage.uploadPdf({
                 key,
@@ -396,6 +430,7 @@ export class CreditNotePdfService {
       select: {
         id: true,
         status: true,
+        legal_entity_id: true,
         credit_number: true,
         snapshot: true,
         pdf_storage_bucket: true,

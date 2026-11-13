@@ -599,13 +599,12 @@ export const buildInvoiceHtmlDocument = (
 `;
 };
 
-export const buildBrandedInvoiceHeaderTemplate = (
-  snapshot: InvoiceSnapshot,
+export const buildBrandedLetterheadHeaderTemplate = (
+  branding: InvoiceSnapshot['branding'] | undefined,
   logoDataUrl: string | null,
   escapeHtml: EscapeHtml,
   fontFaceCss = '',
 ): string => {
-  const branding = snapshot.branding;
   if (!branding) return '<div></div>';
   const { tokens } = branding;
   const bandColor =
@@ -632,6 +631,19 @@ export const buildBrandedInvoiceHeaderTemplate = (
     </div>
   </div>`;
 };
+
+export const buildBrandedInvoiceHeaderTemplate = (
+  snapshot: InvoiceSnapshot,
+  logoDataUrl: string | null,
+  escapeHtml: EscapeHtml,
+  fontFaceCss = '',
+): string =>
+  buildBrandedLetterheadHeaderTemplate(
+    snapshot.branding,
+    logoDataUrl,
+    escapeHtml,
+    fontFaceCss,
+  );
 
 export const buildInvoiceFooterTemplate = (
   invoiceNumber: string,

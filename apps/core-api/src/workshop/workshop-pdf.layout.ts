@@ -1,4 +1,12 @@
 import type { DisplayLanguage } from '@prisma/client';
+import {
+  createDocumentNumberFormatter,
+  type DocumentNumberFormatter,
+} from '../common/format/document-number-format.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  formatLocaleForDisplayLanguage,
+} from '../common/i18n/display-language.js';
 import type { PdfRenderMode } from '../common/i18n/pdf-render-mode.js';
 import { buildAuthoritativeGermanLegalNoticeHtml } from '../common/i18n/pdf-legal-notice.js';
 import {
@@ -143,10 +151,48 @@ export const buildWorkshopReportedIssueSection = (
   `;
 };
 
+function normalizeLineQuantity(
+  quantity:
+    | WorkshopOrderForPdf['tasks'][number]['line_items'][number]['quantity']
+    | null
+    | undefined,
+): string | number | null {
+  if (quantity === null || quantity === undefined) {
+    return null;
+  }
+  if (typeof quantity === 'number') {
+    return Number.isFinite(quantity) ? quantity : null;
+  }
+  const raw = (
+    typeof quantity === 'string' ? quantity : String(quantity)
+  ).trim();
+  const unquoted =
+    raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2
+      ? raw.slice(1, -1).trim()
+      : raw;
+  return unquoted === '' ? null : unquoted;
+}
+
+function formatLineQuantity(
+  quantity:
+    | WorkshopOrderForPdf['tasks'][number]['line_items'][number]['quantity']
+    | null
+    | undefined,
+  numbers: DocumentNumberFormatter,
+  escape: EscapeHtml,
+): string {
+  const normalized = normalizeLineQuantity(quantity);
+  if (normalized === null) {
+    return '—';
+  }
+  return escape(numbers.formatQuantity(normalized));
+}
+
 export const buildWorkshopTasksSection = (
   tasks: WorkshopOrderForPdf['tasks'],
   escape: EscapeHtml,
   copy: WorkshopPdfCopy,
+  documentLocale: DisplayLanguage = DEFAULT_DISPLAY_LANGUAGE,
 ): string => {
   if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
     return `
@@ -156,6 +202,10 @@ export const buildWorkshopTasksSection = (
       </div>
     `;
   }
+
+  const numbers = createDocumentNumberFormatter(
+    formatLocaleForDisplayLanguage(documentLocale),
+  );
 
   const tasksHtml = tasks
     .map((task) => {
@@ -183,7 +233,7 @@ export const buildWorkshopTasksSection = (
                   <td><span class="badge">${escape(line.type) || '—'}</span></td>
                   <td>${escape(line.item_no) || '—'}</td>
                   <td>${escape(line.description) || '—'}</td>
-                  <td style="text-align: right">${line.quantity != null ? escape(line.quantity) : '—'}</td>
+                  <td style="text-align: right">${formatLineQuantity(line.quantity, numbers, escape)}</td>
                 </tr>
               `,
                 )
@@ -287,7 +337,7 @@ export const buildWorkshopHtmlDocument = (
       </div>
 
       ${buildWorkshopReportedIssueSection(order.reported_issue, escape, copy)}
-      ${buildWorkshopTasksSection(order.tasks, escape, copy)}
+      ${buildWorkshopTasksSection(order.tasks, escape, copy, documentLocale)}
       ${
         order.check_in
           ? buildWorkshopCheckInSection(

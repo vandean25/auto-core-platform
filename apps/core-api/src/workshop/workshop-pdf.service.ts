@@ -1,8 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { WorkshopCheckInStatus, type DisplayLanguage } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DocumentBrandingAssetStorage } from '../document-branding/document-branding-asset-storage.js';
+import { resolveLegalEntityBrandingAndLogo } from '../invoices/invoice-pdf-branding.helpers.js';
+import type { InvoiceSnapshot } from '../invoices/invoice-snapshot.js';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
 import { CloudTasksService, PdfStorage } from '../common/index.js';
 import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
@@ -52,6 +60,7 @@ type OrderRowForPdfGeneration = {
   customer: WorkshopOrderForPdf['customer'];
   vehicle: WorkshopOrderForPdf['vehicle'];
   tasks: WorkshopOrderForPdf['tasks'];
+  site?: { legal_entity_id: string | null } | null;
   check_in: {
     id: string;
     status: WorkshopCheckInStatus;
@@ -72,6 +81,7 @@ export class WorkshopPdfService {
     private cloudTasks: CloudTasksService,
     private tenantContext: TenantContextService,
     private mediaStorage: MechanicMediaStorage,
+    @Optional() private brandingStorage?: DocumentBrandingAssetStorage,
   ) {}
 
   async requestGeneration(
@@ -164,6 +174,7 @@ export class WorkshopPdfService {
           loaded.order,
           resolvedTenantId,
           loaded.existingRenderInput,
+          loaded.legalEntityId,
         );
       },
     );
@@ -235,6 +246,7 @@ export class WorkshopPdfService {
   ): Promise<{
     order: WorkshopOrderForPdf;
     existingRenderInput: unknown;
+    legalEntityId: string | null;
   }> {
     const order = await this.prisma.client.workshopOrder.findFirst({
       where: { id: workshopOrderId, tenant_id: tenantId },
@@ -247,6 +259,7 @@ export class WorkshopPdfService {
         reported_issue: true,
         notes: true,
         pdf_render_input: true,
+        site: { select: { legal_entity_id: true } },
         customer: true,
         vehicle: true,
         tasks: {
@@ -273,6 +286,7 @@ export class WorkshopPdfService {
     return {
       order: await this.prepareOrderForPdfRender(order, tenantId),
       existingRenderInput: order.pdf_render_input,
+      legalEntityId: order.site?.legal_entity_id ?? null,
     };
   }
 
@@ -331,6 +345,7 @@ export class WorkshopPdfService {
     order: WorkshopOrderForPdf,
     tenantId: string,
     existingRenderInput: unknown,
+    legalEntityId: string | null = null,
   ): Promise<WorkshopPdfGeneratedResult> {
     const key = `workshop-orders/${order.id}.pdf`;
 
@@ -342,12 +357,20 @@ export class WorkshopPdfService {
           order,
           existingRenderInput,
         );
+      const { branding, logoPng } = await resolveLegalEntityBrandingAndLogo(
+        this.prisma,
+        this.brandingStorage,
+        tenantId,
+        legalEntityId,
+      );
       let renderedPdf: Buffer | null = null;
       const upload = await this.uploadRenderedPdf(
         order,
         key,
         documentLocale,
         renderMode,
+        branding,
+        logoPng,
         (pdf) => {
           renderedPdf = pdf;
         },
@@ -414,10 +437,18 @@ export class WorkshopPdfService {
     key: string,
     documentLocale: DisplayLanguage,
     renderMode: PdfRenderMode,
+    branding: InvoiceSnapshot['branding'] | undefined,
+    logoPng: Buffer | undefined,
     onRendered?: (pdf: Buffer) => void,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
-      render: () => this.renderer.render(order, { documentLocale, renderMode }),
+      render: () =>
+        this.renderer.render(order, {
+          documentLocale,
+          renderMode,
+          ...(branding ? { branding } : {}),
+          ...(logoPng ? { logoPng } : {}),
+        }),
       upload: (pdf) => {
         onRendered?.(pdf);
         return this.storage.uploadPdf({
