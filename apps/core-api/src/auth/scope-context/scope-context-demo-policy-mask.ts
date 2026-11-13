@@ -10,6 +10,7 @@ const SCOPE_CONTEXT_CONTRACTED_ROUTE_PREFIXES = [
   '/api/inventory',
   '/api/sales/invoices',
   '/api/vehicle-stock',
+  '/api/workshop/orders',
 ] as const;
 
 function demoRuleAffectsContractedRoutes(rule: string): boolean {

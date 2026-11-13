@@ -12,6 +12,16 @@ export const SCOPE_CONTEXT_ECHO_PATHS = [
   '/api/sales/invoices/capped-count',
   '/api/vehicle-stock',
   '/api/vehicle-stock/capped-count',
+  '/api/workshop/orders',
+  '/api/workshop/orders/capped-count',
+] as const;
+
+/** Echo paths whose plain GET is an offset list: the digest is echoed only in cursor mode. */
+export const SCOPE_CONTEXT_CURSOR_LIST_PATHS = [
+  '/api/inventory',
+  '/api/sales/invoices',
+  '/api/vehicle-stock',
+  '/api/workshop/orders',
 ] as const;
 
 export const SCOPE_CONTEXT_POLICY_OPERATION_IDS = [
@@ -21,4 +31,6 @@ export const SCOPE_CONTEXT_POLICY_OPERATION_IDS = [
   'SalesController.cappedCount',
   'VehicleStockController.list',
   'VehicleStockController.cappedCount',
+  'WorkshopOrdersController.findAll',
+  'WorkshopOrdersController.cappedCount',
 ] as const;

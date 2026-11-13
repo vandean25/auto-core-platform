@@ -320,6 +320,7 @@
     "LISTING_VEHICLE_NOT_IN_STOCK": "Der Fahrzeugbestandsstatus muss IN_STOCK sein, um ein Inserat zu aktivieren.",
     "LISTING_VEHICLE_NOT_USED": "Das Fahrzeug muss Händler-Gebrauchtwagenbestand sein, um ein Inserat zu aktivieren.",
     "LIST_CURSOR_INVALID": "Der Listen-Cursor ist ungültig oder passt nicht zu den aktuellen Filtern.",
+    "LIST_CURSOR_PARAM_FORBIDDEN": "Seitenparameter sind beim blockweisen Laden dieser Liste nicht erlaubt.",
     "LIST_CURSOR_SORT_UNSUPPORTED": "Diese Sortierung ist beim listenbasierten Paging nicht verfügbar.",
     "LIST_CURSOR_STOCK_FILTER_REQUIRED": "Für listenbasiertes Paging beim Fahrzeugbestand ist ein Bestandsstatus-Filter erforderlich (ohne Entwurfszeilen).",
     "LOANER_NOT_PERMITTED": "Ihre Rolle darf keinen Leihwagen reservieren.",

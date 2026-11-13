@@ -90,6 +90,11 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO,
     'site',
   ),
+  'WorkshopOrdersController.cappedCount': op(
+    'workshop.order.read',
+    BACK_OFFICE_DEMO,
+    'site',
+  ),
   'WorkshopOrdersController.findOne': op(
     'workshop.order.read',
     BACK_OFFICE_DEMO,

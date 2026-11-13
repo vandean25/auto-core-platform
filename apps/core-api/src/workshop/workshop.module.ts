@@ -21,6 +21,8 @@ import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
 import { WorkshopBoardService } from './workshop-board.service.js';
 import { WorkshopHolidayService } from './workshop-holiday.service.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopOrderListService } from './workshop-order-list.service.js';
+import { ScopeContextModule } from '../auth/scope-context/scope-context.module.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import { WorkshopEstimateController } from './workshop-estimate.controller.js';
 import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
@@ -77,6 +79,7 @@ import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-ca
 @Module({
   imports: [
     PrismaModule,
+    ScopeContextModule,
     InspectionCatalogModule,
     InspectionMeasurementModule,
     EffectiveCapabilitiesModule,
@@ -134,6 +137,7 @@ import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-ca
     WorkshopEstimatePdfService,
     WorkshopEstimatePdfRenderer,
     WorkshopIntakeService,
+    WorkshopOrderListService,
     WorkshopTaskService,
     WorkshopInspectionService,
     WorkshopCatalogLineService,

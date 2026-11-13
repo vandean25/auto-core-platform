@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -9,7 +10,15 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiHeader,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
+import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 import { RequireCapability } from '../common/country-pack/effective-capabilities.guard.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
@@ -18,7 +27,9 @@ import {
   FindAllWorkshopOrdersQueryDto,
   UpdateWorkshopOrderDto,
   UndoWorkshopOrderNotesDto,
+  WorkshopOrdersCappedCountQueryDto,
 } from './dto/index.js';
+import { WorkshopOrderListService } from './workshop-order-list.service.js';
 import {
   ApiWorkshopPaginationQueries,
   parsePaginationParams,
@@ -37,6 +48,7 @@ export class WorkshopOrdersController {
   constructor(
     private readonly intakeService: intake.WorkshopIntakeService,
     private readonly invoiceService: invoice.WorkshopInvoiceService,
+    private readonly orderList: WorkshopOrderListService,
   ) {}
 
   @Post('orders')
@@ -48,11 +60,36 @@ export class WorkshopOrdersController {
     return this.intakeService.create(dto);
   }
 
+  @Get('orders/capped-count')
+  @ApiOperation({
+    operationId: 'WorkshopController_cappedCount',
+    summary: 'Bounded match count for the workshop order list (ADR-0035)',
+  })
+  @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
+  @ApiOkResponse({ type: CappedListCountResponseDto })
+  cappedCount(
+    @Query() query: WorkshopOrdersCappedCountQueryDto,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+  ) {
+    return this.orderList.cappedListCount(query, scopeContext);
+  }
+
   @Get('orders')
   @ApiOperation({ operationId: 'WorkshopController_findAll' })
+  @ApiHeader({
+    name: SCOPE_CONTEXT_HEADER,
+    required: false,
+    description: 'Required in cursor mode (ADR-0038).',
+  })
   @ApiWorkshopPaginationQueries()
   @ApiWorkshopOrderPaginatedResponse()
-  findAll(@Query() query: FindAllWorkshopOrdersQueryDto) {
+  findAll(
+    @Query() query: FindAllWorkshopOrdersQueryDto,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+  ) {
+    if (query.pagination === 'cursor' || query.cursor) {
+      return this.orderList.findAllWithCursor(query, scopeContext);
+    }
     const pagination = parsePaginationParams(query.page, query.pageSize);
     return this.intakeService.findAll({
       search: query.search,

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
+import { WorkshopOrderListService } from './workshop-order-list.service.js';
 import { WorkshopOrdersController } from './workshop-orders.controller.js';
 import { asFake } from '../invoices/invoice-fixtures.spec.support.js';
 import { EffectiveCapabilitiesService } from '../common/country-pack/effective-capabilities.guard.js';
@@ -14,6 +15,7 @@ describe('WorkshopOrdersController', () => {
         { provide: WorkshopIntakeService, useValue: intakeService },
         { provide: WorkshopInvoiceService, useValue: {} },
         { provide: EffectiveCapabilitiesService, useValue: {} },
+        { provide: WorkshopOrderListService, useValue: {} },
       ],
     }).compile();
 

@@ -199,6 +199,8 @@ export const CANONICAL_EN_MESSAGES = {
     'This list cursor is invalid or does not match the current filters.',
   LIST_CURSOR_SORT_UNSUPPORTED:
     'Choose another sort or use page-based listing for this view.',
+  LIST_CURSOR_PARAM_FORBIDDEN:
+    'Page parameters are not allowed while this list loads in blocks.',
   LIST_CURSOR_STOCK_FILTER_REQUIRED:
     'Choose a stock status filter before using cursor pagination on vehicle stock.',
   LISTING_SERIALIZER_UNSUPPORTED:

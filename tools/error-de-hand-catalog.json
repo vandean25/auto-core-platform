@@ -271,6 +271,7 @@
   "INVOICE_SOURCE_OWNERSHIP_CHANGED": "Die Eigentümerschaft der Rechnungsquelle hat sich während der Buchung geändert.",
   "LIST_CURSOR_INVALID": "Der Listen-Cursor ist ungültig oder passt nicht zu den aktuellen Filtern.",
   "LIST_CURSOR_SORT_UNSUPPORTED": "Diese Sortierung ist beim listenbasierten Paging nicht verfügbar.",
+  "LIST_CURSOR_PARAM_FORBIDDEN": "Seitenparameter sind beim blockweisen Laden dieser Liste nicht erlaubt.",
   "LIST_CURSOR_STOCK_FILTER_REQUIRED": "Für listenbasiertes Paging beim Fahrzeugbestand ist ein Bestandsstatus-Filter erforderlich (ohne Entwurfszeilen).",
   "KEYS_COMPLETE": "Schlüssel vollständig.",
   "LABOR_CATEGORY_UNKNOWN": "Die Arbeitskategorie wurde nicht gefunden. Bitte prüfen Sie die Kategorie; der Import erfolgt ohne Kategorie.",

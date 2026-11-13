@@ -6,6 +6,7 @@ export const LIST_CURSOR_ENDPOINT = {
   vehicleStock: 'vehicle-stock',
   inventory: 'inventory',
   invoices: 'invoices',
+  workshopOrders: 'workshop-orders',
 } as const;
 
 export type ListCursorEndpointId =
@@ -16,6 +17,8 @@ export const LIST_CURSOR_SORT_UNSUPPORTED_CODE =
   'LIST_CURSOR_SORT_UNSUPPORTED' as const;
 export const LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE =
   'LIST_CURSOR_STOCK_FILTER_REQUIRED' as const;
+export const LIST_CURSOR_PARAM_FORBIDDEN_CODE =
+  'LIST_CURSOR_PARAM_FORBIDDEN' as const;
 
 export const LIST_COUNT_CAP = 1000 as const;
 export const LIST_COUNT_PROBE_TAKE = 1001 as const;
