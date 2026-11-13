@@ -62,6 +62,8 @@ const sessionData = {
   activeTenant: { id: 't1', name: 'Test', slug: 'test' },
   activeRole: 'ADMIN' as const,
   memberships: [],
+  // AUT-979: without a session site the shell waits for the site list and then asks for a site.
+  activeSiteId: 'site-1',
 }
 
 describe('App authenticated unknown routes (AUT-222)', () => {

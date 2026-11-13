@@ -6,6 +6,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SetActiveSiteDto } from './dto/site.dto.js';
+import { withLastSiteId } from './site-restore.js';
 import { resolveSiteContextUser } from './site-session.user.js';
 
 export class SiteSessionService {
@@ -55,9 +56,21 @@ export class SiteSessionService {
     const user = await this.requireSiteContextUser(tenantId);
 
     if (dto.siteId === null) {
+      // AUT-979: a cleared site is no longer the tenant's last site (the only-site rule may still pick it).
+      const current = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { last_site_by_tenant: true },
+      });
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { active_site_id: null },
+        data: {
+          active_site_id: null,
+          last_site_by_tenant: withLastSiteId(
+            current?.last_site_by_tenant,
+            tenantId,
+            null,
+          ),
+        },
       });
       this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
       return { activeSiteId: null };
@@ -100,9 +113,21 @@ export class SiteSessionService {
         );
       }
 
+      // AUT-979: a later tenant switch back to this tenant restores this site.
+      const current = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { last_site_by_tenant: true },
+      });
       await tx.user.update({
         where: { id: user.id },
-        data: { active_site_id: targetSiteId },
+        data: {
+          active_site_id: targetSiteId,
+          last_site_by_tenant: withLastSiteId(
+            current?.last_site_by_tenant,
+            tenantId,
+            targetSiteId,
+          ),
+        },
       });
     });
 

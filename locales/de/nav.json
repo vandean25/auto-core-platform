@@ -105,7 +105,10 @@
     "currentSite": "Aktueller Standort",
     "switchSite": "Standort wechseln",
     "noActiveSite": "Kein aktiver Standort",
-    "activateSite": "{{name}} aktivieren"
+    "activateSite": "{{name}} aktivieren",
+    "chooseSite": "Standort wählen",
+    "noSiteAvailable": "Kein Standort freigegeben.",
+    "sitesLoadFailed": "Standorte nicht geladen."
   },
   "glossaryHints": {
     "sectionLabel": "Fachbegriffe"

@@ -176,7 +176,8 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await routeSession(page, state, () => ({
       activeTenant: TENANT_B,
       activeRole: 'ADMIN',
-      activeSiteId: null,
+      // AUT-979: tenant B's only site is active after the switch, as the API now does.
+      activeSiteId: SITE_B.id,
     }))
     await routeSwitchEndpoint(
       page,
@@ -257,7 +258,8 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await routeSession(page, state, () => ({
       activeTenant: TENANT_B,
       activeRole: 'ADMIN',
-      activeSiteId: null,
+      // AUT-979: tenant B's only site is active after the switch, as the API now does.
+      activeSiteId: SITE_B.id,
     }))
     await routeCustomerListAfterSwitch(page, state, customersGate.promise)
 

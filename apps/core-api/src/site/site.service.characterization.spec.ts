@@ -91,13 +91,23 @@ describe('SiteService characterization', () => {
     it('clears active_site_id and emits a null site context', async () => {
       wireActiveUser();
       harness.prisma.user.update.mockResolvedValue({ id: 'u-1' });
+      harness.prisma.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        firebaseUid: 'fb-admin',
+        active_site_id: 'site-old',
+        last_site_by_tenant: { [TENANT_ID]: 'site-old', 'other-tenant': 'site-x' },
+      });
 
       const result = await service.setActiveSite({ siteId: null });
 
       expect(result).toEqual({ activeSiteId: null });
+      // AUT-979: a cleared site must not come back on the next tenant switch.
       expect(harness.prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u-1' },
-        data: { active_site_id: null },
+        data: {
+          active_site_id: null,
+          last_site_by_tenant: { 'other-tenant': 'site-x' },
+        },
       });
       expect(harness.dashboardRealtime.emitSiteContextUpdated).toHaveBeenCalledWith(
         'fb-admin',
@@ -111,11 +121,26 @@ describe('SiteService characterization', () => {
       harness.prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
       harness.prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
       harness.prisma.user.update.mockResolvedValue({ id: 'u-1' });
+      // Same row for the session lookup and the read inside the transaction.
+      harness.prisma.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        firebaseUid: 'fb-admin',
+        active_site_id: 'site-old',
+        last_site_by_tenant: { 'other-tenant': 'site-x' },
+      });
 
       const result = await service.setActiveSite({ siteId: 'site-2' });
 
       expect(result).toEqual({ activeSiteId: 'site-2' });
       expect(harness.prisma.$transaction).toHaveBeenCalled();
+      // AUT-979: without this entry a tenant switch cannot restore the site; other tenants' entries stay.
+      expect(harness.prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u-1' },
+        data: {
+          active_site_id: 'site-2',
+          last_site_by_tenant: { 'other-tenant': 'site-x', [TENANT_ID]: 'site-2' },
+        },
+      });
       expect(harness.dashboardRealtime.emitSiteContextUpdated).toHaveBeenCalledWith(
         'fb-admin',
         'site-2',

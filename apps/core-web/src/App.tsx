@@ -15,6 +15,7 @@ import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFaile
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
 import { ShellPurgePrompt, type CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
 import { ClientSessionLoadingScreen } from '@/components/shell/ClientSessionLoadingScreen'
+import { ActiveSiteGateProvider, ActiveSiteOutlet } from '@/components/shell/ActiveSiteGate'
 import { useUserChangeOfflinePurge } from '@/components/shell/use-user-change-purge-prompt'
 import { PushLinkGate, useShellPush, useSignOutRequest, useTenantSwitch } from '@/components/shell/use-shell-push'
 import { MechanicShell } from '@/components/shell/MechanicShell'
@@ -71,7 +72,9 @@ function AppMain() {
         <PageContainerWithBreadcrumbs>
           <InvoiceDraftEditorNavigationHost />
           <GlobalErrorBoundary>
-            <AppRoutes />
+            <ActiveSiteOutlet>
+              <AppRoutes />
+            </ActiveSiteOutlet>
           </GlobalErrorBoundary>
         </PageContainerWithBreadcrumbs>
       </PageBreadcrumbsProvider>
@@ -326,6 +329,12 @@ function AuthenticatedShell({
     switchSite: switchSiteMutation.mutateAsync,
   })
 
+  const switchSite = (siteId: string) => {
+    switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
+      toast.error(shellSwitchSiteFailedMessage(error))
+    })
+  }
+
   // While a tenant or site switch is in flight the records of the old context would still be on screen.
   if (switchTenantMutation.isPending || switchSiteMutation.isPending) {
     return <ClientSessionLoadingScreen />
@@ -334,30 +343,37 @@ function AuthenticatedShell({
   return (
     <>
       <PushLinkGate resolving={pushLink.resolving}>
-        <ShellRouter
-          userId={user.uid}
-          userEmail={user.email}
-          platformRole={session.platformRole ?? null}
-          activeTenant={session.activeTenant}
-          activeRole={session.activeRole}
-          memberships={session.memberships}
+        <ActiveSiteGateProvider
           activeSiteId={session.activeSiteId}
           sites={mySitesQuery.data ?? []}
-          isLoadingSites={mySitesQuery.isLoading}
-          isSwitchingTenant={switchTenantMutation.isPending}
-          isSwitchingSite={switchSiteMutation.isPending}
-          onSwitchTenant={(tenantId) => {
-            void requestTenantSwitch(tenantId)
+          sitesLoading={mySitesQuery.isLoading}
+          sitesFailed={mySitesQuery.isError}
+          onPickSite={switchSite}
+          onRetrySites={() => {
+            void mySitesQuery.refetch()
           }}
-          onSwitchSite={(siteId) => {
-            switchSiteMutation.mutateAsync(siteId).catch((error: unknown) => {
-              toast.error(shellSwitchSiteFailedMessage(error))
-            })
-          }}
-          onSignOut={() => {
-            void requestSignOut()
-          }}
-        />
+        >
+          <ShellRouter
+            userId={user.uid}
+            userEmail={user.email}
+            platformRole={session.platformRole ?? null}
+            activeTenant={session.activeTenant}
+            activeRole={session.activeRole}
+            memberships={session.memberships}
+            activeSiteId={session.activeSiteId}
+            sites={mySitesQuery.data ?? []}
+            isLoadingSites={mySitesQuery.isLoading}
+            isSwitchingTenant={switchTenantMutation.isPending}
+            isSwitchingSite={switchSiteMutation.isPending}
+            onSwitchTenant={(tenantId) => {
+              void requestTenantSwitch(tenantId)
+            }}
+            onSwitchSite={switchSite}
+            onSignOut={() => {
+              void requestSignOut()
+            }}
+          />
+        </ActiveSiteGateProvider>
       </PushLinkGate>
       {purgePrompt && (
         <ShellPurgePrompt

@@ -309,6 +309,8 @@ model User {
   active_tenant_id                  String?
   activeTenant                      Tenant?                      @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
   active_site_id                    String?
+  /// AUT-979 last active site per tenant, `{ [tenantId]: siteId }`. A preference, not access: restore re-checks membership.
+  last_site_by_tenant               Json?
   /// AUT-576 self UI language; null follows the active tenant default.
   locale                            DisplayLanguage?
   memberships                       TenantMember[]
