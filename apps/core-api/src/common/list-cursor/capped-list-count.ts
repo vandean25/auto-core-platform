@@ -64,10 +64,13 @@ export async function cappedInvoiceListCount(
  */
 export async function cappedWorkshopOrderListCount(
   db: Pick<Prisma.TransactionClient, 'workshopOrder'>,
+  scope: { tenantId: string; siteId: string },
   where: Prisma.WorkshopOrderWhereInput,
 ): Promise<CappedListCountResult> {
   const rows = await db.workshopOrder.findMany({
-    where,
+    where: {
+      AND: [where, { tenant_id: scope.tenantId, site_id: scope.siteId }],
+    },
     select: { id: true },
     take: LIST_COUNT_PROBE_TAKE,
   });

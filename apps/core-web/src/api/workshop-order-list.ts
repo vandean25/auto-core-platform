@@ -88,6 +88,7 @@ export function useWorkshopOrderListState(queryParams: DataTableQueryParams) {
   )
   if (infiniteMode) {
     return {
+      infinite: true,
       orders: cursorList.rows,
       isError: cursorList.tableProps.isError,
       dataUpdatedAt: cursorList.dataUpdatedAt,
@@ -95,6 +96,7 @@ export function useWorkshopOrderListState(queryParams: DataTableQueryParams) {
     }
   }
   return {
+    infinite: false,
     orders: scope.hidden ? NO_ORDERS : offsetList.data?.data,
     isError: offsetList.isError,
     dataUpdatedAt: offsetList.dataUpdatedAt,

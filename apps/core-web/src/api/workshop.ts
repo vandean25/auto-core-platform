@@ -636,6 +636,8 @@ export const useCreateWorkshopOrder = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+      // The infinite list never refetches by itself: invalidation offers "Liste aktualisieren" (ADR-0035 §7).
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orderCursorLists() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.planner() })
     },
   })

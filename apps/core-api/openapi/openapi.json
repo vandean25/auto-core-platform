@@ -5760,10 +5760,28 @@
         "operationId": "WorkshopController_findAll",
         "parameters": [
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page (implies cursor mode).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "customerId",
             "required": false,
             "in": "query",
             "description": "When set, only orders for this customer are returned (open workshop statuses only).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Cursor mode only. Default 50, maximum 100.",
             "schema": {
               "type": "string"
             }
@@ -5786,6 +5804,19 @@
             "schema": {
               "type": "integer",
               "minimum": 1
+            }
+          },
+          {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (ADR-0035). Omit or `offset` keeps the page/pageSize contract. Cursor mode needs the X-ACP-Scope-Context header and rejects `page` / `pageSize`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
             }
           },
           {
@@ -5818,6 +5849,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5826,19 +5866,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "allOf": [
+                  "oneOf": [
                     {
-                      "$ref": "#/components/schemas/PaginatedResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/WorkshopOrderResponseDto"
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/PaginatedResponseDto"
+                        },
+                        {
+                          "properties": {
+                            "data": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/WorkshopOrderResponseDto"
+                              }
+                            }
                           }
                         }
-                      }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkshopOrderCursorPageResponseDto"
                     }
                   ]
                 }
@@ -5847,6 +5894,55 @@
           }
         },
         "summary": "",
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/capped-count": {
+      "get": {
+        "operationId": "WorkshopController_cappedCount",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "description": "Same customer restriction as the list (open workshop statuses only).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Same search as the workshop order list",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for the workshop order list (ADR-0035)",
         "tags": [
           "Workshop"
         ]
@@ -27173,6 +27269,24 @@
           "tasks",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "WorkshopOrderCursorPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOrderResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListCursorPageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "UpdateWorkshopOrderDto": {

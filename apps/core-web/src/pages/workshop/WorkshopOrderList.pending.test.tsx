@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
 import { workshopKeys } from '@/api/workshop'
+import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { deWorkshop } from '@/test/de-workshop'
@@ -77,6 +78,9 @@ function installFakeServer() {
     if (target.startsWith('/api/workshop/search')) {
       return httpResponse(200, { data: { vehicles: [vehicle], customers: [] } })
     }
+    if (target.startsWith('/api/workshop/orders/capped-count')) {
+      return httpResponse(200, { count: server.orders.length, isCapped: false })
+    }
     if (target.startsWith('/api/workshop/orders')) {
       if (init?.method === 'POST') {
         server.postBodies.push(JSON.parse(String(init.body)))
@@ -97,13 +101,16 @@ function installFakeServer() {
   })
 }
 
-function renderList() {
+/** The order-number sort keeps the paged offset list, whose refetch lifecycle these tests cover (AUT-956). */
+const OFFSET_LIST = '/workshop/orders?sortField=orderNo&sortDirection=asc'
+
+function renderList(initialEntry = OFFSET_LIST) {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
       <SavedViewsProvider userKey="test-user">
         <DashboardWidgetsProvider userKey="test-user">
-          <MemoryRouter initialEntries={['/workshop/orders']}>
+          <MemoryRouter initialEntries={[initialEntry]}>
             <Routes>
               <Route path="/workshop/orders" element={<WorkshopOrderList />} />
               <Route path="/workshop/orders/:id" element={<h1>Order detail route</h1>} />
@@ -414,5 +421,31 @@ describe('WorkshopOrderList first load', () => {
     observer.disconnect()
     expect(skeletonSeen).toBe(false)
     expect(screen.getByText('WO-2026-0001')).toBeInTheDocument()
+  })
+})
+
+describe('WorkshopOrderList infinite mode create (AUT-956)', () => {
+  let restoreLayout: () => void
+  beforeEach(() => {
+    restoreLayout = mockListLayout()
+  })
+  afterEach(() => restoreLayout())
+  afterAll(settleVirtualizerTimers)
+
+  // Regression: the infinite list never refetches after a create, so the settled row kept its pending marker for good.
+  it('drops the settled pending row and offers "Liste aktualisieren" without refetching the list', async () => {
+    server.orders = [serverOrder('order-old', 'WO-2026-0001')]
+    renderList('/workshop/orders')
+    expect(await screen.findByText('WO-2026-0001')).toBeInTheDocument()
+    const listGets = server.orderListGets
+
+    server.postGate = deferred<Response>()
+    await submitIntake()
+    expect(pendingRows()).toHaveLength(1)
+
+    server.postGate.resolve(httpResponse(201, serverOrder('order-new', 'WO-2026-0100')))
+    await waitFor(() => expect(pendingRows()).toHaveLength(0))
+    expect(await screen.findByRole('button', { name: deCommon.dataTable.refreshList })).toBeInTheDocument()
+    expect(server.orderListGets).toBe(listGets)
   })
 })

@@ -63,7 +63,9 @@ export class WorkshopOrderListService {
         {
           findMany: (where, orderBy, take) =>
             tx.workshopOrder.findMany({
-              where,
+              where: {
+                AND: [where, { tenant_id: user.tenantId, site_id: siteId }],
+              },
               include: ORDER_WITH_RELATIONS,
               orderBy,
               take,
@@ -86,6 +88,7 @@ export class WorkshopOrderListService {
     return this.scopeContext.read(user, scopeContextHeader, ({ tx, siteId }) =>
       cappedWorkshopOrderListCount(
         tx,
+        { tenantId: user.tenantId, siteId },
         buildWorkshopOrderListWhere(user.tenantId, siteId, query),
       ),
     );

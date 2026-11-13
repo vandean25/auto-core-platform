@@ -275,17 +275,17 @@ export async function executeFindAllWorkshopOrders(
     params.sortField,
     params.sortDirection,
   );
-  const scopedWhere = buildWorkshopOrderListWhere(tenantId, siteId, params);
-
   const [data, total] = await Promise.all([
     prisma.workshopOrder.findMany({
-      where: scopedWhere,
+      where: buildWorkshopOrderListWhere(tenantId, siteId, params),
       include: ORDER_WITH_RELATIONS,
       skip,
       take: pageSize,
       orderBy,
     }),
-    prisma.workshopOrder.count({ where: scopedWhere }),
+    prisma.workshopOrder.count({
+      where: buildWorkshopOrderListWhere(tenantId, siteId, params),
+    }),
   ]);
 
   return {
