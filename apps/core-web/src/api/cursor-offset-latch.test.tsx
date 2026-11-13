@@ -114,21 +114,18 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
 
   // Regression: with the app's 5-minute stale time a cached page 1 was never re-read, so the handoff never
   // completed and the rows stayed on page 1 while the pager showed the table page.
-  it.each(offsetPagedLists)(
-    '$name reads a fresh cached page 1 once on latch, then shows the table page',
-    async ({ path, rowPrefix, useList, pageOneKey }) => {
-      mockOffsetPagedList(path, rowPrefix)
-      const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5 * 60_000 } } })
-      client.setQueryData(pageOneKey, {
-        data: [{ id: `${rowPrefix}-cached` }],
-        meta: { total: 2, page: 1, pageSize: 10, pageCount: 2 },
-      })
-      const { result } = renderHook(() => useList(2), { wrapper: wrapper(client) })
+  it.each(offsetPagedLists)('$name reads a fresh cached page 1 once on latch, then shows the table page', async ({ path, rowPrefix, useList, pageOneKey }) => {
+    mockOffsetPagedList(path, rowPrefix)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5 * 60_000 } } })
+    client.setQueryData(pageOneKey, {
+      data: [{ id: `${rowPrefix}-cached` }],
+      meta: { total: 2, page: 1, pageSize: 10, pageCount: 2 },
+    })
+    const { result } = renderHook(() => useList(2), { wrapper: wrapper(client) })
 
-      await waitFor(() => expect(offsetPagesRequested(path)[0]).toBe('1'))
-      await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
-    },
-  )
+    await waitFor(() => expect(offsetPagesRequested(path)[0]).toBe('1'))
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
+  })
 
   // Regression: the invoice fallback list stayed on the page-1 slice while the pager showed page 2.
   it('invoices latch to the unpaged list and show the table page', async () => {
