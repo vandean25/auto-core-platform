@@ -234,6 +234,31 @@ function retryControls(list: RetryableQuery & { isFetchNextPageError: boolean },
   }
 }
 
+/** What the scope client and the recovery episode allow this list to fetch and show. */
+function useCursorListGate(semanticEpisodeKey: string, enabled: boolean) {
+  const scopeReady = useScopeContextReady()
+  const quarantined = useScopeContextQuarantined()
+  const explicitRefreshRequired = useScopeExplicitRefreshRequired()
+  const offsetLatch = isOffsetLatchedForEpisode(semanticEpisodeKey)
+  const authBlocked = isAuthBlockedForEpisode(semanticEpisodeKey)
+  const hidden = quarantined || authBlocked
+  return {
+    offsetLatch,
+    hidden,
+    /** No retry controls: a retry would resend the same request. */
+    retryBlocked: hidden || explicitRefreshRequired,
+    queryEnabled: enabled && scopeReady && !offsetLatch && !hidden,
+    // Before the first handshake, and while quarantined, the rows are not an empty result: keep the skeleton.
+    waitingForScope: enabled && (!scopeReady || quarantined),
+  }
+}
+
+/** Keeps the previous rows as placeholder only within one scope digest. */
+function placeholderWithinDigest<TData>(scopedListKey: QueryKey) {
+  return (previousData: TData | undefined, previousQuery: { queryKey: QueryKey } | undefined) =>
+    previousQuery?.queryKey.at(-1) === scopedListKey.at(-1) ? previousData : undefined
+}
+
 function scopeScopedKey(base: QueryKey, digest: string | undefined): QueryKey {
   if (!digest) return base
   return [...base, digest] as const
@@ -255,14 +280,10 @@ export function useCursorList<TRow extends { id: string }>({
 }: CursorListOptions) {
   const queryClient = useQueryClient()
   const digest = useScopeContextDigest()
-  const scopeReady = useScopeContextReady()
-  const quarantined = useScopeContextQuarantined()
-  const explicitRefreshRequired = useScopeExplicitRefreshRequired()
-  const offsetLatch = isOffsetLatchedForEpisode(semanticEpisodeKey)
+  const gate = useCursorListGate(semanticEpisodeKey, enabled)
+  const queryEnabled = gate.queryEnabled
   const scopedListKey = useMemo(() => scopeScopedKey(listKey, digest), [digest, listKey])
   const scopedCountKey = useMemo(() => scopeScopedKey(countKey, digest), [digest, countKey])
-  const authBlocked = isAuthBlockedForEpisode(semanticEpisodeKey)
-  const queryEnabled = enabled && scopeReady && !offsetLatch && !quarantined && !authBlocked
 
   const list = useInfiniteQuery<
     CursorListPage<TRow>,
@@ -274,12 +295,7 @@ export function useCursorList<TRow extends { id: string }>({
     ...infiniteListQueryOptions(scopedCountKey),
     queryKey: scopedListKey,
     enabled: queryEnabled,
-    placeholderData: (previousData, previousQuery) => {
-      const prevDigest = previousQuery?.queryKey.at(-1)
-      const nextDigest = scopedListKey.at(-1)
-      if (prevDigest !== nextDigest) return undefined
-      return previousData
-    },
+    placeholderData: placeholderWithinDigest<InfiniteData<CursorListPage<TRow>, string | undefined>>(scopedListKey),
     initialPageParam: undefined as string | undefined,
     retry: cursorQueryShouldRetry,
     queryFn: ({ pageParam, signal }) =>
@@ -311,28 +327,26 @@ export function useCursorList<TRow extends { id: string }>({
       }),
   })
 
-  const rows = useMemo(() => {
-    if (quarantined || authBlocked) return []
-    return list.data?.pages.flatMap((page) => page.data) ?? []
-  }, [list.data, quarantined, authBlocked])
-  const retry = retryControls(list, count, authBlocked || quarantined || explicitRefreshRequired)
+  const rows = useMemo(
+    () => (gate.hidden ? [] : (list.data?.pages.flatMap((page) => page.data) ?? [])),
+    [list.data, gate.hidden],
+  )
+  const retry = retryControls(list, count, gate.retryBlocked)
   const tableProps = {
-    // Before the first handshake the query is disabled and idle; keep the skeleton instead of "Keine Ergebnisse.".
-    // While quarantined the rows are hidden too: skeleton, not an empty result.
-    isLoading: list.isLoading || (enabled && (!scopeReady || quarantined)),
+    isLoading: list.isLoading || gate.waitingForScope,
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
     isError: retry.isError,
     onRetry: retry.onRetry,
     hasUsableData: rows.length > 0,
-    scopeOffsetLatch: offsetLatch,
+    scopeOffsetLatch: gate.offsetLatch,
     infinite: {
       queryKey: scopedListKey,
       hasNextPage: list.hasNextPage,
       isFetchingNextPage: list.isFetchingNextPage,
       isFetchNextPageError: list.isFetchNextPageError,
       fetchNextPage: list.fetchNextPage,
-      totalCount: authBlocked || quarantined ? undefined : count.data,
+      totalCount: gate.hidden ? undefined : count.data,
       isCountError: retry.isCountError,
       retryCount: retry.retryCount,
     },
