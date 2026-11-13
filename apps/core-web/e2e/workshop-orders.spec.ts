@@ -2,6 +2,9 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
+import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock'
+import { pageOverflow } from './utils/phone-layout'
+import { DE_COMMON } from './helpers/de-common'
 import { DE_WORKSHOP } from './helpers/de-workshop'
 import { expectListPeekForRecord, openListPeekInFull } from './helpers/peek-list'
 
@@ -17,13 +20,7 @@ test.describe('Workshop Orders list', () => {
       order_number: 'WO-2026-0310',
     })
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([order])),
-      })
-    })
+    await mockCursorList(page, { path: '/api/workshop/orders', rows: [order] })
 
     await corePage.navigate('/workshop/orders')
     await expect(corePage.dataTable).toBeVisible()
@@ -47,13 +44,7 @@ test.describe('Workshop Orders list', () => {
       },
     })
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([order])),
-      })
-    })
+    await mockCursorList(page, { path: '/api/workshop/orders', rows: [order] })
 
     await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
       await route.fulfill({
@@ -92,13 +83,7 @@ test.describe('Workshop Orders list', () => {
       order_number: 'WO-2026-0295',
     })
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(createMockListResponse([order])),
-      })
-    })
+    await mockCursorList(page, { path: '/api/workshop/orders', rows: [order] })
 
     await corePage.navigate('/workshop/orders')
 
@@ -140,5 +125,38 @@ test.describe('Workshop Orders list', () => {
     await page.waitForLoadState('networkidle')
 
     expect(meSitesRequests).toBe(1)
+  })
+
+  test.describe('at 375px', () => {
+    test.use({ viewport: { width: 375, height: 812 } })
+
+    // Scenario 5 (AUT-956): the default sort scrolls in blocks of 50 instead of pages; regression = page buttons or a
+    // second block that never loads on a phone.
+    test('infinite next block', async ({ page }) => {
+      const orders = Array.from({ length: 60 }, (_, index) =>
+        createMockWorkshopOrder({
+          id: `workshop-order-infinite-${index}`,
+          order_number: `WO-2026-${String(1000 + index)}`,
+        }),
+      )
+      const requests = await mockCursorList(page, { path: '/api/workshop/orders', rows: orders })
+
+      await new AutoCorePage(page, 'Order').navigate('/workshop/orders')
+      await expect(page.locator('li[data-table-row="true"]').first()).toBeVisible()
+      await expect(page.getByTestId('data-table-count')).toHaveText('60 Treffer')
+      expect(Object.fromEntries(requests.list[0].searchParams)).toEqual({ pagination: 'cursor', limit: '50' })
+      await expect(page.getByRole('combobox', { name: DE_COMMON.dataTable.rowsPerPageAria })).toHaveCount(0)
+
+      const loadMore = page.getByRole('button', { name: DE_COMMON.dataTable.infinite.loadMore })
+      await expect(loadMore).toBeVisible()
+      expect((await loadMore.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(await pageOverflow(page)).toBe(0)
+
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        expect(requestedBlocks(requests).has('offset:50')).toBe(true)
+      }).toPass()
+      await expect(page.getByText('WO-2026-1059')).toBeAttached()
+    })
   })
 })

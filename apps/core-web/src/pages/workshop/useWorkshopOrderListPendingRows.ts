@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { useCreateWorkshopOrder, useWorkshopOrders } from '@/api/workshop'
+import { useCreateWorkshopOrder } from '@/api/workshop'
+import type { WorkshopOrder } from '@/api/types'
 import {
   createPendingWorkshopOrder,
   type PendingOrderFailure,
@@ -14,13 +15,12 @@ import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 import { useRetainedQueryData } from '@/hooks/useRetainedQueryData'
 import { formatDate } from '@/lib/format'
 
-type OrdersPage = ReturnType<typeof useWorkshopOrders>['data']
-
-export function useWorkshopOrderListRows(responseData: OrdersPage, isError: boolean, dataUpdatedAt = 0) {
-  const retained = useRetainedQueryData(responseData)
-  const visibleResponse = retained.data
+/** `orders` are the server rows of the active list mode (offset page or loaded infinite blocks). */
+export function useWorkshopOrderListRows(orders: WorkshopOrder[] | undefined, isError: boolean, dataUpdatedAt = 0) {
+  const retained = useRetainedQueryData(orders)
+  const visibleOrders = retained.data
   const loadedRows = useMemo<WorkshopOrderListRow[]>(() => {
-    const source = visibleResponse?.data ?? []
+    const source = visibleOrders ?? []
     return source.map((order) => ({
       id: order.id,
       orderNo: order.order_number ?? order.id,
@@ -29,10 +29,9 @@ export function useWorkshopOrderListRows(responseData: OrdersPage, isError: bool
       openedAt: formatDate(order.createdAt),
       status: order.status,
     }))
-  }, [visibleResponse])
+  }, [visibleOrders])
   const pending = useWorkshopOrderListPendingRows(loadedRows, dataUpdatedAt)
   return {
-    visibleResponse,
     /** Server rows only. Row actions and shortcuts must never see the client-side ids of pending rows. */
     loadedRows,
     showingStaleError: isError && retained.isRetained,

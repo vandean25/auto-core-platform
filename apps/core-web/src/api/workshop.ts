@@ -18,6 +18,8 @@ import type {
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import type { ApiErrorBody } from './api-error'
 import { buildDataTableUrl } from './data-table-query'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
+import { readOffsetPage } from './cursor-recovery'
 import { laborKeys } from './labor'
 import { DETAIL_PREFETCH_GC_MS } from '@/lib/intent-prefetch'
 import { isWorkshopTaskStatusUpdateOptimisticEligible } from '@/features/interaction/workshop-task-update-eligibility'
@@ -55,6 +57,12 @@ export const workshopKeys = {
   all: ['workshop'] as const,
   orders: () => [...workshopKeys.all, 'orders'] as const,
   ordersPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.orders(), queryParams] as const,
+  /** ADR-0035 infinite order list; its own family so an offset refresh never restarts the cursor chain. */
+  orderCursorLists: () => [...workshopKeys.all, 'orders-cursor'] as const,
+  orderCursorList: (params: Record<string, string | undefined>) =>
+    [...workshopKeys.orderCursorLists(), params] as const,
+  orderCappedCount: (filters: Record<string, string | undefined>) =>
+    [...workshopKeys.all, 'orders-capped-count', filters] as const,
   pickList: () => [...workshopKeys.all, 'pick-list'] as const,
   pickListPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.pickList(), queryParams] as const,
   detail: (id: string) => [...workshopKeys.all, 'order', id] as const,
@@ -342,7 +350,7 @@ type RawWorkshopTask = Omit<WorkshopTask, 'lineItems' | 'mechanicNotes'> & {
   mechanic_notes?: string | null
 }
 
-type RawWorkshopOrder = Omit<WorkshopOrder, 'tasks'> & {
+export type RawWorkshopOrder = Omit<WorkshopOrder, 'tasks'> & {
   tasks?: RawWorkshopTask[]
   orderNumber?: string
   reportedIssue?: string
@@ -367,7 +375,7 @@ function normalizeTask(task: RawWorkshopTask): WorkshopTask {
   }
 }
 
-function normalizeOrder(order: RawWorkshopOrder): WorkshopOrder {
+export function normalizeOrder(order: RawWorkshopOrder): WorkshopOrder {
   return {
     ...order,
     order_number: order.order_number ?? order.orderNumber ?? order.id,
@@ -453,13 +461,23 @@ async function fetchWorkshopOrdersPage(queryParams: DataTableQueryParams): Promi
   }
 }
 
-export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
+/** Old links and saved views put the search into these filters; the offset and the cursor list read them alike. */
+export const WORKSHOP_ORDER_SEARCH_FILTER_FIELDS = ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate']
+
+export function useWorkshopOrders(
+  queryParams?: DataTableQueryParams,
+  /** Order list only: offset fallback under the scope gate (`scopeDigest`) and the offset-latch handoff (ADR-0038). */
+  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
+) {
+  const scopeDigest = options?.scopeDigest
   return useQuery<WorkshopOrderResponse>({
-    queryKey: workshopKeys.ordersPage(queryParams),
+    queryKey: scopedOffsetKey(workshopKeys.ordersPage(queryParams), scopeDigest),
+    enabled: options?.enabled ?? true,
+    ...(options?.fresh ? { staleTime: 0 } : {}),
     placeholderData: keepPreviousData,
-    queryFn: async () => {
+    queryFn: () => readScopedOffset(scopeDigest, () => readOffsetPage(options?.offsetEpisodeKey, queryParams?.page, async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
-        searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+        searchFallbackFilterFields: WORKSHOP_ORDER_SEARCH_FILTER_FIELDS,
         exactFilterMap: { customer_id: 'customerId' },
       })
       const response = await fetchWithAuth(url)
@@ -469,7 +487,7 @@ export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
         ...json,
         data: (json.data ?? []).map(normalizeOrder),
       }
-    },
+    })),
   })
 }
 
