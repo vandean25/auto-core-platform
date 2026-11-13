@@ -64,7 +64,7 @@ function toPdfStreamableFile(pdf: WarrantyClaimPdfPayload): StreamableFile {
   const safeFilename = pdf.filename.replace(/["\r\n]+/g, '_');
   return new StreamableFile(pdf.stream, {
     type: pdf.contentType || 'application/pdf',
-    disposition: `attachment; filename="${safeFilename}"`,
+    disposition: `inline; filename="${safeFilename}"`,
     length: pdf.contentLength ?? undefined,
   });
 }

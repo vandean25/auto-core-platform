@@ -1177,6 +1177,79 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         .expect(403);
     });
 
+    it('serves the warranty claim PDF with Content-Disposition: inline and filename', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      await request(app.getHttpServer())
+        .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(response.headers['content-disposition']).toMatch(
+        /^inline; filename="[^"]+\.pdf"$/,
+      );
+    });
+
+    it('matches the invoice PDF Cache-Control header on warranty claim PDF download', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      await request(app.getHttpServer())
+        .post(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(201);
+
+      const order = await prisma.workshopOrder.findFirstOrThrow({
+        where: { id: fixture.orderId, tenant_id: tenant.tenantId },
+        select: { customer_id: true },
+      });
+      if (!order.customer_id) {
+        throw new Error('Expected customer_id on seeded workshop order');
+      }
+      const invoiceKey = `invoices/aut-992-${uniqueSuffix()}.pdf`;
+      await app.get(PdfStorage).uploadPdf({
+        key: invoiceKey,
+        body: Buffer.from('%PDF-1.4 invoice'),
+        contentType: 'application/pdf',
+      });
+      const invoice = await prisma.invoice.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          customer_id: order.customer_id,
+          site_id: siteId,
+          invoice_number: `RE-AUT992-${uniqueSuffix()}`,
+          status: 'FINALIZED',
+          due_date: new Date(),
+          total_net: 100,
+          total_tax: 20,
+          total_gross: 120,
+          pdf_storage_bucket: 'test-invoice-pdf',
+          pdf_storage_key: invoiceKey,
+          pdf_generated_at: new Date(),
+        },
+      });
+
+      const [claimRes, invoiceRes] = await Promise.all([
+        request(app.getHttpServer())
+          .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200),
+        request(app.getHttpServer())
+          .get(`/api/invoices/${invoice.id}/pdf`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200),
+      ]);
+
+      expect(claimRes.headers['cache-control']).toBe(invoiceRes.headers['cache-control']);
+      expect(claimRes.headers['pragma']).toBe(invoiceRes.headers['pragma']);
+    });
+
     it('regenerates the PDF when the workshop order odometer changes after printing', async () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));

@@ -238,4 +238,9 @@ test.describe('Garantie/Kulanz claims on a workshop order', () => {
       switchToEnglish: true,
     })
   })
+
+  test('starts the claim PDF download without an error toast at 375px (DE)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expectClaimPdfPrintWithoutError(page, W)
+  })
 })
