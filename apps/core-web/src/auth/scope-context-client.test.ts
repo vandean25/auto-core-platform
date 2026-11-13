@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
 import {
+  applyUserSessionLifecycle,
   getScopeContextDigest,
   handshakeBeforeExplicitListRefresh,
   handshakeScopeContext,
@@ -53,6 +54,52 @@ describe('scope-context-client handshake epoch', () => {
         scopeContextDigest: 'digest-stale',
         continuityDigest: 'lineage-1',
       }),
+    } as Response)
+
+    await inFlight
+    expect(getScopeContextDigest()).toBeUndefined()
+  })
+
+  // Regression: the session wipe on a uid change did not bump the epoch, so the in-flight body restored the old scope.
+  it('drops a handshake that was in flight when the signed-in user changed', async () => {
+    let resolveHandshake: (value: Response) => void
+    const handshakePromise = new Promise<Response>((resolve) => {
+      resolveHandshake = resolve
+    })
+    vi.mocked(fetchWithAuth).mockImplementation(async () => handshakePromise)
+
+    const inFlight = handshakeScopeContext({ force: true })
+    applyUserSessionLifecycle()
+    resolveHandshake!({
+      ok: true,
+      json: async () => ({ scopeContext: 'sc-stale', scopeContextDigest: 'digest-stale', continuityDigest: 'lineage-1' }),
+    } as Response)
+
+    await inFlight
+    expect(getScopeContextDigest()).toBeUndefined()
+  })
+
+  // Regression: a handshake started by focus/online during the logout POST was applied after the clear.
+  it('drops a handshake that started while the logout POST was pending', async () => {
+    let resolveHandshake: (value: Response) => void
+    const handshakePromise = new Promise<Response>((resolve) => {
+      resolveHandshake = resolve
+    })
+    let resolveLogout: (value: Response) => void
+    const logoutPromise = new Promise<Response>((resolve) => {
+      resolveLogout = resolve
+    })
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) =>
+      String(url).includes('/api/auth/scope-context') ? handshakePromise : logoutPromise,
+    )
+
+    const loggingOut = logoutScopeContextLineage()
+    const inFlight = handshakeScopeContext({ force: true })
+    resolveLogout!({ ok: true, json: async () => ({}) } as Response)
+    await loggingOut
+    resolveHandshake!({
+      ok: true,
+      json: async () => ({ scopeContext: 'sc-stale', scopeContextDigest: 'digest-stale', continuityDigest: 'lineage-1' }),
     } as Response)
 
     await inFlight

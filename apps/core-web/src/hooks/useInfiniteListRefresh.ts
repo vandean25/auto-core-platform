@@ -1,6 +1,7 @@
 import { QueryClientContext } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react'
+import { isEpisodeBlockingError } from '@/api/cursor-recovery'
 import {
   handshakeBeforeExplicitListRefresh,
   isScopeContextQuarantined,
@@ -25,9 +26,10 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
       }
     },
     () => {
+      const query = queryKey === undefined ? undefined : queryClient?.getQueryCache().find({ queryKey, exact: true })
+      if (isEpisodeBlockingError(query?.state.error)) return false
       if (isScopeExplicitRefreshRequired()) return true
-      if (queryClient === undefined || queryKey === undefined) return false
-      const query = queryClient.getQueryCache().find({ queryKey, exact: true })
+      if (query === undefined) return false
       if (query?.state.isInvalidated === true) return true
       // Lifecycle quarantine hides rows immediately; the handshake may still be in flight.
       return isScopeContextQuarantined() && query?.state.data !== undefined
@@ -38,9 +40,11 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
   const refresh = useCallback(
     async (options?: { withCount?: boolean }) => {
       if (!queryClient || queryKey === undefined) return
+      const target = listQueryKeyForCurrentDigest(queryKey)
+      if (isEpisodeBlockingError(queryClient.getQueryCache().find({ queryKey: target, exact: true })?.state.error)) return
       setRunning((count) => count + 1)
       try {
-        await refreshInfiniteList(queryClient, listQueryKeyForCurrentDigest(queryKey), options)
+        await refreshInfiniteList(queryClient, target, options)
         // query-core hands new data to observers in a timeout(0); unlocking before that lets the load-ahead fetch
         // the next page of the chain that was just replaced.
         await new Promise((resolve) => setTimeout(resolve, 0))

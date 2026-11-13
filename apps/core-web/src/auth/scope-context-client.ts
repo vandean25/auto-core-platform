@@ -315,13 +315,21 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
   return flight
 }
 
-export async function logoutScopeContextLineage(): Promise<void> {
+/** A handshake already in flight must not write its body after a session wipe, and later callers must not join it. */
+function abandonInFlightHandshake() {
   bumpHandshakeEpoch()
+  handshakeInFlight = null
+}
+
+export async function logoutScopeContextLineage(): Promise<void> {
+  abandonInFlightHandshake()
   try {
     await fetchWithAuth(SCOPE_CONTEXT_LOGOUT_PATH, { method: 'POST' })
   } catch {
     // Fail closed on the server when reachable; offline sign-out still clears the client.
   }
+  // Focus or online can start a handshake while the logout POST is pending.
+  abandonInFlightHandshake()
   invalidateProtectedScopeContext()
   store.setState({
     context: null,
@@ -333,6 +341,7 @@ export async function logoutScopeContextLineage(): Promise<void> {
 }
 
 export function applyUserSessionLifecycle() {
+  abandonInFlightHandshake()
   store.setState({
     context: null,
     continuityDigest: null,

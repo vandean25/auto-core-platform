@@ -19,6 +19,7 @@ import {
 import { CursorListApiError } from './cursor-list-api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
+import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
 
 vi.mock('./client', () => ({ fetchWithAuth: vi.fn() }))
 
@@ -110,6 +111,49 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     expect(result.current.rows).toEqual([])
     expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
     expect(listCalls).toBe(1)
+  })
+
+  // Regression: a 403 after a loaded page kept showing those rows, and "Liste aktualisieren" requested the list again.
+  it('403 after a loaded page empties the rows and offers no refresh that calls the list again', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let listCalls = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      if (!target.includes('pagination=cursor')) return apiError(500, 'HTTP_500')
+      listCalls += 1
+      if (listCalls > 1) return apiError(403, 'HTTP_403')
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'loaded' }],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
+    })
+
+    const { result } = renderHook(
+      () => {
+        const list = useCursorList<Row>(baseOptions())
+        return { list, refresh: useInfiniteListRefresh(list.tableProps.infinite.queryKey) }
+      },
+      { wrapper: wrapper(client) },
+    )
+    await waitFor(() => expect(result.current.list.rows).toEqual([{ id: 'loaded' }]))
+
+    await act(async () => {
+      await client.refetchQueries({ queryKey: result.current.list.tableProps.infinite.queryKey, exact: true })
+    })
+
+    await waitFor(() => expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true))
+    await waitFor(() => expect(result.current.list.rows).toEqual([]))
+    expect(result.current.refresh.needsRefresh).toBe(false)
+    await act(async () => {
+      await result.current.refresh.refreshExplicitly()
+    })
+    expect(listCalls).toBe(2)
   })
 
   it('new sign-in new episode', async () => {

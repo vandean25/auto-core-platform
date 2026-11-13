@@ -138,19 +138,19 @@ export function startNewCursorRecoveryEpisode() {
 async function flushListCache(
   client: QueryClient,
   listKey: QueryKey,
-  countKey: QueryKey,
   options?: { cancelInFlight?: boolean },
 ) {
-  client.setQueryData(listKey, () => undefined)
-  client.setQueryData(countKey, () => undefined)
+  // setQueryData ignores an updater that returns undefined, so loaded rows are replaced by an empty chain.
+  if (client.getQueryData(listKey) !== undefined) client.setQueryData(listKey, { pages: [], pageParams: [] })
   if (options?.cancelInFlight !== false) {
     await cancelInfiniteList(client, listKey)
   }
 }
 
-async function blockListEpisode(client: QueryClient, listKey: QueryKey, countKey: QueryKey) {
-  await flushListCache(client, listKey, countKey)
-  markInfiniteListStale(client, listKey)
+async function blockListEpisode(client: QueryClient, listKey: QueryKey, options?: { offerRefresh?: boolean }) {
+  await flushListCache(client, listKey)
+  // An auth block stays blocked for the episode, so it offers no "Liste aktualisieren".
+  if (options?.offerRefresh !== false) markInfiniteListStale(client, listKey)
   return { type: 'blocked', externalScope: false } as const
 }
 
@@ -165,14 +165,13 @@ async function recoverViaHandshake(
   client: QueryClient,
   episode: EpisodeRecoveryState,
   listKey: QueryKey,
-  countKey: QueryKey,
 ): Promise<CursorRecoveryOutcome> {
   if (episode.budget === 0) {
-    return blockListEpisode(client, listKey, countKey)
+    return blockListEpisode(client, listKey)
   }
 
   episode.budget = 0
-  await flushListCache(client, listKey, countKey, { cancelInFlight: false })
+  await flushListCache(client, listKey, { cancelInFlight: false })
 
   const handshake = await handshakeScopeContext()
   if (handshake.kind === 'external-scope') {
@@ -200,7 +199,7 @@ async function restartAfterInvalidCursor(
   countKey: QueryKey,
 ): Promise<CursorRecoveryOutcome> {
   if (episode.budget === 0) {
-    return blockListEpisode(client, listKey, countKey)
+    return blockListEpisode(client, listKey)
   }
   episode.budget = 0
   await client.cancelQueries({ queryKey: listKey, exact: true })
@@ -212,9 +211,8 @@ function joinHandshakeRecovery(
   client: QueryClient,
   episode: EpisodeRecoveryState,
   listKey: QueryKey,
-  countKey: QueryKey,
 ): Promise<CursorRecoveryOutcome> {
-  episode.recoveryInFlight ??= recoverViaHandshake(client, episode, listKey, countKey).finally(() => {
+  episode.recoveryInFlight ??= recoverViaHandshake(client, episode, listKey).finally(() => {
     episode.recoveryInFlight = null
   })
   return episode.recoveryInFlight
@@ -225,6 +223,11 @@ function blocksEpisodeForStatus(error: CursorListApiError): boolean {
   if (error.status === 401 || error.status === 403) return true
   if (error.status !== 422) return false
   return !(error.code && CURSOR_NO_RETRY_CODES.has(error.code))
+}
+
+/** True for a list error that blocks its episode (401, 403, blocking 422): an explicit refresh must not retry it. */
+export function isEpisodeBlockingError(error: unknown): boolean {
+  return isCursorListApiError(error) && blocksEpisodeForStatus(error)
 }
 
 export async function resolveCursorListFailure(
@@ -241,7 +244,7 @@ export async function resolveCursorListFailure(
 
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
     armOffsetHandoff(episode)
-    await flushListCache(client, listKey, countKey, { cancelInFlight: false })
+    await flushListCache(client, listKey, { cancelInFlight: false })
     return { type: 'offset-latch' }
   }
 
@@ -250,18 +253,13 @@ export async function resolveCursorListFailure(
   }
 
   if (error.code && CONTEXT_HANDSHAKE_CODES.has(error.code)) {
-    return joinHandshakeRecovery(client, episode, listKey, countKey)
+    return joinHandshakeRecovery(client, episode, listKey)
   }
 
   if (blocksEpisodeForStatus(error)) {
     episode.authBlocked = true
-    return blockListEpisode(client, listKey, countKey)
+    return blockListEpisode(client, listKey, { offerRefresh: false })
   }
 
   return { type: 'pass-through', error }
-}
-
-export async function applyExternalScopeBlock(client: QueryClient, listKey: QueryKey, countKey: QueryKey) {
-  await flushListCache(client, listKey, countKey)
-  markInfiniteListStale(client, listKey)
 }

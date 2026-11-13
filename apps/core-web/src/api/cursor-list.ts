@@ -292,9 +292,9 @@ export function useCursorList<TRow extends { id: string }>({
   })
 
   const rows = useMemo(() => {
-    if (quarantined) return []
+    if (quarantined || authBlocked) return []
     return list.data?.pages.flatMap((page) => page.data) ?? []
-  }, [list.data, quarantined])
+  }, [list.data, quarantined, authBlocked])
   const tableProps = {
     isLoading: list.isLoading,
     isFetching: list.isFetching,
@@ -309,7 +309,7 @@ export function useCursorList<TRow extends { id: string }>({
       isFetchingNextPage: list.isFetchingNextPage,
       isFetchNextPageError: list.isFetchNextPageError,
       fetchNextPage: list.fetchNextPage,
-      totalCount: count.data,
+      totalCount: authBlocked ? undefined : count.data,
       isCountError: count.isError,
       retryCount: () => void count.refetch(),
     },
