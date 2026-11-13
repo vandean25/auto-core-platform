@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkshopOrderPickDrawer } from './WorkshopOrderPickDrawer'
 import { deWorkshop } from '@/test/de-workshop'
+import { changeUiLanguage } from '@/lib/i18n'
 
 const qtyLabel = deWorkshop.pick.drawer.qtyAria
   .replace('{{description}}', 'Air filter')
@@ -37,11 +38,11 @@ function createTask(lineQty: number) {
   }
 }
 
-function createOrder(tote: string, lineQty = 2) {
+function createOrder(tote: string, lineQty = 2, status = 'IN_PROGRESS') {
   return {
     id: 'order-1',
     order_number: 'WO-2026-0001',
-    status: 'IN_PROGRESS',
+    status,
     customer: {
       id: 'customer-1',
       type: 'PRIVATE',
@@ -119,5 +120,25 @@ describe('WorkshopOrderPickDrawer', () => {
 
     expect(screen.getByLabelText(qtyLabel)).toHaveValue(1)
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')
+  })
+  // AUT-989: the drawer header printed the raw status code (INTAKE) instead of the shared WO status label.
+  it.each([
+    ['de', 'INTAKE', 'Annahme'],
+    ['de', 'IN_PROGRESS', 'In Bearbeitung'],
+    ['en', 'INTAKE', 'Check-in'],
+    ['en', 'IN_PROGRESS', 'In Progress'],
+  ])('shows the localized %s label for a %s order in the header', async (language, status, label) => {
+    await changeUiLanguage(language)
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({ data: createOrder('tote-1', 2, status), isLoading: false })
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+
+    const header = within(document.querySelector('[data-pick-drawer-header="true"]') as HTMLElement)
+    expect(header.getByText(label, { exact: true })).toBeInTheDocument()
+    expect(header.queryByText(status, { exact: true })).toBeNull()
   })
 })

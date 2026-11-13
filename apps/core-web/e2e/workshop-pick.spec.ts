@@ -208,6 +208,27 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await expect(row.getByText('WO-2026-0099', { exact: true })).toBeVisible()
   })
 
+  // AUT-989: the drawer header showed the raw INTAKE code; the localized label must fit the 375px header.
+  test('shows the localized status label in the pick drawer header at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockPickQueueBaseRoutes(page)
+    await page.goto('/workshop/pick-list')
+
+    await page.locator('[data-table-row="true"]').first().click()
+
+    const header = page.locator('[data-pick-drawer-header="true"]')
+    const statusLabel = header.getByText('Annahme', { exact: true })
+    await expect(statusLabel).toBeVisible()
+    await expect(header.getByText('INTAKE', { exact: true })).toHaveCount(0)
+
+    const headerBox = await header.boundingBox()
+    const labelBox = await statusLabel.boundingBox()
+    expect(headerBox && labelBox).toBeTruthy()
+    expect(labelBox!.x).toBeGreaterThanOrEqual(headerBox!.x)
+    expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width)
+    expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  })
+
   test('should prefill required quantities and restore defaults via Pick All', async ({ page }) => {
     const { mockedOrder } = await mockPickQueueBaseRoutes(page);
 

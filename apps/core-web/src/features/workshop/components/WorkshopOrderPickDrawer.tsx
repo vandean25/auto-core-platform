@@ -40,6 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
 import {
   getRequiredPartLines,
@@ -73,6 +74,7 @@ function WorkshopOrderPickDrawerBody({
   order,
 }: WorkshopOrderPickDrawerBodyProps) {
   const { t } = useTranslation('workshop')
+  const statusLabel = useStatusLabel(order?.status ?? '')
   const queryClient = useQueryClient()
   const pickPartsMutation = usePickWorkshopParts()
   const toteTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -258,8 +260,8 @@ function WorkshopOrderPickDrawerBody({
                 </Badge>
               ) : null}
               {order ? (
-                <Badge variant='outline'>
-                  {order.status}
+                <Badge variant='outline' className='max-w-full break-words'>
+                  {statusLabel}
                 </Badge>
               ) : null}
               <Badge variant='secondary'>
