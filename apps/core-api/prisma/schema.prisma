@@ -309,6 +309,8 @@ model User {
   active_tenant_id                  String?
   activeTenant                      Tenant?                      @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
   active_site_id                    String?
+  /// AUT-979 last active site per tenant, `{ [tenantId]: siteId }`. A preference, not access: restore re-checks membership.
+  last_site_by_tenant               Json?
   /// AUT-576 self UI language; null follows the active tenant default.
   locale                            DisplayLanguage?
   memberships                       TenantMember[]
@@ -931,18 +933,16 @@ model Site {
 }
 
 model SiteMembership {
-  id             String    @id @default(uuid())
-  tenant_id      String
-  tenant         Tenant    @relation(fields: [tenant_id], references: [id])
-  user_id        String
-  user           User      @relation(fields: [user_id], references: [id])
-  site_id        String
-  site           Site      @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  is_active      Boolean   @default(true)
-  /// Last time the user made this site active; a tenant switch restores the latest one (AUT-979).
-  last_active_at DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  tenant_id String
+  tenant    Tenant   @relation(fields: [tenant_id], references: [id])
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id])
+  site_id   String
+  site      Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Composite tenant-safe FK to TenantMember (ruling 5 / ADR-0022 §1)
   tenantMember TenantMember @relation(fields: [tenant_id, user_id], references: [tenant_id, user_id], onDelete: Cascade)

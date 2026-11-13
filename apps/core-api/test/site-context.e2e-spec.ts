@@ -17,7 +17,6 @@ import {
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import type { UserRecord } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
 
 describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
@@ -390,7 +389,7 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
       const firebaseAuth = getFirebaseAdminAuth();
       jest
         .spyOn(firebaseAuth, 'getUser')
-        .mockResolvedValue({ customClaims: {} } as UserRecord);
+        .mockResolvedValue({ customClaims: {} });
       jest
         .spyOn(firebaseAuth, 'setCustomUserClaims')
         .mockResolvedValue(undefined);

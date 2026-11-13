@@ -6,6 +6,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SetActiveSiteDto } from './dto/site.dto.js';
+import { withLastSiteId } from './site-restore.js';
 import { resolveSiteContextUser } from './site-session.user.js';
 
 export class SiteSessionService {
@@ -100,14 +101,21 @@ export class SiteSessionService {
         );
       }
 
+      // AUT-979: a later tenant switch back to this tenant restores this site.
+      const current = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { last_site_by_tenant: true },
+      });
       await tx.user.update({
         where: { id: user.id },
-        data: { active_site_id: targetSiteId },
-      });
-      // AUT-979: a later tenant switch back to this tenant restores this site.
-      await tx.siteMembership.updateMany({
-        where: { id: siteMembership.id, tenant_id: tenantId },
-        data: { last_active_at: new Date() },
+        data: {
+          active_site_id: targetSiteId,
+          last_site_by_tenant: withLastSiteId(
+            current?.last_site_by_tenant,
+            tenantId,
+            targetSiteId,
+          ),
+        },
       });
     });
 

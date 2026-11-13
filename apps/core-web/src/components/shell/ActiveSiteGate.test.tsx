@@ -19,7 +19,7 @@ const SITES: MeSite[] = [
 /** Stands in for a site list page: it asks for its rows when it mounts and shows a skeleton until then. */
 function WorkOrderList({ onRequest }: { onRequest: () => void }) {
   React.useEffect(onRequest, [onRequest])
-  return <div>Laden…</div>
+  return <div data-testid="wo-list-skeleton" />
 }
 
 afterEach(() => {
@@ -61,13 +61,13 @@ describe('ActiveSiteGate (AUT-979)', () => {
         <WorkOrderList onRequest={vi.fn()} />
       </ActiveSiteGate>,
     )
-    expect(screen.getByText('Laden…')).toBeInTheDocument()
+    expect(screen.getByTestId('wo-list-skeleton')).toBeInTheDocument()
 
     await act(async () => {
       await fetchWithAuth('/api/workshop/orders')
     })
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Standort wählen' })).toBeInTheDocument())
-    expect(screen.queryByText('Laden…')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('wo-list-skeleton')).not.toBeInTheDocument()
   })
 })

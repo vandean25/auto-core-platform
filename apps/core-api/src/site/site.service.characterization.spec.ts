@@ -111,15 +111,25 @@ describe('SiteService characterization', () => {
       harness.prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
       harness.prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
       harness.prisma.user.update.mockResolvedValue({ id: 'u-1' });
+      // Same row for the session lookup and the read inside the transaction.
+      harness.prisma.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        firebaseUid: 'fb-admin',
+        active_site_id: 'site-old',
+        last_site_by_tenant: { 'other-tenant': 'site-x' },
+      });
 
       const result = await service.setActiveSite({ siteId: 'site-2' });
 
       expect(result).toEqual({ activeSiteId: 'site-2' });
       expect(harness.prisma.$transaction).toHaveBeenCalled();
-      // AUT-979: without this stamp a tenant switch cannot restore the site.
-      expect(harness.prisma.siteMembership.updateMany).toHaveBeenCalledWith({
-        where: { id: 'sm-1', tenant_id: TENANT_ID },
-        data: { last_active_at: expect.any(Date) },
+      // AUT-979: without this entry a tenant switch cannot restore the site; other tenants' entries stay.
+      expect(harness.prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u-1' },
+        data: {
+          active_site_id: 'site-2',
+          last_site_by_tenant: { 'other-tenant': 'site-x', [TENANT_ID]: 'site-2' },
+        },
       });
       expect(harness.dashboardRealtime.emitSiteContextUpdated).toHaveBeenCalledWith(
         'fb-admin',

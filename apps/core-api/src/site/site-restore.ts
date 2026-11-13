@@ -3,13 +3,40 @@ import type { SystemPrismaClient } from '../prisma/system-prisma.types.js';
 
 type SiteRestoreDb = Pick<SystemPrismaClient, 'siteMembership' | 'user'>;
 
+/** `User.last_site_by_tenant` as `{ [tenantId]: siteId }`; anything that is not a string entry is dropped. */
+function toSiteMap(
+  lastSiteByTenant: Prisma.JsonValue | null | undefined,
+): Record<string, string> {
+  if (
+    typeof lastSiteByTenant !== 'object' ||
+    lastSiteByTenant === null ||
+    Array.isArray(lastSiteByTenant)
+  ) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(lastSiteByTenant).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
+}
+
+/** The map with `tenantId` pointing at `siteId`; entries of other tenants are kept. */
+export function withLastSiteId(
+  lastSiteByTenant: Prisma.JsonValue | null | undefined,
+  tenantId: string,
+  siteId: string,
+): Record<string, string> {
+  return { ...toSiteMap(lastSiteByTenant), [tenantId]: siteId };
+}
+
 /**
  * AUT-979: after the active tenant changed, pick the session site in the new tenant.
  *
  * Only sites the user can activate count (same rule as `GET /me/sites`: active site, active site membership,
- * active tenant membership). The latest site the user made active wins; else the only activatable site; else
- * none, and the client asks. The write is conditional on the tenant still being `tenantId`, so a concurrent
- * tenant change never trips the composite FK `(active_tenant_id, active_site_id)`.
+ * active tenant membership), so the stored last site is a hint that is re-checked here. The last site wins;
+ * else the only activatable site; else none, and the client asks. The write is conditional on the tenant still
+ * being `tenantId`, so a concurrent tenant change never trips the composite FK `(active_tenant_id, active_site_id)`.
  */
 export async function restoreActiveSiteForTenant(
   db: SiteRestoreDb,
@@ -24,11 +51,19 @@ export async function restoreActiveSiteForTenant(
     tenantMember: { is_active: true },
   } satisfies Prisma.SiteMembershipWhereInput;
 
-  const lastUsed = await db.siteMembership.findFirst({
-    where: { ...activatable, last_active_at: { not: null } },
-    orderBy: { last_active_at: 'desc' },
-    select: { site_id: true },
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { last_site_by_tenant: true },
   });
+  const lastSiteId: string | undefined = toSiteMap(user?.last_site_by_tenant)[
+    tenantId
+  ];
+  const lastUsed = lastSiteId
+    ? await db.siteMembership.findFirst({
+        where: { ...activatable, site_id: lastSiteId },
+        select: { site_id: true },
+      })
+    : null;
   const siteId = lastUsed?.site_id ?? (await findOnlySiteId(db, activatable));
   if (!siteId) {
     return null;
