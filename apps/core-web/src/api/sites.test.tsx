@@ -91,8 +91,9 @@ describe('useSetActiveSite', () => {
 
   it('marks the switch as this tab\'s own before the request is sent, so the realtime event that answers it can be skipped', async () => {
     let markedWhenRequested: boolean | undefined
-    vi.mocked(fetchWithAuth).mockImplementation(async () => {
-      markedWhenRequested = consumeLocalSiteSwitch('site-new')
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      // The scope-context handshake that follows the switch is not the switch request.
+      if (url === '/api/me/active-site') markedWhenRequested = consumeLocalSiteSwitch('site-new')
       return { ok: true, json: vi.fn().mockResolvedValue({ activeSiteId: 'site-new' }) } as unknown as Response
     })
     const queryClient = createQueryClient()
