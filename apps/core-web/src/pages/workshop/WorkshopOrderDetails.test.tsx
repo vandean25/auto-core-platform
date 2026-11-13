@@ -1402,14 +1402,27 @@ describe("WorkshopOrderDetails Characterization", () => {
   // =====================================================================
 
   describe("checkout view", () => {
-    it("shows grand total and Checkout in the footer while order is IN_PROGRESS", () => {
+    it("shows net total labelled Summe netto and Checkout in the footer while order is IN_PROGRESS", () => {
       renderComponent();
 
-      expect(screen.getByText("Gesamtsumme")).toBeInTheDocument();
+      expect(screen.getByText("Summe netto")).toBeInTheDocument();
       expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
       expect(
         screen.getByRole("button", { name: checkoutCopy.primaryAction }),
       ).toBeInTheDocument();
+    });
+
+    it("switches footer label to Summe brutto with gross total when checkout is opened", () => {
+      setupDefaultMocks(completedOrder);
+      renderComponent();
+
+      expect(screen.getByText("Summe netto")).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(55)).length).toBeGreaterThan(0);
+
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
+
+      expect(screen.getByText("Summe brutto")).toBeInTheDocument();
+      expect(screen.getAllByText(formattedCurrencyPattern(66)).length).toBeGreaterThan(0);
     });
 
     it("keeps the task list mounted when checkout expands", () => {
@@ -1611,7 +1624,7 @@ describe("WorkshopOrderDetails Characterization", () => {
 
       renderComponent();
 
-      expect(screen.getByText("Gesamtsumme")).toBeInTheDocument();
+      expect(screen.getByText("Summe brutto")).toBeInTheDocument();
       expect(screen.getByText(formattedCurrencyPattern(58.15))).toBeInTheDocument();
     });
 

@@ -1288,7 +1288,8 @@
     "canStillInvoice": "Die Rechnung kann trotzdem ausgestellt werden."
   },
   "checkout": {
-    "grandTotal": "Gesamtsumme",
+    "netTotal": "Summe netto",
+    "grossTotal": "Summe brutto",
     "title": "Abrechnung",
     "description": "Rabatte prüfen und Rechnung stellen, ohne den Auftrag zu verlassen.",
     "close": "Abrechnung schließen",

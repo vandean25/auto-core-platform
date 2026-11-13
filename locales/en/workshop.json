@@ -1288,7 +1288,8 @@
     "canStillInvoice": "You can still issue the invoice."
   },
   "checkout": {
-    "grandTotal": "Grand total",
+    "netTotal": "Net total",
+    "grossTotal": "Gross total",
     "title": "Checkout",
     "description": "Review discounts and issue the invoice without leaving this job.",
     "close": "Close Checkout",
