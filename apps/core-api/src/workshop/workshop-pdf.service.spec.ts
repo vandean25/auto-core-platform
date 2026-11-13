@@ -584,5 +584,135 @@ describe('WorkshopPdfService', () => {
         'Workshop PDF is not generated yet',
       );
     });
+
+    // AUT-986 Scenario 8: two legal entities in one tenant each use their own logo
+    it('uses each legal entity own logo for work-order PDFs in the same tenant', async () => {
+      const { createHash } = await import('node:crypto');
+      const logoA = Buffer.from('wo-logo-a');
+      const logoB = Buffer.from('wo-logo-b');
+      const shaA = createHash('sha256').update(logoA).digest('hex');
+      const shaB = createHash('sha256').update(logoB).digest('hex');
+
+      const renderer = { render: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4')) };
+      const uploadStorage = {
+        uploadPdf: jest.fn().mockResolvedValue({ bucket: 'pdf-bucket', key: 'wo.pdf' }),
+      };
+      const brandingStorage = {
+        readGeneration: jest.fn(async (_bucket: string, key: string) =>
+          key === 'logos/a.png' ? logoA : logoB,
+        ),
+      };
+      const { DEFAULT_DOCUMENT_BRAND_THEME } = await import(
+        '../document-branding/theme-v1.js'
+      );
+      const assetIdA = '11111111-1111-4111-8111-111111111111';
+      const assetIdB = '22222222-2222-4222-8222-222222222222';
+      const multiPrisma = {
+        $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            documentBrandProfile: {
+              findFirst: jest.fn(async ({ where }: { where: { legal_entity_id: string } }) => {
+                const assetId = where.legal_entity_id === 'le-a' ? assetIdA : assetIdB;
+                return {
+                  id: `profile-${where.legal_entity_id}`,
+                  active_revision: 1,
+                  active_theme: {
+                    ...DEFAULT_DOCUMENT_BRAND_THEME,
+                    logoAssetId: assetId,
+                    headerBand: 'primary',
+                    headerText: where.legal_entity_id,
+                    footerText: where.legal_entity_id,
+                  },
+                  active_logo_asset_id: assetId,
+                };
+              }),
+            },
+            documentBrandAsset: {
+              findFirst: jest.fn(async ({ where }: { where: { legal_entity_id: string } }) =>
+                where.legal_entity_id === 'le-a'
+                  ? {
+                      id: assetIdA,
+                      bucket: 'brand-bucket',
+                      object_key: 'logos/a.png',
+                      object_generation: '1',
+                      sha256: shaA,
+                      detected_mime_type: 'image/png',
+                      pixel_width: 100,
+                      pixel_height: 40,
+                    }
+                  : {
+                      id: assetIdB,
+                      bucket: 'brand-bucket',
+                      object_key: 'logos/b.png',
+                      object_generation: '1',
+                      sha256: shaB,
+                      detected_mime_type: 'image/png',
+                      pixel_width: 100,
+                      pixel_height: 40,
+                    },
+              ),
+            },
+          }),
+        ),
+        client: {
+          tenant: {
+            findFirst: jest.fn().mockResolvedValue({ default_language: 'de' }),
+          },
+          workshopOrder: {
+            findFirst: jest.fn(),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        },
+      };
+
+      const woService = new WorkshopPdfService(
+        multiPrisma as unknown as PrismaService,
+        renderer as never,
+        asFake<PdfStorage>(uploadStorage),
+        asFake<CloudTasksService>({ isEnabled: jest.fn().mockReturnValue(false) }),
+        { getTenantId: jest.fn().mockResolvedValue(tenantId) } as never,
+        {} as never,
+        brandingStorage as never,
+      );
+
+      const makeOrder = (id: string, legalEntityId: string) => ({
+        id,
+        order_number: `WO-${id}`,
+        status: 'INTAKE',
+        odometer: 1000,
+        fuel_level: 50,
+        reported_issue: null,
+        notes: null,
+        pdf_render_input: null,
+        site: { legal_entity_id: legalEntityId },
+        customer: null,
+        vehicle: { make: 'VW', model: 'Golf', year: 2020, vin: null, plate: null },
+        tasks: [],
+        check_in: null,
+      });
+
+      multiPrisma.client.workshopOrder.findFirst.mockResolvedValueOnce(makeOrder('1', 'le-a'));
+      await woService.generateNow('1', tenantId);
+
+      multiPrisma.client.workshopOrder.findFirst.mockResolvedValueOnce(makeOrder('2', 'le-b'));
+      await woService.generateNow('2', tenantId);
+
+      expect(renderer.render).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ id: '1' }),
+        expect.objectContaining({
+          branding: expect.objectContaining({ profile_id: 'profile-le-a' }),
+          logoPng: logoA,
+        }),
+      );
+      expect(renderer.render).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ id: '2' }),
+        expect.objectContaining({
+          branding: expect.objectContaining({ profile_id: 'profile-le-b' }),
+          logoPng: logoB,
+        }),
+      );
+    });
   });
 });

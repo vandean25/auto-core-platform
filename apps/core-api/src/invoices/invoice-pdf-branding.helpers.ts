@@ -154,3 +154,61 @@ export async function loadFrozenLogo(
   }
   return bytes;
 }
+
+export async function loadBrandLogoBytes(
+  brandingStorage:
+    | {
+        readGeneration: (
+          bucket: string,
+          key: string,
+          gen: string,
+        ) => Promise<Buffer>;
+      }
+    | undefined,
+  logo: InvoiceBrandingLogo | null | undefined,
+): Promise<Buffer | undefined> {
+  if (!logo) return undefined;
+  if (!brandingStorage) {
+    throw brandRenderInputUnavailable();
+  }
+  const bytes = await brandingStorage.readGeneration(
+    logo.bucket,
+    logo.key,
+    logo.generation,
+  );
+  if (!verifyFrozenLogoHash(bytes, logo.sha256)) {
+    throw brandRenderInputUnavailable();
+  }
+  return bytes;
+}
+
+export async function resolveLegalEntityBrandingAndLogo(
+  prisma: Pick<PrismaService, '$transaction'>,
+  brandingStorage:
+    | {
+        readGeneration: (
+          bucket: string,
+          key: string,
+          gen: string,
+        ) => Promise<Buffer>;
+      }
+    | undefined,
+  tenantId: string,
+  legalEntityId: string | null | undefined,
+): Promise<{
+  branding: InvoiceSnapshot['branding'] | undefined;
+  logoPng: Buffer | undefined;
+}> {
+  if (!legalEntityId) {
+    return { branding: undefined, logoPng: undefined };
+  }
+  const { resolveBrandingSnapshot } =
+    await import('./invoice-snapshot-v2.helpers.js');
+  const branding = await prisma.$transaction((tx) =>
+    resolveBrandingSnapshot(tx, tenantId, legalEntityId, new Date(), {
+      lockLogo: false,
+    }),
+  );
+  const logoPng = await loadBrandLogoBytes(brandingStorage, branding.logo);
+  return { branding, logoPng };
+}

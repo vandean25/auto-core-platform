@@ -15,11 +15,11 @@ export function createRenderInputUnavailableError(): UnprocessableEntityExceptio
  * logo. Fails closed when the logo bytes are missing or do not match the
  * checksum frozen into the snapshot.
  */
-export function resolveInvoiceLogoDataUrl(
-  snapshot: InvoiceSnapshot,
+export function resolveBrandingLogoDataUrl(
+  branding: InvoiceSnapshot['branding'] | undefined,
   logoPng: Buffer | undefined,
 ): string | null {
-  const logo = snapshot.branding?.logo;
+  const logo = branding?.logo;
   if (!logo) return null;
   if (
     !logoPng ||
@@ -28,6 +28,13 @@ export function resolveInvoiceLogoDataUrl(
     throw createRenderInputUnavailableError();
   }
   return `data:image/png;base64,${logoPng.toString('base64')}`;
+}
+
+export function resolveInvoiceLogoDataUrl(
+  snapshot: InvoiceSnapshot,
+  logoPng: Buffer | undefined,
+): string | null {
+  return resolveBrandingLogoDataUrl(snapshot.branding, logoPng);
 }
 
 /**

@@ -189,4 +189,42 @@ describe('toRenderableCreditNoteSnapshot', () => {
     expect(html).toContain('§ 24 UStG 1994');
     expect(html).not.toContain('§ 25a');
   });
+
+  // AUT-986 Scenario 5 & 7: credit-note adapter preserves invoice-brand-v1 and branding
+  it('preserves invoice-brand-v1 template_version and branding when present on credit note snapshot', () => {
+    const branding = {
+      profile_id: 'profile-1',
+      revision: 1,
+      tokens: {
+        primary_color: '#1e3a8a',
+        secondary_color: '#64748b',
+        header_band: 'primary' as const,
+        footer_band: 'none' as const,
+        header_text: 'Werkstatt GmbH',
+        footer_text: 'Werkstatt GmbH · Wien',
+      },
+      logo: {
+        asset_id: 'asset-1',
+        bucket: 'brand-bucket',
+        key: 'logos/entity-1.png',
+        generation: '1',
+        sha256: 'abc123',
+        mime_type: 'image/png' as const,
+        width: 200,
+        height: 80,
+      },
+    };
+    const renderable = toRenderableCreditNoteSnapshot(
+      {
+        ...localizedSnapshot('de'),
+        template_version: 'invoice-brand-v1',
+        branding,
+      },
+      'CN-2026-0001',
+      'credit-1',
+    );
+
+    expect(renderable?.template_version).toBe('invoice-brand-v1');
+    expect(renderable?.branding).toEqual(branding);
+  });
 });
