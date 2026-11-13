@@ -8061,6 +8061,7 @@ export interface components {
             description: string;
             qty: number;
             unitPrice: number;
+            catalogItemId?: string | null;
             /** @enum {string|null} */
             partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
             laborOperationId?: string | null;

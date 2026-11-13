@@ -11,6 +11,7 @@ import {
   isTaskBlockedByParts,
   recomputeRequisitionStatus,
   type ReservationSliceState,
+  type TaskPartsGateLineState,
 } from './parts-requisition.helpers.js';
 
 const slice = (
@@ -163,12 +164,26 @@ describe('isCatalogPartLineBlockingCompletion', () => {
   });
 });
 
+describe('TaskPartsGateLineState', () => {
+  // AUT-988: an optional catalog_item_id let callers drop the field and silently treat every line as free-text.
+  it('requires catalog_item_id at type level', () => {
+    type IsRequired<T, K extends keyof T> =
+      Partial<Pick<T, K>> extends Pick<T, K> ? false : true;
+    const catalogItemIdRequired: IsRequired<
+      TaskPartsGateLineState,
+      'catalog_item_id'
+    > = true;
+    expect(catalogItemIdRequired).toBe(true);
+  });
+});
+
 describe('isTaskBlockedByParts', () => {
   it('ignores cancelled formula demand and fulfilled slices', () => {
     expect(
       isTaskBlockedByParts({
         lines: [
           {
+            catalog_item_id: 'catalog-1',
             part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
           },
         ],

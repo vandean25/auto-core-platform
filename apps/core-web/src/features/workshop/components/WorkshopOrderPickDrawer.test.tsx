@@ -32,7 +32,7 @@ function createTask(lineQty: number) {
     id: 'task-1',
     title: 'Inspect',
     lineItems: [
-      { id: 'line-1', type: 'PART', itemNo: 'PART-001', description: 'Air filter', qty: lineQty },
+      { id: 'line-1', type: 'PART', catalogItemId: 'catalog-1', itemNo: 'PART-001', description: 'Air filter', qty: lineQty },
     ],
   }
 }

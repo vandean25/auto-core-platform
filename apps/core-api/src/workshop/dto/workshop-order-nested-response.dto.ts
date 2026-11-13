@@ -77,6 +77,9 @@ export class WorkshopTaskLineItemResponseDto {
   @ApiProperty()
   unitPrice!: number;
 
+  @ApiProperty({ type: String, required: false, nullable: true })
+  catalogItemId?: string | null;
+
   @ApiProperty({
     enum: WorkshopPartLineExecutionStatus,
     required: false,

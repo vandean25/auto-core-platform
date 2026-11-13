@@ -95,7 +95,7 @@ describe('WorkshopPickPartsService', () => {
       part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
     };
     mockPrisma.workshopTaskLineItem.findMany.mockImplementation(
-      async ({ where }) => (where.part_execution_status ? [] : [cancelledLine]),
+      async ({ where }) => (where.OR ? [] : [cancelledLine]),
     );
     mockPrisma.partsReservation.findMany.mockResolvedValue([
       {
@@ -137,14 +137,52 @@ describe('WorkshopPickPartsService', () => {
     expect(mockPrisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          part_execution_status: {
-            not: WorkshopPartLineExecutionStatus.CANCELLED,
-          },
+          OR: [
+            { part_execution_status: null },
+            {
+              part_execution_status: {
+                not: WorkshopPartLineExecutionStatus.CANCELLED,
+              },
+            },
+          ],
         }),
       }),
     );
     expect(mockPrisma.partsReservation.findMany).not.toHaveBeenCalled();
     expect(mockLedgerService.recordTransactions).not.toHaveBeenCalled();
+  });
+
+  // AUT-988: a normal bin in the active site was reported as missing from the site instead of not being a tote.
+  it('rejects a normal bin destination as not a staging tote', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue({
+      id: 'wo-1',
+      site_id: 'site-1',
+      status: WorkshopOrderStatus.IN_PROGRESS,
+      staging_location_id: null,
+    });
+    mockPrisma.storageLocation.findFirst.mockResolvedValue({
+      id: 'bin-1',
+      type: 'bin',
+      deletedAt: null,
+      site_id: 'site-1',
+    });
+
+    const pick = service.pickParts('wo-1', {
+      destinationLocationId: 'bin-1',
+      items: [{ workshopTaskLineItemId: 'line-1', quantity: 1 }],
+    });
+
+    await expect(pick).rejects.toThrow(UnprocessableEntityException);
+    await expect(pick).rejects.toThrow(
+      'Destination location is not a staging tote.',
+    );
+    // The lookup must not filter on type, or a real bin would come back as missing (404).
+    expect(mockPrisma.storageLocation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ type: expect.anything() }),
+      }),
+    );
+    expect(mockPrisma.workshopTaskLineItem.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects a tote pick when the order belongs to another site', async () => {

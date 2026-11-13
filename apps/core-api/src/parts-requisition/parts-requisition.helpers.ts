@@ -54,7 +54,7 @@ export type StagedConsumptionSlice = ReservationSliceState & {
 };
 
 export type TaskPartsGateLineState = {
-  catalog_item_id?: string | null;
+  catalog_item_id: string | null;
   part_execution_status: WorkshopPartLineExecutionStatus | null;
 };
 

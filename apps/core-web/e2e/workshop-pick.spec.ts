@@ -89,6 +89,7 @@ async function mockPickQueueBaseRoutes(page: Page, orderId = 'ws-123') {
           {
             id: 'line-1',
             type: 'PART',
+            catalogItemId: 'catalog-oil-filter',
             itemNo: '06J-115-403-Q',
             description: 'Oil Filter',
             qty: 2,
