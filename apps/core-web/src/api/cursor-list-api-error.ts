@@ -12,6 +12,21 @@ export class CursorListApiError extends Error {
   }
 }
 
+/**
+ * A cursor response that must not be shown: it answers an older scope generation, or a scope the request did not send.
+ * A real error, not a TanStack `CancelledError`: thrown from a query function, a cancel never settles the fetch. A late
+ * generation is read once more (that attempt carries the current generation); a foreign scope is not retried.
+ */
+export class StaleScopeResponseError extends Error {
+  readonly retryable: boolean
+
+  constructor(retryable: boolean) {
+    super('stale_scope_context_response')
+    this.name = 'StaleScopeResponseError'
+    this.retryable = retryable
+  }
+}
+
 export function isCursorListApiError(error: unknown): error is CursorListApiError {
   return error instanceof CursorListApiError
 }

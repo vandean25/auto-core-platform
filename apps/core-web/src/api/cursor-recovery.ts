@@ -5,12 +5,12 @@ import { cancelInfiniteList, markInfiniteListStale } from '@/lib/infinite-list-q
 import {
   bumpCursorEpisodeCounter,
   getCursorEpisodeCounter,
-  handshakeScopeContext,
+  handshakeFollowingNewerFlight,
   latchScopeExplicitRefresh,
   scopeContextReadyForCursorList,
   subscribeScopeContextClient,
 } from '@/auth/scope-context-client'
-import { isCursorListApiError, type CursorListApiError } from './cursor-list-api-error'
+import { isCursorListApiError, StaleScopeResponseError, type CursorListApiError } from './cursor-list-api-error'
 
 export const CURSOR_NO_RETRY_CODES = new Set([
   'CONTEXT_REQUIRED',
@@ -28,6 +28,7 @@ const CONTEXT_HANDSHAKE_CODES = new Set(['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH']
 export function cursorQueryShouldRetry(failureCount: number, error: unknown): boolean {
   if (error instanceof DOMException && error.name === 'AbortError') return false
   if (error instanceof CancelledError) return false
+  if (error instanceof StaleScopeResponseError) return error.retryable && failureCount < 1
   // The fetch already retried a network error or a 5xx once; a query retry on top would double the requests again.
   if (isCursorListApiError(error) || error instanceof TypeError) return false
   return failureCount < 1
@@ -216,16 +217,13 @@ async function recoverViaHandshake(
   episode.budget = 0
   await flushListCache(client, listKey, { cancelInFlight: false })
 
-  const handshake = await handshakeScopeContext()
+  const handshake = await handshakeFollowingNewerFlight()
   if (handshake.kind === 'external-scope') {
     markInfiniteListStale(client, listKey)
     return { type: 'blocked', externalScope: true }
   }
   if (handshake.kind === 'failed') {
     return { type: 'blocked', externalScope: false }
-  }
-  if (handshake.kind === 'superseded') {
-    return { type: 'restart-page-one' }
   }
   if (handshake.kind === 'session') {
     startNewCursorRecoveryEpisode()

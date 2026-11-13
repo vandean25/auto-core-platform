@@ -124,8 +124,11 @@ async function handleListQueryRecovery<TRow>(
   if (outcome.type === 'restart-page-one') {
     if (pageParam !== undefined) {
       const pageOne = await restart()
+      // Settle this load-more fetch first (cancel-and-revert ends it idle); a cancel thrown from the query function
+      // itself would be recorded as a failed next page under the restarted chain.
+      await client.cancelQueries({ queryKey: ctx.listKey, exact: true })
       client.setQueryData(ctx.listKey, { pages: [pageOne], pageParams: [undefined as string | undefined] })
-      throw new CancelledError({ revert: false })
+      throw new CancelledError({ revert: true })
     }
     return restart()
   }

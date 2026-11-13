@@ -206,11 +206,23 @@ export function latchScopeExplicitRefresh(): void {
  * an external-scope quarantine until "Liste aktualisieren".
  */
 export async function rescopeAfterContextSwitch(initiatedHere: boolean): Promise<void> {
+  // ADR-0038 §9: a tenant or site switch starts a new recovery episode (budget, auth block and offset latch reset).
+  bumpCursorEpisodeCounter()
   invalidateProtectedScopeContext()
-  const result = await handshakeScopeContext(initiatedHere ? { force: true } : undefined)
+  const result = await handshakeFollowingNewerFlight(initiatedHere ? { force: true } : undefined)
   if (initiatedHere && result.kind !== 'failed' && result.kind !== 'superseded') {
     acceptQuarantinedScopeForExplicitRefresh()
   }
+}
+
+/**
+ * Handshake whose outcome may be taken over by a newer one (focus, another tab, a switch): a `superseded` result follows
+ * the flight that superseded it, so the caller acts on the scope that is now current instead of giving up.
+ */
+export async function handshakeFollowingNewerFlight(options?: { force?: boolean }): Promise<HandshakeResult> {
+  const result = await handshakeScopeContext(options)
+  if (result.kind !== 'superseded') return result
+  return handshakeScopeContext()
 }
 
 /** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
@@ -227,7 +239,8 @@ export function acceptQuarantinedScopeForExplicitRefresh(): void {
  * handshake supersedes it, so only the current handshake may lift quarantine or repopulate rows.
  */
 export async function handshakeBeforeExplicitListRefresh(): Promise<boolean> {
-  if (!store.getState().quarantined) return true
+  const { quarantined, explicitRefreshRequired } = store.getState()
+  if (!quarantined && !explicitRefreshRequired) return true
   const result = await handshakeScopeContext({ force: true })
   if (result.kind === 'failed' || result.kind === 'superseded') return false
   acceptQuarantinedScopeForExplicitRefresh()
@@ -289,7 +302,8 @@ function applyHandshakeOutcome(
   applyHandshakeState(epochAtStart, {
     ...base,
     quarantined: lifecycleQuarantine,
-    explicitRefreshRequired: lifecycleQuarantine || state.explicitRefreshRequired,
+    // A later `same` result without a held quarantine leaves nothing for "Liste aktualisieren" to lift.
+    explicitRefreshRequired: lifecycleQuarantine,
     pendingExternalScopeAck: false,
   })
 }

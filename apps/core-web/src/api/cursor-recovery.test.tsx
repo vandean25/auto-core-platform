@@ -20,6 +20,7 @@ import { CursorListApiError } from './cursor-list-api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
+import { resetClientContextAndRescope } from '@/auth/client-session-reset'
 
 vi.mock('./client', () => ({ fetchWithAuth: vi.fn() }))
 
@@ -60,7 +61,7 @@ describe('cursor recovery (ADR-0038 §9)', () => {
   afterEach(() => vi.clearAllMocks())
 
   it('cursorRecovery_shared_episode_budget', async () => {
-    const handshakeSpy = vi.spyOn(scopeContextClient, 'handshakeScopeContext').mockResolvedValue({
+    const handshakeSpy = vi.spyOn(scopeContextClient, 'handshakeFollowingNewerFlight').mockResolvedValue({
       kind: 'same',
       context: testScope,
     })
@@ -153,6 +154,68 @@ describe('cursor recovery (ADR-0038 §9)', () => {
       await result.current.refresh.refreshExplicitly()
     })
     expect(listCalls).toBe(2)
+  })
+
+  // Regression: a site switch kept the 403 block of the site being left, so the list stayed empty at the new site.
+  it('a site switch starts a new episode, so a 403 at the previous site does not block the list', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    let site = 'a'
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return { ok: true, json: async () => ({ scopeContext: 'sc-b', scopeContextDigest: 'digest-b', continuityDigest: 'lineage-1' }) } as Response
+      }
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: `digest-${site}` }) } as Response
+      }
+      if (site === 'a') return apiError(403, 'HTTP_403')
+      return {
+        ok: true,
+        json: async () => ({ data: [{ id: 'site-b' }], meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-b' } }),
+      } as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+    await waitFor(() => expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true))
+
+    site = 'b'
+    await act(async () => {
+      await resetClientContextAndRescope(client, true)
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'site-b' }]))
+    expect(isAuthBlockedForEpisode('inventory:{}')).toBe(false)
+  })
+
+  // Regression: recovery during load-more threw a cancel that TanStack recorded as a failed next page.
+  it('recovers a CONTEXT_MISMATCH on load-more to page one without a load-more error', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return { ok: true, json: async () => ({ ...testScope, continuityDigest: 'lineage-1' }) } as Response
+      }
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 2, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      if (new URL(target, 'http://acp.test').searchParams.get('cursor') === 'c1') return apiError(412, 'CONTEXT_MISMATCH')
+      return {
+        ok: true,
+        json: async () => ({ data: [{ id: 'a' }], meta: { nextCursor: 'c1', hasNextPage: true, scopeContextDigest: 'digest-a' } }),
+      } as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+    await waitFor(() => expect(result.current.tableProps.infinite.hasNextPage).toBe(true))
+
+    await act(async () => {
+      await result.current.tableProps.infinite.fetchNextPage()
+    })
+
+    await waitFor(() => expect(result.current.tableProps.isFetching).toBe(false))
+    expect(result.current.rows).toEqual([{ id: 'a' }])
+    expect(result.current.tableProps.infinite.isFetchNextPageError).toBe(false)
+    expect(result.current.tableProps.isError).toBe(false)
   })
 
   it('new sign-in new episode', async () => {

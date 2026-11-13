@@ -49,11 +49,14 @@ describe('cursor scope (ADR-0038)', () => {
 
   afterEach(() => vi.clearAllMocks())
 
+  // Regression: the late response was dropped with a cancel thrown from the query function, which TanStack never
+  // settles, so the list stayed "fetching" for good instead of reading again under the current generation.
   it('cursorScope_resync_rejects_late_results', async () => {
     let resolveList: (value: Response) => void
     const listPromise = new Promise<Response>((resolve) => {
       resolveList = resolve
     })
+    let listCalls = 0
 
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
@@ -61,6 +64,13 @@ describe('cursor scope (ADR-0038)', () => {
         return {
           ok: true,
           json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }),
+        } as Response
+      }
+      listCalls += 1
+      if (listCalls > 1) {
+        return {
+          ok: true,
+          json: async () => ({ data: [{ id: 'current' }], meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' } }),
         } as Response
       }
       return listPromise
@@ -82,13 +92,10 @@ describe('cursor scope (ADR-0038)', () => {
       }),
     } as Response)
 
-    await waitFor(() => expect(result.current.rows).toEqual([]))
-    await waitFor(
-      () => {
-        expect(result.current.tableProps.isError).toBe(false)
-      },
-      { timeout: 2_000 },
-    )
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'current' }]), { timeout: 3_000 })
+    expect(result.current.rows).not.toContainEqual({ id: 'late' })
+    expect(result.current.tableProps.isFetching).toBe(false)
+    expect(result.current.tableProps.isError).toBe(false)
   })
 
   // Regression: a page that echoed another scope was dropped silently and the list stayed empty with no way back.

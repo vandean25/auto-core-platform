@@ -1,9 +1,8 @@
-import { CancelledError } from '@tanstack/react-query'
-
 import { fetchWithAuth } from './client'
-import { throwCursorListApiError } from './cursor-list-api-error'
+import { StaleScopeResponseError, throwCursorListApiError } from './cursor-list-api-error'
 import {
   getProtectedGeneration,
+  getScopeContextDigest,
   latchScopeExplicitRefresh,
   scopeContextHeaderValue,
   shouldDiscardScopeEcho,
@@ -24,10 +23,6 @@ function headersWithScopeContext(extra?: HeadersInit): Headers {
   const scopeContext = scopeContextHeaderValue()
   if (scopeContext) headers.set(SCOPE_CONTEXT_HEADER, scopeContext)
   return headers
-}
-
-function rejectStaleScopeResponse(): never {
-  throw new CancelledError({ silent: true })
 }
 
 async function onceWithNetworkRetry<T>(run: () => Promise<T>): Promise<T> {
@@ -52,9 +47,17 @@ function rejectForeignOrStaleEcho(
 ): void {
   if (expectedScopeDigest !== undefined && echoedDigest !== undefined && echoedDigest !== expectedScopeDigest) {
     if (observedGeneration === getProtectedGeneration()) latchScopeExplicitRefresh()
-    rejectStaleScopeResponse()
+    throw new StaleScopeResponseError(false)
   }
-  if (shouldDiscardScopeEcho(echoedDigest, observedGeneration)) rejectStaleScopeResponse()
+  if (shouldDiscardScopeEcho(echoedDigest, observedGeneration)) throw new StaleScopeResponseError(true)
+}
+
+/** The header is read from the store at send time, the expected digest from the query key: when they no longer agree
+ * (a handshake changed the scope since the key was built), the request is not sent; the new key reads the new scope. */
+function assertKeyMatchesCurrentScope(expectedScopeDigest: string | undefined) {
+  if (expectedScopeDigest !== undefined && getScopeContextDigest() !== expectedScopeDigest) {
+    throw new StaleScopeResponseError(false)
+  }
 }
 
 export async function fetchCursorListPage<TRow>(
@@ -62,6 +65,7 @@ export async function fetchCursorListPage<TRow>(
   signal: AbortSignal,
   options?: ScopeEchoOptions,
 ): Promise<{ data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }> {
+  assertKeyMatchesCurrentScope(options?.expectedScopeDigest)
   const observedGeneration = getProtectedGeneration()
   const body = await onceWithNetworkRetry(async () =>
     parseJson<{ data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean; scopeContextDigest?: string } }>(
@@ -77,6 +81,7 @@ export async function fetchCursorListCount<T extends ScopeEchoCount>(
   signal: AbortSignal,
   options?: ScopeEchoOptions,
 ): Promise<T> {
+  assertKeyMatchesCurrentScope(options?.expectedScopeDigest)
   const observedGeneration = getProtectedGeneration()
   const body = await onceWithNetworkRetry(async () =>
     parseJson<T>(await fetchWithAuth(url, { signal, headers: headersWithScopeContext() })),

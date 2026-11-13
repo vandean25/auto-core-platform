@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import {
   applyUserSessionLifecycle,
+  rescopeAfterContextSwitch,
   getScopeContextDigest,
   handshakeBeforeExplicitListRefresh,
   handshakeScopeContext,
@@ -130,6 +131,59 @@ describe('scope-context-client handshake epoch', () => {
     expect(await older).toEqual({ kind: 'superseded' })
     expect(isScopeExplicitRefreshRequired()).toBe(false)
     expect(isScopeContextQuarantined()).toBe(false)
+  })
+
+  // Regression: a focus handshake that superseded this tab's own site switch left the switch unaccepted, so the
+  // switch itself needed "Liste aktualisieren".
+  it('accepts an in-tab switch even when a focus handshake supersedes its handshake', async () => {
+    let resolveSwitch: (value: Response) => void = () => undefined
+    let call = 0
+    const switched = { scopeContext: 'sc-b', scopeContextDigest: 'digest-b', continuityDigest: 'digest-old' }
+    vi.mocked(fetchWithAuth).mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveSwitch = resolve
+        })
+      }
+      return { ok: true, json: async () => switched } as Response
+    })
+
+    const switching = rescopeAfterContextSwitch(true)
+    await handshakeScopeContext({ force: true })
+    resolveSwitch({ ok: true, json: async () => switched } as Response)
+    await switching
+
+    expect(getScopeContextDigest()).toBe('digest-b')
+    expect(isScopeContextQuarantined()).toBe(false)
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+  })
+
+  // Regression: a `same` result after a lifecycle hold kept explicitRefreshRequired, which no handshake could lift.
+  it('clears the explicit-refresh flag once a later same handshake lifts the lifecycle hold', async () => {
+    let resolveFirst: (value: Response) => void = () => undefined
+    let call = 0
+    const same = { scopeContext: 'sc-old', scopeContextDigest: 'digest-old', continuityDigest: 'digest-old' }
+    vi.mocked(fetchWithAuth).mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve
+        })
+      }
+      return { ok: true, json: async () => same } as Response
+    })
+
+    const first = handshakeScopeContext()
+    invalidateProtectedScopeContext()
+    resolveFirst({ ok: true, json: async () => same } as Response)
+    await first
+    expect(isScopeContextQuarantined()).toBe(true)
+
+    await handshakeScopeContext({ force: true })
+
+    expect(isScopeContextQuarantined()).toBe(false)
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
   })
 
   it('drops a late handshake when a newer handshake supersedes it', async () => {
