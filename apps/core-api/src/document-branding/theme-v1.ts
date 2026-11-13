@@ -149,12 +149,23 @@ function assertDecorativeText(
   return normalized;
 }
 
-function contrastWithWhite(hexColor: string): number {
+export function contrastRatio(hexA: string, hexB: string): number {
+  const lumA = relativeLuminance(hexA);
+  const lumB = relativeLuminance(hexB);
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(hexColor: string): number {
   const red = linearizeColorChannel(hexColor.slice(1, 3));
   const green = linearizeColorChannel(hexColor.slice(3, 5));
   const blue = linearizeColorChannel(hexColor.slice(5, 7));
-  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  return 1.05 / (luminance + 0.05);
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastWithWhite(hexColor: string): number {
+  return contrastRatio(hexColor, '#FFFFFF');
 }
 
 function linearizeColorChannel(channel: string): number {

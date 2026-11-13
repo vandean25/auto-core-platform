@@ -7,10 +7,14 @@ import { buildAuthoritativeGermanLegalNoticeHtml } from '../../common/i18n/pdf-l
 import { resolveDocumentLanguage } from '../../common/i18n/locale-resolution.js';
 import { createPdfTranslator } from '../../common/i18n/pdf-i18n.js';
 import { snapshotUsesLocalizedPdfResources } from '../../common/i18n/pdf-resource-bundle.js';
+import { contrastRatio } from '../../document-branding/theme-v1.js';
 import type { KaufvertragSnapshot } from './kaufvertrag-snapshot.js';
 
 const DEFAULT_PRIMARY = '#1d4ed8';
 const DEFAULT_SECONDARY = '#0f172a';
+const DEFAULT_TEXT_COLOR = '#0f172a';
+const GARANTIE_BACKGROUND = '#f8fafc';
+const MIN_HEADING_CONTRAST = 4.5;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 type KaufvertragLayoutOptions = {
@@ -34,6 +38,13 @@ export function formatDeEuro(amount: string): string {
 
 function safeColor(value: string, fallback: string): string {
   return HEX_COLOR.test(value) ? value : fallback;
+}
+
+function accessibleHeadingColor(value: string, fallback: string): string {
+  const color = safeColor(value, fallback);
+  return contrastRatio(color, GARANTIE_BACKGROUND) >= MIN_HEADING_CONTRAST
+    ? color
+    : DEFAULT_TEXT_COLOR;
 }
 
 function sellerLines(
@@ -189,7 +200,7 @@ export function buildKaufvertragHtmlDocument(
   options: KaufvertragLayoutOptions,
 ): string {
   const { vehicle, sale } = snapshot;
-  const primary = safeColor(
+  const primary = accessibleHeadingColor(
     snapshot.branding.tokens.primary_color,
     DEFAULT_PRIMARY,
   );
@@ -262,7 +273,6 @@ export function buildKaufvertragHtmlDocument(
     .price { font-weight: 700; }
     .research-note { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #94a3b8; background: #f1f5f9; font-size: 9pt; }
     .garantie { margin-top: 12px; padding: 8px 12px; border: 1.5px dashed var(--secondary); border-radius: 4px; background: #f8fafc; }
-    .garantie h2 { border-bottom: none; color: var(--secondary); }
     .garantie-label { font-style: italic; color: #475569; margin: 0 0 4px; }
     .garantie-terms { white-space: pre-line; margin: 6px 0 0; }
     .signatures { display: flex; justify-content: space-between; margin-top: 28px; }
