@@ -318,7 +318,8 @@ export function useCursorList<TRow extends { id: string }>({
   const retry = retryControls(list, count, authBlocked || quarantined || explicitRefreshRequired)
   const tableProps = {
     // Before the first handshake the query is disabled and idle; keep the skeleton instead of "Keine Ergebnisse.".
-    isLoading: list.isLoading || (enabled && !scopeReady),
+    // While quarantined the rows are hidden too: skeleton, not an empty result.
+    isLoading: list.isLoading || (enabled && (!scopeReady || quarantined)),
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
     isError: retry.isError,
@@ -331,7 +332,7 @@ export function useCursorList<TRow extends { id: string }>({
       isFetchingNextPage: list.isFetchingNextPage,
       isFetchNextPageError: list.isFetchNextPageError,
       fetchNextPage: list.fetchNextPage,
-      totalCount: authBlocked ? undefined : count.data,
+      totalCount: authBlocked || quarantined ? undefined : count.data,
       isCountError: retry.isCountError,
       retryCount: retry.retryCount,
     },

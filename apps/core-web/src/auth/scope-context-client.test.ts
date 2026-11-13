@@ -106,6 +106,32 @@ describe('scope-context-client handshake epoch', () => {
     expect(getScopeContextDigest()).toBeUndefined()
   })
 
+  // Regression: an older POST that failed after a newer handshake succeeded still reported `failed` and latched an error.
+  it('reports a late failure of a superseded handshake as superseded', async () => {
+    let rejectOlder: (error: Error) => void = () => undefined
+    let call = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        return new Promise<Response>((_, reject) => {
+          rejectOlder = reject
+        })
+      }
+      return {
+        ok: true,
+        json: async () => ({ scopeContext: 'sc-old', scopeContextDigest: 'digest-old', continuityDigest: 'digest-old' }),
+      } as Response
+    })
+
+    const older = handshakeScopeContext({ force: true })
+    expect((await handshakeScopeContext({ force: true })).kind).toBe('same')
+    rejectOlder(new Error('offline'))
+
+    expect(await older).toEqual({ kind: 'superseded' })
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+    expect(isScopeContextQuarantined()).toBe(false)
+  })
+
   it('drops a late handshake when a newer handshake supersedes it', async () => {
     const order: string[] = []
     let call = 0

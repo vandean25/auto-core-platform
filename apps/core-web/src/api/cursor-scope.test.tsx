@@ -186,6 +186,28 @@ describe('cursor scope (ADR-0038)', () => {
     expect(result.current.rows).toEqual([{ id: 'digest-b' }])
   })
 
+  // Regression: a quarantined list hid its rows but painted "Keine Ergebnisse." under the previous capped count.
+  it('shows a quarantined list as loading without the previous count', async () => {
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 7, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({ data: [{ id: 'a' }], meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' } }),
+      } as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper() })
+    await waitFor(() => expect(result.current.tableProps.infinite.totalCount).toEqual(expect.objectContaining({ count: 7 })))
+
+    act(() => invalidateProtectedScopeContext())
+
+    expect(result.current.rows).toEqual([])
+    expect(result.current.tableProps.isLoading).toBe(true)
+    expect(result.current.tableProps.infinite.totalCount).toBeUndefined()
+  })
+
   it('external scope change blocks', async () => {
     let activeDigest = 'digest-a'
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {

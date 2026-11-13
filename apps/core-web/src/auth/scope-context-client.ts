@@ -311,6 +311,8 @@ export async function handshakeScopeContext(options?: { force?: boolean }): Prom
     try {
       body = await postHandshake()
     } catch {
+      // A newer handshake owns the outcome; a late failure of this one must not latch an error over its scope.
+      if (epochAtStart !== handshakeEpoch) return { kind: 'superseded' }
       applyHandshakeState(epochAtStart, {
         quarantined: true,
         explicitRefreshRequired: true,
