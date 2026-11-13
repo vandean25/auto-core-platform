@@ -6,7 +6,8 @@ import {
   type KeysetSortDirection,
 } from '../common/list-cursor/index.js';
 
-export const WORKSHOP_ORDER_CURSOR_ENDPOINT = LIST_CURSOR_ENDPOINT.workshopOrders;
+export const WORKSHOP_ORDER_CURSOR_ENDPOINT =
+  LIST_CURSOR_ENDPOINT.workshopOrders;
 
 /** Block size of the infinite list; the ceiling is the global list ceiling. */
 const WORKSHOP_ORDER_CURSOR_DEFAULT_LIMIT = 50;
@@ -51,7 +52,10 @@ export function resolveWorkshopOrderCursorSort(
   return {
     field,
     direction: sortDirection ?? 'desc',
-    config: WORKSHOP_ORDER_CURSOR_SORTS[field as keyof typeof WORKSHOP_ORDER_CURSOR_SORTS],
+    config:
+      WORKSHOP_ORDER_CURSOR_SORTS[
+        field as keyof typeof WORKSHOP_ORDER_CURSOR_SORTS
+      ],
   };
 }
 
@@ -64,6 +68,8 @@ export function resolveWorkshopOrderCursorLimit(limit?: string): number {
 }
 
 /** Exactly the filters the resolver applies; any change resets the cursor chain. */
-export function workshopOrderListFilterContext(query: WorkshopOrderCursorQuery) {
+export function workshopOrderListFilterContext(
+  query: WorkshopOrderCursorQuery,
+) {
   return { search: query.search ?? '', customerId: query.customerId ?? '' };
 }

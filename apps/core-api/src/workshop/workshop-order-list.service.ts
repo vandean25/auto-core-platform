@@ -41,42 +41,50 @@ export class WorkshopOrderListService {
     scopeContextHeader: string | undefined,
   ) {
     const user = await this.requireScopedUser();
-    return this.scopeContext.read(user, scopeContextHeader, ({ tx, siteId }) => {
-      assertNoOffsetParams(query);
-      const { field, direction, config } = resolveWorkshopOrderCursorSort(
-        query.sortField,
-        query.sortDirection,
-      );
-      return fetchKeysetListPage(
-        {
-          endpoint: WORKSHOP_ORDER_CURSOR_ENDPOINT,
-          tenantId: user.tenantId,
-          siteId,
-          filterHashInput: workshopOrderListFilterContext(query),
-          sortField: field,
-          sortDirection: direction,
-          sortConfig: config,
-          cursor: query.cursor,
-          limit: resolveWorkshopOrderCursorLimit(query.limit),
-          baseWhere: buildWorkshopOrderListWhere(user.tenantId, siteId, query),
-        },
-        {
-          findMany: (where, orderBy, take) =>
-            tx.workshopOrder.findMany({
-              where: {
-                AND: [where, { tenant_id: user.tenantId, site_id: siteId }],
-              },
-              include: ORDER_WITH_RELATIONS,
-              orderBy,
-              take,
-            }),
-          mapRow: (order) =>
-            normalizeWorkshopOrder(order as WorkshopOrderWithRelations),
-          readSortValue: (order, prismaField) =>
-            order[prismaField as keyof typeof order],
-        },
-      );
-    });
+    return this.scopeContext.read(
+      user,
+      scopeContextHeader,
+      ({ tx, siteId }) => {
+        assertNoOffsetParams(query);
+        const { field, direction, config } = resolveWorkshopOrderCursorSort(
+          query.sortField,
+          query.sortDirection,
+        );
+        return fetchKeysetListPage(
+          {
+            endpoint: WORKSHOP_ORDER_CURSOR_ENDPOINT,
+            tenantId: user.tenantId,
+            siteId,
+            filterHashInput: workshopOrderListFilterContext(query),
+            sortField: field,
+            sortDirection: direction,
+            sortConfig: config,
+            cursor: query.cursor,
+            limit: resolveWorkshopOrderCursorLimit(query.limit),
+            baseWhere: buildWorkshopOrderListWhere(
+              user.tenantId,
+              siteId,
+              query,
+            ),
+          },
+          {
+            findMany: (where, orderBy, take) =>
+              tx.workshopOrder.findMany({
+                where: {
+                  AND: [where, { tenant_id: user.tenantId, site_id: siteId }],
+                },
+                include: ORDER_WITH_RELATIONS,
+                orderBy,
+                take,
+              }),
+            mapRow: (order) =>
+              normalizeWorkshopOrder(order as WorkshopOrderWithRelations),
+            readSortValue: (order, prismaField) =>
+              order[prismaField as keyof typeof order],
+          },
+        );
+      },
+    );
   }
 
   /** Same resolver as the list, no keyset and no sort (ADR-0035 §5). */
