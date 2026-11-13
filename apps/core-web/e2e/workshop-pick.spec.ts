@@ -226,6 +226,7 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     expect(headerBox && labelBox).toBeTruthy()
     expect(labelBox!.x).toBeGreaterThanOrEqual(headerBox!.x)
     expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width)
+    expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
     expect(await statusLabel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   })
 
