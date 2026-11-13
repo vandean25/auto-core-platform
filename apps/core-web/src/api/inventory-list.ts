@@ -1,6 +1,7 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { isInventoryCursorSort, useInventory, useInventoryCursorList } from './inventory'
+import { inventoryKeys, isInventoryCursorSort, useInventory, useInventoryCursorList } from './inventory'
 import { useOffsetLatchPage } from './cursor-recovery'
+import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 
 function inventoryOffsetEpisodeKey(listParams: {
   search?: string
@@ -28,21 +29,22 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   const infiniteMode = sortEligible && !offsetLatched
   const episodeKey = inventoryOffsetEpisodeKey(listParams)
   const offset = useOffsetLatchPage(episodeKey, offsetLatched, queryParams.page)
+  const scope = useOffsetScopeGate([...inventoryKeys.all, 'list'])
   const offsetList = useInventory(
     { page: offset.page, pageSize: queryParams.pageSize, ...listParams },
-    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey, fresh: offset.handoffPending },
+    {
+      enabled: !infiniteMode && scope.enabled,
+      offsetEpisodeKey: episodeKey,
+      fresh: offset.handoffPending,
+      scopeDigest: scope.digest,
+    },
   )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }
   }
   return {
-    rows: offsetList.data?.data ?? [],
+    rows: scope.hidden ? [] : (offsetList.data?.data ?? []),
     dataUpdatedAt: offsetList.dataUpdatedAt,
-    tableProps: {
-      pageCount: offsetList.data?.meta.pageCount ?? 1,
-      isLoading: offsetList.isLoading,
-      isError: offsetList.isError,
-      onRetry: () => void offsetList.refetch(),
-    },
+    tableProps: scopedOffsetTableProps(offsetList, scope, offsetList.data?.meta.pageCount ?? 1),
   }
 }

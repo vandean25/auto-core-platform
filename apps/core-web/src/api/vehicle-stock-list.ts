@@ -2,11 +2,13 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { resolveListSearch } from './data-table-query'
 
 import { useOffsetLatchPage } from './cursor-recovery'
+import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import {
   isVehicleStockCursorMode,
   useVehicleStock,
   useVehicleStockCursorList,
   VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
+  vehicleStockKeys,
 } from './vehicle-stock'
 
 function vehicleStockOffsetEpisodeKey(queryParams: DataTableQueryParams) {
@@ -35,18 +37,19 @@ export function useVehicleStockListState(queryParams: DataTableQueryParams) {
   const infiniteMode = sortEligible && !offsetLatched
   const episodeKey = vehicleStockOffsetEpisodeKey(queryParams)
   const offset = useOffsetLatchPage(episodeKey, offsetLatched, queryParams.page)
+  const scope = useOffsetScopeGate(vehicleStockKeys.lists())
   const offsetList = useVehicleStock(
     { ...queryParams, page: offset.page },
-    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey, fresh: offset.handoffPending },
+    {
+      enabled: !infiniteMode && scope.enabled,
+      offsetEpisodeKey: episodeKey,
+      fresh: offset.handoffPending,
+      scopeDigest: scope.digest,
+    },
   )
   if (infiniteMode) return cursorList
   return {
-    rows: offsetList.data?.data ?? [],
-    tableProps: {
-      pageCount: offsetList.data?.meta?.pageCount ?? 1,
-      isLoading: offsetList.isLoading,
-      isError: offsetList.isError,
-      onRetry: () => void offsetList.refetch(),
-    },
+    rows: scope.hidden ? [] : (offsetList.data?.data ?? []),
+    tableProps: scopedOffsetTableProps(offsetList, scope, offsetList.data?.meta?.pageCount ?? 1),
   }
 }

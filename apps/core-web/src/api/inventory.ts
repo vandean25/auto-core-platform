@@ -4,6 +4,7 @@ import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import { withScopeContextHeader } from '@/auth/scope-context-client'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
@@ -69,15 +70,16 @@ export function useInventory(
         sortField?: string
         sortDirection?: 'asc' | 'desc'
     } = {},
-    /** `fresh`: read even when cached (page 1 of an offset-latch handoff). */
-    options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean },
+    /** `fresh`: read even when cached (page 1 of an offset-latch handoff). `scopeDigest`: the parts list's scope gate. */
+    options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
 ) {
     const offsetEpisodeKey = options?.offsetEpisodeKey
+    const scopeDigest = options?.scopeDigest
     return useQuery<InventoryResponse>({
-        queryKey: [...inventoryKeys.list(params)],
+        queryKey: scopedOffsetKey(inventoryKeys.list(params), scopeDigest),
         enabled: options?.enabled ?? true,
         ...(options?.fresh ? { staleTime: 0 } : {}),
-        queryFn: () => readOffsetPage(offsetEpisodeKey, params.page, async () => {
+        queryFn: () => readScopedOffset(scopeDigest, () => readOffsetPage(offsetEpisodeKey, params.page, async () => {
             const searchParams = new URLSearchParams()
             const query = {
                 page: params.page,
@@ -98,7 +100,7 @@ export function useInventory(
             }
             const payload = (await response.json()) as InventoryApiResponse
             return normalizeInventoryResponse(payload)
-        }),
+        })),
     })
 }
 
@@ -182,7 +184,7 @@ export function useInventoryItemBySku(sku?: string, itemId?: string) {
             const searchParams = new URLSearchParams()
             searchParams.append('search', sku)
             searchParams.append('pageSize', '10')
-            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`, withScopeContextHeader())
             if (!response.ok) {
                 throw new Error('Failed to fetch inventory item')
             }

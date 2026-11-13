@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
 import { withScopeContextHeader } from '@/auth/scope-context-client'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import { useCursorList } from './cursor-list'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
 import { isInvoiceUpdateOptimisticEligible } from '@/features/interaction/invoice-update-eligibility'
@@ -136,15 +137,17 @@ export function useFinalizeInvoice() {
     })
 }
 
-export function useInvoices(options?: { enabled?: boolean }) {
+/** `scopeDigest`: the invoice list's scope gate (its own key, so a detail entry `[...all, id]` is never shadowed). */
+export function useInvoices(options?: { enabled?: boolean; scopeDigest?: string }) {
+    const scopeDigest = options?.scopeDigest
     return useQuery<Invoice[]>({
-        queryKey: invoiceKeys.all,
+        queryKey: scopeDigest === undefined ? invoiceKeys.all : scopedOffsetKey([...invoiceKeys.all, 'unpaged'], scopeDigest),
         enabled: options?.enabled ?? true,
-        queryFn: async () => {
+        queryFn: () => readScopedOffset(scopeDigest, async () => {
             const response = await fetchWithAuth('/api/sales/invoices', withScopeContextHeader())
             if (!response.ok) throw new Error('Failed to fetch invoices')
             return response.json() as Promise<Invoice[]>
-        },
+        }),
     })
 }
 

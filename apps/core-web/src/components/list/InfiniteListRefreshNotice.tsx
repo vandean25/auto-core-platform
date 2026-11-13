@@ -1,4 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
@@ -22,6 +23,23 @@ export function InfiniteListRefreshButton({ isRefreshing, onRefresh }: InfiniteL
     >
       {t('dataTable.refreshList')}
     </Button>
+  )
+}
+
+/** "Liste aktualisieren" for an offset list held by the scope client; busy from the click until the reload settles. */
+export function ScopeRefreshNotice({ onRefresh }: { onRefresh: () => Promise<void> }) {
+  const [isRefreshing, setRefreshing] = useState(false)
+  const refresh = () => {
+    if (isRefreshing) return
+    setRefreshing(true)
+    void onRefresh()
+      .catch(() => undefined)
+      .finally(() => setRefreshing(false))
+  }
+  return (
+    <div className="flex">
+      <InfiniteListRefreshButton isRefreshing={isRefreshing} onRefresh={refresh} />
+    </div>
   )
 }
 

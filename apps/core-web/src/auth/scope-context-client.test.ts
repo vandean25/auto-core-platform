@@ -159,6 +159,34 @@ describe('scope-context-client handshake epoch', () => {
     expect(isScopeExplicitRefreshRequired()).toBe(false)
   })
 
+  // Regression: a switch from another tab joined a handshake already in flight; its `same` answer for the previous scope
+  // lifted the switch's hold and later list reads kept the pre-switch scope.
+  it('rescopes a switch from another tab with a new handshake, not one already in flight', async () => {
+    let resolveFocus: (value: Response) => void = () => undefined
+    let call = 0
+    const previousScope = { scopeContext: 'sc-old', scopeContextDigest: 'digest-old', continuityDigest: 'digest-old' }
+    const switchedScope = { scopeContext: 'sc-b', scopeContextDigest: 'digest-b', continuityDigest: 'digest-old' }
+    vi.mocked(fetchWithAuth).mockImplementation(async () => {
+      call += 1
+      if (call === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveFocus = resolve
+        })
+      }
+      return { ok: true, json: async () => switchedScope } as Response
+    })
+
+    invalidateProtectedScopeContext()
+    const focus = handshakeScopeContext()
+    const switching = rescopeAfterContextSwitch(false)
+    resolveFocus({ ok: true, json: async () => previousScope } as Response)
+    await Promise.all([focus, switching])
+
+    expect(getScopeContextDigest()).toBe('digest-b')
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(isScopeExplicitRefreshRequired()).toBe(true)
+  })
+
   // Regression: a `same` result after a lifecycle hold kept explicitRefreshRequired, which no handshake could lift.
   it('clears the explicit-refresh flag once a later same handshake lifts the lifecycle hold', async () => {
     let resolveFirst: (value: Response) => void = () => undefined

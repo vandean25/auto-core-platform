@@ -44,6 +44,8 @@ export type DataTableCoreProps<TData extends object> = {
   isPlaceholderData?: boolean
   isError?: boolean
   onRetry?: () => void
+  /** Offset list held by the scope client: "Liste aktualisieren" (infinite lists bring their own). */
+  onScopeRefresh?: () => Promise<void>
   bypassSkeleton?: boolean
   hasUsableData?: boolean
   fetchErrorMessage?: string

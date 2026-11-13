@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
+import { invoiceKeys, isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
+import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import type { Invoice } from './types'
 
 export function formatInvoiceCustomerName(invoice: Invoice) {
@@ -23,8 +24,11 @@ function sortValue(invoice: Invoice, field: string) {
  * It fetches every invoice in one request, so an offset latch needs no page-1 handoff: the table page is sliced here.
  */
 function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const { data: invoices = [], isLoading, isError, refetch, dataUpdatedAt } = useInvoices({ enabled })
+  const scope = useOffsetScopeGate([...invoiceKeys.all, 'unpaged'])
+  const query = useInvoices({ enabled: enabled && scope.enabled, scopeDigest: scope.digest })
   const { search, sortField, sortDirection, page, pageSize } = queryParams
+  const invoices = useMemo(() => (scope.hidden ? [] : (query.data ?? [])), [scope.hidden, query.data])
+  const { dataUpdatedAt } = query
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
     let rows = needle ? invoices.filter((invoice) => matchesSearch(invoice, needle)) : [...invoices]
@@ -36,14 +40,9 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
     return {
       rows: rows.slice(start, start + pageSize),
       dataUpdatedAt,
-      tableProps: {
-        pageCount: Math.max(1, Math.ceil(rows.length / pageSize)),
-        isLoading,
-        isError,
-        onRetry: () => void refetch(),
-      },
+      tableProps: scopedOffsetTableProps(query, scope, Math.max(1, Math.ceil(rows.length / pageSize))),
     }
-  }, [dataUpdatedAt, invoices, isLoading, isError, refetch, search, sortField, sortDirection, page, pageSize])
+  }, [dataUpdatedAt, invoices, query, scope, search, sortField, sortDirection, page, pageSize])
 }
 
 /**

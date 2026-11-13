@@ -202,14 +202,15 @@ export function latchScopeExplicitRefresh(): void {
 
 /**
  * Site or tenant switch: lists stay quarantined until the new scope is in. The tab that switched accepts the result as
- * its explicit refresh, so its next list request sends the new scope; another tab joins any running handshake and keeps
- * an external-scope quarantine until "Liste aktualisieren".
+ * its explicit refresh, so its next list request sends the new scope; in another tab the result keeps an external-scope
+ * quarantine until "Liste aktualisieren". Always a new (forced) handshake: a flight that started before the switch
+ * answers for the previous scope and must not lift the switch's hold.
  */
 export async function rescopeAfterContextSwitch(initiatedHere: boolean): Promise<void> {
   // ADR-0038 §9: a tenant or site switch starts a new recovery episode (budget, auth block and offset latch reset).
   bumpCursorEpisodeCounter()
   invalidateProtectedScopeContext()
-  const result = await handshakeFollowingNewerFlight(initiatedHere ? { force: true } : undefined)
+  const result = await handshakeFollowingNewerFlight({ force: true })
   if (initiatedHere && result.kind !== 'failed' && result.kind !== 'superseded') {
     acceptQuarantinedScopeForExplicitRefresh()
   }

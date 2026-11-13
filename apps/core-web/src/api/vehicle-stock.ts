@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import { withScopeContextHeader } from '@/auth/scope-context-client'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { useCursorList } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
@@ -320,15 +321,16 @@ export type PatchVehicleStockInput = {
 
 export function useVehicleStock(
   queryParams?: DataTableQueryParams,
-  /** `fresh`: read even when cached (page 1 of an offset-latch handoff). */
-  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean },
+  /** `fresh`: read even when cached (page 1 of an offset-latch handoff). `scopeDigest`: the stock list's scope gate. */
+  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
 ) {
   const offsetEpisodeKey = options?.offsetEpisodeKey
+  const scopeDigest = options?.scopeDigest
   return useQuery<VehicleStockListResponse>({
-    queryKey: vehicleStockKeys.list(queryParams),
+    queryKey: scopedOffsetKey(vehicleStockKeys.list(queryParams), scopeDigest),
     enabled: options?.enabled ?? true,
     ...(options?.fresh ? { staleTime: 0 } : {}),
-    queryFn: () => readOffsetPage(offsetEpisodeKey, queryParams?.page, async () => {
+    queryFn: () => readScopedOffset(scopeDigest, () => readOffsetPage(offsetEpisodeKey, queryParams?.page, async () => {
       const url = buildDataTableUrl('/api/vehicle-stock', queryParams, {
         searchFallbackFilterFields: VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
         exactFilterMap: { stock_status: 'stock_status' },
@@ -336,7 +338,7 @@ export function useVehicleStock(
       const response = await fetchWithAuth(url, withScopeContextHeader())
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
       return (await response.json()) as VehicleStockListResponse
-    }),
+    })),
   })
 }
 

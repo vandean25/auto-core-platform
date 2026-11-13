@@ -1,9 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { resetScopeContextClientForTests, seedValidatedScopeContextForTests } from '@/auth/scope-context-client'
+import {
+  handshakeScopeContext,
+  resetScopeContextClientForTests,
+  SCOPE_CONTEXT_HEADER,
+  seedValidatedScopeContextForTests,
+} from '@/auth/scope-context-client'
+import { scopedOffsetKey } from './offset-scope-gate'
 import { fetchWithAuth } from './client'
 import { isOffsetLatchedForEpisode, resetCursorRecoveryForTests } from './cursor-recovery'
 import { inventoryKeys } from './inventory'
@@ -41,7 +47,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       name: 'inventory',
       path: '/api/inventory',
       rowPrefix: 'inv',
-      pageOneKey: inventoryKeys.list({ page: 1, pageSize: 10, sortField: 'sku', sortDirection: 'asc' }),
+      pageOneKey: scopedOffsetKey(inventoryKeys.list({ page: 1, pageSize: 10, sortField: 'sku', sortDirection: 'asc' }), testScope.scopeContextDigest),
       useList: (page: number) =>
         useInventoryListState({ page, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
     },
@@ -49,14 +55,17 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       name: 'vehicle stock',
       path: '/api/vehicle-stock',
       rowPrefix: 'vs',
-      pageOneKey: vehicleStockKeys.list({
-        page: 1,
-        pageSize: 10,
-        sortField: 'vin',
-        sortDirection: 'asc',
-        filters: [{ field: 'stock_status', value: 'IN_STOCK' }],
-        search: undefined,
-      }),
+      pageOneKey: scopedOffsetKey(
+        vehicleStockKeys.list({
+          page: 1,
+          pageSize: 10,
+          sortField: 'vin',
+          sortDirection: 'asc',
+          filters: [{ field: 'stock_status', value: 'IN_STOCK' }],
+          search: undefined,
+        }),
+        testScope.scopeContextDigest,
+      ),
       useList: (page: number) =>
         useVehicleStockListState({
           page,
@@ -141,6 +150,55 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
 
     await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
     expect(offsetPagesRequested(path)).toEqual(['1', '2'])
+  })
+
+  // Offset lists outside cursor mode: a non-cursor sort, "all statuses", a non-cursor invoice sort.
+  const offsetModeLists = [
+    {
+      name: 'inventory',
+      useList: () => useInventoryListState({ page: 1, pageSize: 10, sortField: 'location', sortDirection: 'asc', filters: [] }, {}),
+      body: (id: string) => ({ data: [{ id }], meta: { total: 1, page: 1, pageSize: 10, pageCount: 1 } }),
+    },
+    {
+      name: 'vehicle stock',
+      useList: () => useVehicleStockListState({ page: 1, pageSize: 10, sortField: 'vin', sortDirection: 'asc', filters: [], search: undefined }),
+      body: (id: string) => ({ data: [{ id }], meta: { total: 1, page: 1, pageSize: 10, pageCount: 1 } }),
+    },
+    {
+      name: 'invoices',
+      useList: () => useInvoiceListState({ page: 1, pageSize: 10, sortField: 'status', sortDirection: 'asc', filters: [] }),
+      body: (id: string) => [{ id, invoice_number: 'INV-1', status: 'DRAFT', customer: { type: 'PERSON', first_name: 'A', last_name: 'B' } }],
+    },
+  ]
+
+  // Regression: the offset fallbacks ignored the scope client and kept showing the previous scope's rows after an
+  // external-scope handshake.
+  it.each(offsetModeLists)('$name hides its rows after an external-scope handshake until "Liste aktualisieren"', async ({ useList, body }) => {
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
+      if (String(url).includes('/api/auth/scope-context')) {
+        return {
+          ok: true,
+          json: async () => ({ scopeContext: 'sc-b', scopeContextDigest: 'digest-b', continuityDigest: testScope.scopeContextDigest }),
+        } as Response
+      }
+      const scope = new Headers(init?.headers).get(SCOPE_CONTEXT_HEADER)
+      return { ok: true, json: async () => body(scope === 'sc-b' ? 'row-new-scope' : 'row-previous-scope') } as Response
+    })
+    const { result } = renderHook(() => useList(), { wrapper: wrapper() })
+    await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['row-previous-scope']))
+
+    await act(async () => {
+      await handshakeScopeContext({ force: true })
+    })
+
+    expect(result.current.rows).toEqual([])
+    const refresh = (result.current.tableProps as { onScopeRefresh?: () => Promise<void> }).onScopeRefresh
+    expect(refresh).toBeDefined()
+    await act(async () => {
+      await refresh?.()
+    })
+
+    await waitFor(() => expect(result.current.rows.map((row) => row.id)).toEqual(['row-new-scope']))
   })
 
   // Regression: the invoice fallback list stayed on the page-1 slice while the pager showed page 2.
