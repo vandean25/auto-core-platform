@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import type { TenantAuthenticatedUser } from '../auth/types/authenticated-user.js';
 import {
@@ -108,7 +112,13 @@ export class WorkshopOrderListService {
     if (!user?.tenantId) {
       throw new UnauthorizedException('Tenant session required.');
     }
-    await this.siteContext.getSiteId();
+    if (!(await this.siteContext.findSiteId())) {
+      throw new UnprocessableEntityException({
+        statusCode: 422,
+        code: 'ACTIVE_SITE_REQUIRED',
+        message: 'An active site is required.',
+      });
+    }
     return user as TenantAuthenticatedUser;
   }
 }

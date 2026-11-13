@@ -193,8 +193,38 @@ describe('Workshop orders cursor list (AUT-956 e2e)', () => {
 
   // Regression: offset params silently mixed into a cursor chain.
   it('forbidden page param', async () => {
-    const response = await list({ page: '2' }).expect(400);
-    expect(response.body.code).toBe('LIST_CURSOR_PARAM_FORBIDDEN');
+    for (const query of [{ page: '2' }, { pageSize: '10' }]) {
+      const response = await list(query).expect(400);
+      expect(response.body.code).toBe('LIST_CURSOR_PARAM_FORBIDDEN');
+    }
+  });
+
+  // Regression: missing active site returned HTTP_422 instead of ACTIVE_SITE_REQUIRED or lost to 428.
+  it('returns 422 ACTIVE_SITE_REQUIRED on list and count before scope-context checks', async () => {
+    const user = await basePrisma.user.findFirstOrThrow({
+      where: { firebaseUid: tenant.firebaseUid },
+    });
+    const previousSiteId = user.active_site_id;
+    await basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: null },
+    });
+    try {
+      for (const call of [
+        () => list({}),
+        () => list({}, ''),
+        () => count(),
+        () => count(''),
+      ]) {
+        const response = await call().expect(422);
+        expect(response.body.code).toBe('ACTIVE_SITE_REQUIRED');
+      }
+    } finally {
+      await basePrisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: previousSiteId },
+      });
+    }
   });
 
   // Regression: cursor list or count served without, or with a stale, Scope Context (ADR-0038 §7).
