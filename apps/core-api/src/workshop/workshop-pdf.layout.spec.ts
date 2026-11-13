@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
   buildWorkshopCustomerSection,
@@ -180,6 +181,119 @@ describe('workshop-pdf.layout', () => {
       expect(html).toContain('Check front pads');
       expect(html).toContain('PAD-01');
       expect(html).toContain('Brake Pad Set');
+    });
+
+    // AUT-985 Scenario 1: LABOR line with Prisma.Decimal / quoted string qty renders unquoted
+    it('renders LABOR line stored Decimal or quoted string qty without quotes', () => {
+      const html = buildWorkshopTasksSection(
+        [
+          {
+            title: 'Labor Task',
+            mechanic_notes: null,
+            line_items: [
+              {
+                type: 'LABOR',
+                item_no: 'LAB-01',
+                description: 'Diagnostics',
+                quantity: new Prisma.Decimal('2'),
+              },
+              {
+                type: 'LABOR',
+                item_no: 'LAB-02',
+                description: 'Alignment',
+                quantity: '"3"',
+              },
+            ],
+          },
+        ],
+        escapeHtml,
+        deCopy,
+        'de',
+      );
+      expect(html).toContain('<td style="text-align: right">2</td>');
+      expect(html).toContain('<td style="text-align: right">3</td>');
+      expect(html).not.toContain('&quot;2&quot;');
+      expect(html).not.toContain('&quot;3&quot;');
+    });
+
+    // AUT-985 Scenario 2: numeric qty renders the same value as today
+    it('renders numeric qty as plain number', () => {
+      const html = buildWorkshopTasksSection(
+        [
+          {
+            title: 'Numeric Task',
+            mechanic_notes: null,
+            line_items: [
+              {
+                type: 'PART',
+                item_no: 'PART-01',
+                description: 'Oil Filter',
+                quantity: 2,
+              },
+            ],
+          },
+        ],
+        escapeHtml,
+        deCopy,
+        'de',
+      );
+      expect(html).toContain('<td style="text-align: right">2</td>');
+    });
+
+    // AUT-985 Scenario 3: decimal qty 1.5 in DE locale renders 1,5
+    it('formats decimal qty 1.5 with comma in DE locale', () => {
+      const html = buildWorkshopTasksSection(
+        [
+          {
+            title: 'Decimal Task',
+            mechanic_notes: null,
+            line_items: [
+              {
+                type: 'LABOR',
+                item_no: 'LAB-03',
+                description: 'Electrical repair',
+                quantity: new Prisma.Decimal('1.5'),
+              },
+            ],
+          },
+        ],
+        escapeHtml,
+        deCopy,
+        'de',
+      );
+      expect(html).toContain('<td style="text-align: right">1,5</td>');
+    });
+
+    // AUT-985 Scenario 4: mixed LABOR and PART lines format all MENGE values uniformly
+    it('formats mixed LABOR and PART line quantities uniformly without quotes', () => {
+      const html = buildWorkshopTasksSection(
+        [
+          {
+            title: 'Mixed Task',
+            mechanic_notes: null,
+            line_items: [
+              {
+                type: 'LABOR',
+                item_no: 'LAB-10',
+                description: 'Mount tyres',
+                quantity: new Prisma.Decimal('2'),
+              },
+              {
+                type: 'PART',
+                item_no: 'TYRE-10',
+                description: 'Winter tyre',
+                quantity: 1.5,
+              },
+            ],
+          },
+        ],
+        escapeHtml,
+        deCopy,
+        'de',
+      );
+      expect(html).toContain('<td style="text-align: right">2</td>');
+      expect(html).toContain('<td style="text-align: right">1,5</td>');
+      expect(html).not.toContain('&quot;');
     });
   });
 

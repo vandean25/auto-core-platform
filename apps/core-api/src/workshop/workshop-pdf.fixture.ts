@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { WorkshopMediaPurpose } from '@prisma/client';
+import { Prisma, WorkshopMediaPurpose } from '@prisma/client';
 import { CHECK_IN_ACKNOWLEDGEMENT_TEXT_DE } from './workshop-check-in-acknowledgement.js';
 import {
   buildWorkshopCheckInEvidenceSnapshot,
@@ -47,7 +47,7 @@ export function buildWorkshopPdfFixtureOrder(
             type: 'PART',
             item_no: 'PAD-01',
             description: 'Brake pad set',
-            quantity: '1',
+            quantity: new Prisma.Decimal('1'),
           },
         ],
       },
