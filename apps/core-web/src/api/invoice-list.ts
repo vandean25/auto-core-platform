@@ -23,7 +23,7 @@ function sortValue(invoice: Invoice, field: string) {
  * It fetches every invoice in one request, so an offset latch needs no page-1 handoff: the table page is sliced here.
  */
 function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const { data: invoices = [], isLoading, dataUpdatedAt } = useInvoices({ enabled })
+  const { data: invoices = [], isLoading, isError, refetch, dataUpdatedAt } = useInvoices({ enabled })
   const { search, sortField, sortDirection, page, pageSize } = queryParams
   return useMemo(() => {
     const needle = search?.trim().toLowerCase()
@@ -36,9 +36,14 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
     return {
       rows: rows.slice(start, start + pageSize),
       dataUpdatedAt,
-      tableProps: { pageCount: Math.max(1, Math.ceil(rows.length / pageSize)), isLoading },
+      tableProps: {
+        pageCount: Math.max(1, Math.ceil(rows.length / pageSize)),
+        isLoading,
+        isError,
+        onRetry: () => void refetch(),
+      },
     }
-  }, [dataUpdatedAt, invoices, isLoading, search, sortField, sortDirection, page, pageSize])
+  }, [dataUpdatedAt, invoices, isLoading, isError, refetch, search, sortField, sortDirection, page, pageSize])
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getRealtimeResyncQueryKeys } from './dashboard-entity-map'
-import { createRealtimeResync, REALTIME_RESYNC_MIN_INTERVAL_MS } from './realtime-resync'
+import { createRealtimeResync } from './realtime-resync'
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from './resync-interval'
 
 function setup() {
   let clock = 1_000_000

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
 import { useCursorList } from './cursor-list'
 import { throwIfSalesResponseNotOk } from './sales-api-errors'
 import { isInvoiceUpdateOptimisticEligible } from '@/features/interaction/invoice-update-eligibility'
@@ -140,7 +141,7 @@ export function useInvoices(options?: { enabled?: boolean }) {
         queryKey: invoiceKeys.all,
         enabled: options?.enabled ?? true,
         queryFn: async () => {
-            const response = await fetchWithAuth('/api/sales/invoices')
+            const response = await fetchWithAuth('/api/sales/invoices', withScopeContextHeader())
             if (!response.ok) throw new Error('Failed to fetch invoices')
             return response.json() as Promise<Invoice[]>
         },

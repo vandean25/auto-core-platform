@@ -123,10 +123,13 @@ describe('useCursorList', () => {
     expect(result.current.tableProps.infinite.totalCount).toBeUndefined()
   })
 
-  it('reports a failed first page as a list error and loads the rows when the retry succeeds', async () => {
+  // Regression: a 5xx was retried inside the fetch and again by the query, so one failure sent four list requests.
+  it('reports a failed first page as a list error after one retry and loads the rows when the user retries', async () => {
     let failing = true
+    let listRequests = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       if (String(url).includes('capped-count')) return jsonResponse({ count: 1, isCapped: false })
+      listRequests += 1
       return failing ? failure() : jsonResponse({ data: [{ id: 'a' }], meta: { nextCursor: null, hasNextPage: false } })
     })
     const { result } = renderHook(() => useCursorList<Row>(options()), { wrapper: wrapper() })
@@ -138,6 +141,7 @@ describe('useCursorList', () => {
       },
       { timeout: 3000 },
     )
+    expect(listRequests).toBe(2)
 
     failing = false
     act(() => result.current.tableProps.onRetry?.())

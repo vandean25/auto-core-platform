@@ -26,7 +26,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   const { resetScopeContextClientForTests, seedValidatedScopeContextForTests } = await import('@/auth/scope-context-client')
+  const { resetCursorRecoveryForTests } = await import('@/api/cursor-recovery')
   resetScopeContextClientForTests()
+  // Episodes are keyed by the counter, which the reset sets back to 0: a latch from an earlier file must not leak in.
+  resetCursorRecoveryForTests()
   seedValidatedScopeContextForTests(vitestScopeContext)
 })
 

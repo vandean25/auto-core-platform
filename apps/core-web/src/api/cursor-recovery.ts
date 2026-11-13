@@ -28,13 +28,8 @@ const CONTEXT_HANDSHAKE_CODES = new Set(['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH']
 export function cursorQueryShouldRetry(failureCount: number, error: unknown): boolean {
   if (error instanceof DOMException && error.name === 'AbortError') return false
   if (error instanceof CancelledError) return false
-  if (isCursorListApiError(error)) {
-    if (error.status === 401 || error.status === 403 || error.status === 422) return false
-    if (error.code && CURSOR_NO_RETRY_CODES.has(error.code)) return false
-    if (error.status >= 500) return failureCount < 1
-    return false
-  }
-  if (error instanceof TypeError) return failureCount < 1
+  // The fetch already retried a network error or a 5xx once; a query retry on top would double the requests again.
+  if (isCursorListApiError(error) || error instanceof TypeError) return false
   return failureCount < 1
 }
 
@@ -54,7 +49,20 @@ function episodeKeyOf(episodeCounter: number, semanticKey: string) {
   return `${episodeCounter}:${semanticKey}`
 }
 
+let prunedForCounter: number | null = null
+
+/** Episodes of an earlier counter can never be read again; drop them once per counter bump. */
+function pruneEarlierEpisodes() {
+  const counter = getCursorEpisodeCounter()
+  if (counter === prunedForCounter) return
+  prunedForCounter = counter
+  const prefix = `${counter}:`
+  for (const key of episodes.keys()) if (!key.startsWith(prefix)) episodes.delete(key)
+  for (const [key, blockedIn] of authBlockedLists) if (blockedIn !== counter) authBlockedLists.delete(key)
+}
+
 function readEpisodeState(key: string): EpisodeRecoveryState {
+  pruneEarlierEpisodes()
   const existing = episodes.get(key)
   if (existing) return existing
   const created: EpisodeRecoveryState = {
@@ -80,6 +88,7 @@ export function isListAuthBlocked(listKey: QueryKey): boolean {
 export function resetCursorRecoveryForTests() {
   episodes.clear()
   authBlockedLists.clear()
+  prunedForCounter = null
 }
 
 export function cursorEpisodeBudgetForTests(semanticKey: string): 0 | 1 {
@@ -144,6 +153,13 @@ export function useOffsetLatchPage(semanticKey: string, offsetLatched: boolean, 
   const pending = useSyncExternalStore(subscribeOffsetHandoff, () => isOffsetHandoffPending(semanticKey))
   const handoffPending = offsetLatched && pending
   return { page: handoffPending ? 1 : tablePage, handoffPending }
+}
+
+/** Offset latch and auth block of an episode, subscribed so a change re-renders the list without a cache event. */
+export function useEpisodeFlags(semanticKey: string) {
+  const offsetLatched = useSyncExternalStore(subscribeOffsetHandoff, () => isOffsetLatchedForEpisode(semanticKey))
+  const authBlocked = useSyncExternalStore(subscribeOffsetHandoff, () => isAuthBlockedForEpisode(semanticKey))
+  return { offsetLatched, authBlocked }
 }
 
 export function isOffsetLatchedForEpisode(semanticKey: string): boolean {
@@ -281,6 +297,7 @@ export async function resolveCursorListFailure(
   if (blocksEpisodeForStatus(error)) {
     episode.authBlocked = true
     authBlockedLists.set(hashKey(listKey), getCursorEpisodeCounter())
+    publishHandoffChange()
     return blockListEpisode(client, listKey, { offerRefresh: false })
   }
 

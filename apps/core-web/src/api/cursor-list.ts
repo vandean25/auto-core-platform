@@ -20,8 +20,7 @@ import type { components } from './generated/openapi'
 import { fetchCursorListCount, fetchCursorListPage } from './cursor-list-fetch'
 import {
   cursorQueryShouldRetry,
-  isAuthBlockedForEpisode,
-  isOffsetLatchedForEpisode,
+  useEpisodeFlags,
   resolveCursorListFailure,
   type CursorRecoveryOutcome,
 } from './cursor-recovery'
@@ -239,8 +238,7 @@ function useCursorListGate(semanticEpisodeKey: string, enabled: boolean) {
   const scopeReady = useScopeContextReady()
   const quarantined = useScopeContextQuarantined()
   const explicitRefreshRequired = useScopeExplicitRefreshRequired()
-  const offsetLatch = isOffsetLatchedForEpisode(semanticEpisodeKey)
-  const authBlocked = isAuthBlockedForEpisode(semanticEpisodeKey)
+  const { offsetLatched: offsetLatch, authBlocked } = useEpisodeFlags(semanticEpisodeKey)
   const hidden = quarantined || authBlocked
   return {
     offsetLatch,

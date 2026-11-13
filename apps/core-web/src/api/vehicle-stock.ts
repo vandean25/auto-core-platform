@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { useCursorList } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
@@ -17,7 +18,7 @@ type VehicleStockCursorParams = VehicleStockCursorFilters & { sortField?: string
 
 /** Statuses of the filter select. ON_ORDER also lists the draft purchases, which only the offset list can merge in. */
 export const VEHICLE_STOCK_STATUS_OPTIONS = ['IN_STOCK', 'RESERVED', 'IN_PREP', 'SOLD', 'ON_ORDER'] as const
-const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
+export const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
 const VEHICLE_STOCK_CURSOR_SORT_FIELDS = new Set(['make', 'model', 'year', 'vin', 'plate', 'color', 'updatedAt'])
 
 /**
@@ -332,7 +333,7 @@ export function useVehicleStock(
         searchFallbackFilterFields: VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
         exactFilterMap: { stock_status: 'stock_status' },
       })
-      const response = await fetchWithAuth(url)
+      const response = await fetchWithAuth(url, withScopeContextHeader())
       if (!response.ok) throw new Error('Failed to fetch vehicle stock')
       return (await response.json()) as VehicleStockListResponse
     }),

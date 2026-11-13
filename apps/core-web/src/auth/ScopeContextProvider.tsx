@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 
 import { handshakeScopeContext, invalidateProtectedScopeContext } from '@/auth/scope-context-client'
 import { SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY } from '@/auth/scope-context.constants'
-import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/realtime-resync'
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/resync-interval'
 
 type ScopeContextProviderProps = {
   children: React.ReactNode

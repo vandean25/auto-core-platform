@@ -4,6 +4,7 @@ import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
+import { withScopeContextHeader } from '@/auth/scope-context-client'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
 
 type InventoryApiResponse = {
@@ -91,7 +92,7 @@ export function useInventory(
                 if (value) searchParams.append(key, String(value))
             }
 
-            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`)
+            const response = await fetchWithAuth(`/api/inventory?${searchParams.toString()}`, withScopeContextHeader())
             if (!response.ok) {
                 throw new Error('Network response was not ok')
             }

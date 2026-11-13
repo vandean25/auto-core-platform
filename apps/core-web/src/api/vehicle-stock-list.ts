@@ -1,9 +1,13 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { resolveListSearch } from './data-table-query'
 
-const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
 import { useOffsetLatchPage } from './cursor-recovery'
-import { isVehicleStockCursorMode, useVehicleStock, useVehicleStockCursorList } from './vehicle-stock'
+import {
+  isVehicleStockCursorMode,
+  useVehicleStock,
+  useVehicleStockCursorList,
+  VEHICLE_STOCK_SEARCH_FILTER_FIELDS,
+} from './vehicle-stock'
 
 function vehicleStockOffsetEpisodeKey(queryParams: DataTableQueryParams) {
   const filters = {

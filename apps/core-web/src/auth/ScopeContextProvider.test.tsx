@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
 import { isScopeContextQuarantined } from '@/auth/scope-context-client'
-import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/realtime-resync'
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/resync-interval'
 import { ScopeContextProvider } from './ScopeContextProvider'
 
 vi.mock('@/api/client', () => ({ fetchWithAuth: vi.fn() }))

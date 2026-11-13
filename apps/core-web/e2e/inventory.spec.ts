@@ -5,6 +5,7 @@ import { DE_COMMON } from './helpers/de-common';
 import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { pageOverflow } from './utils/phone-layout';
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '../src/features/realtime/resync-interval';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
 
@@ -292,9 +293,8 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
       await new AutoCorePage(page, 'Artikel').navigate('/inventory');
       await expect(page.getByText('SKU-0000')).toBeVisible();
 
-      // ScopeContextProvider throttles lifecycle handshakes (same as focus resync).
-      // Match ScopeContextProvider focus throttle (features/realtime/realtime-resync.ts).
-      await page.waitForTimeout(10_500);
+      // ScopeContextProvider throttles lifecycle handshakes; wait just past that interval.
+      await page.waitForTimeout(REALTIME_RESYNC_MIN_INTERVAL_MS + 500);
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
       await expect.poll(() => handshakePosts).toBeGreaterThanOrEqual(2);

@@ -175,6 +175,15 @@ export function scopeContextHeaderValue(): string | undefined {
   return getValidatedScopeContext()?.scopeContext
 }
 
+/** Request init carrying the validated scope context, for list reads outside the cursor client (offset fallbacks). */
+export function withScopeContextHeader(init: RequestInit = {}): RequestInit {
+  const scopeContext = scopeContextHeaderValue()
+  if (!scopeContext) return init
+  const headers = new Headers(init.headers)
+  headers.set(SCOPE_CONTEXT_HEADER, scopeContext)
+  return { ...init, headers }
+}
+
 export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observedGeneration: number): boolean {
   if (observedGeneration !== store.getState().protectedGeneration) return true
   if (echoedDigest === undefined) return false
