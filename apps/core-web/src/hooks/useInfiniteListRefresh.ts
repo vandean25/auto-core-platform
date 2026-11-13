@@ -1,7 +1,7 @@
 import { QueryClientContext } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react'
-import { isEpisodeBlockingError } from '@/api/cursor-recovery'
+import { isListAuthBlocked } from '@/api/cursor-recovery'
 import {
   handshakeBeforeExplicitListRefresh,
   isScopeContextQuarantined,
@@ -26,10 +26,10 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
       }
     },
     () => {
-      const query = queryKey === undefined ? undefined : queryClient?.getQueryCache().find({ queryKey, exact: true })
-      if (isEpisodeBlockingError(query?.state.error)) return false
+      if (queryKey !== undefined && isListAuthBlocked(queryKey)) return false
       if (isScopeExplicitRefreshRequired()) return true
-      if (query === undefined) return false
+      if (queryClient === undefined || queryKey === undefined) return false
+      const query = queryClient.getQueryCache().find({ queryKey, exact: true })
       if (query?.state.isInvalidated === true) return true
       // Lifecycle quarantine hides rows immediately; the handshake may still be in flight.
       return isScopeContextQuarantined() && query?.state.data !== undefined
@@ -41,7 +41,7 @@ export function useInfiniteListRefresh(queryKey: QueryKey | undefined) {
     async (options?: { withCount?: boolean }) => {
       if (!queryClient || queryKey === undefined) return
       const target = listQueryKeyForCurrentDigest(queryKey)
-      if (isEpisodeBlockingError(queryClient.getQueryCache().find({ queryKey: target, exact: true })?.state.error)) return
+      if (isListAuthBlocked(target)) return
       setRunning((count) => count + 1)
       try {
         await refreshInfiniteList(queryClient, target, options)

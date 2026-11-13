@@ -1,4 +1,4 @@
-import { CancelledError, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import { CancelledError, hashKey, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 
 import { cancelInfiniteList, markInfiniteListStale } from '@/lib/infinite-list-query'
@@ -65,8 +65,17 @@ function readEpisodeState(key: string): EpisodeRecoveryState {
   return created
 }
 
+/** Scoped list keys whose episode is auth-blocked, with that episode's counter. The query state cannot tell: the block
+ * cancels its own fetch, which restores the state from before the 403. */
+const authBlockedLists = new Map<string, number>()
+
+export function isListAuthBlocked(listKey: QueryKey): boolean {
+  return authBlockedLists.get(hashKey(listKey)) === getCursorEpisodeCounter()
+}
+
 export function resetCursorRecoveryForTests() {
   episodes.clear()
+  authBlockedLists.clear()
 }
 
 export function cursorEpisodeBudgetForTests(semanticKey: string): 0 | 1 {
@@ -225,11 +234,6 @@ function blocksEpisodeForStatus(error: CursorListApiError): boolean {
   return !(error.code && CURSOR_NO_RETRY_CODES.has(error.code))
 }
 
-/** True for a list error that blocks its episode (401, 403, blocking 422): an explicit refresh must not retry it. */
-export function isEpisodeBlockingError(error: unknown): boolean {
-  return isCursorListApiError(error) && blocksEpisodeForStatus(error)
-}
-
 export async function resolveCursorListFailure(
   client: QueryClient,
   options: {
@@ -258,6 +262,7 @@ export async function resolveCursorListFailure(
 
   if (blocksEpisodeForStatus(error)) {
     episode.authBlocked = true
+    authBlockedLists.set(hashKey(listKey), getCursorEpisodeCounter())
     return blockListEpisode(client, listKey, { offerRefresh: false })
   }
 
