@@ -386,4 +386,42 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await expect(page.getByText(PICK.drawer.success)).toBeVisible();
     expect(requestCount).toBe(1);
   });
+
+  test('renders localized status label in the pick drawer header without overflow at 375px', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const { mockedOrder } = await mockPickQueueBaseRoutes(page);
+
+    await page.goto('/workshop/pick-list');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByText(mockedOrder.order_number).first().click();
+
+    const header = page.locator('[data-pick-drawer-header="true"]');
+    await expect(header).toBeVisible();
+
+    const statusBadge = header.getByText('Annahme', { exact: true });
+    await expect(statusBadge).toBeVisible();
+    await expect(header.getByText('INTAKE', { exact: true })).toHaveCount(0);
+
+    const overflow = await header.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+    expect(overflow).toBe(false);
+
+    const headerBox = await header.boundingBox();
+    const badgeBox = await statusBadge.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(badgeBox).not.toBeNull();
+    expect(badgeBox!.x).toBeGreaterThanOrEqual(headerBox!.x - 1);
+    expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
+
+    for (const buttonName of [PICK.drawer.cancel, PICK.drawer.confirm]) {
+      const button = header.getByRole('button', { name: buttonName, exact: true });
+      const buttonBox = await button.boundingBox();
+      expect(buttonBox).not.toBeNull();
+      expect(buttonBox!.x).toBeGreaterThanOrEqual(headerBox!.x - 1);
+      expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
+      expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

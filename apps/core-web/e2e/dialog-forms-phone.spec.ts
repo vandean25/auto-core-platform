@@ -203,6 +203,12 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
     );
     await new AutoCorePage(page, '').navigate(`/workshop/orders/${order.id}`);
 
+    const footerSection = page.locator('section[data-sticky-bottom-chrome]');
+    const netLabel = footerSection.getByText(DE_WORKSHOP.checkout.netTotal, { exact: true });
+    await expect(netLabel).toBeVisible();
+    const netLabelBox = await netLabel.boundingBox();
+    expect(netLabelBox!.height).toBeLessThanOrEqual(24);
+
     const open = page.getByRole('button', { name: DE_WORKSHOP.checkout.primaryAction, exact: true });
     expect((await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await open.click();
@@ -211,6 +217,10 @@ test.describe('Dialog forms on a phone (AUT-738)', () => {
 
     // The open checkout never outgrows the screen, so the total, the primary action and "close" stay reachable.
     const footer = page.locator('section.sticky').filter({ has: page.getByRole('heading', { name: DE_WORKSHOP.checkout.title }) });
+    const grossLabel = footer.getByText(DE_WORKSHOP.checkout.grossTotal, { exact: true });
+    await expect(grossLabel).toBeVisible();
+    const grossLabelBox = await grossLabel.boundingBox();
+    expect(grossLabelBox!.height).toBeLessThanOrEqual(24);
     expect((await footer.boundingBox())!.height).toBeLessThanOrEqual(PHONE.height);
     for (const name of [/aufklappen|zuklappen/, DE_WORKSHOP.checkout.close]) {
       expect((await page.getByRole('button', { name }).first().boundingBox())!.height).toBeGreaterThanOrEqual(44);

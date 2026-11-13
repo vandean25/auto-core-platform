@@ -35,7 +35,9 @@ export function translateEnumWithGenericFallback(namespace: string, value: strin
 
 /** Localized label for a shared status wire value (`enums:status.<VALUE>`). */
 export function formatStatusLabel(status: string): string {
-  return translateEnum('status', status)
+  return enumsT()(`status.${status}`, {
+    defaultValue: enumsT()('status.UNKNOWN'),
+  })
 }
 
 /**
