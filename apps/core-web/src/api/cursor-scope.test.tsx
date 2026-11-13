@@ -89,27 +89,54 @@ describe('cursor scope (ADR-0038)', () => {
     )
   })
 
-  // Regression guard: a page that echoes another scope digest under the same generation must not be shown.
-  it('drops a cursor page that echoes a foreign scope digest', async () => {
-    const readForeignPage = vi.fn(async () => ({
-      data: [{ id: 'foreign' }],
-      meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-foreign' },
+  // Regression: a page that echoed another scope was dropped silently and the list stayed empty with no way back.
+  it('drops a cursor page that echoes a foreign scope digest and recovers through the explicit refresh', async () => {
+    let echoedDigest = 'digest-foreign'
+    const readPage = vi.fn(async () => ({
+      data: [{ id: echoedDigest === 'digest-a' ? 'fresh' : 'foreign' }],
+      meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: echoedDigest },
     }))
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
-      if (String(url).includes('capped-count')) {
+      const target = String(url)
+      if (target.includes('/api/auth/scope-context')) {
+        return { ok: true, json: async () => ({ ...testScope, continuityDigest: 'digest-a' }) } as Response
+      }
+      if (target.includes('capped-count')) {
         return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
       }
-      return { ok: true, json: readForeignPage } as unknown as Response
+      return { ok: true, json: readPage } as unknown as Response
     })
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), {
+      wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    })
+
+    await waitFor(() => expect(readPage).toHaveBeenCalled())
+    await waitFor(() => expect(isScopeExplicitRefreshRequired()).toBe(true))
+    expect(isScopeContextQuarantined()).toBe(true)
+    expect(result.current.rows).toEqual([])
+    expect(result.current.tableProps.isError).toBe(false)
+
+    echoedDigest = 'digest-a'
+    await act(async () => {
+      expect(await handshakeBeforeExplicitListRefresh()).toBe(true)
+      await refreshInfiniteList(client, [...baseOptions().listKey, 'digest-a'])
+    })
+
+    await waitFor(() => expect(result.current.rows).toEqual([{ id: 'fresh' }]))
+    expect(isScopeExplicitRefreshRequired()).toBe(false)
+  })
+
+  // Regression: before the first handshake the disabled list reported no loading and painted "Keine Ergebnisse.".
+  it('keeps the list loading until the first handshake installs a scope', async () => {
+    resetScopeContextClientForTests()
 
     const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper() })
 
-    await waitFor(() => expect(readForeignPage).toHaveBeenCalled())
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50))
-    })
+    expect(result.current.tableProps.isLoading).toBe(true)
     expect(result.current.rows).toEqual([])
-    expect(result.current.tableProps.isError).toBe(false)
+    expect(fetchWithAuth).not.toHaveBeenCalled()
   })
 
   it('external scope change blocks', async () => {

@@ -296,7 +296,8 @@ export function useCursorList<TRow extends { id: string }>({
     return list.data?.pages.flatMap((page) => page.data) ?? []
   }, [list.data, quarantined, authBlocked])
   const tableProps = {
-    isLoading: list.isLoading,
+    // Before the first handshake the query is disabled and idle; keep the skeleton instead of "Keine Ergebnisse.".
+    isLoading: list.isLoading || (enabled && !scopeReady),
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
     isError: list.isError && !list.isFetchNextPageError && !authBlocked,

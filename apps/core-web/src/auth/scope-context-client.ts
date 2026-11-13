@@ -183,6 +183,11 @@ export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observe
   return echoedDigest !== validated
 }
 
+/** A list response echoed a scope its request did not send: hold lists like an external-scope change. */
+export function quarantineForForeignScopeEcho(): void {
+  store.setState({ quarantined: true, explicitRefreshRequired: true, pendingExternalScopeAck: true })
+}
+
 /** User tapped "Liste aktualisieren" while quarantined after an external-scope handshake. */
 export function acceptQuarantinedScopeForExplicitRefresh(): void {
   store.setState({

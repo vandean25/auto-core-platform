@@ -32,10 +32,8 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       })
     }
 
-    const runHandshake = () => {
-      const now = Date.now()
-      if (now - lastHandshakeAt < REALTIME_RESYNC_MIN_INTERVAL_MS) return
-      lastHandshakeAt = now
+    const handshakeNow = () => {
+      lastHandshakeAt = Date.now()
       invalidateProtectedScopeContext()
       // Generation-only bumps fence in-flight responses; quarantine waits for handshake below.
       void handshakeScopeContext().then((result) => {
@@ -43,6 +41,16 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
           markInfiniteListsStaleForRefresh()
         }
       })
+    }
+
+    const runHandshake = () => {
+      if (Date.now() - lastHandshakeAt < REALTIME_RESYNC_MIN_INTERVAL_MS) return
+      handshakeNow()
+    }
+
+    // A phone resume often fires neither focus nor a persisted pageshow.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') runHandshake()
     }
 
     void handshakeScopeContext({ force: true }).then((result) => {
@@ -58,10 +66,12 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       if (event.persisted) runHandshake()
     }
     window.addEventListener('pageshow', onPageShow)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== SCOPE_CONTEXT_SESSION_LINEAGE_STORAGE_KEY) return
-      runHandshake()
+      // A sign-in or sign-out in another tab always runs, even within the focus throttle.
+      handshakeNow()
     }
     window.addEventListener('storage', onStorage)
 
@@ -69,6 +79,7 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       window.removeEventListener('focus', runHandshake)
       window.removeEventListener('online', runHandshake)
       window.removeEventListener('pageshow', onPageShow)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('storage', onStorage)
     }
   }, [enabled, queryClient])

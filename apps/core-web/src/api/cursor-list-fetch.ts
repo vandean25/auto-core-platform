@@ -4,6 +4,7 @@ import { fetchWithAuth } from './client'
 import { throwCursorListApiError } from './cursor-list-api-error'
 import {
   getProtectedGeneration,
+  quarantineForForeignScopeEcho,
   scopeContextHeaderValue,
   shouldDiscardScopeEcho,
   SCOPE_CONTEXT_HEADER,
@@ -42,15 +43,18 @@ async function onceWithNetworkRetry<T>(run: () => Promise<T>): Promise<T> {
 
 type ScopeEchoOptions = { expectedScopeDigest?: string }
 
-function discardScopeEcho(
+/** Drops a response for another scope or an older generation. A generation bump has already quarantined; an echo of a
+ * scope this request did not send latches the explicit-refresh quarantine, so "Liste aktualisieren" is the way back. */
+function rejectForeignOrStaleEcho(
   echoedDigest: string | undefined,
   observedGeneration: number,
   expectedScopeDigest?: string,
-): boolean {
+): void {
   if (expectedScopeDigest !== undefined && echoedDigest !== undefined && echoedDigest !== expectedScopeDigest) {
-    return true
+    if (observedGeneration === getProtectedGeneration()) quarantineForForeignScopeEcho()
+    rejectStaleScopeResponse()
   }
-  return shouldDiscardScopeEcho(echoedDigest, observedGeneration)
+  if (shouldDiscardScopeEcho(echoedDigest, observedGeneration)) rejectStaleScopeResponse()
 }
 
 export async function fetchCursorListPage<TRow>(
@@ -64,9 +68,7 @@ export async function fetchCursorListPage<TRow>(
       await fetchWithAuth(url, { signal, headers: headersWithScopeContext() }),
     ),
   )
-  if (discardScopeEcho(body.meta?.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)) {
-    rejectStaleScopeResponse()
-  }
+  rejectForeignOrStaleEcho(body.meta?.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)
   return body
 }
 
@@ -79,8 +81,6 @@ export async function fetchCursorListCount<T extends ScopeEchoCount>(
   const body = await onceWithNetworkRetry(async () =>
     parseJson<T>(await fetchWithAuth(url, { signal, headers: headersWithScopeContext() })),
   )
-  if (discardScopeEcho(body.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)) {
-    rejectStaleScopeResponse()
-  }
+  rejectForeignOrStaleEcho(body.scopeContextDigest, observedGeneration, options?.expectedScopeDigest)
   return body
 }
