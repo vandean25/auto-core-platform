@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchWithAuth } from '@/api/client'
 import { isScopeContextQuarantined } from '@/auth/scope-context-client'
+import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '@/features/realtime/realtime-resync'
 import { ScopeContextProvider } from './ScopeContextProvider'
 
 vi.mock('@/api/client', () => ({ fetchWithAuth: vi.fn() }))
@@ -19,6 +20,7 @@ function showPage(state: DocumentVisibilityState) {
 describe('ScopeContextProvider lifecycle handshake', () => {
   afterEach(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    vi.restoreAllMocks()
     vi.clearAllMocks()
   })
 
@@ -34,6 +36,8 @@ describe('ScopeContextProvider lifecycle handshake', () => {
       })
     })
 
+    const mountedAt = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(mountedAt)
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ScopeContextProvider enabled>{null}</ScopeContextProvider>
@@ -47,6 +51,13 @@ describe('ScopeContextProvider lifecycle handshake', () => {
     act(() => showPage('hidden'))
     expect(handshakes).toBe(1)
 
+    // Within the throttle of the mount handshake nothing runs.
+    act(() => showPage('visible'))
+    expect(handshakes).toBe(1)
+    expect(isScopeContextQuarantined()).toBe(false)
+
+    act(() => showPage('hidden'))
+    vi.mocked(Date.now).mockReturnValue(mountedAt + REALTIME_RESYNC_MIN_INTERVAL_MS)
     act(() => showPage('visible'))
     expect(isScopeContextQuarantined()).toBe(true)
     await waitFor(() => expect(handshakes).toBe(2))

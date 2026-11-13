@@ -6,6 +6,7 @@ import {
   bumpCursorEpisodeCounter,
   getCursorEpisodeCounter,
   handshakeScopeContext,
+  latchScopeExplicitRefresh,
   scopeContextReadyForCursorList,
   subscribeScopeContextClient,
 } from '@/auth/scope-context-client'
@@ -39,6 +40,8 @@ export function cursorQueryShouldRetry(failureCount: number, error: unknown): bo
 
 type EpisodeRecoveryState = {
   budget: 0 | 1
+  /** The page-1 restart after LIST_CURSOR_INVALID is one-shot on its own, so it leaves the handshake budget alone. */
+  invalidCursorRestarted: boolean
   offsetLatched: boolean
   offsetHandoffPending: boolean
   authBlocked: boolean
@@ -56,6 +59,7 @@ function readEpisodeState(key: string): EpisodeRecoveryState {
   if (existing) return existing
   const created: EpisodeRecoveryState = {
     budget: 1,
+    invalidCursorRestarted: false,
     offsetLatched: false,
     offsetHandoffPending: false,
     authBlocked: false,
@@ -176,6 +180,8 @@ async function recoverViaHandshake(
   listKey: QueryKey,
 ): Promise<CursorRecoveryOutcome> {
   if (episode.budget === 0) {
+    // The retry would repeat the same scope header; the explicit refresh handshakes first.
+    latchScopeExplicitRefresh()
     return blockListEpisode(client, listKey)
   }
 
@@ -207,10 +213,10 @@ async function restartAfterInvalidCursor(
   listKey: QueryKey,
   countKey: QueryKey,
 ): Promise<CursorRecoveryOutcome> {
-  if (episode.budget === 0) {
+  if (episode.invalidCursorRestarted) {
     return blockListEpisode(client, listKey)
   }
-  episode.budget = 0
+  episode.invalidCursorRestarted = true
   await client.cancelQueries({ queryKey: listKey, exact: true })
   await client.cancelQueries({ queryKey: countKey, exact: true })
   return { type: 'restart-page-one' }

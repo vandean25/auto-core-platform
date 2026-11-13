@@ -163,6 +163,7 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const blockedEpisodeCounter = getCursorEpisodeCounter()
     let listsForFreshEpisode = 0
+    let listsForBlockedEpisode = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
@@ -170,6 +171,7 @@ describe('cursor recovery (ADR-0038 §9)', () => {
       }
       if (!target.includes('pagination=cursor')) return apiError(500, 'HTTP_500')
       if (getCursorEpisodeCounter() === blockedEpisodeCounter) {
+        listsForBlockedEpisode += 1
         return apiError(400, 'LIST_CURSOR_INVALID')
       }
       listsForFreshEpisode += 1
@@ -183,7 +185,8 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     })
 
     renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
-    await waitFor(() => expect(cursorEpisodeBudgetForTests('inventory:{}')).toBe(0))
+    // First page plus its one page-1 restart.
+    await waitFor(() => expect(listsForBlockedEpisode).toBe(2))
 
     startNewCursorRecoveryEpisode()
 
@@ -201,6 +204,39 @@ describe('cursor recovery (ADR-0038 §9)', () => {
       countKey: ['inventory', 'capped-count', {}, 'digest-a'],
     })
     expect(outcome.type).toBe('restart-page-one')
+  })
+
+  // Regression: an invalid-cursor restart spent the handshake budget, so a later CONTEXT_MISMATCH never handshook and
+  // "Liste aktualisieren" kept sending the stale scope header.
+  it('invalid-cursor restart keeps the handshake budget, and a spent budget makes the explicit refresh handshake', async () => {
+    let handshakes = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (!String(url).includes('/api/auth/scope-context')) throw new Error(`unexpected ${url}`)
+      handshakes += 1
+      return { ok: true, json: async () => ({ ...testScope, continuityDigest: 'lineage-1' }) } as Response
+    })
+    const failure = (error: CursorListApiError) =>
+      resolveCursorListFailure(new QueryClient(), {
+        error,
+        semanticKey: 'inventory:{}',
+        listKey: ['inventory', 'cursor-list', {}, 'digest-a'],
+        countKey: ['inventory', 'capped-count', {}, 'digest-a'],
+      })
+    const mismatch = new CursorListApiError('CONTEXT_MISMATCH', 412, 'CONTEXT_MISMATCH')
+
+    expect(await failure(new CursorListApiError('LIST_CURSOR_INVALID', 400, 'LIST_CURSOR_INVALID'))).toEqual({
+      type: 'restart-page-one',
+    })
+    expect(await failure(mismatch)).toEqual({ type: 'restart-page-one' })
+    expect(handshakes).toBe(1)
+    expect(scopeContextClient.isScopeExplicitRefreshRequired()).toBe(false)
+
+    expect(await failure(mismatch)).toEqual({ type: 'blocked', externalScope: false })
+    expect(handshakes).toBe(1)
+    expect(scopeContextClient.isScopeExplicitRefreshRequired()).toBe(true)
+
+    expect(await scopeContextClient.handshakeBeforeExplicitListRefresh()).toBe(true)
+    expect(handshakes).toBe(2)
   })
 
   it('LIST_CURSOR_INVALID restarts page one with a live signal', async () => {

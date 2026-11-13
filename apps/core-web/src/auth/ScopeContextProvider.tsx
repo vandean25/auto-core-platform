@@ -36,7 +36,8 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       lastHandshakeAt = Date.now()
       invalidateProtectedScopeContext()
       // Generation-only bumps fence in-flight responses; quarantine waits for handshake below.
-      void handshakeScopeContext().then((result) => {
+      // Forced: a flight that started before this invalidation would keep the lists quarantined on a `same` result.
+      void handshakeScopeContext({ force: true }).then((result) => {
         if (result.kind === 'external-scope' || result.kind === 'failed') {
           markInfiniteListsStaleForRefresh()
         }
@@ -53,6 +54,8 @@ export function ScopeContextProvider({ children, enabled }: ScopeContextProvider
       if (document.visibilityState === 'visible') runHandshake()
     }
 
+    // The mount handshake counts toward the throttle, so the first focus does not quarantine lists that just loaded.
+    lastHandshakeAt = Date.now()
     void handshakeScopeContext({ force: true }).then((result) => {
       if (result.kind === 'external-scope' || result.kind === 'failed') {
         markInfiniteListsStaleForRefresh()

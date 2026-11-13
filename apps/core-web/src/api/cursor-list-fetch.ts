@@ -4,7 +4,7 @@ import { fetchWithAuth } from './client'
 import { throwCursorListApiError } from './cursor-list-api-error'
 import {
   getProtectedGeneration,
-  quarantineForForeignScopeEcho,
+  latchScopeExplicitRefresh,
   scopeContextHeaderValue,
   shouldDiscardScopeEcho,
   SCOPE_CONTEXT_HEADER,
@@ -51,7 +51,7 @@ function rejectForeignOrStaleEcho(
   expectedScopeDigest?: string,
 ): void {
   if (expectedScopeDigest !== undefined && echoedDigest !== undefined && echoedDigest !== expectedScopeDigest) {
-    if (observedGeneration === getProtectedGeneration()) quarantineForForeignScopeEcho()
+    if (observedGeneration === getProtectedGeneration()) latchScopeExplicitRefresh()
     rejectStaleScopeResponse()
   }
   if (shouldDiscardScopeEcho(echoedDigest, observedGeneration)) rejectStaleScopeResponse()

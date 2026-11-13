@@ -183,8 +183,11 @@ export function shouldDiscardScopeEcho(echoedDigest: string | undefined, observe
   return echoedDigest !== validated
 }
 
-/** A list response echoed a scope its request did not send: hold lists like an external-scope change. */
-export function quarantineForForeignScopeEcho(): void {
+/**
+ * Hold lists until "Liste aktualisieren", which handshakes first: after a response echoed a scope its request did not
+ * send, or after a list spent its handshake budget and still gets a scope error.
+ */
+export function latchScopeExplicitRefresh(): void {
   store.setState({ quarantined: true, explicitRefreshRequired: true, pendingExternalScopeAck: true })
 }
 
