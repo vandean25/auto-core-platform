@@ -240,6 +240,50 @@ describe('buildKaufvertragHtmlDocument', () => {
       buildKaufvertragHeaderTemplate(snapshotWith({}), 'data:image/png;base64,AAAA', ''),
     ).toContain('src="data:image/png;base64,AAAA"');
   });
+
+  it('uses the shared h2 section-heading style for Freiwillige Garantie with default branding', () => {
+    const html = render(
+      snapshotWith({ garantie: { months: 12, terms: 'Motor und Getriebe' } }),
+    );
+
+    expect(html).toContain('h2 { font-size: 11pt; margin: 0 0 6px; color: var(--primary);');
+    expect(html).not.toContain('.garantie h2');
+    expect(html).toContain('<section class="garantie">\n        <h2>Freiwillige Garantie</h2>');
+  });
+
+  it('falls back to the default text colour when a tenant uses a light brand accent colour', () => {
+    const html = render(
+      snapshotWith({
+        garantie: { months: 12, terms: null },
+        branding: {
+          ...BASE_INPUT.branding,
+          tokens: {
+            ...BASE_INPUT.branding.tokens,
+            primary_color: '#93c5fd',
+            secondary_color: '#e5e7eb',
+          },
+        },
+      }),
+    );
+
+    expect(html).toContain('--primary: #0f172a;');
+    expect(html).not.toContain('--primary: #93c5fd');
+    expect(html).not.toContain('.garantie h2');
+  });
+
+  it('uses the same shared section-heading style when rendered in EN', () => {
+    const html = render(
+      snapshotWith({
+        garantie: { months: 12, terms: null },
+        documentLocale: 'en',
+      }),
+    );
+
+    expect(html).toContain('Purchase contract for a used motor vehicle');
+    expect(html).toContain('h2 { font-size: 11pt; margin: 0 0 6px; color: var(--primary);');
+    expect(html).not.toContain('.garantie h2');
+    expect(html).toContain('<section class="garantie">\n        <h2>Freiwillige Garantie</h2>');
+  });
 });
 
 describe('Kaufvertrag header and footer templates', () => {
