@@ -91,13 +91,23 @@ describe('SiteService characterization', () => {
     it('clears active_site_id and emits a null site context', async () => {
       wireActiveUser();
       harness.prisma.user.update.mockResolvedValue({ id: 'u-1' });
+      harness.prisma.user.findUnique.mockResolvedValue({
+        id: 'u-1',
+        firebaseUid: 'fb-admin',
+        active_site_id: 'site-old',
+        last_site_by_tenant: { [TENANT_ID]: 'site-old', 'other-tenant': 'site-x' },
+      });
 
       const result = await service.setActiveSite({ siteId: null });
 
       expect(result).toEqual({ activeSiteId: null });
+      // AUT-979: a cleared site must not come back on the next tenant switch.
       expect(harness.prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u-1' },
-        data: { active_site_id: null },
+        data: {
+          active_site_id: null,
+          last_site_by_tenant: { 'other-tenant': 'site-x' },
+        },
       });
       expect(harness.dashboardRealtime.emitSiteContextUpdated).toHaveBeenCalledWith(
         'fb-admin',

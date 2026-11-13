@@ -21,13 +21,18 @@ function toSiteMap(
   );
 }
 
-/** The map with `tenantId` pointing at `siteId`; entries of other tenants are kept. */
+/** The map with `tenantId` pointing at `siteId`, or without it for `null`; other tenants' entries are kept. */
 export function withLastSiteId(
   lastSiteByTenant: Prisma.JsonValue | null | undefined,
   tenantId: string,
-  siteId: string,
+  siteId: string | null,
 ): Record<string, string> {
-  return { ...toSiteMap(lastSiteByTenant), [tenantId]: siteId };
+  const others = Object.fromEntries(
+    Object.entries(toSiteMap(lastSiteByTenant)).filter(
+      ([key]) => key !== tenantId,
+    ),
+  );
+  return siteId ? { ...others, [tenantId]: siteId } : others;
 }
 
 /**
@@ -69,9 +74,17 @@ export async function restoreActiveSiteForTenant(
     return null;
   }
 
+  // The site the session now uses is the last site, also when it was picked as the only one.
   const { count } = await db.user.updateMany({
     where: { id: userId, active_tenant_id: tenantId },
-    data: { active_site_id: siteId },
+    data: {
+      active_site_id: siteId,
+      last_site_by_tenant: withLastSiteId(
+        user?.last_site_by_tenant,
+        tenantId,
+        siteId,
+      ),
+    },
   });
   return count === 1 ? siteId : null;
 }

@@ -107,7 +107,8 @@
     "noActiveSite": "No active site",
     "activateSite": "Activate {{name}}",
     "chooseSite": "Choose a site",
-    "noSiteAvailable": "No site assigned."
+    "noSiteAvailable": "No site assigned.",
+    "sitesLoadFailed": "Sites not loaded."
   },
   "glossaryHints": {
     "sectionLabel": "Terms"

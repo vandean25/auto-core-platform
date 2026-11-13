@@ -56,9 +56,21 @@ export class SiteSessionService {
     const user = await this.requireSiteContextUser(tenantId);
 
     if (dto.siteId === null) {
+      // AUT-979: a cleared site is not restored by a later tenant switch.
+      const current = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { last_site_by_tenant: true },
+      });
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { active_site_id: null },
+        data: {
+          active_site_id: null,
+          last_site_by_tenant: withLastSiteId(
+            current?.last_site_by_tenant,
+            tenantId,
+            null,
+          ),
+        },
       });
       this.dashboardRealtime.emitSiteContextUpdated(user.firebaseUid, null);
       return { activeSiteId: null };

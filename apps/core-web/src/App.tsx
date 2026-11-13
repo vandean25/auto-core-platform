@@ -15,7 +15,7 @@ import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFaile
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
 import { ShellPurgePrompt, type CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
 import { ClientSessionLoadingScreen } from '@/components/shell/ClientSessionLoadingScreen'
-import { ActiveSiteGate } from '@/components/shell/ActiveSiteGate'
+import { ActiveSiteGateProvider, ActiveSiteOutlet } from '@/components/shell/ActiveSiteGate'
 import { useUserChangeOfflinePurge } from '@/components/shell/use-user-change-purge-prompt'
 import { PushLinkGate, useShellPush, useSignOutRequest, useTenantSwitch } from '@/components/shell/use-shell-push'
 import { MechanicShell } from '@/components/shell/MechanicShell'
@@ -72,7 +72,9 @@ function AppMain() {
         <PageContainerWithBreadcrumbs>
           <InvoiceDraftEditorNavigationHost />
           <GlobalErrorBoundary>
-            <AppRoutes />
+            <ActiveSiteOutlet>
+              <AppRoutes />
+            </ActiveSiteOutlet>
           </GlobalErrorBoundary>
         </PageContainerWithBreadcrumbs>
       </PageBreadcrumbsProvider>
@@ -341,11 +343,15 @@ function AuthenticatedShell({
   return (
     <>
       <PushLinkGate resolving={pushLink.resolving}>
-        <ActiveSiteGate
+        <ActiveSiteGateProvider
           activeSiteId={session.activeSiteId}
           sites={mySitesQuery.data ?? []}
           sitesLoading={mySitesQuery.isLoading}
+          sitesFailed={mySitesQuery.isError}
           onPickSite={switchSite}
+          onRetrySites={() => {
+            void mySitesQuery.refetch()
+          }}
         >
           <ShellRouter
             userId={user.uid}
@@ -367,7 +373,7 @@ function AuthenticatedShell({
               void requestSignOut()
             }}
           />
-        </ActiveSiteGate>
+        </ActiveSiteGateProvider>
       </PushLinkGate>
       {purgePrompt && (
         <ShellPurgePrompt

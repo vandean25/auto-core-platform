@@ -452,6 +452,18 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
         .expect(200);
     });
 
+    // Review finding: a site activated as the only one was not remembered, so a second grant opened the picker.
+    it('restores an auto-picked site after a second site was granted', async () => {
+      const { bMain } = await joinTenantB();
+      await switchTenant(tenantB.tenantId);
+      await switchTenant(tenantA.tenantId);
+      await createSiteFor(tenantB.tenantId, 'SECOND');
+
+      const back = await switchTenant(tenantB.tenantId);
+
+      expect(back.body.activeSiteId).toBe(bMain.id);
+    });
+
     // Regression: switching back lost the site the user had picked in that tenant (MAIN).
     it('restores the previously active site when switching back', async () => {
       await joinTenantB();

@@ -9,6 +9,7 @@ import { MechanicPhoneNav } from '@/components/navigation/MechanicPhoneNav'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { Toaster } from '@/components/ui/sonner'
+import { ActiveSiteOutlet } from './ActiveSiteGate'
 
 const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
 
@@ -57,7 +58,9 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
         </div>
       </header>
       <main className="pb-[var(--phone-nav-h)]">
-        <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
+        <GlobalErrorBoundary>
+          <ActiveSiteOutlet>{children}</ActiveSiteOutlet>
+        </GlobalErrorBoundary>
       </main>
       {searchOpen ? <GlobalSearch open onOpenChange={setSearchOpen} /> : null}
       <MechanicPhoneNav onOpenSearch={() => setSearchOpen(true)} />
