@@ -17,7 +17,11 @@ import {
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import type { UserRecord } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
+
+// Only customClaims is read by the claim sync; ESLint (TS 6 shim) and tsc 7 disagree on a single cast here.
+const USER_WITHOUT_CLAIMS = { customClaims: {} } as unknown as UserRecord;
 
 describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
   let app: INestApplication;
@@ -389,7 +393,7 @@ describe('SiteContext / session site (AUT-256, rulings 7-9, 47)', () => {
       const firebaseAuth = getFirebaseAdminAuth();
       jest
         .spyOn(firebaseAuth, 'getUser')
-        .mockResolvedValue({ customClaims: {} });
+        .mockResolvedValue(USER_WITHOUT_CLAIMS);
       jest
         .spyOn(firebaseAuth, 'setCustomUserClaims')
         .mockResolvedValue(undefined);

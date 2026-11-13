@@ -47,7 +47,7 @@ function ActiveSitePicker({ sites, onPickSite }: { sites: MeSite[]; onPickSite: 
           {t('siteSwitcher.chooseSite')}
         </h1>
         {sites.length === 0 ? (
-          <p role="alert" className="text-sm text-slate-500">
+          <p role="alert" className="text-sm text-muted-foreground">
             {t('siteSwitcher.noSiteAvailable')}
           </p>
         ) : (
@@ -62,7 +62,7 @@ function ActiveSitePicker({ sites, onPickSite }: { sites: MeSite[]; onPickSite: 
                   onClick={() => onPickSite(site.id)}
                 >
                   <span className="truncate">{site.name}</span>
-                  <span className="shrink-0 text-xs text-slate-500">{site.code}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{site.code}</span>
                 </Button>
               </li>
             ))}
