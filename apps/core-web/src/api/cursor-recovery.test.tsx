@@ -143,9 +143,8 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     )
     await waitFor(() => expect(result.current.list.rows).toEqual([{ id: 'loaded' }]))
 
-    await act(async () => {
-      await client.refetchQueries({ queryKey: result.current.list.tableProps.infinite.queryKey, exact: true })
-    })
+    // refetchQueries skips static queries; the observer retry is what the table calls.
+    act(() => result.current.list.tableProps.onRetry?.())
 
     await waitFor(() => expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true))
     await waitFor(() => expect(result.current.list.rows).toEqual([]))
