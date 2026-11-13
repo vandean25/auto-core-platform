@@ -108,4 +108,37 @@ test.describe('Workshop Orders list', () => {
     await page.keyboard.press('Enter')
     await page.waitForURL(`/workshop/orders/${order.id}`)
   })
+
+  test('requests GET /api/me/sites exactly once on hard reload', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Order')
+    let meSitesRequests = 0
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      if (route.request().method() === 'GET') {
+        meSitesRequests += 1
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 'e2e-site-id', code: 'W', name: 'Wien', legalEntityId: 'le-1' }]),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([])),
+      })
+    })
+
+    await corePage.navigate('/workshop/orders')
+    await expect(corePage.dataTable).toBeVisible()
+
+    meSitesRequests = 0
+    await page.reload()
+    await expect(corePage.dataTable).toBeVisible()
+    await page.waitForLoadState('networkidle')
+
+    expect(meSitesRequests).toBe(1)
+  })
 })

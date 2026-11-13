@@ -1,5 +1,6 @@
 import { fetchJsonWithAuth } from "./api-error";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthSession } from './auth-session'
 import type { components } from './generated/openapi'
 import { clearLocalSiteSwitch, markLocalSiteSwitch } from './local-site-switch'
 import { resetClientSession } from '@/auth/client-session-reset'
@@ -29,9 +30,12 @@ export const siteKeys = {
  * (ruling 47: Site.is_active AND active SiteMembership AND active TenantMember).
  */
 export function useMySites(enabled = true, tenantId?: string) {
+  const { data: authSession } = useAuthSession(undefined, enabled && !tenantId)
+  const resolvedTenantId = tenantId ?? authSession?.activeTenant?.id
+
   return useQuery<MeSite[]>({
-    queryKey: siteKeys.me(tenantId),
-    enabled,
+    queryKey: siteKeys.me(resolvedTenantId),
+    enabled: enabled && Boolean(resolvedTenantId),
     queryFn: async () => {
       return fetchJsonWithAuth<MeSite[]>(
         "/api/me/sites",
