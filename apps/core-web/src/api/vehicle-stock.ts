@@ -319,12 +319,14 @@ export type PatchVehicleStockInput = {
 
 export function useVehicleStock(
   queryParams?: DataTableQueryParams,
-  options?: { enabled?: boolean; offsetEpisodeKey?: string },
+  /** `fresh`: read even when cached (page 1 of an offset-latch handoff). */
+  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean },
 ) {
   const offsetEpisodeKey = options?.offsetEpisodeKey
   return useQuery<VehicleStockListResponse>({
     queryKey: vehicleStockKeys.list(queryParams),
     enabled: options?.enabled ?? true,
+    ...(options?.fresh ? { staleTime: 0 } : {}),
     queryFn: async () => {
       const url = buildDataTableUrl('/api/vehicle-stock', queryParams, {
         searchFallbackFilterFields: VEHICLE_STOCK_SEARCH_FILTER_FIELDS,

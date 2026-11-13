@@ -6,17 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetScopeContextClientForTests, seedValidatedScopeContextForTests } from '@/auth/scope-context-client'
 import { fetchWithAuth } from './client'
 import { isOffsetLatchedForEpisode, resetCursorRecoveryForTests } from './cursor-recovery'
+import { inventoryKeys } from './inventory'
 import { useInventoryListState } from './inventory-list'
 import { useInvoiceListState } from './invoice-list'
 import { useInvoiceCursorList } from './sales'
+import { vehicleStockKeys } from './vehicle-stock'
 import { useVehicleStockListState } from './vehicle-stock-list'
 
 vi.mock('./client', () => ({ fetchWithAuth: vi.fn() }))
 
 const testScope = { scopeContext: 'sc-test', scopeContextDigest: 'digest-latch' }
 
-function wrapper() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function wrapper(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
@@ -40,6 +41,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       name: 'inventory',
       path: '/api/inventory',
       rowPrefix: 'inv',
+      pageOneKey: inventoryKeys.list({ page: 1, pageSize: 10, sortField: 'sku', sortDirection: 'asc' }),
       useList: (page: number) =>
         useInventoryListState({ page, pageSize: 10, sortField: 'sku', sortDirection: 'asc', filters: [] }, {}),
     },
@@ -47,6 +49,14 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       name: 'vehicle stock',
       path: '/api/vehicle-stock',
       rowPrefix: 'vs',
+      pageOneKey: vehicleStockKeys.list({
+        page: 1,
+        pageSize: 10,
+        sortField: 'vin',
+        sortDirection: 'asc',
+        filters: [{ field: 'stock_status', value: 'IN_STOCK' }],
+        search: undefined,
+      }),
       useList: (page: number) =>
         useVehicleStockListState({
           page,
@@ -59,8 +69,7 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
     },
   ]
 
-  // Regression: on an unsupported sort the offset list stayed on page 1 instead of the table page.
-  it.each(offsetPagedLists)('$name requests page 1 on latch, then shows the table page', async ({ path, rowPrefix, useList }) => {
+  function mockOffsetPagedList(path: string, rowPrefix: string) {
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
       const target = String(url)
       if (target.includes('capped-count')) {
@@ -78,24 +87,48 @@ describe('LIST_CURSOR_SORT_UNSUPPORTED offset latch (ADR-0038)', () => {
       }
       return unsupportedCursor
     })
+  }
+
+  const offsetPagesRequested = (path: string) =>
+    vi
+      .mocked(fetchWithAuth)
+      .mock.calls.map((call) => String(call[0]))
+      .filter((target) => target.includes(path) && !target.includes('pagination=cursor') && !target.includes('capped-count'))
+      .map((target) => new URL(target, 'http://acp.test').searchParams.get('page'))
+
+  // Regression: on an unsupported sort the offset list stayed on page 1 instead of the table page.
+  it.each(offsetPagedLists)('$name requests page 1 on latch, then shows the table page', async ({ path, rowPrefix, useList }) => {
+    mockOffsetPagedList(path, rowPrefix)
     const { result, rerender } = renderHook(({ page }: { page: number }) => useList(page), {
       initialProps: { page: 2 },
       wrapper: wrapper(),
     })
-    const offsetPages = () =>
-      vi
-        .mocked(fetchWithAuth)
-        .mock.calls.map((call) => String(call[0]))
-        .filter((target) => target.includes(path) && !target.includes('pagination=cursor') && !target.includes('capped-count'))
-        .map((target) => new URL(target, 'http://acp.test').searchParams.get('page'))
 
-    await waitFor(() => expect(offsetPages()[0]).toBe('1'))
+    await waitFor(() => expect(offsetPagesRequested(path)[0]).toBe('1'))
     await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
-    expect(offsetPages()).toContain('2')
+    expect(offsetPagesRequested(path)).toContain('2')
 
     rerender({ page: 2 })
     await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
   })
+
+  // Regression: with the app's 5-minute stale time a cached page 1 was never re-read, so the handoff never
+  // completed and the rows stayed on page 1 while the pager showed the table page.
+  it.each(offsetPagedLists)(
+    '$name reads a fresh cached page 1 once on latch, then shows the table page',
+    async ({ path, rowPrefix, useList, pageOneKey }) => {
+      mockOffsetPagedList(path, rowPrefix)
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5 * 60_000 } } })
+      client.setQueryData(pageOneKey, {
+        data: [{ id: `${rowPrefix}-cached` }],
+        meta: { total: 2, page: 1, pageSize: 10, pageCount: 2 },
+      })
+      const { result } = renderHook(() => useList(2), { wrapper: wrapper(client) })
+
+      await waitFor(() => expect(offsetPagesRequested(path)[0]).toBe('1'))
+      await waitFor(() => expect(result.current.rows).toEqual([{ id: `${rowPrefix}-page-2` }]))
+    },
+  )
 
   // Regression: the invoice fallback list stayed on the page-1 slice while the pager showed page 2.
   it('invoices latch to the unpaged list and show the table page', async () => {

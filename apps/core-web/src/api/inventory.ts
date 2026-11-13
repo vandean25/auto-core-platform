@@ -68,12 +68,14 @@ export function useInventory(
         sortField?: string
         sortDirection?: 'asc' | 'desc'
     } = {},
-    options?: { enabled?: boolean; offsetEpisodeKey?: string },
+    /** `fresh`: read even when cached (page 1 of an offset-latch handoff). */
+    options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean },
 ) {
     const offsetEpisodeKey = options?.offsetEpisodeKey
     return useQuery<InventoryResponse>({
         queryKey: [...inventoryKeys.list(params)],
         enabled: options?.enabled ?? true,
+        ...(options?.fresh ? { staleTime: 0 } : {}),
         queryFn: async () => {
             const searchParams = new URLSearchParams()
             const query = {

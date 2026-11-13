@@ -89,6 +89,29 @@ describe('cursor scope (ADR-0038)', () => {
     )
   })
 
+  // Regression guard: a page that echoes another scope digest under the same generation must not be shown.
+  it('drops a cursor page that echoes a foreign scope digest', async () => {
+    const readForeignPage = vi.fn(async () => ({
+      data: [{ id: 'foreign' }],
+      meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-foreign' },
+    }))
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 1, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      return { ok: true, json: readForeignPage } as unknown as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper() })
+
+    await waitFor(() => expect(readForeignPage).toHaveBeenCalled())
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+    expect(result.current.rows).toEqual([])
+    expect(result.current.tableProps.isError).toBe(false)
+  })
+
   it('external scope change blocks', async () => {
     let activeDigest = 'digest-a'
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {

@@ -1,6 +1,6 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { isInventoryCursorSort, useInventory, useInventoryCursorList } from './inventory'
-import { offsetPageWhileHandoffPending } from './cursor-recovery'
+import { useOffsetLatchPage } from './cursor-recovery'
 
 function inventoryOffsetEpisodeKey(listParams: {
   search?: string
@@ -27,12 +27,10 @@ export function useInventoryListState(queryParams: DataTableQueryParams, filters
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
   const episodeKey = inventoryOffsetEpisodeKey(listParams)
-  const offsetPage = offsetLatched
-    ? offsetPageWhileHandoffPending(episodeKey, queryParams.page)
-    : queryParams.page
+  const offset = useOffsetLatchPage(episodeKey, offsetLatched, queryParams.page)
   const offsetList = useInventory(
-    { page: offsetPage, pageSize: queryParams.pageSize, ...listParams },
-    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey },
+    { page: offset.page, pageSize: queryParams.pageSize, ...listParams },
+    { enabled: !infiniteMode, offsetEpisodeKey: episodeKey, fresh: offset.handoffPending },
   )
   if (infiniteMode) {
     return { rows: cursorList.rows, dataUpdatedAt: cursorList.dataUpdatedAt, tableProps: cursorList.tableProps }

@@ -1,4 +1,5 @@
 import { CancelledError, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import { useSyncExternalStore } from 'react'
 
 import { cancelInfiniteList, markInfiniteListStale } from '@/lib/infinite-list-query'
 import {
@@ -6,6 +7,7 @@ import {
   getCursorEpisodeCounter,
   handshakeScopeContext,
   scopeContextReadyForCursorList,
+  subscribeScopeContextClient,
 } from '@/auth/scope-context-client'
 import { isCursorListApiError, type CursorListApiError } from './cursor-list-api-error'
 
@@ -71,23 +73,52 @@ export function cursorEpisodeBudgetForTests(semanticKey: string): 0 | 1 {
   return readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey)).budget
 }
 
-export function latchUnsupportedSortForEpisode(semanticKey: string) {
-  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
-  const state = readEpisodeState(key)
+const handoffListeners = new Set<() => void>()
+
+function publishHandoffChange() {
+  handoffListeners.forEach((listener) => listener())
+}
+
+function armOffsetHandoff(state: EpisodeRecoveryState) {
   state.offsetLatched = true
   state.offsetHandoffPending = true
+  publishHandoffChange()
 }
 
-export function offsetPageWhileHandoffPending(semanticKey: string, tablePage: number): number {
-  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
-  const state = readEpisodeState(key)
-  if (!state.offsetLatched || !state.offsetHandoffPending) return tablePage
-  return 1
+export function latchUnsupportedSortForEpisode(semanticKey: string) {
+  armOffsetHandoff(readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey)))
 }
 
+function isOffsetHandoffPending(semanticKey: string): boolean {
+  const state = episodes.get(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
+  return state?.offsetLatched === true && state.offsetHandoffPending
+}
+
+/** Called once the offset list has read page 1 after an unsupported-sort latch; lists then switch to the table page. */
 export function completeOffsetLatchHandoff(semanticKey: string) {
-  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
-  readEpisodeState(key).offsetHandoffPending = false
+  const state = episodes.get(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
+  if (!state?.offsetHandoffPending) return
+  state.offsetHandoffPending = false
+  publishHandoffChange()
+}
+
+function subscribeOffsetHandoff(listener: () => void) {
+  handoffListeners.add(listener)
+  const stopScope = subscribeScopeContextClient(listener)
+  return () => {
+    handoffListeners.delete(listener)
+    stopScope()
+  }
+}
+
+/**
+ * Offset page of a list after an unsupported-sort latch: page 1 until it has been read once in this episode
+ * (`handoffPending`, which callers turn into a fresh read so a cached page 1 cannot skip it), then the table page.
+ */
+export function useOffsetLatchPage(semanticKey: string, offsetLatched: boolean, tablePage: number) {
+  const pending = useSyncExternalStore(subscribeOffsetHandoff, () => isOffsetHandoffPending(semanticKey))
+  const handoffPending = offsetLatched && pending
+  return { page: handoffPending ? 1 : tablePage, handoffPending }
 }
 
 export function isOffsetLatchedForEpisode(semanticKey: string): boolean {
@@ -209,8 +240,7 @@ export async function resolveCursorListFailure(
   const episode = readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
 
   if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
-    episode.offsetLatched = true
-    episode.offsetHandoffPending = true
+    armOffsetHandoff(episode)
     await flushListCache(client, listKey, countKey, { cancelInFlight: false })
     return { type: 'offset-latch' }
   }
