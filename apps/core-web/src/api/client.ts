@@ -1,5 +1,6 @@
 import { firebaseAuth } from '@/lib/firebase'
 import { getE2ETestToken, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
+import { getClientSessionGeneration } from '@/auth/client-session-reset'
 import { reportIfActiveSiteRequired } from './active-site-required'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
@@ -89,6 +90,7 @@ export function resolveApiUrl(input: RequestInfo | URL): RequestInfo | URL {
 
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   throwIfAborted(init?.signal)
+  const startedInGeneration = getClientSessionGeneration()
 
   const resolvedInput = resolveApiUrl(input)
   const signals: AbortSignal[] = []
@@ -122,6 +124,6 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
   }
 
   const response = await fetch(resolvedInput, config)
-  void reportIfActiveSiteRequired(response)
+  void reportIfActiveSiteRequired(response, startedInGeneration)
   return response
 }

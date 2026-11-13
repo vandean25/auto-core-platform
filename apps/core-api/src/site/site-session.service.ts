@@ -56,7 +56,7 @@ export class SiteSessionService {
     const user = await this.requireSiteContextUser(tenantId);
 
     if (dto.siteId === null) {
-      // AUT-979: a cleared site is not restored by a later tenant switch.
+      // AUT-979: a cleared site is no longer the tenant's last site (the only-site rule may still pick it).
       const current = await this.prisma.user.findUnique({
         where: { id: user.id },
         select: { last_site_by_tenant: true },

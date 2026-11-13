@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import type { MeSite } from '@/api/sites'
 import App from '@/App'
+import { resetClientSession } from '@/auth/client-session-reset'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { ActiveSiteGateProvider, ActiveSiteOutlet } from './ActiveSiteGate'
 
@@ -66,17 +67,16 @@ function renderGate(activeSiteId: string | null, onRequest = vi.fn(), onPickSite
   )
 }
 
+function activeSiteRequiredResponse(body: Record<string, unknown>) {
+  return new Response(JSON.stringify({ statusCode: 422, message: 'An active site is required.', ...body }), {
+    status: 422,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 /** Answers every request with this 422 body, then sends one request through the shared client. */
 async function answerActiveSiteRequired(body: Record<string, unknown>) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ statusCode: 422, message: 'An active site is required.', ...body }), {
-        status: 422,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    ),
-  )
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(activeSiteRequiredResponse(body)))
   await act(async () => {
     await fetchWithAuth('/api/workshop/orders')
   })
@@ -114,6 +114,34 @@ describe('ActiveSiteGate (AUT-979)', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Standort wählen' })).toBeInTheDocument())
     expect(screen.queryByTestId('wo-list-skeleton')).not.toBeInTheDocument()
+  })
+
+  // Review finding: a 422 to a request sent before a tenant switch replaced the page of the restored site.
+  it('ignores a 422 ACTIVE_SITE_REQUIRED to a request sent before the session changed', async () => {
+    let answer: (response: Response) => void = () => undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            answer = resolve
+          }),
+      ),
+    )
+    renderGate('site-restored')
+    const sentBeforeSwitch = fetchWithAuth('/api/workshop/orders')
+
+    await act(async () => {
+      await resetClientSession(new QueryClient(), 'context')
+    })
+    await act(async () => {
+      answer(activeSiteRequiredResponse({ code: 'ACTIVE_SITE_REQUIRED', error: 'Unprocessable Entity' }))
+      await sentBeforeSwitch
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+
+    expect(screen.getByTestId('wo-list-skeleton')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Standort wählen' })).not.toBeInTheDocument()
   })
 
   describe('in the app shell', () => {

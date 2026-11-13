@@ -1,3 +1,5 @@
+import { getClientSessionGeneration } from '@/auth/client-session-reset'
+
 /**
  * AUT-979: a 422 `ACTIVE_SITE_REQUIRED` means the session has no usable site. Every request goes through
  * `fetchWithAuth`, which reports such answers here, so the shell can ask for a site instead of leaving the page
@@ -16,11 +18,16 @@ function namesActiveSiteRequired(body: unknown): boolean {
   return code === ACTIVE_SITE_REQUIRED || error === ACTIVE_SITE_REQUIRED
 }
 
-/** Reads a copy of the body, so the caller can still read the response itself. */
-export async function reportIfActiveSiteRequired(response: Response): Promise<void> {
+/**
+ * Reads a copy of the body, so the caller can still read the response itself. `startedInGeneration` is the client
+ * session generation when the request was sent: an answer to a request of an earlier tenant or site (every switch
+ * moves the generation on) says nothing about the current site and is ignored.
+ */
+export async function reportIfActiveSiteRequired(response: Response, startedInGeneration: number): Promise<void> {
   if (response.status !== 422) return
   try {
     const body: unknown = await response.clone().json()
+    if (startedInGeneration !== getClientSessionGeneration()) return
     if (namesActiveSiteRequired(body)) listeners.forEach((listener) => listener())
   } catch {
     // Not JSON: not this error.
