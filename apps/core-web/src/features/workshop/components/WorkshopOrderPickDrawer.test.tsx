@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkshopOrderPickDrawer } from './WorkshopOrderPickDrawer'
-import { initI18n } from '@/lib/i18n/init-i18n'
 import { deWorkshop } from '@/test/de-workshop'
+import { changeUiLanguage } from '@/lib/i18n'
 
 const qtyLabel = deWorkshop.pick.drawer.qtyAria
   .replace('{{description}}', 'Air filter')
@@ -74,11 +74,10 @@ describe('WorkshopOrderPickDrawer', () => {
     })
   })
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.runOnlyPendingTimers()
     vi.useRealTimers()
     cleanup()
-    await initI18n({ language: 'de' })
   })
 
   it('keeps edited quantities when the order data refreshes while the drawer stays open', () => {
@@ -123,103 +122,35 @@ describe('WorkshopOrderPickDrawer', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')
   })
 
-  it('shows localized DE status label Annahme instead of raw INTAKE in the drawer header', () => {
-    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
-      data: createOrder('tote-1', 2, 'INTAKE'),
-      isLoading: false,
-    })
-
-    const { baseElement } = render(
-      <QueryClientProvider client={createQueryClient()}>
-        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
-      </QueryClientProvider>,
-    )
-
-    const header = baseElement.querySelector('[data-pick-drawer-header="true"]') as HTMLElement
-    expect(within(header).getByText('Annahme')).toBeInTheDocument()
-    expect(within(header).queryByText('INTAKE')).not.toBeInTheDocument()
-  })
-
-  it('shows localized DE status label In Bearbeitung instead of raw IN_PROGRESS in the drawer header', () => {
-    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
-      data: createOrder('tote-1', 2, 'IN_PROGRESS'),
-      isLoading: false,
-    })
-
-    const { baseElement } = render(
-      <QueryClientProvider client={createQueryClient()}>
-        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
-      </QueryClientProvider>,
-    )
-
-    const header = baseElement.querySelector('[data-pick-drawer-header="true"]') as HTMLElement
-    expect(within(header).getByText('In Bearbeitung')).toBeInTheDocument()
-    expect(within(header).queryByText('IN_PROGRESS')).not.toBeInTheDocument()
-  })
-
-  it('shows localized EN status labels instead of raw codes in the drawer header', async () => {
-    await initI18n({ language: 'en' })
-    const queryClient = createQueryClient()
-
-    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
-      data: createOrder('tote-1', 2, 'INTAKE'),
-      isLoading: false,
-    })
-
-    const { baseElement, rerender } = render(
-      <QueryClientProvider client={queryClient}>
-        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
-      </QueryClientProvider>,
-    )
-
-    let header = baseElement.querySelector('[data-pick-drawer-header="true"]') as HTMLElement
-    expect(within(header).getByText('Check-in')).toBeInTheDocument()
-    expect(within(header).queryByText('INTAKE')).not.toBeInTheDocument()
-
-    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
-      data: createOrder('tote-1', 2, 'IN_PROGRESS'),
-      isLoading: false,
-    })
-
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
-      </QueryClientProvider>,
-    )
-
-    header = baseElement.querySelector('[data-pick-drawer-header="true"]') as HTMLElement
-    expect(within(header).getByText('In Progress')).toBeInTheDocument()
-    expect(within(header).queryByText('IN_PROGRESS')).not.toBeInTheDocument()
-  })
-
+  // AUT-989: the drawer header printed the raw status code (INTAKE) instead of the shared WO status label.
   it.each([
-    ['SCHEDULED', 'Geplant'],
-    ['INTAKE', 'Annahme'],
-    ['CONFIRMED', 'Bestätigt'],
-    ['IN_PROGRESS', 'In Bearbeitung'],
-    ['WAITING_PARTS', 'Wartet auf Teile'],
-    ['WAITING_CUSTOMER', 'Wartet auf Kunde'],
-    ['PAUSED', 'Pausiert'],
-    ['COMPLETED', 'Abgeschlossen'],
-    ['INVOICED', 'Fakturiert'],
-    ['CANCELLED', 'Storniert'],
-    ['UNEXPECTED_STATUS', 'Unbekannt'],
-  ])('renders %s as %s without falling back to the raw code or i18n key', (status, expectedLabel) => {
-    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
-      data: createOrder('tote-1', 2, status),
-      isLoading: false,
-    })
+    ['de', 'SCHEDULED', 'Geplant'],
+    ['de', 'INTAKE', 'Annahme'],
+    ['de', 'CONFIRMED', 'Bestätigt'],
+    ['de', 'IN_PROGRESS', 'In Bearbeitung'],
+    ['de', 'WAITING_PARTS', 'Wartet auf Teile'],
+    ['de', 'WAITING_CUSTOMER', 'Wartet auf Kunde'],
+    ['de', 'PAUSED', 'Pausiert'],
+    ['de', 'COMPLETED', 'Abgeschlossen'],
+    ['de', 'INVOICED', 'Fakturiert'],
+    ['de', 'CANCELLED', 'Storniert'],
+    ['de', 'UNEXPECTED_STATUS', 'Unbekannt'],
+    ['en', 'INTAKE', 'Check-in'],
+    ['en', 'IN_PROGRESS', 'In Progress'],
+  ] as const)('shows the localized %s label for a %s order in the header', async (language, status, label) => {
+    await changeUiLanguage(language)
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({ data: createOrder('tote-1', 2, status), isLoading: false })
 
-    const { baseElement } = render(
+    render(
       <QueryClientProvider client={createQueryClient()}>
         <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
       </QueryClientProvider>,
     )
 
-    const header = baseElement.querySelector('[data-pick-drawer-header="true"]') as HTMLElement
-    expect(within(header).getByText(expectedLabel)).toBeInTheDocument()
-    expect(within(header).queryByText(status)).not.toBeInTheDocument()
-    expect(within(header).queryByText(`status.${status}`)).not.toBeInTheDocument()
+    const header = within(document.querySelector('[data-pick-drawer-header="true"]') as HTMLElement)
+    expect(header.getByText(label, { exact: true })).toBeInTheDocument()
+    expect(header.queryByText(status, { exact: true })).toBeNull()
+    expect(header.queryByText(`status.${status}`, { exact: true })).toBeNull()
   })
 })
 
