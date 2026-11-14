@@ -9,7 +9,6 @@ import { useAuthSession } from '@/api/auth-session'
 import type { StorageLocation } from '@/api/locations'
 import type { WorkshopOrder, WorkshopPickLineItemPayload } from '@/api/types'
 import { canManageWorkshopTasks } from '@/features/actions/action-role-predicates'
-import { useStatusLabel } from '@/lib/i18n/enum-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
@@ -41,6 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
 import {
   getRequiredPartLines,
@@ -74,6 +74,7 @@ function WorkshopOrderPickDrawerBody({
   order,
 }: WorkshopOrderPickDrawerBodyProps) {
   const { t } = useTranslation('workshop')
+  const statusLabel = useStatusLabel(order?.status ?? 'UNKNOWN')
   const queryClient = useQueryClient()
   const pickPartsMutation = usePickWorkshopParts()
   const toteTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -227,8 +228,6 @@ function WorkshopOrderPickDrawerBody({
     }
   }
 
-  const statusLabel = useStatusLabel(order?.status ?? 'UNKNOWN')
-
   const isConfirmDisabled =
     !isPickEligible ||
     !selectedStagingLocationId ||
@@ -244,8 +243,8 @@ function WorkshopOrderPickDrawerBody({
         void handleConfirmPick()
       }}
     >
-      <SheetHeader className='px-6 py-4 border-b pr-14' data-pick-drawer-header='true'>
-        <div className='flex flex-wrap items-start justify-between gap-4'>
+      <SheetHeader className='px-6 py-4 border-b pr-14 text-left' data-pick-drawer-header='true'>
+        <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div className='min-w-0'>
             <SheetTitle className='text-lg font-semibold flex items-center gap-2'>
               <Package className='h-4 w-4' />

@@ -405,8 +405,8 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await expect(statusBadge).toBeVisible();
     await expect(header.getByText('INTAKE', { exact: true })).toHaveCount(0);
 
-    const overflow = await header.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
-    expect(overflow).toBe(false);
+    expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    expect(await statusBadge.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
     const headerBox = await header.boundingBox();
     const badgeBox = await statusBadge.boundingBox();
