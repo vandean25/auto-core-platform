@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  CreditNoteStatus,
   FiscalReceiptState,
   FiscalReceiptType,
   InvoiceStatus,
@@ -35,7 +36,10 @@ import {
   buildCancellationSignRequestBody,
   buildNormalSignRequestBody,
 } from './settlement-sign-body.builder.js';
-import { assertSettlementInvoiceSlice } from './settlement-snapshot.validation.js';
+import {
+  assertNoFinalizedCreditNotes,
+  assertSettlementInvoiceSlice,
+} from './settlement-snapshot.validation.js';
 import { hashSettlementRecordRequest } from './settlement-request-hash.js';
 import { SETTLEMENT_ERROR_CODES } from './settlement.constants.js';
 import { mapSettlementResponse } from './settlement.mapper.js';
@@ -100,6 +104,7 @@ export class SettlementService {
     const { tenantId, siteId } = await this.resolveScope();
     await this.assertSettlementAccess(tenantId, siteId);
     const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
+    await this.assertNoFinalizedCreditNotesForInvoice(tenantId, invoice.id);
 
     const legalEntity = await this.prisma.legalEntity.findFirstOrThrow({
       where: {
@@ -983,5 +988,19 @@ export class SettlementService {
       throw new NotFoundException('Invoice not found');
     }
     return invoice;
+  }
+
+  private async assertNoFinalizedCreditNotesForInvoice(
+    tenantId: string,
+    invoiceId: string,
+  ): Promise<void> {
+    const finalizedCount = await this.prisma.creditNote.count({
+      where: {
+        tenant_id: tenantId,
+        original_invoice_id: invoiceId,
+        status: CreditNoteStatus.FINALIZED,
+      },
+    });
+    assertNoFinalizedCreditNotes(finalizedCount);
   }
 }

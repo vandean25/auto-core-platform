@@ -1703,6 +1703,10 @@
       "public": true,
       "params": []
     },
+    "SETTLEMENT_INVOICE_HAS_CREDIT_NOTES": {
+      "public": true,
+      "params": []
+    },
     "SETTLEMENT_NOT_IN_SLICE": {
       "public": true,
       "params": []

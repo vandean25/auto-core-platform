@@ -70,3 +70,12 @@ function settlementNotInSlice(message: string): UnprocessableEntityException {
     message,
   });
 }
+
+export function assertNoFinalizedCreditNotes(finalizedCount: number): void {
+  if (finalizedCount > 0) {
+    throw new UnprocessableEntityException({
+      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
+      message: 'This invoice has finalized credit notes and cannot be settled.',
+    });
+  }
+}
