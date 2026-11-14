@@ -50,13 +50,17 @@ export async function fetchWorkshopCheckInRecord(
   const response = await fetchWithAuth(
     `${WORKSHOP_API}/orders/${orderId}/check-in`,
   )
-  if (response.status === 404) {
-    return null
-  }
   if (!response.ok) {
     return parseCheckInErrorResponse(response)
   }
-  return response.json() as Promise<WorkshopCheckIn>
+  if (typeof response.text === 'function') {
+    const text = await response.text()
+    if (!text.trim()) {
+      return null
+    }
+    return JSON.parse(text) as WorkshopCheckIn | null
+  }
+  return (await response.json()) as WorkshopCheckIn | null
 }
 
 export async function createWorkshopCheckInRecord(

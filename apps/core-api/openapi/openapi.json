@@ -7187,7 +7187,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                  "nullable": true,
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                    }
+                  ]
                 }
               }
             }

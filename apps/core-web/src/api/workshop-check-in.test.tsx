@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import {
+  fetchWorkshopCheckInRecord,
   useUpdateWorkshopCheckInInspection,
   workshopCheckInKeys,
 } from './workshop-check-in'
@@ -141,5 +142,61 @@ describe('useUpdateWorkshopCheckInInspection', () => {
         items: [{ id: 'item-1', passed: true }],
       }),
     ).rejects.toMatchObject({ code: 'CHECK_IN_CONFLICT', status: 409 })
+  })
+})
+
+describe('fetchWorkshopCheckInRecord', () => {
+  it('returns null when the endpoint responds with 200 and an empty or null body', async () => {
+    fetchWithAuth.mockReset()
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => '',
+    })
+
+    await expect(fetchWorkshopCheckInRecord('order-no-check-in')).resolves.toBeNull()
+
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => 'null',
+    })
+
+    await expect(fetchWorkshopCheckInRecord('order-no-check-in')).resolves.toBeNull()
+  })
+
+  it('returns the check-in record when the endpoint responds with 200 and JSON payload', async () => {
+    fetchWithAuth.mockReset()
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          id: 'check-in-1',
+          workshop_order_id: 'order-1',
+          status: 'DRAFT',
+          revision: 1,
+        }),
+    })
+
+    await expect(fetchWorkshopCheckInRecord('order-1')).resolves.toMatchObject({
+      id: 'check-in-1',
+      workshop_order_id: 'order-1',
+      status: 'DRAFT',
+      revision: 1,
+    })
+  })
+
+  it('rejects with 404 when the workshop order is genuinely missing', async () => {
+    fetchWithAuth.mockReset()
+    fetchWithAuth.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: 'Workshop order not found' }),
+    })
+
+    await expect(fetchWorkshopCheckInRecord('missing-order')).rejects.toMatchObject({
+      status: 404,
+    })
   })
 })

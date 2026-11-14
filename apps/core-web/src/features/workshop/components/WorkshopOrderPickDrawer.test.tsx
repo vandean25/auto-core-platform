@@ -4,29 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkshopOrderPickDrawer } from './WorkshopOrderPickDrawer'
 import { deWorkshop } from '@/test/de-workshop'
 import { changeUiLanguage } from '@/lib/i18n'
-
-const qtyLabel = deWorkshop.pick.drawer.qtyAria
-  .replace('{{description}}', 'Air filter')
-  .replace('{{itemNo}}', 'PART-001')
 import * as locationsApi from '@/api/locations'
 import * as workshopApi from '@/api/workshop'
 import * as authSessionApi from '@/api/auth-session'
 
+const qtyLabel = deWorkshop.pick.drawer.qtyAria
+  .replace('{{description}}', 'Air filter')
+  .replace('{{itemNo}}', 'PART-001')
+
 vi.mock('@/api/locations')
 vi.mock('@/api/workshop')
 vi.mock('@/api/auth-session')
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const mocked = (fn: unknown) => fn as ReturnType<typeof vi.fn>
-
-function createQueryClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } })
-}
+const createQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
 function createTask(lineQty: number) {
   return {
@@ -43,12 +35,7 @@ function createOrder(tote: string, lineQty = 2, status = 'IN_PROGRESS') {
     id: 'order-1',
     order_number: 'WO-2026-0001',
     status,
-    customer: {
-      id: 'customer-1',
-      type: 'PRIVATE',
-      first_name: 'Ada',
-      last_name: 'Lovelace',
-    },
+    customer: { id: 'customer-1', type: 'PRIVATE', first_name: 'Ada', last_name: 'Lovelace' },
     tasks: [createTask(lineQty)],
     staging_location_id: tote,
     stagingLocationId: tote,
@@ -68,10 +55,7 @@ describe('WorkshopOrderPickDrawer', () => {
       ],
       isLoading: false,
     })
-    mocked(workshopApi.usePickWorkshopParts).mockReturnValue({
-      mutateAsync: vi.fn(),
-      isPending: false,
-    })
+    mocked(workshopApi.usePickWorkshopParts).mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
   })
 
   afterEach(() => {

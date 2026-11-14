@@ -23,8 +23,9 @@ const POINTS = ['treadInnerMm', 'treadMiddleMm', 'treadOuterMm'] as const
 type Measurement = typeof measurement
 type Submission = { endpoint: string; body: { weightClass: string; wheels: Array<Record<string, unknown>> } }
 
-async function mockTyreReport(page: Page, role = 'ADMIN', signed = false) {
+async function mockTyreReport(page: Page, role = 'ADMIN', signed = false, hasCheckIn = true) {
   await page.addInitScript((activeRole) => {
+    Object.defineProperty(navigator, 'onLine', { get: () => true, configurable: true })
     localStorage.setItem('e2e-active-role', activeRole)
     localStorage.setItem('e2e-active-site-id', 'e2e-site-1')
   }, role)
@@ -41,6 +42,7 @@ async function mockTyreReport(page: Page, role = 'ADMIN', signed = false) {
   const submissions: Submission[] = []
   const forbiddenOrderFetches: string[] = []
   const completions: unknown[] = []
+  const requestedPaths: string[] = []
   const checkIn = {
     id: CHECK_IN_ID, workshop_order_id: ORDER_ID, status: 'DRAFT', revision: 1,
     condition_json: { schema_version: 1, tyre_season: 'UNKNOWN', exterior_notes: '', interior_notes: '' },
@@ -67,6 +69,7 @@ async function mockTyreReport(page: Page, role = 'ADMIN', signed = false) {
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
     const endpoint = new URL(route.request().url()).pathname
     const method = route.request().method()
+    requestedPaths.push(endpoint)
     const json = (body: unknown, status = 200) => route.fulfill({
       status, contentType: 'application/json', body: JSON.stringify(body),
     })
@@ -95,6 +98,9 @@ async function mockTyreReport(page: Page, role = 'ADMIN', signed = false) {
     if (endpoint === `/api/vehicles/${VEHICLE_ID}`) return json(vehicle)
     if (endpoint === `/api/tyre-sets/${TYRE_SET_ID}`) return json(tyreSet())
     if (endpoint === `/api/workshop/orders/${ORDER_ID}/check-in`) {
+      if (!hasCheckIn && method === 'GET') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '' })
+      }
       if (method === 'PATCH') Object.assign(checkIn, route.request().postDataJSON(), { revision: checkIn.revision + 1 })
       return json(checkIn)
     }
@@ -114,7 +120,7 @@ async function mockTyreReport(page: Page, role = 'ADMIN', signed = false) {
     return json(createMockListResponse([]))
   })
   await page.route('**/socket.io/**', (route) => route.fulfill({ status: 403, body: '' }))
-  return { submissions, completions, forbiddenOrderFetches, setHotelStatus: (status: string) => { hotelStatus = status } }
+  return { submissions, completions, forbiddenOrderFetches, requestedPaths, setHotelStatus: (status: string) => { hotelStatus = status } }
 }
 
 async function navigateToPlacement(page: Page, placement: 'order' | 'check-in' | 'hotel') {
@@ -317,4 +323,46 @@ test.describe('Synthetic tyre reports', () => {
       if (role === 'TECH') expect(state.forbiddenOrderFetches).toEqual([])
     })
   }
+
+  test('opening work-order detail without a check-in logs zero 404 responses or console 404s and skips check-in media', async ({ page }) => {
+    const api404s: string[] = []
+    const console404s: string[] = []
+    page.on('response', (response) => {
+      if (response.url().includes('/api/') && response.status() === 404) {
+        api404s.push(`${response.status()} ${new URL(response.url()).pathname}`)
+      }
+    })
+    page.on('console', (message) => {
+      if (message.type() === 'error' && message.text().includes('404')) {
+        console404s.push(message.text())
+      }
+    })
+
+    const state = await mockTyreReport(page, 'ADMIN', false, false)
+    await navigateToPlacement(page, 'order')
+    await page.waitForLoadState('networkidle')
+
+    expect(api404s).toEqual([])
+    expect(console404s).toEqual([])
+    expect(state.requestedPaths).toContain(`/api/workshop/orders/${ORDER_ID}/check-in`)
+    expect(state.requestedPaths).not.toContain(`/api/workshop/orders/${ORDER_ID}/check-in/media`)
+  })
+
+  test('opening work-order detail with a check-in loads the check-in and its media with 200', async ({ page }) => {
+    const checkInStatuses: number[] = []
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname === `/api/workshop/orders/${ORDER_ID}/check-in`) {
+        checkInStatuses.push(response.status())
+      }
+    })
+
+    const state = await mockTyreReport(page, 'ADMIN', false, true)
+    await navigateToPlacement(page, 'order')
+    await page.waitForLoadState('networkidle')
+
+    expect(checkInStatuses).toEqual([200])
+    expect(state.requestedPaths).toContain(`/api/workshop/orders/${ORDER_ID}/check-in`)
+    expect(state.requestedPaths).toContain(`/api/workshop/orders/${ORDER_ID}/check-in/media`)
+  })
 })
+

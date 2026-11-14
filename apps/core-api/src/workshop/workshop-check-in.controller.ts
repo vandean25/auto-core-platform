@@ -67,10 +67,10 @@ export class WorkshopCheckInController {
   }
 
   @Get()
-  @ApiOkResponse({ type: WorkshopCheckInResponseDto })
+  @ApiOkResponse({ type: WorkshopCheckInResponseDto, nullable: true })
   get(
     @Param('orderId', ParseUUIDPipe) orderId: string,
-  ): Promise<WorkshopCheckInResponseDto> {
+  ): Promise<WorkshopCheckInResponseDto | null> {
     return this.checkIns.get(orderId);
   }
 
