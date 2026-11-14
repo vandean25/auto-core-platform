@@ -165,6 +165,9 @@ export async function runGetCheckIn(
 ) {
   const siteId = await deps.siteContext.getSiteId();
   const checkIn = await deps.checkIns.get(input.orderId);
+  if (!checkIn) {
+    throw new NotFoundException('Workshop check-in not found');
+  }
   const [checklist, media] = await Promise.all([
     loadChecklistItems(deps.inspections, input.orderId),
     loadCheckInMedia(deps.checkInMedia, input.orderId),

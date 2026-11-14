@@ -27,6 +27,7 @@ import { DEFAULT_TIME_ZONE } from "@/lib/i18n/constants";
 import { workshopScheduleDateOptions } from "./workshop-schedule-date";
 import errorsDe from "../../../../../locales/de/errors.json" with { type: "json" };
 import { fetchWithAuth } from "@/api/client";
+import { workshopCheckInKeys } from "@/api/workshop-check-in";
 
 vi.mock("@/api/client", () => ({
   API_BASE_URL: "http://127.0.0.1:3000",
@@ -2381,6 +2382,81 @@ describe("WorkshopOrderDetails Characterization", () => {
           expect(screen.queryByTestId("workshop-order-check-in-link")).not.toBeInTheDocument();
         },
       );
+
+      it("resolves check-in to null without requesting check-in media when the order has no check-in (200 empty body)", async () => {
+        const requestedPaths: string[] = [];
+        vi.mocked(fetchWithAuth).mockImplementation(async (input) => {
+          const path = String(input);
+          requestedPaths.push(path);
+          if (path === "/api/workshop/orders/order-1/check-in") {
+            return {
+              ok: true,
+              status: 200,
+              text: async () => "",
+            } as Response;
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [] }),
+          } as Response;
+        });
+
+        renderComponent();
+
+        await waitFor(() => {
+          expect(queryClient.getQueryState(workshopCheckInKeys.record("order-1"))?.status).toBe(
+            "success",
+          );
+        });
+        expect(queryClient.getQueryData(workshopCheckInKeys.record("order-1"))).toBeNull();
+        expect(requestedPaths).toContain("/api/workshop/orders/order-1/check-in");
+        expect(requestedPaths).not.toContain("/api/workshop/orders/order-1/check-in/media");
+      });
+
+      it("loads the check-in record and its media when the order has a check-in", async () => {
+        const requestedPaths: string[] = [];
+        const checkInRecord = {
+          id: "check-in-1",
+          workshop_order_id: "order-1",
+          status: "DRAFT",
+          revision: 1,
+        };
+        vi.mocked(fetchWithAuth).mockImplementation(async (input) => {
+          const path = String(input);
+          requestedPaths.push(path);
+          if (path === "/api/workshop/orders/order-1/check-in") {
+            return {
+              ok: true,
+              status: 200,
+              text: async () => JSON.stringify(checkInRecord),
+            } as Response;
+          }
+          if (path === "/api/workshop/orders/order-1/check-in/media") {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ data: [] }),
+            } as Response;
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: [] }),
+          } as Response;
+        });
+
+        renderComponent();
+
+        await waitFor(() => {
+          expect(queryClient.getQueryData(workshopCheckInKeys.record("order-1"))).toMatchObject(
+            checkInRecord,
+          );
+        });
+        await waitFor(() => {
+          expect(requestedPaths).toContain("/api/workshop/orders/order-1/check-in/media");
+        });
+      });
     });
 
     describe("waiting tasks panel", () => {

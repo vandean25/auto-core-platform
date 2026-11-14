@@ -709,7 +709,7 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
-  it('returns 404 when check-in is missing', async () => {
+  it('returns null when the order exists in the site and has no check-in', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
       status: WorkshopOrderStatus.INTAKE,
@@ -718,8 +718,28 @@ describe('WorkshopCheckInService', () => {
     });
     mockPrisma.workshopCheckIn.findFirst.mockResolvedValue(null);
 
+    await expect(service.get(ORDER_ID)).resolves.toBeNull();
+  });
+
+  it('returns 404 when the order does not exist in the caller tenant or site', async () => {
+    mockPrisma.workshopOrder.findFirst.mockResolvedValue(null);
+
     await expect(service.get(ORDER_ID)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+    expect(mockPrisma.workshopCheckIn.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when a caller without permission requests check-in', async () => {
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      role: 'TECH',
+      userId: 'u-tech',
+    });
+
+    await expect(service.get(ORDER_ID)).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(mockPrisma.workshopOrder.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.workshopCheckIn.findFirst).not.toHaveBeenCalled();
   });
 });
