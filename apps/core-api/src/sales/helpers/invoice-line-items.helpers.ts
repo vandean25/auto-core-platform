@@ -133,12 +133,17 @@ function findMatchingExistingItemIndex(
         candidate.description === item.description,
     );
     if (byCatalogAndDesc !== -1) return byCatalogAndDesc;
-    return pool.findIndex(
-      (candidate) => candidate.catalog_item_id === item.catalogItemId,
-    );
+    const catalogMatches = pool.reduce<number[]>((acc, candidate, idx) => {
+      if (candidate.catalog_item_id === item.catalogItemId) acc.push(idx);
+      return acc;
+    }, []);
+    return catalogMatches.length === 1 ? catalogMatches[0] : -1;
   }
   return pool.findIndex(
-    (candidate) => candidate.description === item.description,
+    (candidate) =>
+      candidate.description === item.description &&
+      !candidate.catalog_item_id &&
+      !candidate.workshop_task_line_item_id,
   );
 }
 
