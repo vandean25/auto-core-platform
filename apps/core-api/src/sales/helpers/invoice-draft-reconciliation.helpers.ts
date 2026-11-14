@@ -12,9 +12,9 @@ export async function reconcileDraftInvoiceItems(
       vehicle_id?: string | null;
       notes?: string | null;
       internal_notes?: string | null;
-      total_net: number;
-      total_tax: number;
-      total_gross: number;
+      total_net: Prisma.Decimal | number;
+      total_tax: Prisma.Decimal | number;
+      total_gross: Prisma.Decimal | number;
     };
     formattedItems: FormattedInvoiceItem[];
   },

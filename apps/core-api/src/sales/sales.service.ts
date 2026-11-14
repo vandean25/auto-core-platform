@@ -40,6 +40,9 @@ export class SalesService {
     const tenantId = await this.tenantContext.getTenantId();
     const existing = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
+      include: {
+        items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+      },
     });
     if (!existing) {
       throw new NotFoundException('Invoice not found');
@@ -67,7 +70,11 @@ export class SalesService {
     }
 
     const { formattedItems, totalNet, totalTax, totalGross } =
-      await buildFormattedInvoiceItems(this.prisma, tenantId, items);
+      await buildFormattedInvoiceItems(this.prisma, tenantId, items, {
+        existingItems: existing.items,
+        globalDiscountType: existing.global_discount_type,
+        globalDiscountValue: existing.global_discount_value,
+      });
 
     return this.prisma.$transaction(async (tx) =>
       reconcileDraftInvoiceItems(tx, {

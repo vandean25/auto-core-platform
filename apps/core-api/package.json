@@ -44,6 +44,7 @@
     "db:seed:landing-demo-tenant": "tsx scripts/seed-landing-demo-tenant.ts",
     "db:baseline": "tsx scripts/baseline-prisma-migrations.ts",
     "db:backfill:tyre-measurements": "tsx scripts/backfill-tyre-measurements.ts",
+    "invoices:reconcile-totals": "tsx scripts/reconcile-issued-invoice-totals.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api",
     "agent-eval": "tsx scripts/agent-eval.ts",
     "agent-eval:report": "tsx scripts/agent-eval-report.ts",

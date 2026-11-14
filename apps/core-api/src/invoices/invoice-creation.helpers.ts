@@ -20,6 +20,7 @@ import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity
 import type { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { defaultRevenueGroupNameForWorkshopLineType } from '../workshop/workshop-line-item-type.helpers.js';
+import { computeStandardInvoiceTotals } from './invoice-snapshot-v2.js';
 
 export const DEFAULT_VAT_RATE = new Prisma.Decimal(
   process.env.DEFAULT_VAT_RATE ?? 20,
@@ -180,37 +181,42 @@ export function buildDraftInvoiceLineItem(
 
 export function calculateInvoiceTotals(
   lineItems: Array<{
+    id?: string;
     quantity: Prisma.Decimal | number | string;
     unit_price?: Prisma.Decimal | number | string;
     unitPrice?: Prisma.Decimal | number | string;
     tax_rate?: Prisma.Decimal | number | string;
     taxRate?: Prisma.Decimal | number | string;
+    line_discount_type?: DiscountType | null;
+    line_discount_value?: Prisma.Decimal | number | string | null;
   }>,
+  globalDiscountType: DiscountType | null = null,
+  globalDiscountValue: Prisma.Decimal | null = null,
 ): InvoiceTotals {
-  let subtotal = new Prisma.Decimal(0);
-  let taxTotal = new Prisma.Decimal(0);
-
-  for (const item of lineItems) {
-    const qty = new Prisma.Decimal(item.quantity);
-    const price = new Prisma.Decimal(item.unit_price ?? item.unitPrice ?? 0);
-    const rate = new Prisma.Decimal(
+  const billedLines = lineItems.map((item, index) => ({
+    id: item.id ?? `line-${index}`,
+    quantity: new Prisma.Decimal(item.quantity),
+    unitPrice: new Prisma.Decimal(item.unit_price ?? item.unitPrice ?? 0),
+    taxRate: new Prisma.Decimal(
       item.tax_rate ?? item.taxRate ?? DEFAULT_VAT_RATE,
-    );
-    const net = qty.mul(price);
-    const tax = net.mul(rate).div(100);
-
-    subtotal = subtotal.add(net);
-    taxTotal = taxTotal.add(tax);
-  }
-
-  const total = subtotal.add(taxTotal);
+    ),
+    lineDiscountType: item.line_discount_type ?? null,
+    lineDiscountValue: isPresent(item.line_discount_value)
+      ? new Prisma.Decimal(item.line_discount_value)
+      : null,
+  }));
+  const { totalNet, totalTax, totalGross } = computeStandardInvoiceTotals(
+    billedLines,
+    globalDiscountType,
+    globalDiscountValue,
+  );
   return {
-    subtotal,
-    taxTotal,
-    total,
-    totalNet: subtotal,
-    totalTax: taxTotal,
-    totalGross: total,
+    subtotal: totalNet,
+    taxTotal: totalTax,
+    total: totalGross,
+    totalNet,
+    totalTax,
+    totalGross,
   };
 }
 
