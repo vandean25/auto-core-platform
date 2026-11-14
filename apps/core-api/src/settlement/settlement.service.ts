@@ -486,6 +486,11 @@ export class SettlementService {
         params.tenantId,
         params.invoice.date,
       );
+      await this.assertNoFinalizedCreditNotesForInvoice(
+        params.tenantId,
+        params.invoice.id,
+        tx,
+      );
       await lockSitesAndAssertActive(tx, params.tenantId, [
         params.invoice.site_id!,
       ]);
@@ -574,6 +579,11 @@ export class SettlementService {
         tx,
         params.tenantId,
         params.invoice.date,
+      );
+      await this.assertNoFinalizedCreditNotesForInvoice(
+        params.tenantId,
+        params.invoice.id,
+        tx,
       );
       await this.lockFiscalRegister(tx, params.tenantId, register.site_id);
       const blocking = await tx.payment.findFirst({
@@ -993,8 +1003,10 @@ export class SettlementService {
   private async assertNoFinalizedCreditNotesForInvoice(
     tenantId: string,
     invoiceId: string,
+    client: Pick<PrismaService, 'creditNote'> | Prisma.TransactionClient = this
+      .prisma,
   ): Promise<void> {
-    const finalizedCount = await this.prisma.creditNote.count({
+    const finalizedCount = await client.creditNote.count({
       where: {
         tenant_id: tenantId,
         original_invoice_id: invoiceId,

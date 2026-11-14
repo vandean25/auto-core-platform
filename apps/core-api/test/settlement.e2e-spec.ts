@@ -38,7 +38,7 @@ describe('Settlement credit-note block (e2e)', () => {
   let vehicleId: string;
 
   beforeAll(async () => {
-    app = await createE2eApp();
+    app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
     fiskalyProvider = app.get(FiskalySignAtFixtureProvider);

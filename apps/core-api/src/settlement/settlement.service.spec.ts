@@ -396,6 +396,9 @@ describe('SettlementService', () => {
           financeSettings: {
             findFirst: jest.fn().mockResolvedValue({ lock_date: null }),
           },
+          creditNote: {
+            count: jest.fn().mockResolvedValue(0),
+          },
           payment: {
             findFirst: jest.fn().mockImplementation(() =>
               allocatedPayments.length > 0 ? storedPayment : null,
@@ -595,6 +598,89 @@ describe('SettlementService', () => {
       },
     });
     expect(paymentFindFirst).not.toHaveBeenCalled();
+    expect(signSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects inside the write transaction before payment.create when a credit note finalizes after the pre-check', async () => {
+    const invoice = {
+      id: invoiceId,
+      tenant_id: tenantId,
+      site_id: siteId,
+      legal_entity_id: 'le-1',
+      invoice_number: 'RE-2026-0001',
+      date: new Date('2026-10-15T10:00:00Z'),
+      total_gross: { toFixed: () => '120.00' },
+      currency: 'EUR',
+    };
+    const register = {
+      id: 'reg-1',
+      tenant_id: tenantId,
+      site_id: siteId,
+      legal_entity_id: 'le-1',
+      provider_state: 'INITIALIZED',
+      provider_cash_register_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      env: 'TEST',
+    };
+    const txCreditNoteCount = jest.fn().mockResolvedValue(1);
+    const txPaymentCreate = jest.fn();
+    const prisma = {
+      fiscalRegister: {
+        findFirst: jest.fn().mockResolvedValue(register),
+      },
+      $transaction: jest.fn().mockImplementation(async (callback) => {
+        const tx = {
+          $queryRaw: jest.fn().mockResolvedValue([]),
+          financeSettings: {
+            findFirst: jest.fn().mockResolvedValue({ lock_date: null }),
+          },
+          creditNote: { count: txCreditNoteCount },
+          payment: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: txPaymentCreate,
+          },
+          fiscalReceipt: { create: jest.fn() },
+        };
+        return callback(tx);
+      }),
+    } as unknown as PrismaService;
+    const { service, provider } = createService(prisma);
+    const signSpy = jest.spyOn(provider, 'signReceipt');
+
+    const params = {
+      tenantId,
+      invoice,
+      dto: {
+        idempotencyKey: '00000000-0000-4000-8000-0000000000c4',
+        method: 'CASH' as const,
+      },
+      requestHash: 'hash',
+      recordedByUserId: 'user-1',
+      rksvMode: RksvMode.REQUIRED_ACP_RKSV,
+    };
+
+    let caught: unknown;
+    try {
+      await (
+        service as unknown as {
+          recordRksvSettlement: (p: typeof params) => Promise<unknown>;
+        }
+      ).recordRksvSettlement(params);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    expect((caught as UnprocessableEntityException).getResponse()).toMatchObject({
+      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
+    });
+    expect(txCreditNoteCount).toHaveBeenCalledWith({
+      where: {
+        tenant_id: tenantId,
+        original_invoice_id: invoiceId,
+        status: CreditNoteStatus.FINALIZED,
+      },
+    });
+    expect(txPaymentCreate).not.toHaveBeenCalled();
     expect(signSpy).not.toHaveBeenCalled();
   });
 });
