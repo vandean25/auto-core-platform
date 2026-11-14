@@ -101,8 +101,10 @@ describe('Settlement credit-note block (e2e)', () => {
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        customer_id: customerId,
-        vehicle_id: vehicleId,
+        customerId,
+        vehicleId,
+        odometer: 120000,
+        fuelLevel: 40,
         notes: 'AUT-916 settlement test',
       })
       .expect(201);
@@ -166,8 +168,19 @@ describe('Settlement credit-note block (e2e)', () => {
       .post(`/api/invoices/${invoiceId}/credit-notes`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
+        date: '2026-11-14',
         reason: 'AUT-916 test credit note',
-        items: [{ originalInvoiceItemId: invoiceItemId, quantity }],
+        mode: quantity >= 2 ? 'FULL' : 'PARTIAL',
+        ...(quantity >= 2
+          ? {}
+          : {
+              lines: [
+                {
+                  originalItemId: invoiceItemId,
+                  quantity: quantity.toFixed(3),
+                },
+              ],
+            }),
       })
       .expect(201);
 
