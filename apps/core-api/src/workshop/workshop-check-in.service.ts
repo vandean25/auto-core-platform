@@ -180,7 +180,7 @@ export class WorkshopCheckInService {
     }
   }
 
-  async get(orderId: string): Promise<WorkshopCheckInResponseDto> {
+  async get(orderId: string): Promise<WorkshopCheckInResponseDto | null> {
     const { tenantId, siteId } = await resolveEstimateScope({
       prisma: this.prisma,
       tenantContext: this.tenantContext,
@@ -192,7 +192,7 @@ export class WorkshopCheckInService {
       where: { tenant_id: tenantId, workshop_order_id: orderId },
     });
     if (!row) {
-      throw new NotFoundException('Workshop check-in not found');
+      return null;
     }
 
     return this.toResponse(row);

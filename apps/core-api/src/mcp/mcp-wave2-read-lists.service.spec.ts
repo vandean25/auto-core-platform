@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { LoanerBookingStatus, WorkshopEstimateStatus } from '@prisma/client';
 import { paginateCommunications } from './mcp-wave2-read.mapper.js';
 import { McpWave2ReadFacade } from './mcp-wave2-read.facade.js';
@@ -156,6 +156,17 @@ describe('McpWave2ReadFacade wave-2 lists', () => {
       expect(summary).not.toHaveProperty('signature_image');
       expect(summary).not.toHaveProperty('content_hash');
       expect(summary.media).toEqual([{ id: 'media-1', purpose: 'SIGNATURE' }]);
+    });
+
+    it('throws NotFoundException when the order has no check-in yet', async () => {
+      const facade = createFacade({
+        checkIns: {
+          get: jest.fn().mockResolvedValue(null),
+        },
+      });
+      await expect(facade.getCheckIn({ orderId: ORDER_ID })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

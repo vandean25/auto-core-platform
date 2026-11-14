@@ -10,6 +10,7 @@ import { MechanicMediaStorage } from '../src/mechanic/mechanic-media.storage.js'
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
+  createMemberBearer,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -33,6 +34,7 @@ describe('Workshop check-in (e2e)', () => {
   let otherTenantId: string;
   let authToken: string;
   let otherAuthToken: string;
+  let techToken: string;
   let orderId: string;
   let otherOrderId: string;
   const checkInId = '51500000-0000-4000-8000-000000000555';
@@ -89,6 +91,7 @@ describe('Workshop check-in (e2e)', () => {
     otherTenantId = tenantB.tenantId;
     authToken = createTestAuthToken(authService, tenantA);
     otherAuthToken = createTestAuthToken(authService, tenantB);
+    techToken = await createMemberBearer(basePrisma, authService, tenantA, 'TECH');
 
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenantId);
@@ -553,7 +556,16 @@ describe('Workshop check-in (e2e)', () => {
     expect(signatureRow?.id).toBe(signatureId);
   });
 
-  it('isolates check-in reads across tenants', async () => {
+  it('returns 200 with empty/null body when an in-tenant order has no check-in', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${otherOrderId}/check-in`)
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .expect(200);
+
+    expect(res.text).toBe('');
+  });
+
+  it('isolates check-in reads across tenants and returns 404 for missing orders', async () => {
     await request(app.getHttpServer())
       .get(`/api/workshop/orders/${orderId}/check-in`)
       .set('Authorization', `Bearer ${otherAuthToken}`)
@@ -561,7 +573,19 @@ describe('Workshop check-in (e2e)', () => {
 
     await request(app.getHttpServer())
       .get(`/api/workshop/orders/${otherOrderId}/check-in`)
-      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
+
+    await request(app.getHttpServer())
+      .get('/api/workshop/orders/00000000-0000-4000-8000-000000000404/check-in')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+  });
+
+  it('returns 403 when a caller without permission requests check-in', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', techToken)
+      .expect(403);
   });
 });
