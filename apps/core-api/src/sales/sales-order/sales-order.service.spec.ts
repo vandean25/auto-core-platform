@@ -333,6 +333,76 @@ describe('SalesOrderService', () => {
     expect(invoiceTransaction.invoice.create).toHaveBeenCalled();
   });
 
+  it('Scenario 3: createInvoiceFromOrder uses shared per-line half-up totals matching snapshot', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue(
+      foundSalesOrder({
+        items: [
+          {
+            id: 'item-1',
+            tenant_id: 'tenant-1',
+            sales_order_id: 'so-1',
+            catalog_item_id: 'cat-1',
+            catalog_item: null,
+            description: 'Part 1',
+            quantity: new Prisma.Decimal(1),
+            unit_price: new Prisma.Decimal('12.38'),
+            tax_rate: new Prisma.Decimal(20),
+            total: new Prisma.Decimal('12.38'),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: 'item-2',
+            tenant_id: 'tenant-1',
+            sales_order_id: 'so-1',
+            catalog_item_id: 'cat-2',
+            catalog_item: null,
+            description: 'Part 2',
+            quantity: new Prisma.Decimal(1),
+            unit_price: new Prisma.Decimal('12.38'),
+            tax_rate: new Prisma.Decimal(20),
+            total: new Prisma.Decimal('12.38'),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      }),
+    );
+
+    const invoiceTransaction = {
+      site: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'site-1', legal_entity_id: 'le-1' }),
+      },
+      salesOrder: {
+        findFirst: jest.fn().mockResolvedValue({ status: SalesOrderStatus.DRAFT }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      invoice: {
+        create: jest.fn().mockResolvedValue({ id: 'inv-1', status: 'DRAFT' }),
+      },
+    };
+
+    mockPrisma.$transaction.mockImplementation(async (callback: unknown) =>
+      (callback as (tx: typeof invoiceTransaction) => Promise<unknown>)(
+        invoiceTransaction,
+      ),
+    );
+
+    await service.createInvoiceFromOrder('so-1');
+
+    expect(invoiceTransaction.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          total_net: new Prisma.Decimal('24.76'),
+          total_tax: new Prisma.Decimal('4.96'),
+          total_gross: new Prisma.Decimal('29.72'),
+        }),
+      }),
+    );
+  });
+
   it('deletes sales order only when it is DRAFT and has no invoice', async () => {
     mockPrisma.salesOrder.deleteMany.mockResolvedValue({ count: 1 });
 

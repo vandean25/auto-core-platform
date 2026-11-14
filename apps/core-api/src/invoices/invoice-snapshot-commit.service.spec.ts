@@ -423,6 +423,9 @@ describe('InvoiceSnapshotCommitService', () => {
     };
     const prepared = {
       snapshot: {
+        total_net: '24.76',
+        total_tax: '4.96',
+        total_gross: '29.72',
         branding: {
           logo: { asset_id: 'asset-1' },
         },
@@ -450,7 +453,14 @@ describe('InvoiceSnapshotCommitService', () => {
         asset_id: 'asset-1',
       },
     });
-    expect(invoiceUpdateMany).toHaveBeenCalledTimes(1);
+    expect(invoiceUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'invoice-1', tenant_id: 'tenant-1' },
+      data: expect.objectContaining({
+        total_net: new Prisma.Decimal('24.76'),
+        total_tax: new Prisma.Decimal('4.96'),
+        total_gross: new Prisma.Decimal('29.72'),
+      }),
+    });
     expect(itemUpdateMany).toHaveBeenCalledTimes(1);
   });
 

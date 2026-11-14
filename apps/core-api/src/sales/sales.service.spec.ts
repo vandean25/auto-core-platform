@@ -1,6 +1,11 @@
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { InvoiceStatus, SalesOrderStatus } from '@prisma/client';
+import {
+  DiscountType,
+  InvoiceStatus,
+  Prisma,
+  SalesOrderStatus,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { FinanceService } from '../finance/finance.service.js';
@@ -29,6 +34,10 @@ describe('SalesService', () => {
       updateMany: jest.fn(),
       findFirst: jest.fn(),
     },
+    invoiceItem: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+    },
     salesOrder: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
@@ -38,6 +47,15 @@ describe('SalesService', () => {
   const mockPrisma = {
     invoice: {
       findFirst: jest.fn(),
+    },
+    customer: {
+      findFirst: jest.fn(),
+    },
+    catalogItem: {
+      findMany: jest.fn(),
+    },
+    workshopTaskLineItem: {
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
       callback(tx),
@@ -181,6 +199,61 @@ describe('SalesService', () => {
         status: SalesOrderStatus.COMPLETED,
       },
       data: { status: SalesOrderStatus.INVOICED },
+    });
+  });
+
+  it('Scenario 6: updateDraft keeps existing item discounts and includes them in totals', async () => {
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
+      global_discount_type: null,
+      global_discount_value: null,
+      items: [
+        {
+          id: 'item-1',
+          workshop_task_line_item_id: 'wtl-1',
+          catalog_item_id: null,
+          description: 'Labor',
+          line_discount_type: DiscountType.PERCENTAGE,
+          line_discount_value: new Prisma.Decimal('10.00'),
+        },
+      ],
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([{ id: 'wtl-1' }]);
+    tx.invoice.updateMany.mockResolvedValue({ count: 1 });
+    tx.invoice.findFirst.mockResolvedValue({ id: 'inv-1', items: [] });
+
+    await service.updateDraft('inv-1', {
+      customerId: 'cust-1',
+      items: [
+        {
+          workshopTaskLineItemId: 'wtl-1',
+          description: 'Labor',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 20,
+        },
+      ],
+    });
+
+    expect(tx.invoice.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          total_net: new Prisma.Decimal('90.00'),
+          total_tax: new Prisma.Decimal('18.00'),
+          total_gross: new Prisma.Decimal('108.00'),
+        }),
+      }),
+    );
+    expect(tx.invoiceItem.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          workshop_task_line_item_id: 'wtl-1',
+          line_discount_type: DiscountType.PERCENTAGE,
+          line_discount_value: new Prisma.Decimal('10.00'),
+        }),
+      ],
     });
   });
 });

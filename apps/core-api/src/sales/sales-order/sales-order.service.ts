@@ -26,6 +26,7 @@ import {
 } from '../helpers/sales-tenant-validation.helpers.js';
 import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers.js';
 import { ensureSalesOrderInvoiceable } from '../helpers/invoice-sales-order-transition.helpers.js';
+import { computeStandardInvoiceTotals } from '../../invoices/invoice-snapshot-v2.js';
 import {
   findDefaultSalesOrders,
   findPaginatedSalesOrders,
@@ -320,30 +321,28 @@ export class SalesOrderService {
       throw new BadRequestException('Order is already invoiced');
     }
 
-    // 1. Calculate Invoice Totals
-    let totalNet = new Prisma.Decimal(0);
-    let totalTax = new Prisma.Decimal(0);
+    // 1. Calculate Invoice Totals using the shared snapshot-parity calculation
+    const invoiceItemsData = order.items.map((item) => ({
+      tenant_id: tenantId,
+      catalog_item_id: item.catalog_item_id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      tax_rate: item.tax_rate,
+      line_total: item.total,
+      revenue_group_name: 'Sales', // Default for now
+    }));
 
-    const invoiceItemsData = order.items.map((item) => {
-      const net = item.total;
-      const tax = net.mul(item.tax_rate).div(100);
-
-      totalNet = totalNet.add(net);
-      totalTax = totalTax.add(tax);
-
-      return {
-        tenant_id: tenantId,
-        catalog_item_id: item.catalog_item_id,
-        description: item.description,
+    const { totalNet, totalTax, totalGross } = computeStandardInvoiceTotals(
+      order.items.map((item) => ({
+        id: item.id,
         quantity: item.quantity,
-        unit_price: item.unit_price,
-        tax_rate: item.tax_rate,
-        line_total: net,
-        revenue_group_name: 'Sales', // Default for now
-      };
-    });
-
-    const totalGross = totalNet.add(totalTax);
+        unitPrice: item.unit_price,
+        taxRate: item.tax_rate,
+        lineDiscountType: null,
+        lineDiscountValue: null,
+      })),
+    );
 
     // 2. Create Invoice in Transaction
     const invoice = await this.prisma.$transaction(async (tx) => {

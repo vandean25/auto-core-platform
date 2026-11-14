@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   InvoiceStatus,
+  InvoiceTaxMode,
   Prisma,
   type Customer,
   type Invoice,
@@ -234,6 +235,8 @@ export class InvoiceSnapshotCommitService {
     invoiceId: string,
     prepared: PreparedInvoiceSnapshot,
   ): Promise<void> {
+    const isMarginScheme =
+      prepared.snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
     await tx.invoice.updateMany({
       where: { id: invoiceId, tenant_id: tenantId },
       data: {
@@ -243,6 +246,13 @@ export class InvoiceSnapshotCommitService {
         supply_date_from: prepared.supplyFrom,
         supply_date_to: prepared.supplyTo,
         due_date: prepared.dueDate,
+        ...(!isMarginScheme
+          ? {
+              total_net: new Prisma.Decimal(prepared.snapshot.total_net),
+              total_tax: new Prisma.Decimal(prepared.snapshot.total_tax),
+              total_gross: new Prisma.Decimal(prepared.snapshot.total_gross),
+            }
+          : {}),
         snapshot: prepared.snapshot,
       },
     });

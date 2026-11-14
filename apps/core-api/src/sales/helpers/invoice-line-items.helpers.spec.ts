@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { DiscountType, Prisma } from '@prisma/client';
 import {
   assertInvoiceHasItems,
   buildFormattedInvoiceItems,
@@ -60,21 +61,46 @@ describe('invoice-line-items.helpers', () => {
       },
     ]);
 
-    expect(result.totalNet).toBe(70);
-    expect(result.totalTax).toBe(3.8);
-    expect(result.totalGross).toBe(73.8);
+    expect(result.totalNet.toFixed(2)).toBe('70.00');
+    expect(result.totalTax.toFixed(2)).toBe('3.80');
+    expect(result.totalGross.toFixed(2)).toBe('73.80');
     expect(result.formattedItems).toEqual([
       expect.objectContaining({
         catalog_item_id: 'catalog-1',
-        tax_rate: 19,
         revenue_group_name: 'Parts',
       }),
       expect.objectContaining({
         catalog_item_id: undefined,
-        tax_rate: 0,
         revenue_group_name: null,
       }),
     ]);
+  });
+
+  it('Scenario 2: computes Prisma.Decimal totals matching snapshot for 1.5 x 12.99 and 2 x 10.03 at 20%', async () => {
+    const result = await buildFormattedInvoiceItems(scoped, 'tenant-1', [
+      {
+        description: 'Part A',
+        quantity: 1.5,
+        unitPrice: 12.99,
+        taxRate: 20,
+      },
+      {
+        description: 'Part B1',
+        quantity: 1,
+        unitPrice: 10.03,
+        taxRate: 20,
+      },
+      {
+        description: 'Part B2',
+        quantity: 1,
+        unitPrice: 10.03,
+        taxRate: 20,
+      },
+    ]);
+
+    expect(result.totalNet.toFixed(2)).toBe('39.55');
+    expect(result.totalTax.toFixed(2)).toBe('7.92');
+    expect(result.totalGross.toFixed(2)).toBe('47.47');
   });
 
   it('passes workshopTaskLineItemId through to formatted invoice items', async () => {
@@ -93,7 +119,7 @@ describe('invoice-line-items.helpers', () => {
     expect(result.formattedItems[0]).toEqual(
       expect.objectContaining({
         workshop_task_line_item_id: 'wtl-abc',
-        tax_rate: 0,
+        tax_rate: new Prisma.Decimal(0),
       }),
     );
   });
@@ -136,7 +162,7 @@ describe('invoice-line-items.helpers', () => {
     prisma.catalogItem.findMany.mockResolvedValue([]);
 
     await expect(
-      buildFormattedInvoiceItems(scoped,'tenant-1', [
+      buildFormattedInvoiceItems(scoped, 'tenant-1', [
         {
           catalogItemId: 'missing',
           description: 'Unknown part',
@@ -145,6 +171,94 @@ describe('invoice-line-items.helpers', () => {
           taxRate: 20,
         },
       ]),
-    ).rejects.toThrow('Catalog item missing not found or belongs to another tenant');
+    ).rejects.toThrow(
+      'Catalog item missing not found or belongs to another tenant',
+    );
+  });
+
+  it('keeps the other same-catalog line discount when one line description changes', async () => {
+    prisma.catalogItem.findMany.mockResolvedValue([
+      {
+        id: 'catalog-1',
+        revenue_group: { name: 'Parts', tax_rate: new Prisma.Decimal(20) },
+      },
+    ]);
+
+    const result = await buildFormattedInvoiceItems(
+      scoped,
+      'tenant-1',
+      [
+        {
+          catalogItemId: 'catalog-1',
+          description: 'Filter A edited',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 20,
+        },
+        {
+          catalogItemId: 'catalog-1',
+          description: 'Filter B',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 20,
+        },
+      ],
+      {
+        existingItems: [
+          {
+            catalog_item_id: 'catalog-1',
+            workshop_task_line_item_id: null,
+            description: 'Filter A',
+            line_discount_type: DiscountType.PERCENTAGE,
+            line_discount_value: new Prisma.Decimal(10),
+          },
+          {
+            catalog_item_id: 'catalog-1',
+            workshop_task_line_item_id: null,
+            description: 'Filter B',
+            line_discount_type: DiscountType.PERCENTAGE,
+            line_discount_value: new Prisma.Decimal(25),
+          },
+        ],
+      },
+    );
+
+    expect(result.formattedItems[0].line_discount_type).toBeNull();
+    expect(result.formattedItems[0].line_discount_value).toBeNull();
+    expect(result.formattedItems[1].line_discount_type).toBe(
+      DiscountType.PERCENTAGE,
+    );
+    expect(result.formattedItems[1].line_discount_value).toEqual(
+      new Prisma.Decimal(25),
+    );
+  });
+
+  it('does not let a manual line steal a catalog line discount with the same description', async () => {
+    const result = await buildFormattedInvoiceItems(
+      scoped,
+      'tenant-1',
+      [
+        {
+          description: 'Shared description',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 20,
+        },
+      ],
+      {
+        existingItems: [
+          {
+            catalog_item_id: 'catalog-1',
+            workshop_task_line_item_id: null,
+            description: 'Shared description',
+            line_discount_type: DiscountType.PERCENTAGE,
+            line_discount_value: new Prisma.Decimal(15),
+          },
+        ],
+      },
+    );
+
+    expect(result.formattedItems[0].line_discount_type).toBeNull();
+    expect(result.formattedItems[0].line_discount_value).toBeNull();
   });
 });

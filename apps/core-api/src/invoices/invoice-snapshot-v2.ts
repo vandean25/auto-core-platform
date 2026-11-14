@@ -189,11 +189,17 @@ const quantityString = (value: Prisma.Decimal): string => value.toFixed(3);
 
 const toDateOnly = (value: Date): string => value.toISOString().slice(0, 10);
 
-const halfUpTax = (net: Prisma.Decimal, rate: Prisma.Decimal): Prisma.Decimal =>
+export const halfUpTax = (
+  net: Prisma.Decimal,
+  rate: Prisma.Decimal,
+): Prisma.Decimal =>
   net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
-function lineNetBeforeGlobalDiscount(
-  line: LineAllocationInput,
+export function lineNetBeforeGlobalDiscount(
+  line: Pick<
+    InvoiceBilledLineInput,
+    'quantity' | 'unitPrice' | 'lineDiscountType' | 'lineDiscountValue'
+  >,
 ): Prisma.Decimal {
   const grossLine = line.quantity.mul(line.unitPrice);
   if (!line.lineDiscountType || line.lineDiscountValue === null) {
@@ -224,6 +230,12 @@ export type InvoiceBilledLineAmounts = {
   net: Prisma.Decimal;
   tax: Prisma.Decimal;
   gross: Prisma.Decimal;
+};
+
+export type StandardInvoiceTotals = {
+  totalNet: Prisma.Decimal;
+  totalTax: Prisma.Decimal;
+  totalGross: Prisma.Decimal;
 };
 
 /** Per-line net, half-up tax, and gross using the same rules as `buildInvoiceSnapshotV2`. */
@@ -267,6 +279,36 @@ export function computeStandardInvoiceBilledLineAmounts(
     amounts.set(line.id, { net, tax, gross: net.add(tax) });
   }
   return amounts;
+}
+
+/** Invoice-level net, tax, and gross matching `buildInvoiceSnapshotV2` for STANDARD invoices. */
+export function computeStandardInvoiceTotals(
+  lines: readonly InvoiceBilledLineInput[],
+  globalDiscountType: DiscountType | null = null,
+  globalDiscountValue: Prisma.Decimal | null = null,
+): StandardInvoiceTotals {
+  const amounts = computeStandardInvoiceBilledLineAmounts(
+    lines,
+    globalDiscountType,
+    globalDiscountValue,
+  );
+  let totalNet = new Prisma.Decimal(0);
+  let totalTax = new Prisma.Decimal(0);
+  let totalGross = new Prisma.Decimal(0);
+  for (const line of lines) {
+    const entry = amounts.get(line.id);
+    if (!entry) continue;
+    totalNet = totalNet.add(
+      entry.net.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    );
+    totalTax = totalTax.add(
+      entry.tax.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    );
+    totalGross = totalGross.add(
+      entry.gross.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    );
+  }
+  return { totalNet, totalTax, totalGross };
 }
 
 function allocateGlobalDiscount(

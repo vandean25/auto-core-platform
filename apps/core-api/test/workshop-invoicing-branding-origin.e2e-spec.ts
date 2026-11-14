@@ -1,6 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
+import { RksvMode } from '@prisma/client';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { escapeHtml } from '../src/common/pdf/pdf-layout.js';
+import { buildInvoiceHtmlDocumentForSnapshot } from '../src/invoices/invoice-pdf-localized.layout.js';
+import { toRenderableInvoiceSnapshot } from '../src/invoices/invoice-snapshot-render.adapter.js';
 import {
   confirmDocumentBrandTheme,
   createReadyDocumentBrandLogo,
@@ -36,6 +41,7 @@ describe('Workshop Invoicing (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.payment.deleteMany({ where: { tenant_id: tenantId } });
     await disposeWorkshopInvoicingSuite({ app, basePrisma, prisma, tenantId });
   });
 
@@ -263,4 +269,144 @@ describe('Workshop Invoicing (e2e)', () => {
         .expect(400);
     },
   );
+
+  async function issueMultiLineDecimalWorkshopInvoice(): Promise<string> {
+    const api = request(app.getHttpServer());
+    const orderRes = await api
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId,
+        odometer: 120000,
+        fuelLevel: 40,
+        notes: 'Multi-line decimal invoice',
+      })
+      .expect(201);
+
+    const taskRes = await api
+      .post(`/api/workshop/orders/${orderRes.body.id}/tasks`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ title: 'Decimal qty + unit lines' })
+      .expect(201);
+
+    await api
+      .patch(
+        `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedLineItemsVersion: 0,
+        items: [
+          {
+            type: 'LABOR',
+            itemNo: 'LAB-DEC',
+            description: 'Diagnostic labor',
+            qty: 1.5,
+            unitPrice: 12.99,
+          },
+          {
+            type: 'LABOR',
+            itemNo: 'LAB-U1',
+            description: 'Small job 1',
+            qty: 1,
+            unitPrice: 10.03,
+          },
+          {
+            type: 'LABOR',
+            itemNo: 'LAB-U2',
+            description: 'Small job 2',
+            qty: 1,
+            unitPrice: 10.03,
+          },
+        ],
+      })
+      .expect(200);
+
+    await api
+      .patch(`/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ status: 'DONE' })
+      .expect(200);
+
+    const draftRes = await api
+      .post('/api/invoices/drafts')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ workshopOrderId: orderRes.body.id })
+      .expect(201);
+
+    await api
+      .patch(`/api/invoices/${draftRes.body.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    return draftRes.body.id as string;
+  }
+
+  it('Scenario 4: issued multi-line workshop invoice with decimal quantity has stored == snapshot == PDF totals', async () => {
+    const invoiceId = await issueMultiLineDecimalWorkshopInvoice();
+    const invoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId, tenant_id: tenantId },
+    });
+    const snapshot = invoice.snapshot as {
+      total_net: string;
+      total_tax: string;
+      total_gross: string;
+    };
+
+    expect(invoice.total_net.toFixed(2)).toBe('39.55');
+    expect(invoice.total_tax.toFixed(2)).toBe('7.92');
+    expect(invoice.total_gross.toFixed(2)).toBe('47.47');
+    expect(snapshot.total_net).toBe('39.55');
+    expect(snapshot.total_tax).toBe('7.92');
+    expect(snapshot.total_gross).toBe('47.47');
+
+    const renderable = toRenderableInvoiceSnapshot(
+      invoice.snapshot,
+      invoice.invoice_number ?? 'RE-TEST',
+      invoice.id,
+    );
+    if (!renderable) {
+      throw new Error('Expected renderable invoice snapshot');
+    }
+    const formatDate = (value: string | Date) =>
+      new Date(value).toLocaleDateString('de-DE');
+    const pdfHtml = buildInvoiceHtmlDocumentForSnapshot(
+      renderable,
+      invoice.invoice_number ?? 'RE-TEST',
+      escapeHtml,
+      formatDate,
+      null,
+    );
+    expect(pdfHtml).toContain('39,55');
+    expect(pdfHtml).toContain('7,92');
+    expect(pdfHtml).toContain('47,47');
+  });
+
+  it('Scenario 5: settling issued multi-line decimal workshop invoice succeeds without 422 SETTLEMENT_AMOUNT_MISMATCH and payment == snapshot gross', async () => {
+    await prisma.legalEntity.updateMany({
+      where: { id: legalEntityId, tenant_id: tenantId },
+      data: { rksv_mode: RksvMode.REQUIRED_EXTERNAL_KASSE },
+    });
+
+    const invoiceId = await issueMultiLineDecimalWorkshopInvoice();
+    const invoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId, tenant_id: tenantId },
+    });
+    const snapshot = invoice.snapshot as { total_gross: string };
+
+    const settleRes = await request(app.getHttpServer())
+      .post(`/api/invoices/${invoiceId}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        idempotencyKey: randomUUID(),
+        method: 'CASH',
+        externalReceiptNumber: 'EXT-REC-001',
+        externalReceiptDate: '2026-11-14T12:00:00.000Z',
+      })
+      .expect(201);
+
+    expect(settleRes.body.payment.amount).toBe(snapshot.total_gross);
+    expect(settleRes.body.invoiceStatus).toBe('PAID');
+  });
 });

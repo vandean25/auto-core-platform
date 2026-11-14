@@ -318,6 +318,38 @@ describe('invoice-creation.helpers', () => {
       expect(totals.taxTotal).toEqual(new Prisma.Decimal(0));
       expect(totals.total).toEqual(new Prisma.Decimal(0));
     });
+
+    it('Scenario 1: rounds tax half-up per line so 2 x 12.38 at 20% matches snapshot (24.76 / 4.96 / 29.72)', () => {
+      const totals = calculateInvoiceTotals([
+        { id: 'l1', quantity: 1, unit_price: 12.38, tax_rate: 20 },
+        { id: 'l2', quantity: 1, unit_price: 12.38, tax_rate: 20 },
+      ]);
+
+      expect(totals.totalNet.toFixed(2)).toBe('24.76');
+      expect(totals.totalTax.toFixed(2)).toBe('4.96');
+      expect(totals.totalGross.toFixed(2)).toBe('29.72');
+    });
+
+    it('applies line and global discounts when calculating totals', () => {
+      const totals = calculateInvoiceTotals(
+        [
+          {
+            id: 'l1',
+            quantity: 1,
+            unit_price: 100,
+            tax_rate: 20,
+            line_discount_type: DiscountType.PERCENTAGE,
+            line_discount_value: 10,
+          },
+        ],
+        DiscountType.FLAT_AMOUNT,
+        new Prisma.Decimal('10.00'),
+      );
+
+      expect(totals.totalNet.toFixed(2)).toBe('80.00');
+      expect(totals.totalTax.toFixed(2)).toBe('16.00');
+      expect(totals.totalGross.toFixed(2)).toBe('96.00');
+    });
   });
 
   describe('assertOrderInvoiceable', () => {

@@ -27,7 +27,9 @@ import {
   type ResolvedAccountingAllocation,
 } from '../finance/accounting-profile/accounting-profile.types.js';
 import {
+  halfUpTax,
   INVOICE_BRANDED_TEMPLATE_VERSION,
+  lineNetBeforeGlobalDiscount,
   type InvoiceSnapshotV2,
   type InvoiceSnapshotV2Branding,
   type InvoiceSnapshotV2Item,
@@ -35,6 +37,8 @@ import {
   type InvoiceSnapshotV2TaxBucket,
 } from './invoice-snapshot-v2.js';
 import type { ResolvedInvoiceOwnership } from './invoice-ownership.resolver.js';
+
+export { halfUpTax };
 
 export type DecimalLike = Prisma.Decimal | number | string;
 
@@ -45,12 +49,6 @@ export const moneyString = (value: Prisma.Decimal): string => value.toFixed(2);
 
 export const quantityString = (value: Prisma.Decimal): string =>
   value.toFixed(3);
-
-export const halfUpTax = (
-  net: Prisma.Decimal,
-  rate: Prisma.Decimal,
-): Prisma.Decimal =>
-  net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
 export type InvoiceCustomerSnapshot = InvoiceSnapshotV2['customer'];
 export type InvoiceSellerSnapshot = InvoiceSnapshotV2Seller;
@@ -402,36 +400,27 @@ export function buildSellerSnapshot(seller: {
   };
 }
 
-function lineNetBeforeDiscount(line: LineAllocationItemInput): Prisma.Decimal {
-  const qty = toMoney(line.quantity);
-  const price = toMoney(line.unitPrice);
-  const grossLine = qty.mul(price);
-  if (
-    !line.lineDiscountType ||
-    line.lineDiscountValue === null ||
-    line.lineDiscountValue === undefined
-  ) {
-    return grossLine;
-  }
-  const discountVal = toMoney(line.lineDiscountValue);
-  if (line.lineDiscountType === DiscountType.PERCENTAGE) {
-    return grossLine.sub(
-      grossLine.mul(discountVal).div(100).toDecimalPlaces(2),
-    );
-  }
-  return Prisma.Decimal.max(grossLine.sub(discountVal), new Prisma.Decimal(0));
-}
-
 export function buildInvoiceLineItemSnapshots(
   lines: LineAllocationItemInput[],
   netByLine?: Map<string, Prisma.Decimal>,
   taxMode: InvoiceTaxMode = InvoiceTaxMode.STANDARD,
 ): InvoiceLineItemSnapshot[] {
   return lines.map((line) => {
-    const net = netByLine?.get(line.id) ?? lineNetBeforeDiscount(line);
     const qty = toMoney(line.quantity);
     const unitPrice = toMoney(line.unitPrice);
     const taxRate = toMoney(line.taxRate);
+    const net =
+      netByLine?.get(line.id) ??
+      lineNetBeforeGlobalDiscount({
+        quantity: qty,
+        unitPrice,
+        lineDiscountType: line.lineDiscountType ?? null,
+        lineDiscountValue:
+          line.lineDiscountValue === null ||
+          line.lineDiscountValue === undefined
+            ? null
+            : toMoney(line.lineDiscountValue),
+      });
 
     const discountVal =
       line.lineDiscountValue === null || line.lineDiscountValue === undefined
