@@ -147,7 +147,7 @@ describe('Settlement credit-note block (e2e)', () => {
       .expect(201);
 
     const finalizedRes = await request(app.getHttpServer())
-      .put(`/api/sales/invoices/${draftRes.body.id}/finalize`)
+      .patch(`/api/invoices/${draftRes.body.id}/issue`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
