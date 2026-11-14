@@ -1,6 +1,7 @@
 import { LIST_CURSOR_ENDPOINT, LIST_CURSOR_VERSION } from './list-cursor.constants.js';
 import {
   decodeListCursor,
+  deserializeSortValueFromCursor,
   encodeListCursor,
   parseListCursorParam,
   serializeSortValueForCursor,
@@ -76,5 +77,27 @@ describe('list-cursor.codec', () => {
         response: expect.objectContaining({ code: 'LIST_CURSOR_INVALID' }),
       }),
     );
+  });
+
+  // Regression: a tampered date sort value reached Prisma as an Invalid Date and failed with a 500.
+  it.each([
+    ['no milliseconds', '2026-11-13T08:00:00Z'],
+    ['microseconds', '2026-11-13T08:00:00.123456Z'],
+    ['offset instead of UTC', '2026-11-13T09:00:00.000+01:00'],
+    ['impossible date', '2026-02-30T08:00:00.000Z'],
+    ['not a date', 'yesterday'],
+  ])('rejects a date sort value with %s as LIST_CURSOR_INVALID', (_label, value) => {
+    expect(() => deserializeSortValueFromCursor(value, 'date')).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'LIST_CURSOR_INVALID' }),
+      }),
+    );
+  });
+
+  it('round-trips a millisecond UTC date sort value exactly', () => {
+    const date = new Date('2026-11-13T08:00:00.120Z');
+    const serialized = serializeSortValueForCursor(date);
+    expect(serialized).toBe('2026-11-13T08:00:00.120Z');
+    expect(deserializeSortValueFromCursor(serialized, 'date')).toEqual(date);
   });
 });

@@ -40,4 +40,46 @@ export class FindAllWorkshopOrdersQueryDto {
   @IsOptional()
   @IsUUID()
   customerId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['offset', 'cursor'],
+    description:
+      'Use `cursor` for keyset paging (ADR-0035). Omit or `offset` keeps the page/pageSize contract. Cursor mode needs the X-ACP-Scope-Context header and rejects `page` / `pageSize`.',
+  })
+  @IsOptional()
+  @IsIn(['offset', 'cursor'])
+  pagination?: 'offset' | 'cursor';
+
+  @ApiPropertyOptional({
+    description:
+      'Opaque cursor from meta.nextCursor of the previous cursor page (implies cursor mode).',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Cursor mode only. Default 50, maximum 100.',
+  })
+  @IsOptional()
+  @IsString()
+  limit?: string;
+}
+
+export class WorkshopOrdersCappedCountQueryDto {
+  @ApiPropertyOptional({
+    description: 'Same search as the workshop order list',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Same customer restriction as the list (open workshop statuses only).',
+  })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
 }

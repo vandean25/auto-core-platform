@@ -6,8 +6,10 @@ export {
   cappedCatalogItemListCount,
   cappedInvoiceListCount,
   cappedVehicleListCount,
+  cappedWorkshopOrderListCount,
 } from './capped-list-count.js';
 export {
+  listCursorParamForbiddenException,
   listCursorSortUnsupportedException,
   listCursorStockFilterRequiredException,
 } from './list-cursor.codec.js';

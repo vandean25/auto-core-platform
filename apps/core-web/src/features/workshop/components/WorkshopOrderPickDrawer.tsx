@@ -74,7 +74,7 @@ function WorkshopOrderPickDrawerBody({
   order,
 }: WorkshopOrderPickDrawerBodyProps) {
   const { t } = useTranslation('workshop')
-  const statusLabel = useStatusLabel(order?.status ?? '')
+  const statusLabel = useStatusLabel(order?.status ?? 'UNKNOWN')
   const queryClient = useQueryClient()
   const pickPartsMutation = usePickWorkshopParts()
   const toteTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -260,7 +260,7 @@ function WorkshopOrderPickDrawerBody({
                 </Badge>
               ) : null}
               {order ? (
-                <Badge variant='outline' className='max-w-full break-words'>
+                <Badge variant='outline' className='max-w-full whitespace-normal text-left break-words'>
                   {statusLabel}
                 </Badge>
               ) : null}
@@ -270,16 +270,17 @@ function WorkshopOrderPickDrawerBody({
             </div>
           </div>
 
-          <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
+          <div className='flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0'>
             <Button
               type='button'
               variant='outline'
+              className='max-md:min-h-11'
               onClick={() => onOpenChange(false)}
               disabled={pickPartsMutation.isPending}
             >
               {t('pick.drawer.cancel')}
             </Button>
-            <Button type='submit' disabled={isConfirmDisabled}>
+            <Button type='submit' className='max-md:min-h-11' disabled={isConfirmDisabled}>
               {pickPartsMutation.isPending ? (
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               ) : null}

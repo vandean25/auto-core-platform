@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { useCreateWorkshopOrder, useWorkshopOrders } from '@/api/workshop'
+import { useCreateWorkshopOrder } from '@/api/workshop'
+import type { WorkshopOrder } from '@/api/types'
 import {
   createPendingWorkshopOrder,
   type PendingOrderFailure,
@@ -14,13 +15,20 @@ import { getWorkshopCustomerDisplayName } from '@/features/workshop/pick-utils'
 import { useRetainedQueryData } from '@/hooks/useRetainedQueryData'
 import { formatDate } from '@/lib/format'
 
-type OrdersPage = ReturnType<typeof useWorkshopOrders>['data']
-
-export function useWorkshopOrderListRows(responseData: OrdersPage, isError: boolean, dataUpdatedAt = 0) {
-  const retained = useRetainedQueryData(responseData)
-  const visibleResponse = retained.data
+/**
+ * `orders` are the server rows of the active list mode (offset page or loaded infinite blocks). The infinite list
+ * never refetches after a create (it offers "Liste aktualisieren" instead), so there a settled row goes at once.
+ */
+export function useWorkshopOrderListRows(
+  orders: WorkshopOrder[] | undefined,
+  isError: boolean,
+  dataUpdatedAt = 0,
+  infinite = false,
+) {
+  const retained = useRetainedQueryData(orders)
+  const visibleOrders = retained.data
   const loadedRows = useMemo<WorkshopOrderListRow[]>(() => {
-    const source = visibleResponse?.data ?? []
+    const source = visibleOrders ?? []
     return source.map((order) => ({
       id: order.id,
       orderNo: order.order_number ?? order.id,
@@ -29,10 +37,9 @@ export function useWorkshopOrderListRows(responseData: OrdersPage, isError: bool
       openedAt: formatDate(order.createdAt),
       status: order.status,
     }))
-  }, [visibleResponse])
-  const pending = useWorkshopOrderListPendingRows(loadedRows, dataUpdatedAt)
+  }, [visibleOrders])
+  const pending = useWorkshopOrderListPendingRows(loadedRows, dataUpdatedAt, infinite)
   return {
-    visibleResponse,
     /** Server rows only. Row actions and shortcuts must never see the client-side ids of pending rows. */
     loadedRows,
     showingStaleError: isError && retained.isRetained,
@@ -46,7 +53,7 @@ type PendingSettlement = {
   settledAt: number
 }
 
-function useWorkshopOrderListPendingRows(loadedRows: WorkshopOrderListRow[], dataUpdatedAt: number) {
+function useWorkshopOrderListPendingRows(loadedRows: WorkshopOrderListRow[], dataUpdatedAt: number, infinite: boolean) {
   const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const createOrder = useCreateWorkshopOrder()
@@ -58,12 +65,13 @@ function useWorkshopOrderListPendingRows(loadedRows: WorkshopOrderListRow[], dat
     const stillPending = pendingRows.filter((pending) => {
       const settlement = settled[pending.id]
       if (!settlement) return true
+      if (infinite) return false
       if (loadedRows.some((row) => row.id === settlement.serverOrderId)) return false
       // shortcut: millisecond clock, a refetch landing in the same ms as the settle keeps the row until the next fetch.
       return dataUpdatedAt <= settlement.settledAt
     })
     return [...stillPending, ...loadedRows]
-  }, [dataUpdatedAt, loadedRows, pendingRows, settled])
+  }, [dataUpdatedAt, infinite, loadedRows, pendingRows, settled])
 
   const onPendingOrder = useCallback((row: WorkshopOrderListPendingRow) => {
     setPendingRows((previous) => [row, ...previous.filter((existing) => existing.id !== row.id)])

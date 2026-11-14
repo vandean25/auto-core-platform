@@ -1,11 +1,18 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiOkResponse,
   ApiProduces,
+  ApiProperty,
   ApiResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
-import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import {
+  PaginatedResponseDto,
+  PaginationMetaDto,
+} from '../common/dto/paginated-response.dto.js';
+import { ListCursorPageMetaDto } from '../common/dto/list-cursor-response.dto.js';
 import { WorkshopOrderResponseDto } from './dto/workshop-response.dto.js';
 import { WORKSHOP_ERROR_RESPONSE_SCHEMA } from './workshop-controller.http-helpers.js';
 
@@ -19,8 +26,44 @@ export function ApiWorkshopOrderOkResponse() {
   return applyDecorators(ApiOkResponse({ type: WorkshopOrderResponseDto }));
 }
 
+class WorkshopOrderCursorPageResponseDto {
+  @ApiProperty({ type: () => [WorkshopOrderResponseDto] })
+  data!: WorkshopOrderResponseDto[];
+
+  @ApiProperty({ type: () => ListCursorPageMetaDto })
+  meta!: ListCursorPageMetaDto;
+}
+
+/** Offset page by default; a keyset page with `pagination=cursor` (ADR-0035). */
 export function ApiWorkshopOrderPaginatedResponse() {
-  return applyDecorators(ApiPaginatedResponse(WorkshopOrderResponseDto));
+  return applyDecorators(
+    ApiExtraModels(
+      PaginatedResponseDto,
+      PaginationMetaDto,
+      WorkshopOrderResponseDto,
+      WorkshopOrderCursorPageResponseDto,
+    ),
+    ApiOkResponse({
+      schema: {
+        oneOf: [
+          {
+            allOf: [
+              { $ref: getSchemaPath(PaginatedResponseDto) },
+              {
+                properties: {
+                  data: {
+                    type: 'array',
+                    items: { $ref: getSchemaPath(WorkshopOrderResponseDto) },
+                  },
+                },
+              },
+            ],
+          },
+          { $ref: getSchemaPath(WorkshopOrderCursorPageResponseDto) },
+        ],
+      },
+    }),
+  );
 }
 
 export function ApiWorkshopDeleteTaskResponses() {

@@ -154,15 +154,17 @@ export function buildWorkshopCheckoutChrome(params: {
   checkoutNetTotal: number
   checkoutTaxTotal: number
 }): { checkoutFooterTotal: number; footerProps: CheckoutFooterProps } {
-  const checkoutFooterTotal = resolveCheckoutFooterTotal(
+  const resolvedFooterTotal = resolveCheckoutFooterTotal(
     params.isCheckoutOpen,
     Boolean(params.activeInvoiceId && params.fetchedInvoice),
     params.checkoutGrossTotal,
     params.orderGrandTotal,
   )
+  const checkoutFooterTotal = resolvedFooterTotal.amount
 
   const footerProps = buildCheckoutFooterProps({
     checkoutFooterTotal,
+    checkoutFooterTotalKind: resolvedFooterTotal.kind,
     isCheckoutOpen: params.isCheckoutOpen,
     primaryActionLabel: params.primaryCheckoutActionLabel,
     onPrimaryAction: params.handlers.handleCheckoutAction,

@@ -90,12 +90,21 @@ export function resolveCheckoutLineTaxRate(
   return WORKSHOP_CHECKOUT_DEFAULT_VAT_RATE
 }
 
+export type CheckoutFooterTotalKind = 'net' | 'gross'
+
+export interface CheckoutFooterTotalResolution {
+  amount: number
+  kind: CheckoutFooterTotalKind
+}
+
 export function resolveCheckoutFooterTotal(
   isCheckoutOpen: boolean,
   hasLoadedInvoice: boolean,
   checkoutGrossTotal: number,
   orderGrandTotal: number,
-): number {
-  if (isCheckoutOpen || hasLoadedInvoice) return checkoutGrossTotal
-  return orderGrandTotal
+): CheckoutFooterTotalResolution {
+  if (isCheckoutOpen || hasLoadedInvoice) {
+    return { amount: checkoutGrossTotal, kind: 'gross' }
+  }
+  return { amount: orderGrandTotal, kind: 'net' }
 }

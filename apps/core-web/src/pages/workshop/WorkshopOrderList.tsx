@@ -9,7 +9,7 @@ import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIn
 import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
-import { useWorkshopOrders } from '@/api/workshop'
+import { useWorkshopOrderListState } from '@/api/workshop-order-list'
 import { DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS } from '@/features/dashboard-widgets/sources'
 import { WorkshopOrderPeekSheet } from '@/features/peek/WorkshopOrderPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
@@ -25,9 +25,9 @@ export default function WorkshopOrderList() {
   const [createOpen, setCreateOpen] = useState(false)
   const presentationLatencyRef = useRef<number | null>(null)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const ordersQuery = useWorkshopOrders(queryParams)
+  const list = useWorkshopOrderListState(queryParams)
   const peek = usePeekSearchParam()
-  const rows = useWorkshopOrderListRows(ordersQuery.data, ordersQuery.isError, ordersQuery.dataUpdatedAt)
+  const rows = useWorkshopOrderListRows(list.orders, list.isError, list.dataUpdatedAt, list.infinite)
   const columns = useWorkshopOrderListColumns(t, tCommon, rows.pendingActions)
   const rowBehaviour = useWorkshopOrderListRowBehaviour(
     t,
@@ -61,16 +61,11 @@ export default function WorkshopOrderList() {
         data={rows.tableRows}
         saveViewTitle={t('orders.list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_WORKSHOP_ORDERS}
-        pageCount={rows.visibleResponse?.meta?.pageCount ?? 1}
-        isLoading={ordersQuery.isLoading}
-        isFetching={ordersQuery.isFetching}
-        isPlaceholderData={ordersQuery.isPlaceholderData || rows.showingStaleError}
-        isError={ordersQuery.isError}
-        onRetry={() => void ordersQuery.refetch()}
-        hasUsableData={rows.visibleResponse !== undefined}
+        {...list.tableProps}
+        isPlaceholderData={list.tableProps.isPlaceholderData || rows.showingStaleError}
         presentationLatencyRef={presentationLatencyRef}
         searchPlaceholder={t('orders.list.searchPlaceholder')}
-        emptyState={ordersQuery.isError ? undefined : {
+        emptyState={list.isError ? undefined : {
           message: t('orders.list.empty'),
           action: (
             <Button onClick={() => setCreateOpen(true)}>

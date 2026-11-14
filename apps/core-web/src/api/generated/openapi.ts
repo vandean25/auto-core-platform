@@ -1753,6 +1753,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for the workshop order list (ADR-0035) */
+        get: operations["WorkshopController_cappedCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}": {
         parameters: {
             query?: never;
@@ -8168,6 +8185,10 @@ export interface components {
             updatedAt: string;
             /** @description Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open. */
             ready_email_notice?: components["schemas"]["WorkshopReadyEmailNoticeDto"] | null;
+        };
+        WorkshopOrderCursorPageResponseDto: {
+            data: components["schemas"]["WorkshopOrderResponseDto"][];
+            meta: components["schemas"]["ListCursorPageMetaDto"];
         };
         UpdateWorkshopOrderDto: {
             reportedIssue?: string;
@@ -16529,12 +16550,18 @@ export interface operations {
     WorkshopController_findAll: {
         parameters: {
             query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page (implies cursor mode). */
+                cursor?: string;
                 /** @description When set, only orders for this customer are returned (open workshop statuses only). */
                 customerId?: string;
+                /** @description Cursor mode only. Default 50, maximum 100. */
+                limit?: string;
                 /** @description Page number */
                 page?: number;
                 /** @description Number of items per page */
                 pageSize?: number;
+                /** @description Use `cursor` for keyset paging (ADR-0035). Omit or `offset` keeps the page/pageSize contract. Cursor mode needs the X-ACP-Scope-Context header and rejects `page` / `pageSize`. */
+                pagination?: "offset" | "cursor";
                 /** @description Free-text search term for order number, customer, plate, or vehicle */
                 search?: string;
                 /** @description Sort direction */
@@ -16542,7 +16569,10 @@ export interface operations {
                 /** @description Field name to sort by */
                 sortField?: string;
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -16553,9 +16583,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                    "application/json": (components["schemas"]["PaginatedResponseDto"] & {
                         data?: components["schemas"]["WorkshopOrderResponseDto"][];
-                    };
+                    }) | components["schemas"]["WorkshopOrderCursorPageResponseDto"];
                 };
             };
         };
@@ -16585,6 +16615,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopOrderResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_cappedCount: {
+        parameters: {
+            query?: {
+                /** @description Same customer restriction as the list (open workshop statuses only). */
+                customerId?: string;
+                /** @description Same search as the workshop order list */
+                search?: string;
+            };
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
                 };
             };
         };

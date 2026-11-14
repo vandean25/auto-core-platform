@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   E2E_FULLSTACK_API_PORT as DEFAULT_API_PORT,
   E2E_FULLSTACK_JWT_SECRET,
+  E2E_FULLSTACK_SCOPE_CONTEXT_HMAC_SECRET,
   E2E_FULLSTACK_WEB_PORT as DEFAULT_WEB_PORT,
 } from './constants.mjs'
 
@@ -143,6 +144,8 @@ try {
     DATABASE_URL: databaseUrl,
     NODE_ENV: 'test',
     TEST_JWT_SECRET: jwtSecret,
+    SCOPE_CONTEXT_HMAC_SECRET:
+      process.env.SCOPE_CONTEXT_HMAC_SECRET ?? E2E_FULLSTACK_SCOPE_CONTEXT_HMAC_SECRET,
     PORT: apiPort,
     INVOICE_BRANDING_WRITER_ENABLED: 'true',
     INVOICE_PDF_BUCKET: 'e2e-fullstack-invoice-pdf',

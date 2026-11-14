@@ -208,28 +208,6 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     await expect(row.getByText('WO-2026-0099', { exact: true })).toBeVisible()
   })
 
-  // AUT-989: the drawer header showed the raw INTAKE code; the localized label must fit the 375px header.
-  test('shows the localized status label in the pick drawer header at 375px', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 })
-    await mockPickQueueBaseRoutes(page)
-    await page.goto('/workshop/pick-list')
-
-    await page.locator('[data-table-row="true"]').first().click()
-
-    const header = page.locator('[data-pick-drawer-header="true"]')
-    const statusLabel = header.getByText('Annahme', { exact: true })
-    await expect(statusLabel).toBeVisible()
-    await expect(header.getByText('INTAKE', { exact: true })).toHaveCount(0)
-
-    const headerBox = await header.boundingBox()
-    const labelBox = await statusLabel.boundingBox()
-    expect(headerBox && labelBox).toBeTruthy()
-    expect(labelBox!.x).toBeGreaterThanOrEqual(headerBox!.x)
-    expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width)
-    expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
-    expect(await statusLabel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
-  })
-
   test('should prefill required quantities and restore defaults via Pick All', async ({ page }) => {
     const { mockedOrder } = await mockPickQueueBaseRoutes(page);
 
@@ -407,5 +385,43 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
 
     await expect(page.getByText(PICK.drawer.success)).toBeVisible();
     expect(requestCount).toBe(1);
+  });
+
+  test('renders localized status label in the pick drawer header without overflow at 375px', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const { mockedOrder } = await mockPickQueueBaseRoutes(page);
+
+    await page.goto('/workshop/pick-list');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByText(mockedOrder.order_number).first().click();
+
+    const header = page.locator('[data-pick-drawer-header="true"]');
+    await expect(header).toBeVisible();
+
+    const statusBadge = header.getByText('Annahme', { exact: true });
+    await expect(statusBadge).toBeVisible();
+    await expect(header.getByText('INTAKE', { exact: true })).toHaveCount(0);
+
+    expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    expect(await statusBadge.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+    const headerBox = await header.boundingBox();
+    const badgeBox = await statusBadge.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(badgeBox).not.toBeNull();
+    expect(badgeBox!.x).toBeGreaterThanOrEqual(headerBox!.x - 1);
+    expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
+
+    for (const buttonName of [PICK.drawer.cancel, PICK.drawer.confirm]) {
+      const button = header.getByRole('button', { name: buttonName, exact: true });
+      const buttonBox = await button.boundingBox();
+      expect(buttonBox).not.toBeNull();
+      expect(buttonBox!.x).toBeGreaterThanOrEqual(headerBox!.x - 1);
+      expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
+      expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+    }
   });
 });

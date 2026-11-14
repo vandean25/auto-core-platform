@@ -1275,6 +1275,10 @@
       "public": true,
       "params": []
     },
+    "LIST_CURSOR_PARAM_FORBIDDEN": {
+      "public": true,
+      "params": []
+    },
     "LIST_CURSOR_SORT_UNSUPPORTED": {
       "public": true,
       "params": []

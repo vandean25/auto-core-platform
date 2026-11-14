@@ -121,10 +121,20 @@ describe('WorkshopOrderPickDrawer', () => {
     expect(screen.getByLabelText(qtyLabel)).toHaveValue(1)
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')
   })
+
   // AUT-989: the drawer header printed the raw status code (INTAKE) instead of the shared WO status label.
   it.each([
+    ['de', 'SCHEDULED', 'Geplant'],
     ['de', 'INTAKE', 'Annahme'],
+    ['de', 'CONFIRMED', 'Bestätigt'],
     ['de', 'IN_PROGRESS', 'In Bearbeitung'],
+    ['de', 'WAITING_PARTS', 'Wartet auf Teile'],
+    ['de', 'WAITING_CUSTOMER', 'Wartet auf Kunde'],
+    ['de', 'PAUSED', 'Pausiert'],
+    ['de', 'COMPLETED', 'Abgeschlossen'],
+    ['de', 'INVOICED', 'Fakturiert'],
+    ['de', 'CANCELLED', 'Storniert'],
+    ['de', 'UNEXPECTED_STATUS', 'Unbekannt'],
     ['en', 'INTAKE', 'Check-in'],
     ['en', 'IN_PROGRESS', 'In Progress'],
   ] as const)('shows the localized %s label for a %s order in the header', async (language, status, label) => {
@@ -140,5 +150,7 @@ describe('WorkshopOrderPickDrawer', () => {
     const header = within(document.querySelector('[data-pick-drawer-header="true"]') as HTMLElement)
     expect(header.getByText(label, { exact: true })).toBeInTheDocument()
     expect(header.queryByText(status, { exact: true })).toBeNull()
+    expect(header.queryByText(`status.${status}`, { exact: true })).toBeNull()
   })
 })
+

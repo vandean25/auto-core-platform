@@ -3,10 +3,12 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useStickyBottomChromeHeight } from '@/components/layout/use-sticky-bottom-chrome-height'
+import type { CheckoutFooterTotalKind } from '@/lib/workshop-checkout-billing'
 import { CheckoutSummary, type CheckoutSummaryProps } from "./CheckoutSummary";
 
 export interface CheckoutFooterProps extends CheckoutSummaryProps {
   checkoutFooterTotal: number;
+  checkoutFooterTotalKind?: CheckoutFooterTotalKind;
   isCheckoutOpen: boolean;
   primaryActionLabel: string;
   onPrimaryAction: () => void;
@@ -15,6 +17,7 @@ export interface CheckoutFooterProps extends CheckoutSummaryProps {
 
 export function CheckoutFooter({
   checkoutFooterTotal,
+  checkoutFooterTotalKind = 'net',
   isCheckoutOpen,
   primaryActionLabel,
   onPrimaryAction,
@@ -39,11 +42,15 @@ export function CheckoutFooter({
         className="border-t px-4 pt-3 pb-4 md:px-6 md:pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("checkout.grandTotal")}
+          <div className="min-w-0">
+            <div className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t(
+                checkoutFooterTotalKind === 'gross'
+                  ? 'checkout.grossTotal'
+                  : 'checkout.netTotal',
+              )}
             </div>
-            <div className="text-xl font-semibold tracking-tight">
+            <div className="whitespace-nowrap text-xl font-semibold tracking-tight tabular-nums">
               {formatCurrency(checkoutFooterTotal)}
             </div>
           </div>

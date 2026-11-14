@@ -78,7 +78,8 @@ describe('WorkshopOrderList row prefetch', () => {
       <QueryClientProvider client={queryClient}>
         <SavedViewsProvider userKey="test-user">
           <DashboardWidgetsProvider userKey="test-user">
-            <MemoryRouter>
+            {/* A non-cursor sort keeps the offset list this test mocks (AUT-956). */}
+            <MemoryRouter initialEntries={['/workshop/orders?sortField=orderNo&sortDirection=asc']}>
               <WorkshopOrderList />
             </MemoryRouter>
           </DashboardWidgetsProvider>

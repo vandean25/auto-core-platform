@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { DE_SHELL } from './helpers/de-shell'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse } from './utils/mock-factories'
+import { mockScopeContextHandshake } from './utils/scope-context-handshake'
 
 const WO_CHUNK = /WorkshopOrderList-[\w-]+\.js$/
 const VEHICLES_CHUNK = /VehicleList-[\w-]+\.js$/
@@ -58,6 +59,8 @@ async function mockShellApis(page: Page) {
 test.describe('AUT-983: main-list route chunk prefetch', () => {
   test('Scenario 1: first click into WO list after hard reload starts GET /workshop/orders within 500 ms without waiting for chunk', async ({ page }) => {
     await mockShellApis(page)
+    // The order list loads only with a validated scope context (ADR-0038, AUT-956).
+    await mockScopeContextHandshake(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
       await route.fulfill({
         status: 200,

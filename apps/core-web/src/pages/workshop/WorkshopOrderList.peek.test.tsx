@@ -46,7 +46,10 @@ function UrlSearchProbe() {
   return <span data-testid="url-search">{location.search}</span>
 }
 
-function renderList(initialEntry = '/workshop/orders?page=2') {
+/** A non-cursor sort keeps the paged offset list this test mocks (AUT-956). */
+const OFFSET_LIST = '/workshop/orders?page=2&sortField=orderNo&sortDirection=asc'
+
+function renderList(initialEntry = OFFSET_LIST) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
@@ -109,19 +112,19 @@ describe('WorkshopOrderList peek sheet', () => {
 
   it('opens from a deep link and shows empty state for unknown ids', async () => {
     asMock(workshopApi.useWorkshopOrder).mockReturnValue({ data: undefined, isLoading: false })
-    renderList(`/workshop/orders?page=2&${PEEK_SEARCH_PARAM}=missing`)
+    renderList(`${OFFSET_LIST}&${PEEK_SEARCH_PARAM}=missing`)
 
     expect(await screen.findByText(deWorkshop.orders.peek.notFound)).toBeInTheDocument()
   })
 
   it('closes via Escape and removes only the peek param', async () => {
-    renderList(`/workshop/orders?page=2&${PEEK_SEARCH_PARAM}=order-1`)
+    renderList(`${OFFSET_LIST}&${PEEK_SEARCH_PARAM}=order-1`)
     await screen.findByTestId('entity-peek-sheet')
 
     fireEvent.keyDown(document, { key: 'Escape' })
 
     expect(screen.queryByTestId('entity-peek-sheet')).not.toBeInTheDocument()
-    expect(screen.getByTestId('url-search').textContent).toBe('?page=2')
+    expect(screen.getByTestId('url-search').textContent).toBe('?page=2&sortField=orderNo&sortDirection=asc')
   })
 
   it('opens the full page when the detail link cell is clicked', async () => {

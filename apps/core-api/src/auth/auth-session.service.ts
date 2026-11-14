@@ -166,6 +166,9 @@ export class AuthSessionService {
     if (session.platformRole) {
       nextUser.platformRole = session.platformRole;
     }
+    if (claims.auth_time !== undefined) {
+      nextUser.authTimeSeconds = claims.auth_time;
+    }
 
     return nextUser;
   }

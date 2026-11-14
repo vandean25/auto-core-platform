@@ -5,6 +5,7 @@ import {
   computeCheckoutInvoiceTaxTotal,
   computeUnroundedLineTax,
   findInvoiceItemForWorkshopLine,
+  resolveCheckoutFooterTotal,
   resolveCheckoutLineTaxRate,
   WORKSHOP_CHECKOUT_DEFAULT_VAT_RATE,
 } from './workshop-checkout-billing'
@@ -119,6 +120,29 @@ describe('workshop-checkout-billing', () => {
           tax_rate: 0,
         }),
       ).toBe(0)
+    })
+  })
+
+  describe('resolveCheckoutFooterTotal', () => {
+    it('returns net kind with orderGrandTotal when checkout is closed and no invoice is loaded', () => {
+      expect(resolveCheckoutFooterTotal(false, false, 180, 150)).toEqual({
+        amount: 150,
+        kind: 'net',
+      })
+    })
+
+    it('returns gross kind with checkoutGrossTotal when checkout is open', () => {
+      expect(resolveCheckoutFooterTotal(true, false, 180, 150)).toEqual({
+        amount: 180,
+        kind: 'gross',
+      })
+    })
+
+    it('returns gross kind with checkoutGrossTotal when an invoice is loaded', () => {
+      expect(resolveCheckoutFooterTotal(false, true, 180, 150)).toEqual({
+        amount: 180,
+        kind: 'gross',
+      })
     })
   })
 })
