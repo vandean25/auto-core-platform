@@ -81,6 +81,7 @@ describe('Settlement credit-note block (e2e)', () => {
         customer_id: customerId,
         make: 'VW',
         model: 'Golf',
+        year: 2022,
         vin: `WVWZZZ1KZ6W${Date.now().toString().slice(-6)}`,
       },
     });
@@ -276,7 +277,7 @@ describe('Settlement credit-note block (e2e)', () => {
     const salesUser = await tenantPrisma.user.create({
       data: {
         email: `sales-aut916-${Date.now()}@example.com`,
-        firebase_uid: `fb-sales-aut916-${Date.now()}`,
+        firebaseUid: `fb-sales-aut916-${Date.now()}`,
         active_tenant_id: tenant.tenantId,
         active_site_id: siteId,
       },
@@ -296,12 +297,11 @@ describe('Settlement credit-note block (e2e)', () => {
         user_id: salesUser.id,
       },
     });
-    const salesToken = authService.generateJwt(
-      salesUser.id,
-      salesUser.email,
-      tenant.tenantId,
-      TenantMemberRole.SALES,
-    );
+    const salesToken = createTestAuthToken(authService, tenant, {
+      sub: salesUser.firebaseUid ?? undefined,
+      email: salesUser.email,
+      role: TenantMemberRole.SALES,
+    });
 
     await request(app.getHttpServer())
       .post(`/api/invoices/${invoice.id}/settlement`)
