@@ -236,6 +236,8 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   - Backend tests go in `apps/core-api/test/` as `.e2e-spec.ts` files.
   - Use the established testing patterns (e.g., `test/purchase-receipt.e2e-spec.ts`).
   - Ensure tests cover both happy paths and error cases.
+- **How to write tests:** follow `.agents/skills/acp-testing/SKILL.md` when adding or changing a spec. It complements the TDD skill, `writing-good-tests.md`, `condition-based-waiting.md`, `clean-tests` and the rules in this section.
+- **Deterministic time:** never hard-code a calendar day that is compared with "now" or with a record dated today (the failure mode of `settlement.e2e-spec.ts`: credit-note `date: '2026-11-14'` vs an invoice issued with `new Date()`). Derive the date from the created record, or stamp the whole scenario from one fixture / injected clock and reset it. Backend CI is UTC; the product and Playwright visual tests use `Europe/Vienna`. Think about UTC midnight and month/year/`lock_date` boundaries.
 - **Every test proves a regression**: the name (or one short line above it) says which regression it catches, and it must fail against the code before the fix. Check that by reverting the fix once while the test runs.
 - **Assert on the system under test**: never green-light a test by only reading back state that the test's own fake, mock or fixture wrote (a fake that echoes what it stored proves nothing about the code).
 - **Test comments must match the test**: a comment may only claim what an assertion actually checks; delete claims about cases the test never builds.
