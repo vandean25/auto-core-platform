@@ -31,6 +31,19 @@ describe('Inspector evidence (e2e)', () => {
     .digest('hex');
 
   beforeAll(async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-10-16T10:00:00.000Z'),
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'hrtime',
+        'performance',
+      ],
+    });
     app = await createE2eApp();
 
     basePrisma = app.get(PrismaService);
@@ -53,6 +66,7 @@ describe('Inspector evidence (e2e)', () => {
   });
 
   afterAll(async () => {
+    jest.useRealTimers();
     await runWithTenantContext(tenantId, async () => {
       await cleanupTestTenantGraph(basePrisma, tenantId);
     });

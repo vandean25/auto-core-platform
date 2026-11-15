@@ -62,6 +62,19 @@ describe('Inspection catalogue (e2e)', () => {
   }
 
   beforeAll(async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-11-01T10:00:00.000Z'),
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'hrtime',
+        'performance',
+      ],
+    });
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -153,6 +166,7 @@ describe('Inspection catalogue (e2e)', () => {
   });
 
   afterAll(async () => {
+    jest.useRealTimers();
     await cleanupTestTenantGraph(basePrisma, tenantId);
     await teardownTestApp(app);
   });
