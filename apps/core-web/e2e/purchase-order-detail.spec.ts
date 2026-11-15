@@ -334,4 +334,107 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     }
     await expectNoPageScroll(page);
   });
+
+  // AUT-964 scenario 4: PO receive updates confirmed quantities and shows a success toast.
+  test("WHEN a remaining quantity is received on a SENT/PARTIAL purchase order THEN the confirmed quantities appear and a success toast is shown", async ({
+    page,
+  }) => {
+    const corePage = new AutoCorePage(page, DE_FINANCE.purchaseOrders.list.create);
+    const mockVendor = createMockVendor({
+      id: VENDOR_ID,
+      name: "Nordstern Ersatzteile GmbH",
+    });
+    let currentPO = createMockPurchaseOrder({
+      id: PO_ID,
+      order_number: "PO-2026-0003",
+      status: "PARTIAL",
+      vendor_id: VENDOR_ID,
+      vendor: mockVendor,
+      items: [
+        {
+          id: "item-1",
+          catalog_item_id: "cat-1",
+          quantity: 10,
+          quantity_received: 4,
+          unit_cost: 15.0,
+          catalog_item: {
+            sku: "TEST-SKU-1",
+            name: "Test Part",
+          },
+        },
+      ],
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(currentPO),
+        });
+      },
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}/receive`),
+      async (route) => {
+        currentPO = {
+          ...currentPO,
+          status: "COMPLETED",
+          items: [{ ...currentPO.items[0], quantity_received: 10 }],
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(currentPO),
+        });
+      },
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher("/api/vendors"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(createMockListResponse([mockVendor])),
+        });
+      },
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher("/api/inventory"),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(createMockListResponse([])),
+        });
+      },
+    );
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/vendors/${VENDOR_ID}/unbilled-receipts`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([]),
+        });
+      },
+    );
+
+    await corePage.navigate(`/purchase-orders/${PO_ID}`);
+    await expect(page.getByRole("heading", { name: "PO-2026-0003", exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: DE_FINANCE.actions.receiveGoods }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("spinbutton").fill("6");
+    await dialog.getByRole("button", { name: DE_FINANCE.actions.confirmReceipt }).click();
+
+    await expect(page.getByText(DE_FINANCE.purchaseOrders.detail.toast.received)).toBeVisible();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText(DE_STATUS.COMPLETED, { exact: true })).toBeVisible();
+    const row = page.locator("tbody tr").first();
+    await expect(row.locator("td").nth(3)).toHaveText("10");
+    await expect(row.locator("td").nth(4)).toHaveText("0");
+  });
 });

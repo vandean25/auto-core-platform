@@ -110,6 +110,7 @@ export function useTransferLineInputs() {
     setReturnQty: lineSetter(setReturnQtyByLine),
     setDestLocation: lineSetter(setDestLocationByLine),
     setSourceLocation: lineSetter(setSourceLocationByLine),
+    clearReceiveQty: () => setReceiveQtyByLine({}),
   }
 }
 
@@ -185,6 +186,7 @@ export function useFulfilmentActions(
       )
     },
     receive: (transfer: StockTransfer) => {
+      if (receiveMutation.isPending) return
       if (!access.canReceive) {
         toast.error(t('inventory:stockTransfers.detail.toast.switchSiteBeforeReceive'))
         return
@@ -194,13 +196,14 @@ export function useFulfilmentActions(
         toast.error(t('inventory:stockTransfers.detail.toast.enterReceiveQty'))
         return
       }
-      return runAction(t('inventory:stockTransfers.detail.toast.received'), failed, () =>
-        receiveMutation.mutateAsync({
+      return runAction(t('inventory:stockTransfers.detail.toast.received'), failed, async () => {
+        await receiveMutation.mutateAsync({
           expectedVersion: transfer.version,
           idempotencyKey: generateId(),
           lines,
-        }),
-      )
+        })
+        inputs.clearReceiveQty()
+      })
     },
     returnUnreceived: (transfer: StockTransfer) => {
       const lines = buildReturnLines(transfer, inputs.returnQtyByLine)

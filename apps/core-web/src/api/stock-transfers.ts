@@ -40,16 +40,12 @@ async function parseStockTransferResponse(response: Response, fallbackMessage: s
   return (await response.json()) as StockTransfer;
 }
 
-function invalidateStockTransferQueries(
+async function settleStockTransferMutation(
   queryClient: ReturnType<typeof useQueryClient>,
-  transferId?: string,
+  transfer: StockTransfer,
 ) {
-  if (transferId) {
-    queryClient.invalidateQueries({
-      queryKey: stockTransferKeys.detail(transferId),
-    });
-  }
-  queryClient.invalidateQueries({ queryKey: stockTransferKeys.all });
+  queryClient.setQueryData(stockTransferKeys.detail(transfer.id), transfer);
+  await queryClient.invalidateQueries({ queryKey: stockTransferKeys.all });
 }
 
 export function useStockTransfers(
@@ -99,9 +95,7 @@ export function useCreateStockTransfer() {
       });
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.createFailed"));
     },
-    onSuccess: (transfer) => {
-      invalidateStockTransferQueries(queryClient, transfer.id);
-    },
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -121,7 +115,7 @@ export function useApproveStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.approveFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -141,7 +135,7 @@ export function useRejectStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.rejectFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -161,7 +155,7 @@ export function useCancelStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.cancelFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -181,7 +175,7 @@ export function useShipStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.shipFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -201,7 +195,7 @@ export function useReceiveStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.receiveFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }
 
@@ -221,6 +215,6 @@ export function useReturnStockTransfer(transferId: string) {
       );
       return parseStockTransferResponse(response, i18n.t("inventory:stockTransfers.errors.returnFailed"));
     },
-    onSuccess: () => invalidateStockTransferQueries(queryClient, transferId),
+    onSuccess: (transfer) => settleStockTransferMutation(queryClient, transfer),
   });
 }

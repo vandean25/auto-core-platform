@@ -134,12 +134,13 @@ export function useReceiveGoods() {
       }
       return res.json();
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: purchaseOrderKeys.detail(variables.orderId),
-      });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-    },
+    onSuccess: (_, variables) =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: purchaseOrderKeys.detail(variables.orderId),
+        }),
+        queryClient.invalidateQueries({ queryKey: inventoryKeys.all }),
+      ]),
   });
 }
 

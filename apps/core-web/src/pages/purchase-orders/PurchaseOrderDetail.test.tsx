@@ -806,7 +806,7 @@ describe('PurchaseOrderDetail behavior', () => {
       expect(receiveMutate).not.toHaveBeenCalled()
     })
 
-    it('submits the positive quantities and closes on success', () => {
+    it('submits the positive quantities, shows a success toast and closes on success', () => {
       succeedWith(receiveMutate)
       const dialog = openDialog()
       fireEvent.change(dialog.getByRole('spinbutton'), { target: { value: '1' } })
@@ -816,6 +816,7 @@ describe('PurchaseOrderDetail behavior', () => {
         { orderId: 'po-1', items: [{ itemId: 'item-1', quantity: 1 }] },
         expect.any(Object),
       )
+      expect(toast.success).toHaveBeenCalledWith(detail.toast.received)
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 

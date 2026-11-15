@@ -1,13 +1,18 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import deNav from '../../../locales/de/nav.json' with { type: 'json' }
+import enEnums from '../../../locales/en/enums.json' with { type: 'json' }
+import enFinance from '../../../locales/en/finance.json' with { type: 'json' }
+import enInventory from '../../../locales/en/inventory.json' with { type: 'json' }
 import { DE_STATUS } from './helpers/de-enums'
 import { DE_COMMON_ACTIONS, DE_INVENTORY } from './helpers/de-inventory'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { contentClippedByAncestor, controlsShorterThan44, expectNoPageScroll } from './utils/phone-layout'
+import { contentClippedByAncestor, controlsShorterThan44, expectNoPageScroll, pageOverflow } from './utils/phone-layout'
 import {
   createMockInventoryItem,
   createMockListResponse,
+  createMockPurchaseOrder,
   createMockStockTransfer,
+  createMockVendor,
 } from './utils/mock-factories'
 
 const FROM_SITE_ID = 'site-from'
@@ -808,5 +813,243 @@ test.describe('Stock Transfer detail with long labels (AUT-914)', () => {
     await openLongTransfer(page, PHONE_SIZES[1], 40)
     await expect(page.locator('[data-table-row="true"]')).toHaveCount(40)
     await expectNoPageScroll(page)
+  })
+})
+
+/** AUT-964: transfer receive settles without reload, guards double submit, and works at 375px in EN. */
+test.describe('Stock Transfer receive settlement (AUT-964)', () => {
+  async function setupShippedTransfer(
+    page: Page,
+    options: { receiveDelayMs?: number; refetchDelayMs?: number; uiLanguage?: 'de' | 'en' } = {},
+  ) {
+    let currentTransfer = binTransfer('SHIPPED', {
+      approved: '4.000',
+      shipped: '4.000',
+      received: '1.000',
+    })
+    let receiveCalls = 0
+
+    await page.addInitScript(
+      ({ siteId, lang }) => {
+        window.localStorage.setItem('e2e-active-site-id', siteId)
+        if (lang) window.localStorage.setItem('acp:ui-language', lang)
+      },
+      { siteId: GRZ_SITE_ID, lang: options.uiLanguage },
+    )
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MAIN_GRZ_SITES),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockInventoryItem({ id: CATALOG_ITEM_ID, sku: 'FILTER-01', name: 'Oil Filter' }),
+          ]),
+        ),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(QA_BINS),
+      })
+    })
+
+    let getCalls = 0
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/stock-transfers/${BIN_DETAIL_ID}`), async (route) => {
+      getCalls += 1
+      if (getCalls > 1 && options.refetchDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.refetchDelayMs))
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentTransfer),
+      })
+    })
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/stock-transfers/${BIN_DETAIL_ID}/receive`),
+      async (route) => {
+        receiveCalls += 1
+        if (options.receiveDelayMs) {
+          await new Promise((resolve) => setTimeout(resolve, options.receiveDelayMs))
+        }
+        currentTransfer = binTransfer('COMPLETED', {
+          approved: '4.000',
+          shipped: '4.000',
+          received: '4.000',
+        })
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(currentTransfer),
+        })
+      },
+    )
+
+    const corePage = new AutoCorePage(page, '')
+    await corePage.navigate(`/stock-transfers/${BIN_DETAIL_ID}`)
+    await expect(page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).first()).toBeVisible()
+
+    return { getReceiveCalls: () => receiveCalls }
+  }
+
+  test('WHEN an ADMIN with active site GRZ receives the remaining qty on a shipped transfer and the server succeeds THEN, without reload, the page shows Abgeschlossen and Empfangen is not active', async ({
+    page,
+  }) => {
+    await setupShippedTransfer(page)
+
+    await page.getByPlaceholder(detailCopy.receiveQtyPlaceholder).fill('3')
+    await page.getByRole('button', { name: DE_INVENTORY.actions.receiveStock, exact: true }).click()
+
+    await expect(
+      page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).locator('span'),
+    ).toHaveText(DE_STATUS.COMPLETED)
+    await expect(page.getByRole('button', { name: DE_INVENTORY.actions.receiveStock, exact: true })).toHaveCount(0)
+    await expect(page.getByPlaceholder(detailCopy.receiveQtyPlaceholder)).toHaveCount(0)
+  })
+
+  test('WHEN the success toast is visible THEN the query already reflects the server result, not Versendet / Empfangen 0', async ({
+    page,
+  }) => {
+    await setupShippedTransfer(page, { refetchDelayMs: 250 })
+
+    await page.getByPlaceholder(detailCopy.receiveQtyPlaceholder).fill('3')
+    await page.getByRole('button', { name: DE_INVENTORY.actions.receiveStock, exact: true }).click()
+
+    await expect(page.getByText(detailCopy.toast.received)).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).locator('span'),
+    ).toHaveText(DE_STATUS.COMPLETED)
+    const receivedCell = page.locator('tbody tr').first().locator('td').nth(4)
+    await expect(receivedCell).toHaveText('4')
+  })
+
+  test('WHEN Empfangen is activated again after a successful receive THEN stock is not received a second time', async ({
+    page,
+  }) => {
+    const { getReceiveCalls } = await setupShippedTransfer(page, { receiveDelayMs: 200 })
+
+    await page.getByPlaceholder(detailCopy.receiveQtyPlaceholder).fill('3')
+    const receiveBtn = page.getByRole('button', { name: DE_INVENTORY.actions.receiveStock, exact: true })
+    await receiveBtn.click()
+    await expect(receiveBtn).toBeDisabled()
+    await receiveBtn.click({ force: true })
+
+    await expect(page.getByText(detailCopy.toast.received)).toBeVisible()
+    await expect(receiveBtn).toHaveCount(0)
+    expect(getReceiveCalls()).toBe(1)
+  })
+
+  test('WHEN the same transfer and PO flows run at 375px in EN THEN pending, settled state and toasts remain usable', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await setupShippedTransfer(page, { receiveDelayMs: 150, uiLanguage: 'en' })
+
+    const receiveBtn = page.getByRole('button', { name: enInventory.actions.receiveStock, exact: true })
+    const btnBox = (await receiveBtn.boundingBox())!
+    expect(btnBox.height).toBeGreaterThanOrEqual(44)
+    await expectNoPageScroll(page)
+
+    await page.getByPlaceholder(enInventory.stockTransfers.detail.receiveQtyPlaceholder).fill('3')
+    await receiveBtn.click()
+    await expect(receiveBtn).toBeDisabled()
+    await expect(receiveBtn).toHaveAttribute('aria-busy', 'true')
+
+    const transferToast = page.getByText(enInventory.stockTransfers.detail.toast.received)
+    await expect(transferToast).toBeVisible()
+    expect((await transferToast.boundingBox())!.x).toBeGreaterThanOrEqual(0)
+    await expect(
+      page.getByRole('heading', { name: 'TR-2026-0001', exact: false }).locator('span'),
+    ).toHaveText(enEnums.status.COMPLETED)
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
+
+    const PO_ID = 'po-en-375'
+    const VENDOR_ID = 'vendor-en-375'
+    const mockVendor = createMockVendor({ id: VENDOR_ID, name: 'Nordstern Parts' })
+    let currentPO = createMockPurchaseOrder({
+      id: PO_ID,
+      order_number: 'PO-2026-0375',
+      status: 'SENT',
+      vendor_id: VENDOR_ID,
+      vendor: mockVendor,
+      items: [
+        {
+          id: 'item-1',
+          catalog_item_id: 'cat-1',
+          quantity: 5,
+          quantity_received: 2,
+          unit_cost: 12,
+          catalog_item: { sku: 'TEST-SKU-1', name: 'Test Part' },
+        },
+      ],
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentPO),
+      })
+    })
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/purchase-orders/${PO_ID}/receive`),
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        currentPO = {
+          ...currentPO,
+          status: 'COMPLETED',
+          items: [{ ...currentPO.items[0], quantity_received: 5 }],
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(currentPO),
+        })
+      },
+    )
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/vendors/${VENDOR_ID}/unbilled-receipts`),
+      async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      },
+    )
+
+    await page.goto(`/purchase-orders/${PO_ID}`)
+    await expect(page.getByRole('heading', { name: 'PO-2026-0375', exact: true })).toBeVisible()
+    await expectNoPageScroll(page)
+
+    const poReceiveBtn = page.getByRole('button', { name: enFinance.actions.receiveGoods })
+    expect((await poReceiveBtn.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await poReceiveBtn.click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    const qtyInput = dialog.getByRole('spinbutton')
+    expect((await qtyInput.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await qtyInput.fill('3')
+
+    const confirmBtn = dialog.getByRole('button', { name: enFinance.actions.confirmReceipt })
+    expect((await confirmBtn.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    await confirmBtn.click()
+    await expect(confirmBtn).toBeDisabled()
+
+    const poToast = page.getByText(enFinance.purchaseOrders.detail.toast.received)
+    await expect(poToast).toBeVisible()
+    expect((await poToast.boundingBox())!.x).toBeGreaterThanOrEqual(0)
+    await expect(page.getByText(enEnums.status.COMPLETED, { exact: true })).toBeVisible()
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
   })
 })
