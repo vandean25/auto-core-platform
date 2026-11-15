@@ -229,7 +229,7 @@ describe('Inspection catalogue (e2e)', () => {
       .get('/api/inspection-catalogues/references')
       .query({
         position_id: '0.1',
-        inspection_time: '2026-11-15T10:00:00.000Z',
+        inspection_time: '2099-11-15T10:00:00.000Z',
       })
       .set('Authorization', `Bearer ${token}`)
       .expect(200);

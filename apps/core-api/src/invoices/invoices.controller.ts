@@ -21,6 +21,7 @@ import type { Readable } from 'node:stream';
 import { PdfWorker } from '../common/pdf/index.js';
 import { InvoicesService } from './invoices.service.js';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
+import { UpdateInvoiceDiscountsDto } from './dto/update-invoice-discounts.dto.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { DryRunRefused } from '../dry-run/dry-run.decorators.js';
@@ -75,6 +76,15 @@ export class InvoicesController {
   @ApiCreatedResponse({ type: InvoiceResponseDto })
   createDraft(@Body() dto: CreateDraftInvoiceDto) {
     return this.invoicesService.createDraftInvoice(dto.workshopOrderId);
+  }
+
+  @Patch(':id/discounts')
+  @ApiOkResponse({ type: InvoiceResponseDto })
+  updateDiscounts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInvoiceDiscountsDto,
+  ) {
+    return this.invoicesService.updateDiscounts(id, dto);
   }
 
   @Patch(':id/issue')

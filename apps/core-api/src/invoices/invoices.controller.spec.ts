@@ -1,15 +1,19 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Logger,
   NotFoundException,
+  type ExecutionContext,
 } from '@nestjs/common';
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import { InvoiceStatus } from '@prisma/client';
 import type { PdfStreamResult } from './invoice-pdf-archive.helpers.js';
+import { PermissionGuard } from '../permissions/permission.guard.js';
+import { PermissionResolver } from '../permissions/permission-resolver.js';
 
 const mockCaptureException = jest.fn();
 jest.unstable_mockModule('@sentry/node', () => ({
@@ -29,6 +33,9 @@ describe('InvoicesController', () => {
   let invoicesService: {
     createDraftInvoice: jest.Mock<(orderId: string) => Promise<unknown>>;
     issueInvoice: jest.Mock<(invoiceId: string) => Promise<unknown>>;
+    updateDiscounts: jest.Mock<
+      (invoiceId: string, dto: unknown) => Promise<unknown>
+    >;
   };
   let invoicePdfService: {
     requestGeneration: jest.Mock<
@@ -44,6 +51,8 @@ describe('InvoicesController', () => {
     invoicesService = {
       createDraftInvoice: jest.fn<(orderId: string) => Promise<unknown>>(),
       issueInvoice: jest.fn<(invoiceId: string) => Promise<unknown>>(),
+      updateDiscounts:
+        jest.fn<(invoiceId: string, dto: unknown) => Promise<unknown>>(),
     };
 
     invoicePdfService = {
@@ -93,6 +102,60 @@ describe('InvoicesController', () => {
 
       expect(result).toBe(mockInvoice);
       expect(invoicesService.createDraftInvoice).toHaveBeenCalledWith('wo-456');
+    });
+  });
+
+  describe('updateDiscounts', () => {
+    it('delegates discount update with invoice id and dto', async () => {
+      const dto = {
+        lineItems: [
+          {
+            id: 'line-1',
+            discountType: 'PERCENTAGE' as const,
+            discountValue: 10,
+          },
+        ],
+      };
+      const mockUpdatedInvoice = { id: 'inv-123', status: InvoiceStatus.DRAFT };
+      invoicesService.updateDiscounts.mockResolvedValue(mockUpdatedInvoice);
+
+      const result = await controller.updateDiscounts('inv-123', dto);
+
+      expect(result).toBe(mockUpdatedInvoice);
+      expect(invoicesService.updateDiscounts).toHaveBeenCalledWith(
+        'inv-123',
+        dto,
+      );
+    });
+
+    it('Scenario 5: denies access (403) when caller lacks invoice.issue permission', async () => {
+      const resolver = new PermissionResolver({
+        tenantMember: {
+          findFirst: jest
+            .fn<() => Promise<object | null>>()
+            .mockResolvedValue({ role: 'TECH', demo_access_expires_at: null }),
+        },
+      } as never);
+      const guard = new PermissionGuard(resolver);
+      const context = {
+        getClass: () => InvoicesController,
+        getHandler: () => InvoicesController.prototype.updateDiscounts,
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user: {
+              userId: 'firebase-uid-1',
+              tenantId: 'tenant-1',
+              role: 'TECH',
+            },
+            method: 'PATCH',
+            path: '/api/invoices/inv-123/discounts',
+          }),
+        }),
+      } as unknown as ExecutionContext;
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 

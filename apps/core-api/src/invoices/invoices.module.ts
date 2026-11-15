@@ -8,9 +8,10 @@ import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { InvoiceWorkshopDraftProposeService } from './invoice-workshop-draft-propose.service.js';
+import { AuditModule } from '../audit/audit.module.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, DocumentBrandingModule],
+  imports: [PrismaModule, CommonModule, DocumentBrandingModule, AuditModule],
   controllers: [InvoicesController],
   providers: [
     InvoicesService,

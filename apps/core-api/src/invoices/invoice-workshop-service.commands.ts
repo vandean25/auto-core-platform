@@ -1,9 +1,12 @@
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Injectable } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service.js';
 import { FinanceService } from '../finance/finance.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import type { UpdateInvoiceDiscountsDto } from './dto/update-invoice-discounts.dto.js';
 import { executeCreateDraftInvoice } from './invoice-creation.helpers.js';
+import { executeUpdateInvoiceDiscounts } from './invoice-discount.helpers.js';
 import { executeIssueInvoice } from './invoice-issue.helpers.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import {
@@ -17,6 +20,7 @@ export type InvoicesServiceDeps = {
   siteContext: SiteContextService;
   financeService: FinanceService;
   snapshotCommitService: InvoiceSnapshotCommitService;
+  auditService: AuditService;
   prisma: PrismaService;
 };
 
@@ -48,6 +52,28 @@ export async function issueTenantInvoice(
   );
 }
 
+export async function updateTenantInvoiceDiscounts(
+  deps: InvoicesServiceDeps,
+  targetInvoiceId: string,
+  dto: UpdateInvoiceDiscountsDto,
+) {
+  assertRequiredStringId(targetInvoiceId, 'Invoice ID');
+  const siteId = await deps.siteContext.getSiteId();
+  return runInvoiceTenantTransaction(
+    deps.prisma,
+    deps.tenantContext,
+    (transactionClient, scopedTenantId) =>
+      executeUpdateInvoiceDiscounts(transactionClient, {
+        tenantId: scopedTenantId,
+        siteId,
+        invoiceId: targetInvoiceId,
+        dto,
+        auditService: deps.auditService,
+        tenantContext: deps.tenantContext,
+      }),
+  );
+}
+
 @Injectable()
 export class InvoicesService {
   constructor(
@@ -55,6 +81,7 @@ export class InvoicesService {
     private readonly snapshotCommitService: InvoiceSnapshotCommitService,
     private readonly siteContext: SiteContextService,
     private readonly financeService: FinanceService,
+    private readonly auditService: AuditService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -66,12 +93,17 @@ export class InvoicesService {
     return issueTenantInvoice(this.deps(), targetInvoiceId);
   }
 
+  updateDiscounts(targetInvoiceId: string, dto: UpdateInvoiceDiscountsDto) {
+    return updateTenantInvoiceDiscounts(this.deps(), targetInvoiceId, dto);
+  }
+
   private deps(): InvoicesServiceDeps {
     return {
       tenantContext: this.tenantContext,
       snapshotCommitService: this.snapshotCommitService,
       siteContext: this.siteContext,
       financeService: this.financeService,
+      auditService: this.auditService,
       prisma: this.prisma,
     };
   }

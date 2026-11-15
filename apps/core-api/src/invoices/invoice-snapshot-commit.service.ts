@@ -75,6 +75,24 @@ export type PreparedInvoiceSnapshot = {
   logoAssetId: string | null;
 };
 
+export async function lockInvoiceRowForUpdate(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  invoiceId: string,
+): Promise<void> {
+  // eslint-disable-next-line no-restricted-syntax -- tenant-scoped invoice lock follows the ordered source lock.
+  const invoiceRows = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM invoices
+    WHERE id = ${invoiceId}
+      AND tenant_id = ${tenantId}
+    FOR UPDATE
+  `;
+  if (invoiceRows.length !== 1) {
+    throw new NotFoundException('Invoice not found');
+  }
+}
+
 @Injectable()
 export class InvoiceSnapshotCommitService {
   constructor(private readonly siteContext: SiteContextService) {}
@@ -126,17 +144,7 @@ export class InvoiceSnapshotCommitService {
     tenantId: string,
     invoiceId: string,
   ): Promise<void> {
-    // eslint-disable-next-line no-restricted-syntax -- tenant-scoped invoice lock follows the ordered source lock.
-    const invoiceRows = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT id
-      FROM invoices
-      WHERE id = ${invoiceId}
-        AND tenant_id = ${tenantId}
-      FOR UPDATE
-    `;
-    if (invoiceRows.length !== 1) {
-      throw new NotFoundException('Invoice not found');
-    }
+    await lockInvoiceRowForUpdate(tx, tenantId, invoiceId);
   }
 
   async prepareV2Snapshot(

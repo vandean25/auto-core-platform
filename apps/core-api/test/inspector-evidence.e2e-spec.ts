@@ -92,7 +92,7 @@ describe('Inspector evidence (e2e)', () => {
         document_digest: documentDigest,
         version: create.body.version,
         decision: 'ACCEPT',
-        review_valid_until: '2026-11-15T09:00:00Z',
+        review_valid_until: '2099-11-15T09:00:00Z',
       })
       .expect(200);
 
@@ -145,7 +145,7 @@ describe('Inspector evidence (e2e)', () => {
         document_digest: 'b'.repeat(64),
         version: create.body.version,
         decision: 'ACCEPT',
-        review_valid_until: '2026-11-15T09:00:00Z',
+        review_valid_until: '2099-11-15T09:00:00Z',
       })
       .expect(409);
   });

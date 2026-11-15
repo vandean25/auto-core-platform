@@ -409,4 +409,173 @@ describe('Workshop Invoicing (e2e)', () => {
     expect(settleRes.body.payment.amount).toBe(snapshot.total_gross);
     expect(settleRes.body.invoiceStatus).toBe('PAID');
   });
+
+  it('Scenario 7: workshop draft -> PATCH discounts (line PERCENTAGE + FLAT_AMOUNT + global) -> issue -> stored == snapshot == PDF totals -> settlement succeeds', async () => {
+    await prisma.legalEntity.updateMany({
+      where: { id: legalEntityId, tenant_id: tenantId },
+      data: { rksv_mode: RksvMode.REQUIRED_EXTERNAL_KASSE },
+    });
+
+    const api = request(app.getHttpServer());
+    const orderRes = await api
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId,
+        odometer: 125000,
+        fuelLevel: 50,
+        notes: 'Discounted brake service',
+      })
+      .expect(201);
+
+    const taskRes = await api
+      .post(`/api/workshop/orders/${orderRes.body.id}/tasks`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ title: 'Brake service' })
+      .expect(201);
+
+    await api
+      .patch(
+        `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedLineItemsVersion: 0,
+        items: [
+          {
+            type: 'LABOR',
+            itemNo: 'LAB-DISC-1',
+            description: 'Brake labor',
+            qty: 2,
+            unitPrice: 100,
+          },
+          {
+            type: 'PART',
+            itemNo: 'PART-DISC-1',
+            description: 'Brake pads',
+            qty: 1,
+            unitPrice: 100,
+          },
+        ],
+      })
+      .expect(200);
+
+    await api
+      .patch(`/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ status: 'DONE' })
+      .expect(200);
+
+    const draftRes = await api
+      .post('/api/invoices/drafts')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ workshopOrderId: orderRes.body.id })
+      .expect(201);
+
+    const draftItems = draftRes.body.items as Array<{
+      id: string;
+      description: string;
+    }>;
+    const laborLine = draftItems.find((i) => i.description === 'Brake labor')!;
+    const partLine = draftItems.find((i) => i.description === 'Brake pads')!;
+
+    // 200 - 10% = 180; 100 - 20 = 80; subtotal = 260; global 10% = 26 -> net 234, tax 46.80, gross 280.80
+    const discountRes = await api
+      .patch(`/api/invoices/${draftRes.body.id}/discounts`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        globalDiscountType: 'PERCENTAGE',
+        globalDiscountValue: 10,
+        lineItems: [
+          {
+            id: laborLine.id,
+            discountType: 'PERCENTAGE',
+            discountValue: 10,
+          },
+          {
+            id: partLine.id,
+            discountType: 'FLAT_AMOUNT',
+            discountValue: 20,
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(Number(discountRes.body.total_net)).toBe(234);
+    expect(Number(discountRes.body.total_tax)).toBe(46.8);
+    expect(Number(discountRes.body.total_gross)).toBe(280.8);
+
+    await api
+      .patch(`/api/invoices/${draftRes.body.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const invoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: draftRes.body.id, tenant_id: tenantId },
+    });
+    const snapshot = invoice.snapshot as {
+      total_net: string;
+      total_tax: string;
+      total_gross: string;
+      items: Array<{
+        line_discount_type: string | null;
+        line_discount_value: string | null;
+      }>;
+    };
+
+    expect(invoice.total_net.toFixed(2)).toBe('234.00');
+    expect(invoice.total_tax.toFixed(2)).toBe('46.80');
+    expect(invoice.total_gross.toFixed(2)).toBe('280.80');
+    expect(snapshot.total_net).toBe('234.00');
+    expect(snapshot.total_tax).toBe('46.80');
+    expect(snapshot.total_gross).toBe('280.80');
+    expect(snapshot.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          line_discount_type: 'PERCENTAGE',
+          line_discount_value: '10.00',
+        }),
+        expect.objectContaining({
+          line_discount_type: 'FLAT_AMOUNT',
+          line_discount_value: '20.00',
+        }),
+      ]),
+    );
+
+    const renderable = toRenderableInvoiceSnapshot(
+      invoice.snapshot,
+      invoice.invoice_number ?? 'RE-TEST',
+      invoice.id,
+    );
+    if (!renderable) {
+      throw new Error('Expected renderable invoice snapshot');
+    }
+    const formatDate = (value: string | Date) =>
+      new Date(value).toLocaleDateString('de-DE');
+    const pdfHtml = buildInvoiceHtmlDocumentForSnapshot(
+      renderable,
+      invoice.invoice_number ?? 'RE-TEST',
+      escapeHtml,
+      formatDate,
+      null,
+    );
+    expect(pdfHtml).toContain('234,00');
+    expect(pdfHtml).toContain('46,80');
+    expect(pdfHtml).toContain('280,80');
+
+    const settleRes = await api
+      .post(`/api/invoices/${draftRes.body.id}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        idempotencyKey: randomUUID(),
+        method: 'CASH',
+        externalReceiptNumber: 'EXT-REC-DISC-001',
+        externalReceiptDate: '2026-11-14T12:00:00.000Z',
+      })
+      .expect(201);
+
+    expect(settleRes.body.payment.amount).toBe('280.80');
+    expect(settleRes.body.invoiceStatus).toBe('PAID');
+  });
 });

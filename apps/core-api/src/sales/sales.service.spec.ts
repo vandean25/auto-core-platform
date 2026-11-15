@@ -256,4 +256,50 @@ describe('SalesService', () => {
       ],
     });
   });
+
+  it('Scenario 6: updateDraft keeps existing global discount alongside line discounts', async () => {
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: 'inv-2',
+      status: InvoiceStatus.DRAFT,
+      global_discount_type: DiscountType.FLAT_AMOUNT,
+      global_discount_value: new Prisma.Decimal('10.00'),
+      items: [
+        {
+          id: 'item-1',
+          workshop_task_line_item_id: 'wtl-1',
+          catalog_item_id: null,
+          description: 'Labor',
+          line_discount_type: DiscountType.PERCENTAGE,
+          line_discount_value: new Prisma.Decimal('10.00'),
+        },
+      ],
+    });
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
+    mockPrisma.workshopTaskLineItem.findMany.mockResolvedValue([{ id: 'wtl-1' }]);
+    tx.invoice.updateMany.mockResolvedValue({ count: 1 });
+    tx.invoice.findFirst.mockResolvedValue({ id: 'inv-2', items: [] });
+
+    await service.updateDraft('inv-2', {
+      customerId: 'cust-1',
+      items: [
+        {
+          workshopTaskLineItemId: 'wtl-1',
+          description: 'Labor',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 20,
+        },
+      ],
+    });
+
+    expect(tx.invoice.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          total_net: new Prisma.Decimal('80.00'),
+          total_tax: new Prisma.Decimal('16.00'),
+          total_gross: new Prisma.Decimal('96.00'),
+        }),
+      }),
+    );
+  });
 });

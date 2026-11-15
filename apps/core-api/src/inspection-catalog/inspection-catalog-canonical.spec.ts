@@ -44,7 +44,7 @@ describe('inspection-catalog-canonical', () => {
     const status = resolveCatalogueReference({
       manifest: SYNTHETIC_STATUTORY_MANIFEST,
       request: { position_id: '0.1', entry_id: null },
-      inspectionTime: new Date('2026-11-15T10:00:00.000Z'),
+      inspectionTime: new Date('2099-11-15T10:00:00.000Z'),
       vehicleClass: 'M1',
       forCurrentUse: true,
       lookupPurpose: 'position_only',
