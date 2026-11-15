@@ -18,7 +18,7 @@ export const SYNTHETIC_STATUTORY_MANIFEST: CatalogueManifest = {
   valid_to: null,
   retrieved_at: '2026-10-16T10:00:00.000Z',
   verified_current_at: '2026-10-16T10:00:00.000Z',
-  recheck_after: '2026-11-15T10:00:00.000Z',
+  recheck_after: '2099-11-15T10:00:00.000Z',
   coverage: 'SUBSET',
   rights: 'PUBLIC_STATUTORY_REFERENCE_ONLY',
   approval_evidence_ref: null,
