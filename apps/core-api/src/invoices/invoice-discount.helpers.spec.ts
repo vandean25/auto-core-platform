@@ -9,6 +9,7 @@ import {
   CustomerType,
   DiscountType,
   InvoiceStatus,
+  InvoiceTaxMode,
   Prisma,
 } from '@prisma/client';
 import type { AuditService } from '../audit/audit.service.js';
@@ -26,6 +27,7 @@ function buildDraftInvoice(overrides: Record<string, unknown> = {}) {
     tenant_id: 'tenant-1',
     site_id: 'site-1',
     status: InvoiceStatus.DRAFT,
+    tax_mode: InvoiceTaxMode.STANDARD,
     global_discount_type: null as DiscountType | null,
     global_discount_value: null as Prisma.Decimal | null,
     total_net: d('200.00'),
@@ -349,34 +351,152 @@ describe('executeUpdateInvoiceDiscounts', () => {
       },
     ],
   ])(
-    'Scenario 2: throws 422 and writes nothing when %s',
+    'Scenario 2: throws 422 INVOICE_DISCOUNT_INVALID and writes nothing when %s',
     async (_label, dto) => {
       const draft = buildDraftInvoice();
       const { tx, auditService, tenantContext } = createMocks(draft);
 
-      await expect(
-        executeUpdateInvoiceDiscounts(tx as never, {
+      let caught: unknown;
+      try {
+        await executeUpdateInvoiceDiscounts(tx as never, {
           tenantId: 'tenant-1',
           siteId: 'site-1',
           invoiceId: 'inv-1',
           dto,
           auditService,
           tenantContext,
-        }),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+        });
+      } catch (err) {
+        caught = err;
+      }
 
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({ code: 'INVOICE_DISCOUNT_INVALID' });
       expect(tx.invoice.updateMany).not.toHaveBeenCalled();
       expect(tx.invoiceItem.updateMany).not.toHaveBeenCalled();
       expect(auditService.recordTenantMutation).not.toHaveBeenCalled();
     },
   );
 
+  it('preserves existing line discount when lineItems entry omits discountType and discountValue', async () => {
+    const draft = buildDraftInvoice();
+    draft.items[0].line_discount_type = DiscountType.PERCENTAGE;
+    draft.items[0].line_discount_value = d('10.00');
+    draft.items[0].line_total = d('90.00');
+    const { tx, auditService, tenantContext } = createMocks(draft);
+
+    await executeUpdateInvoiceDiscounts(tx as never, {
+      tenantId: 'tenant-1',
+      siteId: 'site-1',
+      invoiceId: 'inv-1',
+      dto: {
+        lineItems: [{ id: 'line-1' }],
+      },
+      auditService,
+      tenantContext,
+    });
+
+    expect(tx.invoiceItem.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoice.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          total_net: d('190.00'),
+          total_tax: d('38.00'),
+          total_gross: d('228.00'),
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ['one-sided globalDiscountType null', { globalDiscountType: null }],
+    ['one-sided globalDiscountValue null', { globalDiscountValue: null }],
+    [
+      'duplicate line item ids',
+      {
+        lineItems: [
+          {
+            id: 'line-1',
+            discountType: DiscountType.PERCENTAGE,
+            discountValue: 10,
+          },
+          {
+            id: 'line-1',
+            discountType: DiscountType.PERCENTAGE,
+            discountValue: 20,
+          },
+        ],
+      },
+    ],
+  ])(
+    'throws 422 INVOICE_DISCOUNT_INVALID and writes nothing for %s',
+    async (_label, dto) => {
+      const draft = buildDraftInvoice();
+      const { tx, auditService, tenantContext } = createMocks(draft);
+
+      let caught: unknown;
+      try {
+        await executeUpdateInvoiceDiscounts(tx as never, {
+          tenantId: 'tenant-1',
+          siteId: 'site-1',
+          invoiceId: 'inv-1',
+          dto,
+          auditService,
+          tenantContext,
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect(
+        (caught as UnprocessableEntityException).getResponse(),
+      ).toMatchObject({ code: 'INVOICE_DISCOUNT_INVALID' });
+      expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+      expect(tx.invoiceItem.updateMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('throws 422 INVOICE_DISCOUNT_INVALID when tax_mode is not STANDARD', async () => {
+    const marginDraft = buildDraftInvoice({
+      tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+    });
+    const { tx, auditService, tenantContext } = createMocks(marginDraft);
+
+    let caught: unknown;
+    try {
+      await executeUpdateInvoiceDiscounts(tx as never, {
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        invoiceId: 'inv-1',
+        dto: {
+          globalDiscountType: DiscountType.PERCENTAGE,
+          globalDiscountValue: 10,
+        },
+        auditService,
+        tenantContext,
+      });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    expect(
+      (caught as UnprocessableEntityException).getResponse(),
+    ).toMatchObject({ code: 'INVOICE_DISCOUNT_INVALID' });
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoiceItem.updateMany).not.toHaveBeenCalled();
+  });
+
   it('Scenario 3: throws 409 INVOICE_NOT_DRAFT and writes nothing when invoice is not DRAFT', async () => {
     const issued = buildDraftInvoice({ status: InvoiceStatus.ISSUED });
     const { tx, auditService, tenantContext } = createMocks(issued);
 
-    await expect(
-      executeUpdateInvoiceDiscounts(tx as never, {
+    let caught: unknown;
+    try {
+      await executeUpdateInvoiceDiscounts(tx as never, {
         tenantId: 'tenant-1',
         siteId: 'site-1',
         invoiceId: 'inv-1',
@@ -386,19 +506,26 @@ describe('executeUpdateInvoiceDiscounts', () => {
         },
         auditService,
         tenantContext,
-      }),
-    ).rejects.toThrow(ConflictException);
+      });
+    } catch (err) {
+      caught = err;
+    }
 
+    expect(caught).toBeInstanceOf(ConflictException);
+    expect((caught as ConflictException).getResponse()).toMatchObject({
+      code: 'INVOICE_NOT_DRAFT',
+    });
     expect(tx.invoice.updateMany).not.toHaveBeenCalled();
     expect(tx.invoiceItem.updateMany).not.toHaveBeenCalled();
   });
 
-  it('Scenario 4a: throws 422 when a line id does not belong to the invoice', async () => {
+  it('Scenario 4a: throws 422 INVOICE_DISCOUNT_LINE_NOT_FOUND when a line id does not belong to the invoice', async () => {
     const draft = buildDraftInvoice();
     const { tx, auditService, tenantContext } = createMocks(draft);
 
-    await expect(
-      executeUpdateInvoiceDiscounts(tx as never, {
+    let caught: unknown;
+    try {
+      await executeUpdateInvoiceDiscounts(tx as never, {
         tenantId: 'tenant-1',
         siteId: 'site-1',
         invoiceId: 'inv-1',
@@ -413,9 +540,15 @@ describe('executeUpdateInvoiceDiscounts', () => {
         },
         auditService,
         tenantContext,
-      }),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      });
+    } catch (err) {
+      caught = err;
+    }
 
+    expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    expect(
+      (caught as UnprocessableEntityException).getResponse(),
+    ).toMatchObject({ code: 'INVOICE_DISCOUNT_LINE_NOT_FOUND' });
     expect(tx.invoice.updateMany).not.toHaveBeenCalled();
   });
 

@@ -7,10 +7,12 @@ import {
   AuditLogAction,
   DiscountType,
   InvoiceStatus,
+  InvoiceTaxMode,
   Prisma,
 } from '@prisma/client';
 import type { AuditService } from '../audit/audit.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import type {
   UpdateInvoiceDiscountLineDto,
@@ -23,6 +25,7 @@ import { lineNetBeforeGlobalDiscount } from './invoice-snapshot-v2.js';
 type ResolvedDiscount = {
   type: DiscountType | null;
   value: Prisma.Decimal | null;
+  changed: boolean;
 };
 
 type ResolvedLineState = {
@@ -47,19 +50,36 @@ function invalidDiscount(message: string): UnprocessableEntityException {
   });
 }
 
-function validateDiscountPairAndValue(
+function resolvePatchedDiscount(
   label: string,
   discountType: DiscountType | null | undefined,
   discountValue: Prisma.Decimal | number | string | null | undefined,
+  existingType: DiscountType | null,
+  existingValue: Prisma.Decimal | null,
   maxFlatAmount: Prisma.Decimal,
 ): ResolvedDiscount {
-  const hasType = isPresent(discountType);
-  const hasValue = isPresent(discountValue);
-  if (hasType !== hasValue) {
-    throw invalidDiscount(`${label} discount requires both type and value.`);
+  if (discountType === undefined && discountValue === undefined) {
+    const preservedValue = existingValue
+      ? new Prisma.Decimal(existingValue)
+      : null;
+    if (
+      existingType === DiscountType.FLAT_AMOUNT &&
+      preservedValue !== null &&
+      preservedValue.gt(maxFlatAmount)
+    ) {
+      throw invalidDiscount(
+        `${label} flat discount cannot exceed the applicable net amount.`,
+      );
+    }
+    return { type: existingType, value: preservedValue, changed: false };
   }
+
+  if (discountType === null && discountValue === null) {
+    return { type: null, value: null, changed: true };
+  }
+
   if (!isPresent(discountType) || !isPresent(discountValue)) {
-    return { type: null, value: null };
+    throw invalidDiscount(`${label} discount requires both type and value.`);
   }
 
   const decimalValue = new Prisma.Decimal(discountValue).toDecimalPlaces(
@@ -81,7 +101,7 @@ function validateDiscountPairAndValue(
     );
   }
 
-  return { type: discountType, value: decimalValue };
+  return { type: discountType, value: decimalValue, changed: true };
 }
 
 function resolveLineStates(
@@ -97,6 +117,9 @@ function resolveLineStates(
 ): ResolvedLineState[] {
   const updatesById = new Map<string, UpdateInvoiceDiscountLineDto>();
   for (const update of lineUpdates) {
+    if (updatesById.has(update.id)) {
+      throw invalidDiscount('Duplicate line item id in discount update.');
+    }
     updatesById.set(update.id, update);
   }
 
@@ -115,19 +138,23 @@ function resolveLineStates(
     const taxRate = new Prisma.Decimal(item.tax_rate);
     const grossLine = quantity.mul(unitPrice);
     const patch = updatesById.get(item.id);
+    const existingValue = item.line_discount_value
+      ? new Prisma.Decimal(item.line_discount_value)
+      : null;
 
     const resolved = patch
-      ? validateDiscountPairAndValue(
+      ? resolvePatchedDiscount(
           `Line item ${index + 1}`,
           patch.discountType,
           patch.discountValue,
+          item.line_discount_type,
+          existingValue,
           grossLine,
         )
       : {
           type: item.line_discount_type,
-          value: item.line_discount_value
-            ? new Prisma.Decimal(item.line_discount_value)
-            : null,
+          value: existingValue,
+          changed: false,
         };
 
     const lineTotal = lineNetBeforeGlobalDiscount({
@@ -149,43 +176,9 @@ function resolveLineStates(
       lineDiscountType: resolved.type,
       lineDiscountValue: resolved.value,
       lineTotal,
-      changed: Boolean(patch),
+      changed: resolved.changed,
     };
   });
-}
-
-function resolveGlobalDiscount(
-  dto: UpdateInvoiceDiscountsDto,
-  existingType: DiscountType | null,
-  existingValue: Prisma.Decimal | null,
-  netAfterLineDiscounts: Prisma.Decimal,
-): ResolvedDiscount {
-  const hasGlobalPatch =
-    dto.globalDiscountType !== undefined ||
-    dto.globalDiscountValue !== undefined;
-
-  if (hasGlobalPatch) {
-    return validateDiscountPairAndValue(
-      'Global',
-      dto.globalDiscountType,
-      dto.globalDiscountValue,
-      netAfterLineDiscounts,
-    );
-  }
-
-  const resolvedValue = existingValue
-    ? new Prisma.Decimal(existingValue)
-    : null;
-  if (
-    existingType === DiscountType.FLAT_AMOUNT &&
-    resolvedValue !== null &&
-    resolvedValue.gt(netAfterLineDiscounts)
-  ) {
-    throw invalidDiscount(
-      'Global flat discount cannot exceed the invoice net amount after line discounts.',
-    );
-  }
-  return { type: existingType, value: resolvedValue };
 }
 
 export async function executeUpdateInvoiceDiscounts(
@@ -222,13 +215,21 @@ export async function executeUpdateInvoiceDiscounts(
     });
   }
 
+  if (invoice.tax_mode !== InvoiceTaxMode.STANDARD) {
+    throw invalidDiscount(
+      'Discounts are only supported on STANDARD tax-mode invoices.',
+    );
+  }
+
   const resolvedLines = resolveLineStates(invoice.items, dto.lineItems ?? []);
   const netAfterLineDiscounts = resolvedLines.reduce(
     (sum, line) => sum.add(line.lineTotal),
     new Prisma.Decimal(0),
   );
-  const resolvedGlobal = resolveGlobalDiscount(
-    dto,
+  const resolvedGlobal = resolvePatchedDiscount(
+    'Global',
+    dto.globalDiscountType,
+    dto.globalDiscountValue,
     invoice.global_discount_type,
     invoice.global_discount_value,
     netAfterLineDiscounts,
@@ -279,17 +280,25 @@ export async function executeUpdateInvoiceDiscounts(
 
   const changedLines = resolvedLines.filter((line) => line.changed);
   if (changedLines.length > 0) {
-    await Promise.all(
-      changedLines.map((line) =>
-        tx.invoiceItem.updateMany({
+    await chunkedPromiseAll(
+      changedLines,
+      async (line) => {
+        const updatedLine = await tx.invoiceItem.updateMany({
           where: { id: line.id, invoice_id: invoiceId, tenant_id: tenantId },
           data: {
             line_discount_type: line.lineDiscountType,
             line_discount_value: line.lineDiscountValue,
             line_total: line.lineTotal,
           },
-        }),
-      ),
+        });
+        if (updatedLine.count !== 1) {
+          throw new UnprocessableEntityException({
+            code: 'INVOICE_DISCOUNT_LINE_NOT_FOUND',
+            message: 'Discount line item does not belong to this invoice.',
+          });
+        }
+      },
+      10,
     );
   }
 
