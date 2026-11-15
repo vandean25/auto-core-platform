@@ -164,6 +164,10 @@ describe('query-key factory invalidation', () => {
     })
 
     await waitFor(() => {
+      expect(mocks.fetchWithAuth).toHaveBeenCalledWith(
+        '/api/invoices/inv-1/discounts',
+        expect.objectContaining({ method: 'PATCH' }),
+      )
       expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(updatedInvoice)
     })
   })

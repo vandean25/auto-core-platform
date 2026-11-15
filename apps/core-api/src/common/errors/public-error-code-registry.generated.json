@@ -1099,6 +1099,18 @@
       "public": true,
       "params": []
     },
+    "INVOICE_DISCOUNT_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "INVOICE_DISCOUNT_LINE_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "INVOICE_NOT_DRAFT": {
+      "public": false,
+      "params": []
+    },
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": {
       "public": false,
       "params": []

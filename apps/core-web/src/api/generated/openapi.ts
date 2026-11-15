@@ -978,6 +978,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invoices/{id}/discounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InvoicesController_updateDiscounts"];
+        trace?: never;
+    };
     "/api/invoices/{id}/issue": {
         parameters: {
             query?: never;
@@ -6959,6 +6975,17 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        UpdateInvoiceDiscountLineDto: {
+            /** Format: uuid */
+            id: string;
+            discountType?: components["schemas"]["DiscountType"] | null;
+            discountValue?: number | null;
+        };
+        UpdateInvoiceDiscountsDto: {
+            globalDiscountType?: components["schemas"]["DiscountType"] | null;
+            globalDiscountValue?: number | null;
+            lineItems?: components["schemas"]["UpdateInvoiceDiscountLineDto"][];
         };
         DocumentBrandThemeResponseDto: {
             /** @enum {number} */
@@ -14990,6 +15017,31 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    InvoicesController_updateDiscounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInvoiceDiscountsDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

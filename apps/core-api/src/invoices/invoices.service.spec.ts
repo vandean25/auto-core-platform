@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { FinanceService } from '../finance/finance.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
@@ -26,6 +27,9 @@ describe('InvoicesService', () => {
     invoice: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    invoiceItem: {
       updateMany: jest.fn(),
     },
     workshopOrder: {
@@ -59,8 +63,17 @@ describe('InvoicesService', () => {
           useValue: { validateTransactionDate: jest.fn() },
         },
         {
+          provide: AuditService,
+          useValue: { recordTenantMutation: jest.fn() },
+        },
+        {
           provide: TenantContextService,
-          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+          useValue: {
+            getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+            getAuthenticatedUser: jest
+              .fn()
+              .mockReturnValue({ userId: 'user-1' }),
+          },
         },
         {
           provide: SiteContextService,

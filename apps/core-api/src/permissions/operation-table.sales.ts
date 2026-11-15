@@ -27,6 +27,12 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE,
     'site',
   ),
+  'InvoicesController.updateDiscounts': op(
+    'invoice.issue',
+    BACK_OFFICE,
+    'site',
+    ['business_state'],
+  ),
   'InvoicesController.issue': op('invoice.issue', BACK_OFFICE, 'site', [
     'fiscal_lock',
     'business_state',

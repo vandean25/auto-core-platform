@@ -3212,6 +3212,46 @@
         ]
       }
     },
+    "/api/invoices/{id}/discounts": {
+      "patch": {
+        "operationId": "InvoicesController_updateDiscounts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInvoiceDiscountsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
     "/api/invoices/{id}/issue": {
       "patch": {
         "operationId": "InvoicesController_issue",
@@ -22585,6 +22625,53 @@
         "required": [
           "workshopOrderId"
         ]
+      },
+      "UpdateInvoiceDiscountLineDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discountType": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiscountType"
+              }
+            ]
+          },
+          "discountValue": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "UpdateInvoiceDiscountsDto": {
+        "type": "object",
+        "properties": {
+          "globalDiscountType": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiscountType"
+              }
+            ]
+          },
+          "globalDiscountValue": {
+            "type": "number",
+            "nullable": true
+          },
+          "lineItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateInvoiceDiscountLineDto"
+            }
+          }
+        }
       },
       "DocumentBrandThemeResponseDto": {
         "type": "object",
