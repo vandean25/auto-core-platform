@@ -283,6 +283,7 @@
         "markingSent": "Wird als gesendet markiert…",
         "markedSent": "Bestellung als gesendet markiert",
         "markSentFailed": "Senden fehlgeschlagen",
+        "received": "Wareneingang gebucht",
         "receiveFailed": "Wareneingang fehlgeschlagen"
       },
       "receiveDialog": {

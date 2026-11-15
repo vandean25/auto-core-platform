@@ -862,6 +862,20 @@ describe('StockTransferDetail', () => {
           { id: 'line-3', receiveQty: 1.5, destLocationId: 'bin-1' },
         ],
       })
+      expect(within(lineRow('SKU-1')).getByPlaceholderText(detail.receiveQtyPlaceholder)).toHaveValue(null)
+    })
+
+    // Regression (AUT-964): rapid double click / pending state must not trigger a second receive.
+    it('disables receive button while pending and ignores a second receive while in flight', () => {
+      const mutations = setup(shipped)
+      mutations.receive.isPending = true
+      renderPage()
+
+      const button = screen.getByRole('button', { name: actions.receiveStock })
+      expect(button).toBeDisabled()
+      expect(button).toHaveAttribute('aria-busy', 'true')
+      fireEvent.click(button)
+      expect(mutations.receive.mutateAsync).not.toHaveBeenCalled()
     })
 
     it('reports a failed receive and keeps the generic message', async () => {

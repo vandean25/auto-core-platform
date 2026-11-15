@@ -164,6 +164,7 @@ function ReceiveGoodsDialog({
       { orderId: po.id, items: itemsToReceive },
       {
         onSuccess: () => {
+          toast.success(t("purchaseOrders.detail.toast.received"));
           onOpenChange(false);
           setReceiveQuantities({});
         },
@@ -214,7 +215,7 @@ function ReceiveGoodsDialog({
                         min="0"
                         max={remaining}
                         step="0.001"
-                        className="text-right"
+                        className="text-right max-sm:min-h-11"
                         placeholder="0"
                         value={receiveQuantities[item.id] || ""}
                         onChange={(e) =>
@@ -233,7 +234,7 @@ function ReceiveGoodsDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="max-sm:min-h-11" onClick={() => onOpenChange(false)}>
             {t("actions.cancel")}
           </Button>
           <SubmitButtonPending

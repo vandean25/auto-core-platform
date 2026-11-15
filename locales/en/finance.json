@@ -283,6 +283,7 @@
         "markingSent": "Marking as sent…",
         "markedSent": "Purchase order marked as sent",
         "markSentFailed": "Failed to mark as sent",
+        "received": "Goods received",
         "receiveFailed": "Failed to receive goods"
       },
       "receiveDialog": {
