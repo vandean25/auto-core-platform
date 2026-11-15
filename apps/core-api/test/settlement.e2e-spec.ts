@@ -153,6 +153,7 @@ describe('Settlement credit-note block (e2e)', () => {
 
     return finalizedRes.body as {
       id: string;
+      date: string;
       total_gross: string;
       items: Array<{ id: string }>;
     };
@@ -160,15 +161,17 @@ describe('Settlement credit-note block (e2e)', () => {
 
   async function createCreditNote(
     invoiceId: string,
+    invoiceDate: string,
     invoiceItemId: string,
     quantity: number,
     finalize: boolean,
   ) {
+    const creditDate = new Date(invoiceDate).toISOString().slice(0, 10);
     const draftRes = await request(app.getHttpServer())
       .post(`/api/invoices/${invoiceId}/credit-notes`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
-        date: '2026-11-14',
+        date: creditDate,
         reason: 'AUT-916 test credit note',
         mode: quantity >= 2 ? 'FULL' : 'PARTIAL',
         ...(quantity >= 2
@@ -200,7 +203,7 @@ describe('Settlement credit-note block (e2e)', () => {
 
   it('WHEN an invoice has a finalized partial credit note and settlement is requested THEN it fails with SETTLEMENT_INVOICE_HAS_CREDIT_NOTES and no fiskaly call is made', async () => {
     const invoice = await createIssuedWorkshopInvoice();
-    await createCreditNote(invoice.id, invoice.items[0].id, 1, true);
+    await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 1, true);
     const idempotencyKey = randomUUID();
 
     const first = await request(app.getHttpServer())
@@ -227,7 +230,7 @@ describe('Settlement credit-note block (e2e)', () => {
 
   it('WHEN an invoice has a finalized full credit note and settlement is requested THEN it fails with the same code and no RKSV payment line is written', async () => {
     const invoice = await createIssuedWorkshopInvoice();
-    await createCreditNote(invoice.id, invoice.items[0].id, 2, true);
+    await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 2, true);
 
     const res = await request(app.getHttpServer())
       .post(`/api/invoices/${invoice.id}/settlement`)
@@ -249,6 +252,7 @@ describe('Settlement credit-note block (e2e)', () => {
     const invoice = await createIssuedWorkshopInvoice();
     const draft = await createCreditNote(
       invoice.id,
+      invoice.date,
       invoice.items[0].id,
       1,
       false,
@@ -285,7 +289,7 @@ describe('Settlement credit-note block (e2e)', () => {
 
   it('WHEN a user without the settlement permission requests settlement THEN the API still returns 403', async () => {
     const invoice = await createIssuedWorkshopInvoice();
-    await createCreditNote(invoice.id, invoice.items[0].id, 1, true);
+    await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 1, true);
 
     const salesUser = await tenantPrisma.user.create({
       data: {
