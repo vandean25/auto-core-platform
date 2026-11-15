@@ -82,6 +82,11 @@ describe('InvoicesService', () => {
         {
           provide: InvoiceSnapshotCommitService,
           useValue: {
+            lockCommitmentContext: jest.fn().mockResolvedValue({
+              tenantId: 'tenant-1',
+              ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+            }),
+            lockInvoiceRow: jest.fn().mockResolvedValue(undefined),
             prepareV2Snapshot: jest.fn().mockResolvedValue({
               snapshot: { schema_version: 2 },
               ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
@@ -179,6 +184,7 @@ describe('InvoicesService', () => {
   it('does not expose identity resolution state from issued invoice vehicles', async () => {
     const invoiceWithVehicle = { ...draftInvoice, vehicle };
     tx.invoice.findFirst
+      .mockResolvedValueOnce(invoiceWithVehicle)
       .mockResolvedValueOnce(invoiceWithVehicle)
       .mockResolvedValueOnce({
         ...invoiceWithVehicle,

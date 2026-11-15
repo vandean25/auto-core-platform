@@ -45,10 +45,34 @@ export async function executeIssueInvoice(
 ) {
   const { tenantId, invoiceId, snapshotCommit } = params;
 
+  const initialInvoice = await tx.invoice.findFirst({
+    where: { id: invoiceId, tenant_id: tenantId },
+    include: {
+      items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+      customer: true,
+      vehicle: true,
+      workshop_order: true,
+    },
+  });
+
+  if (!initialInvoice) {
+    throw new NotFoundException('Invoice not found');
+  }
+
+  assertInvoiceEligibleForIssue(initialInvoice);
+
+  const commitmentContext = await snapshotCommit.lockCommitmentContext(
+    tx,
+    tenantId,
+    initialInvoice,
+    initialInvoice.date,
+  );
+  await snapshotCommit.lockInvoiceRow(tx, tenantId, invoiceId);
+
   const invoice = await tx.invoice.findFirst({
     where: { id: invoiceId, tenant_id: tenantId },
     include: {
-      items: { orderBy: { createdAt: 'asc' } },
+      items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       customer: true,
       vehicle: true,
       workshop_order: true,
@@ -66,6 +90,8 @@ export async function executeIssueInvoice(
     tenantId,
     invoice,
     invoiceNumber: invoice.invoice_number ?? '',
+    lockInvoiceRow: false,
+    commitmentContext,
   });
 
   const invoiceNumber =

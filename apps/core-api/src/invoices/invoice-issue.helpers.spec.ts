@@ -50,6 +50,11 @@ describe('invoice-issue.helpers', () => {
 
   describe('executeIssueInvoice', () => {
     const mockSnapshotCommit = {
+      lockCommitmentContext: jest.fn().mockResolvedValue({
+        tenantId: 'tenant-1',
+        ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+      }),
+      lockInvoiceRow: jest.fn().mockResolvedValue(undefined),
       prepareV2Snapshot: jest.fn().mockResolvedValue({
         snapshot: { schema_version: 2 },
       }),
@@ -88,27 +93,35 @@ describe('invoice-issue.helpers', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('successfully transitions invoice and workshop order to issued/invoiced', async () => {
-      const draftInvoice = {
+    it('reloads invoice header and items after lockInvoiceRow before preparing snapshot', async () => {
+      const initialDraft = {
         id: 'inv-1',
         tenant_id: 'tenant-1',
         status: InvoiceStatus.DRAFT,
         workshop_order_id: 'wo-1',
         invoice_number: null,
+        global_discount_type: null,
         items: [],
         customer: { id: 'cust-1' },
         vehicle: null,
         workshop_order: { id: 'wo-1' },
       };
 
+      const reloadedDraftWithDiscounts = {
+        ...initialDraft,
+        global_discount_type: 'PERCENTAGE',
+        global_discount_value: '10.00',
+      };
+
       const issuedInvoice = {
-        ...draftInvoice,
+        ...reloadedDraftWithDiscounts,
         status: InvoiceStatus.ISSUED,
         invoice_number: 'RE-2026-0005',
       };
 
       mockTx.invoice.findFirst
-        .mockResolvedValueOnce(draftInvoice)
+        .mockResolvedValueOnce(initialDraft)
+        .mockResolvedValueOnce(reloadedDraftWithDiscounts)
         .mockResolvedValueOnce(issuedInvoice);
       mockTx.invoice.updateMany.mockResolvedValue({ count: 1 });
       mockTx.invoiceSequence.upsert.mockResolvedValue({ current: 5 });
@@ -120,7 +133,17 @@ describe('invoice-issue.helpers', () => {
         snapshotCommit: mockSnapshotCommit as any,
       });
 
-      expect(mockSnapshotCommit.prepareV2Snapshot).toHaveBeenCalled();
+      expect(mockSnapshotCommit.lockInvoiceRow).toHaveBeenCalledWith(
+        mockTx,
+        'tenant-1',
+        'inv-1',
+      );
+      expect(mockSnapshotCommit.prepareV2Snapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          invoice: reloadedDraftWithDiscounts,
+          lockInvoiceRow: false,
+        }),
+      );
       expect(mockSnapshotCommit.persistV2Snapshot).toHaveBeenCalled();
       expect(mockTx.invoice.updateMany).toHaveBeenCalledWith({
         where: { id: 'inv-1', tenant_id: 'tenant-1' },

@@ -20,6 +20,7 @@ import type {
 } from './dto/update-invoice-discounts.dto.js';
 import { calculateInvoiceTotals } from './invoice-creation.helpers.js';
 import { omitInvoiceSnapshot } from './invoice-response.mapper.js';
+import { lockInvoiceRowForUpdate } from './invoice-snapshot-commit.service.js';
 import { lineNetBeforeGlobalDiscount } from './invoice-snapshot-v2.js';
 
 type ResolvedDiscount = {
@@ -212,6 +213,8 @@ export async function executeUpdateInvoiceDiscounts(
 ) {
   const { tenantId, siteId, invoiceId, dto, auditService, tenantContext } =
     params;
+
+  await lockInvoiceRowForUpdate(tx, tenantId, invoiceId);
 
   const invoice = await tx.invoice.findFirst({
     where: { id: invoiceId, tenant_id: tenantId, site_id: siteId },

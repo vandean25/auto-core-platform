@@ -154,6 +154,9 @@ describe('executeUpdateInvoiceDiscounts', () => {
       tenantContext,
     });
 
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.invoice.findFirst.mock.invocationCallOrder[0],
+    );
     expect(tx.invoiceItem.updateMany).toHaveBeenCalledWith({
       where: { id: 'line-1', invoice_id: 'inv-1', tenant_id: 'tenant-1' },
       data: {
