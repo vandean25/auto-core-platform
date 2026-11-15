@@ -50,38 +50,32 @@ function invalidDiscount(message: string): UnprocessableEntityException {
   });
 }
 
-function resolvePatchedDiscount(
+function preserveExistingDiscount(
   label: string,
-  discountType: DiscountType | null | undefined,
-  discountValue: Prisma.Decimal | number | string | null | undefined,
   existingType: DiscountType | null,
   existingValue: Prisma.Decimal | null,
   maxFlatAmount: Prisma.Decimal,
 ): ResolvedDiscount {
-  if (discountType === undefined && discountValue === undefined) {
-    const preservedValue = existingValue
-      ? new Prisma.Decimal(existingValue)
-      : null;
-    if (
-      existingType === DiscountType.FLAT_AMOUNT &&
-      preservedValue !== null &&
-      preservedValue.gt(maxFlatAmount)
-    ) {
-      throw invalidDiscount(
-        `${label} flat discount cannot exceed the applicable net amount.`,
-      );
-    }
-    return { type: existingType, value: preservedValue, changed: false };
+  const preservedValue = existingValue
+    ? new Prisma.Decimal(existingValue)
+    : null;
+  if (
+    existingType === DiscountType.FLAT_AMOUNT &&
+    preservedValue?.gt(maxFlatAmount)
+  ) {
+    throw invalidDiscount(
+      `${label} flat discount cannot exceed the applicable net amount.`,
+    );
   }
+  return { type: existingType, value: preservedValue, changed: false };
+}
 
-  if (discountType === null && discountValue === null) {
-    return { type: null, value: null, changed: true };
-  }
-
-  if (!isPresent(discountType) || !isPresent(discountValue)) {
-    throw invalidDiscount(`${label} discount requires both type and value.`);
-  }
-
+function validateNewDiscount(
+  label: string,
+  discountType: DiscountType,
+  discountValue: Prisma.Decimal | number | string,
+  maxFlatAmount: Prisma.Decimal,
+): ResolvedDiscount {
   const decimalValue = new Prisma.Decimal(discountValue).toDecimalPlaces(
     2,
     Prisma.Decimal.ROUND_HALF_UP,
@@ -100,8 +94,32 @@ function resolvePatchedDiscount(
       `${label} flat discount cannot exceed the applicable net amount.`,
     );
   }
-
   return { type: discountType, value: decimalValue, changed: true };
+}
+
+function resolvePatchedDiscount(
+  label: string,
+  discountType: DiscountType | null | undefined,
+  discountValue: Prisma.Decimal | number | string | null | undefined,
+  existingType: DiscountType | null,
+  existingValue: Prisma.Decimal | null,
+  maxFlatAmount: Prisma.Decimal,
+): ResolvedDiscount {
+  if (discountType === undefined && discountValue === undefined) {
+    return preserveExistingDiscount(
+      label,
+      existingType,
+      existingValue,
+      maxFlatAmount,
+    );
+  }
+  if (discountType === null && discountValue === null) {
+    return { type: null, value: null, changed: true };
+  }
+  if (!isPresent(discountType) || !isPresent(discountValue)) {
+    throw invalidDiscount(`${label} discount requires both type and value.`);
+  }
+  return validateNewDiscount(label, discountType, discountValue, maxFlatAmount);
 }
 
 function resolveLineStates(
