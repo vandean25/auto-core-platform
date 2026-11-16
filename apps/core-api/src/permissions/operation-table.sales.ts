@@ -141,7 +141,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'FinanceController.updateSettings': op(
     'finance.settings.update',
-    BACK_OFFICE,
+    ADMINS,
     'tenant',
     ['fiscal_lock'],
   ),

@@ -11,6 +11,7 @@ import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto.js';
 import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { assertTenantAdmin } from '../site/site.authorization.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
@@ -75,13 +76,18 @@ export class FinanceService {
   }
 
   async updateSettings(data: UpdateFinanceSettingsDto) {
+    assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const { lock_date, ...rest } = data;
+    const updateData: Prisma.FinanceSettingsUpdateInput = {
+      ...rest,
+      ...(lock_date !== undefined && {
+        lock_date: lock_date === null ? null : new Date(lock_date),
+      }),
+    };
     return this.prisma.financeSettings.update({
       where: { tenant_id: tenantId },
-      data: {
-        ...data,
-        lock_date: data.lock_date ? new Date(data.lock_date) : null,
-      },
+      data: updateData,
     });
   }
 

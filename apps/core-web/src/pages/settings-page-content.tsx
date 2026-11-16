@@ -370,6 +370,7 @@ export default function SettingsPage() {
             <FinanceSettingsTab
                 form={finance}
                 canManageExports={canManageTeam}
+                canEdit={canManageTeam}
                 openExportProfile={canManageTeam && searchParams.get("subtab") === "accounting-export"}
             />
         ),

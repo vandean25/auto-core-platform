@@ -333,6 +333,16 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.getByLabelText(deSettings.finance.invoicing.nextNumber)).toHaveValue(0)
   })
 
+  it('renders finance settings fields as read-only and hides the save button for SALES role', () => {
+    setRole('SALES')
+    renderSettings()
+
+    expect(lockDateInput()).toBeDisabled()
+    expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toBeDisabled()
+    expect(screen.getByLabelText(deSettings.finance.invoicing.nextNumber)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: deSettings.finance.saveChanges })).not.toBeInTheDocument()
+  })
+
   it('saves edited values directly when there is no existing lock date and shows a success toast', async () => {
     renderSettings()
 
@@ -352,7 +362,7 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
-  it('sends a null lock date when the field is empty and coerces an unparsable invoice number to 0', async () => {
+  it('omits an unedited lock date and coerces an unparsable invoice number to 0', async () => {
     renderSettings()
 
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.nextNumber), { target: { value: '' } })
@@ -360,7 +370,6 @@ describe('SettingsPage characterization: finance tab', () => {
 
     await waitFor(() => {
       expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith({
-        lock_date: null,
         invoice_prefix: 'RE',
         next_invoice_number: 0,
       })
