@@ -108,6 +108,9 @@ jobs:
       - name: Verify PR risk class script (unit tests)
         run: npm run risk-from-paths:test
 
+      - name: Verify bug regression at base script (unit tests)
+        run: npm run bug-regression-at-base:test
+
       - name: Verify declared PR risk meets path-derived minimum
         if: github.event_name == 'pull_request'
         env:

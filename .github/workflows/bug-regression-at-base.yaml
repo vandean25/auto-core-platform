@@ -22,7 +22,13 @@ permissions:
 jobs:
   preflight:
     name: Bug Regression Preflight
-    if: contains(github.event.pull_request.labels.*.name, 'bug') || contains(github.event.pull_request.labels.*.name, 'Bug')
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'bug') ||
+      contains(github.event.pull_request.labels.*.name, 'Bug') ||
+      contains(github.event.pull_request.labels.*.name, 'typ: bug') ||
+      contains(github.event.pull_request.labels.*.name, 'Typ: Bug') ||
+      contains(github.event.pull_request.labels.*.name, 'type: bug') ||
+      contains(github.event.pull_request.labels.*.name, 'Type: Bug')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -118,6 +124,8 @@ jobs:
       - name: Overlay PR tests onto base and assert they fail
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
+          INVOICE_BRANDING_WRITER_ENABLED: 'true'
+          DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR: ${{ runner.temp }}/document-branding-visual-fixtures
           NODE_OPTIONS: --max-old-space-size=8192
         run: |
           node "${{ runner.temp }}/bug-regression-at-base.mjs" \

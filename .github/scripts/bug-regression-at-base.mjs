@@ -22,6 +22,8 @@ const TEST_PATTERNS = {
 const HELPER_PATTERNS = [
   /^apps\/core-api\/test\/helpers\//,
   /^apps\/core-api\/test\/fixtures\//,
+  /^apps\/core-api\/test\/support\//,
+  /^apps\/core-api\/test\/jest-esm-setup\.ts$/,
   /^apps\/core-api\/src\/.*\/testing\//,
   /^apps\/core-api\/src\/.*\/__fixtures__\//,
   /^apps\/core-api\/src\/.*\.(fixture|test-helper)\.[^/]+$/,
@@ -289,14 +291,16 @@ export function evaluateBaseRunResults(suiteRuns) {
     }
   }
 
-  const hasFailures = failedTests.length > 0 || failedSuites.length > 0
-  if (!hasFailures && runnerErrors.length > 0) {
+  if (failedTests.length > 0) {
+    return { ok: true, reason: 'failed-on-base-as-expected', failedTests, failedSuites, totalPassed, runnerErrors }
+  }
+  if (failedSuites.length > 0) {
+    return { ok: false, reason: 'suite-load-error', failedTests, failedSuites, totalPassed, runnerErrors }
+  }
+  if (runnerErrors.length > 0) {
     return { ok: false, reason: 'runner-error', failedTests, failedSuites, totalPassed, runnerErrors }
   }
-  if (!hasFailures) {
-    return { ok: false, reason: 'tests-passed-on-base', failedTests, failedSuites, totalPassed, runnerErrors }
-  }
-  return { ok: true, reason: 'failed-on-base-as-expected', failedTests, failedSuites, totalPassed, runnerErrors }
+  return { ok: false, reason: 'tests-passed-on-base', failedTests, failedSuites, totalPassed, runnerErrors }
 }
 
 function writeGithubOutput(key, value, outputFile = process.env.GITHUB_OUTPUT) {
@@ -392,7 +396,15 @@ function runCommand(cmd, args, cwd, env = process.env) {
   return spawnSync(cmd, args, { cwd, env, stdio: 'inherit' }).status ?? 1
 }
 
-function buildSuiteSpecs(cwd, classified, reportDir) {
+/**
+ * Builds the ordered list of suite execution specs for the classified test files.
+ *
+ * @param {string} cwd
+ * @param {ReturnType<typeof classifyChangedFiles>} classified
+ * @param {string} reportDir
+ * @param {(cmd: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv) => number} [execRunner]
+ */
+export function buildSuiteSpecs(cwd, classified, reportDir, execRunner = runCommand) {
   const suites = []
   if (classified.backendUnit.length > 0) {
     const rel = classified.backendUnit.map((f) => f.replace(/^apps\/core-api\//, ''))
@@ -400,7 +412,7 @@ function buildSuiteSpecs(cwd, classified, reportDir) {
       suite: 'backend-unit',
       reportPath: path.join(reportDir, 'backend-unit.json'),
       run: (rp) =>
-        runCommand('npm', ['test', '--workspace=core-api', '--', '--ci', '--runInBand', '--json', `--outputFile=${rp}`, ...rel], cwd),
+        execRunner('npm', ['test', '--workspace=core-api', '--', '--ci', '--runInBand', '--json', `--outputFile=${rp}`, ...rel], cwd),
     })
   }
   if (classified.frontendUnit.length > 0) {
@@ -409,7 +421,7 @@ function buildSuiteSpecs(cwd, classified, reportDir) {
       suite: 'frontend-unit',
       reportPath: path.join(reportDir, 'frontend-unit.json'),
       run: (rp) =>
-        runCommand('npx', ['--workspace=core-web', 'vitest', 'run', '--reporter=json', `--outputFile=${rp}`, ...rel], cwd),
+        execRunner('npx', ['--workspace=core-web', 'vitest', 'run', '--reporter=json', `--outputFile=${rp}`, ...rel], cwd),
     })
   }
   if (classified.backendE2e.length > 0) {
@@ -417,19 +429,32 @@ function buildSuiteSpecs(cwd, classified, reportDir) {
     suites.push({
       suite: 'backend-e2e',
       reportPath: path.join(reportDir, 'backend-e2e.json'),
-      prepare: () => runCommand('npm', ['exec', '--workspace=core-api', '--', 'prisma', 'migrate', 'deploy'], cwd),
+      prepare: () => execRunner('npm', ['exec', '--workspace=core-api', '--', 'prisma', 'migrate', 'deploy'], cwd),
       run: (rp) =>
-        runCommand('npm', ['run', 'test:e2e', '--workspace=core-api', '--', '--ci', '--runInBand', '--json', `--outputFile=${rp}`, ...rel], cwd),
+        execRunner('npm', ['run', 'test:e2e', '--workspace=core-api', '--', '--ci', '--runInBand', '--json', `--outputFile=${rp}`, ...rel], cwd),
     })
   }
   if (classified.frontendE2e.length > 0) {
     const rel = classified.frontendE2e.map((f) => f.replace(/^apps\/core-web\//, ''))
+    const hasVisual = rel.some((f) => f.endsWith('.visual.spec.ts'))
+    const projects = [
+      '--project=chromium',
+      '--project=chromium-dev-server',
+      '--project=chromium-pwa',
+      ...(hasVisual ? ['--project=visual'] : []),
+    ]
     suites.push({
       suite: 'frontend-e2e',
       reportPath: path.join(reportDir, 'frontend-e2e.json'),
-      prepare: () => runCommand('npm', ['run', 'build:e2e', '--workspace=core-web'], cwd),
+      prepare: () => {
+        const e2eCode = execRunner('npm', ['run', 'build:e2e', '--workspace=core-web'], cwd)
+        if (e2eCode !== 0) {
+          return e2eCode
+        }
+        return execRunner('npm', ['run', 'build:pwa', '--workspace=core-web'], cwd)
+      },
       run: (rp) =>
-        runCommand('npx', ['--workspace=core-web', 'playwright', 'test', '--project=chromium', '--reporter=json', ...rel], cwd, {
+        execRunner('npx', ['--workspace=core-web', 'playwright', 'test', ...projects, '--reporter=json', ...rel], cwd, {
           ...process.env,
           PLAYWRIGHT_JSON_OUTPUT_NAME: rp,
         }),
@@ -446,7 +471,6 @@ function writeBaseRunSummary(evaluation, summaryFile) {
       'The PR regression tests failed on the base branch as expected:',
       '',
       ...evaluation.failedTests.map((t) => `- \`[${t.suite}]\` **${t.name}** (\`${t.file}\`)`),
-      ...evaluation.failedSuites.map((s) => `- \`[${s.suite}]\` Suite error in \`${s.file}\`: ${s.message}`),
     ]
     writeGithubSummary(lines, summaryFile)
     return
@@ -458,6 +482,17 @@ function writeBaseRunSummary(evaluation, summaryFile) {
         '',
         `All ${evaluation.totalPassed} test(s) PASSED on the base branch.`,
         'A bug-fix regression test must fail on the base branch before the fix.',
+      ],
+      summaryFile,
+    )
+    return
+  }
+  if (evaluation.reason === 'suite-load-error') {
+    writeGithubSummary(
+      [
+        '## Bug Regression at Base — Failed (Suite Load/Compile Error)',
+        '',
+        ...evaluation.failedSuites.map((s) => `- \`[${s.suite}]\` \`${s.file}\`: ${s.message}`),
       ],
       summaryFile,
     )

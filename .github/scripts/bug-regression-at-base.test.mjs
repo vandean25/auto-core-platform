@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  buildSuiteSpecs,
   classifyChangedFiles,
   evaluateBaseRunResults,
   isBugLabeled,
@@ -275,7 +276,7 @@ test('WHEN the PR is not labeled Bug THEN the job does not run', () => {
   )
   assert.match(
     workflow,
-    /if:\s*contains\(github\.event\.pull_request\.labels\.\*\.name,\s*'bug'\)\s*\|\|\s*contains\(github\.event\.pull_request\.labels\.\*\.name,\s*'Bug'\)/,
+    /contains\(github\.event\.pull_request\.labels\.\*\.name,\s*'bug'\)[\s\S]*contains\(github\.event\.pull_request\.labels\.\*\.name,\s*'Bug'\)/,
   )
   assert.match(workflow, /needs:\s*\[preflight\]/)
   assert.match(workflow, /if:\s*needs\.preflight\.outputs\.decision\s*==\s*'run'/)
@@ -288,6 +289,7 @@ test('Anti-criterion: the job never skips the full e2e suite or marks it optiona
   )
   assert.match(buildWorkflow, /needs:\s*\[backend,\s*backend-unit,\s*backend-e2e,\s*pdf-worker-image\]/)
   assert.match(buildWorkflow, /needs:\s*\[frontend-unit,\s*frontend-e2e\]/)
+  assert.match(buildWorkflow, /npm run bug-regression-at-base:test/)
 })
 
 test('classifyChangedFiles excludes production source files and classifies test suites + helpers', () => {
@@ -296,6 +298,8 @@ test('classifyChangedFiles excludes production source files and classifies test 
     'M\tapps/core-api/src/sales/invoice.service.spec.ts',
     'A\tapps/core-api/test/invoice-tax.e2e-spec.ts',
     'A\tapps/core-api/test/helpers/invoice.helper.ts',
+    'A\tapps/core-api/test/support/seed.ts',
+    'M\tapps/core-api/test/jest-esm-setup.ts',
     'M\tapps/core-web/src/pages/InvoicePage.tsx',
     'A\tapps/core-web/src/pages/InvoicePage.test.tsx',
     'A\tapps/core-web/e2e/invoice.spec.ts',
@@ -306,9 +310,81 @@ test('classifyChangedFiles excludes production source files and classifies test 
   assert.deepEqual(classified.backendE2e, ['apps/core-api/test/invoice-tax.e2e-spec.ts'])
   assert.deepEqual(classified.frontendUnit, ['apps/core-web/src/pages/InvoicePage.test.tsx'])
   assert.deepEqual(classified.frontendE2e, ['apps/core-web/e2e/invoice.spec.ts'])
-  assert.deepEqual(classified.helpers, ['apps/core-api/test/helpers/invoice.helper.ts'])
+  assert.deepEqual(classified.helpers, [
+    'apps/core-api/test/helpers/invoice.helper.ts',
+    'apps/core-api/test/support/seed.ts',
+    'apps/core-api/test/jest-esm-setup.ts',
+  ])
   assert.equal(classified.filesToCopy.includes('apps/core-api/src/sales/invoice.service.ts'), false)
   assert.equal(classified.filesToCopy.includes('apps/core-web/src/pages/InvoicePage.tsx'), false)
+})
+
+test('buildSuiteSpecs prepares both build:e2e and build:pwa and runs all Playwright projects', () => {
+  const calls = []
+  const fakeExec = (cmd, args, _cwd, env) => {
+    calls.push({ cmd, args, env })
+    return 0
+  }
+
+  const classified = classifyChangedFiles(
+    parseGitNameStatus('A\tapps/core-web/e2e/login.spec.ts\nA\tapps/core-web/e2e/visual/home.visual.spec.ts'),
+  )
+  const specs = buildSuiteSpecs('/repo', classified, '/tmp/reports', fakeExec)
+  assert.equal(specs.length, 1)
+  assert.equal(specs[0].suite, 'frontend-e2e')
+
+  assert.equal(specs[0].prepare(), 0)
+  assert.equal(specs[0].run('/tmp/reports/frontend-e2e.json'), 0)
+
+  assert.deepEqual(calls[0], {
+    cmd: 'npm',
+    args: ['run', 'build:e2e', '--workspace=core-web'],
+    env: undefined,
+  })
+  assert.deepEqual(calls[1], {
+    cmd: 'npm',
+    args: ['run', 'build:pwa', '--workspace=core-web'],
+    env: undefined,
+  })
+  assert.equal(calls[2].cmd, 'npx')
+  assert.deepEqual(calls[2].args, [
+    '--workspace=core-web',
+    'playwright',
+    'test',
+    '--project=chromium',
+    '--project=chromium-dev-server',
+    '--project=chromium-pwa',
+    '--project=visual',
+    '--reporter=json',
+    'e2e/login.spec.ts',
+    'e2e/visual/home.visual.spec.ts',
+  ])
+  assert.equal(calls[2].env.PLAYWRIGHT_JSON_OUTPUT_NAME, '/tmp/reports/frontend-e2e.json')
+})
+
+test('evaluateBaseRunResults rejects suite-level load errors without assertion failures', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'bug-reg-suite-err-'))
+  try {
+    const reportPath = path.join(dir, 'jest.json')
+    writeFileSync(
+      reportPath,
+      JSON.stringify({
+        testResults: [
+          {
+            name: 'apps/core-api/src/missing-symbol.spec.ts',
+            status: 'failed',
+            message: 'Cannot find module ./new-helper',
+            assertionResults: [],
+          },
+        ],
+      }),
+    )
+    const result = evaluateBaseRunResults([{ suite: 'backend-unit', exitCode: 1, reportPath }])
+    assert.equal(result.ok, false)
+    assert.equal(result.reason, 'suite-load-error')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('parseRunnerJsonReport handles Playwright JSON and evaluateBaseRunResults catches runner errors', () => {
