@@ -98,6 +98,8 @@ export const MCP_WRITE_TOOL_NAMES = [
   'propose_mechanic_finding',
   'propose_customer_create',
   'propose_customer_update',
+  'propose_vehicle_create',
+  'propose_vehicle_update',
   'generate_weekly_report_pdf',
 ] as const;
 
@@ -118,6 +120,7 @@ export const MCP_AGENT_FACING_CODES = {
   notPermitted: 'not_permitted',
   notCatalogLine: NOT_A_CATALOG_LINE_CODE,
   duplicateCustomer: CUSTOMER_DUPLICATE_CODE,
+  duplicateVehicle: 'DUPLICATE_VEHICLE',
   forbidden: ForbiddenException.name,
   forbiddenHttpStatus: HttpStatus.FORBIDDEN,
   invalidInput: ZodError.name,
@@ -162,11 +165,18 @@ const customerWriteTools = [
   'propose_customer_update',
 ] as const satisfies readonly McpWriteToolName[];
 
-for (const tool of customerWriteTools) {
+const vehicleWriteTools = [
+  'propose_vehicle_create',
+  'propose_vehicle_update',
+] as const satisfies readonly McpWriteToolName[];
+
+for (const tool of [...customerWriteTools, ...vehicleWriteTools]) {
   (MCP_WRITE_TIER_PROPOSE_CLAMP_TOOLS as Set<McpWriteToolName>).add(tool);
 }
 
 Object.assign(MCP_WRITE_POLICY_ACTION_TYPES_AUT598, {
   propose_customer_create: 'customer.create',
   propose_customer_update: 'customer.update',
+  propose_vehicle_create: 'vehicle.create',
+  propose_vehicle_update: 'vehicle.update',
 });

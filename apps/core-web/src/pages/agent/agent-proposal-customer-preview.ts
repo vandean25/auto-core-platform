@@ -79,6 +79,15 @@ export function parseCustomerSupervisionChanges(
     .map((change) => ({ ...change, fields }))
 }
 
+export function parseVehicleSupervisionChanges(
+  previewJson: unknown,
+): CustomerSupervisionChange[] {
+  const fields = parseCustomerProposalDiff(previewJson)
+  return parseWouldChangeFromPreview(previewJson)
+    .filter((change) => change.entity === 'Vehicle')
+    .map((change) => ({ ...change, fields }))
+}
+
 export function formatCustomerProposalFieldName(field: string): string {
   const key = `changePreview.fields.${field}`
   if (i18n.exists(key, { ns: NS })) {

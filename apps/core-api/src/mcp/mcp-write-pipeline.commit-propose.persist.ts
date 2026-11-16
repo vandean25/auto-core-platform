@@ -1,8 +1,13 @@
 import { AgentProposalStatus, type Prisma } from '@prisma/client';
 import { replayCustomerProposalIfPending } from '../customer/customer-propose-pending.replay.js';
+import {
+  isVehicleProposalActionType,
+  replayVehicleProposalIfPending,
+} from '../vehicle/vehicle-propose-pending.js';
 import type { McpWriteCommandClaim } from './mcp-write-command-idempotency.service.js';
 import type { McpWritePipelineCommitDeps } from './mcp-write-pipeline.commit-deps.js';
 import { readCustomerProposalFields } from './mcp-write-customer-result.js';
+import { readVehicleProposalFields } from './mcp-write-vehicle-result.js';
 import { MCP_AGENT_FACING_CODES } from './mcp.constants.js';
 import type {
   McpWriteCall,
@@ -42,13 +47,21 @@ export async function persistMcpWriteProposalInTransaction(
     claim,
   } = input;
 
-  const replayed = await replayCustomerProposalIfPending(tx, {
-    tenantId,
-    proposalActionType,
-    proposalPayload,
-    tool: call.execution.toolName,
-    tier: call.tier,
-  });
+  const replayed =
+    (await replayCustomerProposalIfPending(tx, {
+      tenantId,
+      proposalActionType,
+      proposalPayload,
+      tool: call.execution.toolName,
+      tier: call.tier,
+    })) ??
+    (await replayVehicleProposalIfPending(tx, {
+      tenantId,
+      proposalActionType,
+      proposalPayload,
+      tool: call.execution.toolName,
+      tier: call.tier,
+    }));
   if (replayed) {
     if (claim) {
       await deps.commandIdempotency.completeInTransaction(tx, claim, replayed);
@@ -91,7 +104,9 @@ export async function persistMcpWriteProposalInTransaction(
       created_by_agent: call.context.agentId,
     },
   });
-  const customerFields = readCustomerProposalFields(simulation.preview);
+  const proposalFields = isVehicleProposalActionType(proposalActionType)
+    ? readVehicleProposalFields(simulation.preview)
+    : readCustomerProposalFields(simulation.preview);
   const result: McpWriteToolResult = {
     tool: call.execution.toolName,
     tier: call.tier,
@@ -100,7 +115,7 @@ export async function persistMcpWriteProposalInTransaction(
     proposal,
     pending_action_id: pendingAction.id,
     trace_id: record.traceId,
-    ...customerFields,
+    ...proposalFields,
   };
   if (claim) {
     await deps.commandIdempotency.completeInTransaction(tx, claim, result);

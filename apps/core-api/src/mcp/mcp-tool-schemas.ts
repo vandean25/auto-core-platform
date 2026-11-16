@@ -52,6 +52,10 @@ import {
   proposeCustomerCreateInputSchema,
   proposeCustomerUpdateInputSchema,
 } from '../customer/customer-propose.schema.js';
+import {
+  proposeVehicleCreateInputSchema,
+  proposeVehicleUpdateInputSchema,
+} from '../vehicle/vehicle-propose.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const uuidSchema = z.string().uuid();
@@ -935,6 +939,8 @@ const mcpWriteToolInputSchemasBase: Record<
   propose_mechanic_finding: proposeMechanicFindingInputSchema,
   propose_customer_create: proposeCustomerCreateInputSchema,
   propose_customer_update: proposeCustomerUpdateInputSchema,
+  propose_vehicle_create: proposeVehicleCreateInputSchema,
+  propose_vehicle_update: proposeVehicleUpdateInputSchema,
   generate_weekly_report_pdf: generateWeeklyReportPdfInputSchema,
 };
 

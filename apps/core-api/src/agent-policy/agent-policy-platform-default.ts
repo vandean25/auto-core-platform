@@ -7,6 +7,12 @@ export const CUSTOMER_POLICY_ACTION_TYPES = {
   update: 'customer.update',
 } as const;
 
+/** The action types of the vehicle write tools (AUT-614). */
+export const VEHICLE_POLICY_ACTION_TYPES = {
+  create: 'vehicle.create',
+  update: 'vehicle.update',
+} as const;
+
 type CodePlatformDefault = {
   tier: AgentPolicyTier;
   enabled: boolean;
@@ -14,7 +20,7 @@ type CodePlatformDefault = {
 
 /**
  * Platform defaults that live in code, for action types the platform defines
- * without a stored rule row. AUT-613 is a non-schema ticket, so the customer
+ * without a stored rule row. AUT-613/AUT-614 are non-schema tickets, so these
  * actions get their default here instead of from a seeded migration. A stored
  * platform row always wins over this default, and a tenant rule wins over both.
  */
@@ -24,6 +30,14 @@ const CODE_PLATFORM_DEFAULTS: Record<string, CodePlatformDefault> = {
     enabled: false,
   },
   [CUSTOMER_POLICY_ACTION_TYPES.update]: {
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+  },
+  [VEHICLE_POLICY_ACTION_TYPES.create]: {
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+  },
+  [VEHICLE_POLICY_ACTION_TYPES.update]: {
     tier: AgentPolicyTier.PROPOSE,
     enabled: false,
   },

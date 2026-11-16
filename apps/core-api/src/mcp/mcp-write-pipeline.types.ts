@@ -3,6 +3,7 @@ import type { AgentActionRecordInput } from '../agent-action-log/agent-action-lo
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
 import type { CustomerProposalResultFields } from './mcp-write-customer-result.js';
+import type { VehicleProposalResultFields } from './mcp-write-vehicle-result.js';
 import type { McpWriteToolName } from './mcp.constants.js';
 
 export type McpWriteToolContext = {
@@ -45,7 +46,12 @@ export type McpWriteToolResult = {
   pending_action_id?: string;
   trace_id?: string;
   replayed?: boolean;
-} & CustomerProposalResultFields;
+  diff?:
+    CustomerProposalResultFields['diff'] | VehicleProposalResultFields['diff'];
+  duplicate_candidates?:
+    | CustomerProposalResultFields['duplicate_candidates']
+    | VehicleProposalResultFields['duplicate_candidates'];
+};
 
 export type McpWriteCall = {
   execution: McpWriteExecution;

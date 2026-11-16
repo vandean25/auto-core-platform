@@ -183,6 +183,7 @@
       "WorkshopTask": "Werkstattaufgabe",
       "WorkshopTaskLineItem": "Werkstattposition",
       "Customer": "Kunde",
+      "Vehicle": "Fahrzeug",
       "SalesOrder": "Verkaufsauftrag"
     },
     "fields": {
@@ -197,7 +198,18 @@
       "address.street": "Straße",
       "address.zip": "PLZ",
       "address.city": "Ort",
-      "address.country": "Land"
+      "address.country": "Land",
+      "owner_customer_id": "Halter (Kunde)",
+      "vin": "FIN / VIN",
+      "plate": "Kennzeichen",
+      "make": "Marke",
+      "model": "Modell",
+      "variant": "Variante",
+      "year": "Baujahr",
+      "first_registration_date": "Erstzulassung",
+      "mileage_km": "Kilometerstand",
+      "fuel_type": "Kraftstoff",
+      "national_code": "Nationalcode"
     }
   }
 }

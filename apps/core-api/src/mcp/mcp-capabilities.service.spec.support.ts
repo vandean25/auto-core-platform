@@ -77,6 +77,14 @@ export const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
     tier: AgentPolicyTier.PROPOSE,
     enabled: false,
   }),
+  'vehicle.create': policyRule('vehicle.create', {
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+  }),
+  'vehicle.update': policyRule('vehicle.update', {
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+  }),
   'report.generate_weekly_pdf': policyRule('report.generate_weekly_pdf', {
     enabled: false,
   }),

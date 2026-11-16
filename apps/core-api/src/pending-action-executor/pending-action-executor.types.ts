@@ -13,6 +13,8 @@ export type PendingActionType =
   | 'workshop_order.add_line'
   | 'customer.create'
   | 'customer.update'
+  | 'vehicle.create'
+  | 'vehicle.update'
   | 'decision.import_row_match'
   | 'decision.document_sort'
   | 'registration_intake.apply'
