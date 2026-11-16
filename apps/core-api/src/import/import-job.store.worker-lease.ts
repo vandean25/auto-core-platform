@@ -10,7 +10,6 @@ import {
 import { importJobOptionsWithFailure } from './import-apply-failure.util.js';
 import { advanceContiguousApplySeqWatermark } from './import-apply-sequence.js';
 import { withoutTechnicalRetryRow } from './import-technical-retry.js';
-import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import {
   isStaleApplyingImportJob,
   nextApplyLeaseUntil,
@@ -419,6 +418,38 @@ export async function confirmWorkerRecoveryHandoff(
   });
 }
 
+export async function commitApplyWorkerChunkInTransaction(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  jobId: string,
+  leaseToken: string,
+  applySeqs: number[],
+  rowNos: number[],
+): Promise<void> {
+  const job = await assertApplyWorkerLease(tx, tenantId, jobId, leaseToken);
+  const options = job.options_json as ImportJobOptionsWithWorker;
+  const workerState = options.worker;
+  if (!workerState) {
+    return;
+  }
+  let applyWatermark = workerState.last_committed_apply_seq ?? 0;
+  for (const seq of applySeqs) {
+    applyWatermark = advanceContiguousApplySeqWatermark(applyWatermark, seq);
+  }
+  let worker: ImportJobWorkerState = {
+    ...workerState,
+    last_committed_apply_seq: applyWatermark,
+    processed_rows: applyWatermark,
+  };
+  for (const rowNo of rowNos) {
+    worker = withoutTechnicalRetryRow(worker, rowNo);
+  }
+  await tx.importJob.update({
+    where: { id: jobId },
+    data: { options_json: { ...options, worker } },
+  });
+}
+
 export async function commitApplyWorkerRowInTransaction(
   tx: Prisma.TransactionClient,
   tenantId: string,
@@ -427,32 +458,12 @@ export async function commitApplyWorkerRowInTransaction(
   applySeq: number,
   rowNo?: number,
 ): Promise<void> {
-  await assertApplyWorkerLease(tx, tenantId, jobId, leaseToken);
-  const job = await tx.importJob.findFirst({
-    where: { tenant_id: tenantId, id: jobId },
-  });
-  if (!job) {
-    throw new ImportWorkerLeaseLostError();
-  }
-  const options = job.options_json as ImportJobOptionsWithWorker;
-  const workerState = options.worker;
-  if (!workerState) {
-    return;
-  }
-  const applyWatermark = advanceContiguousApplySeqWatermark(
-    workerState.last_committed_apply_seq ?? 0,
-    applySeq,
+  return commitApplyWorkerChunkInTransaction(
+    tx,
+    tenantId,
+    jobId,
+    leaseToken,
+    [applySeq],
+    rowNo !== undefined ? [rowNo] : [],
   );
-  const worker = withoutTechnicalRetryRow(
-    {
-      ...workerState,
-      last_committed_apply_seq: applyWatermark,
-      processed_rows: applyWatermark,
-    },
-    rowNo,
-  );
-  await tx.importJob.update({
-    where: { id: jobId },
-    data: { options_json: { ...options, worker } },
-  });
 }

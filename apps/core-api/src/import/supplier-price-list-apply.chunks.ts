@@ -7,7 +7,10 @@ import {
   isRowLevelApplyError,
   toRowApplyError,
 } from './import-apply.errors.js';
-import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
+import {
+  commitApplyWorkerChunkInTransaction,
+  commitApplyWorkerRowInTransaction,
+} from './import-job.store.worker-lease.js';
 import { markImportRowFailed } from './import-job.store.js';
 import { ImportWorkerLeaseLostError } from './import-worker.errors.js';
 import { applySeqForRow } from './import-apply-sequence.js';
@@ -17,7 +20,7 @@ import {
   isImportSyncLegacyApplyPath,
   retryableTransactionDelayMs,
 } from './import-transaction-retry.util.js';
-import { createApplyTotals, tallyWrittenRow } from './import-totals.util.js';
+import { tallyWrittenRow } from './import-totals.util.js';
 import type {
   ImportApplyBatchOptions,
   ImportApplyInput,
@@ -25,6 +28,7 @@ import type {
 } from './import-type-handler.js';
 import type { ImportJobTotals } from './import.types.js';
 import {
+  applySupplierImportChunk,
   applySupplierImportRow,
   type SupplierApplyContext,
 } from './supplier-price-list-import.apply.js';
@@ -68,6 +72,25 @@ async function commitWorkerRow(
   );
 }
 
+async function commitWorkerChunk(
+  tx: Prisma.TransactionClient,
+  input: ImportApplyInput,
+  chunk: ImportApplyRow[],
+  batchOptions?: ImportApplyBatchOptions,
+): Promise<void> {
+  if (!batchOptions?.leaseToken || chunk.length === 0) {
+    return;
+  }
+  await commitApplyWorkerChunkInTransaction(
+    tx,
+    input.tenantId,
+    input.job.id,
+    batchOptions.leaseToken,
+    chunk.map(applySeqForRow),
+    chunk.map((row) => row.row_no),
+  );
+}
+
 async function advanceWorkerCursor(
   prisma: PrismaService,
   input: ImportApplyInput,
@@ -89,20 +112,8 @@ async function applyChunkRows(
   input: ImportApplyInput,
   batchOptions?: ImportApplyBatchOptions,
 ): Promise<ImportJobTotals> {
-  const counts = createApplyTotals(0);
-  for (const row of chunk) {
-    if (row.action === ImportRowAction.ERROR) {
-      counts.error += 1;
-      await commitWorkerRow(tx, input, row, batchOptions);
-    } else if (row.action === ImportRowAction.SKIP) {
-      counts.skip += 1;
-      await commitWorkerRow(tx, input, row, batchOptions);
-    } else {
-      const result = await applySupplierImportRow(tx, ctx, row);
-      tallyWrittenRow(counts, result.action);
-      await commitWorkerRow(tx, input, row, batchOptions);
-    }
-  }
+  const counts = await applySupplierImportChunk(tx, ctx, chunk);
+  await commitWorkerChunk(tx, input, chunk, batchOptions);
   return counts;
 }
 

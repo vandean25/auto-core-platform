@@ -7,9 +7,13 @@ import {
   describeImportApplyCause,
   ImportApplyRetryExhaustedError,
   ImportDuplicateCreateInJobError,
+  resolveImportExternalId,
   toRowApplyError,
 } from './import-apply.errors.js';
-import { resolveDuplicateCommittedCreateLegacy } from './import-apply-duplicate-create.js';
+import {
+  isDuplicateCreateAfterAnotherRowCommitted,
+  resolveDuplicateCommittedCreateLegacy,
+} from './import-apply-duplicate-create.js';
 import { assertApplyRowIsFresh } from './import-apply.freshness.js';
 import { applySeqForRow } from './import-apply-sequence.js';
 import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
@@ -43,6 +47,8 @@ export type ImportRowWriter = (
 export type LegacyRowApplyContext = {
   logger: Logger;
   prisma: PrismaService;
+  /** External IDs of CREATE rows already committed by this job in this batch or earlier. */
+  prefetchedCommittedCreates?: Set<string>;
   /** Moves the worker cursor past a row the caller has already accounted for. */
   advanceWorkerCursor: (
     input: ImportApplyInput,
@@ -92,6 +98,33 @@ export async function applyOneLegacy(
   }
 }
 
+async function resolveCommittedCreateStatus(
+  ctx: LegacyRowApplyContext,
+  input: ImportApplyInput,
+  entityType: ImportEntityType,
+  row: ImportApplyRow,
+  options?: ImportApplyBatchOptions,
+): Promise<'noop' | 'duplicate_error' | null> {
+  if (row.action !== ImportRowAction.CREATE) {
+    return null;
+  }
+  if (ctx.prefetchedCommittedCreates) {
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+    if (!externalId || !ctx.prefetchedCommittedCreates.has(externalId)) {
+      return null;
+    }
+    const isDup = await withImportSyncApplyIoRetry(
+      isImportSyncLegacyApplyPath(options),
+      () => isDuplicateCreateAfterAnotherRowCommitted(ctx.prisma, input, row),
+    );
+    return isDup ? 'duplicate_error' : 'noop';
+  }
+  return withImportSyncApplyIoRetry(isImportSyncLegacyApplyPath(options), () =>
+    resolveDuplicateCommittedCreateLegacy(ctx.prisma, input, entityType, row),
+  );
+}
+
 async function applyLegacyPreflightRow(
   ctx: LegacyRowApplyContext,
   input: ImportApplyInput,
@@ -110,10 +143,12 @@ async function applyLegacyPreflightRow(
     await ctx.advanceWorkerCursor(input, row, options);
     return true;
   }
-  const committedCreate = await withImportSyncApplyIoRetry(
-    isImportSyncLegacyApplyPath(options),
-    () =>
-      resolveDuplicateCommittedCreateLegacy(ctx.prisma, input, entityType, row),
+  const committedCreate = await resolveCommittedCreateStatus(
+    ctx,
+    input,
+    entityType,
+    row,
+    options,
   );
   if (committedCreate === 'noop') {
     tallyWrittenRow(totals, row.action);
@@ -155,6 +190,16 @@ async function runLegacyRowRetryLoop(
         row,
         options,
       );
+      if (
+        row.action === ImportRowAction.CREATE &&
+        ctx.prefetchedCommittedCreates
+      ) {
+        const payload = row.normalized_json as Record<string, unknown>;
+        const externalId = resolveImportExternalId(payload, row.external_id);
+        if (externalId) {
+          ctx.prefetchedCommittedCreates.add(externalId);
+        }
+      }
       tallyWrittenRow(totals, row.action);
       return;
     } catch (error) {
