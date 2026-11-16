@@ -333,6 +333,16 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.getByLabelText(deSettings.finance.invoicing.nextNumber)).toHaveValue(0)
   })
 
+  it('renders finance settings fields as read-only and hides the save button for SALES role', () => {
+    setRole('SALES')
+    renderSettings()
+
+    expect(lockDateInput()).toBeDisabled()
+    expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toBeDisabled()
+    expect(screen.getByLabelText(deSettings.finance.invoicing.nextNumber)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: deSettings.finance.saveChanges })).not.toBeInTheDocument()
+  })
+
   it('saves edited values directly when there is no existing lock date and shows a success toast', async () => {
     renderSettings()
 
