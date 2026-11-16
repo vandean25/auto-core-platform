@@ -40,4 +40,7 @@ Cancelled invoices cannot be exported. A credit note that blocks export readines
   <Accordion title="PDF language and number format">
     Same as [Invoices](/en/workflows/invoices): language from customer data or tenant default; German PDFs use Austrian number formatting.
   </Accordion>
+  <Accordion title="Fiscal settlement on the invoice">
+    If at least one **finalized** credit note exists for an issued workshop invoice, ACP blocks fiscal **settlement** on the invoice detail page. Message: *This invoice has finalized credit notes and cannot be settled.* Resolve the case with accounting before recording payment on the receipt.
+  </Accordion>
 </AccordionGroup>
