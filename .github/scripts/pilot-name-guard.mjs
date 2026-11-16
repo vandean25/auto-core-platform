@@ -13,8 +13,17 @@ export function parsePatterns(rawPatterns) {
   }
   return rawPatterns
     .split(/\r?\n/)
-    .map((line) => line.trim().toLowerCase())
+    .map((line) => foldForMatch(line.trim()))
     .filter(Boolean)
+}
+
+/**
+ * Folds text for matching: NFC so macOS NFD filenames (u + U+0308) match NFC secrets (ü), then lowercase.
+ * @param {string} text
+ * @returns {string}
+ */
+function foldForMatch(text) {
+  return text.normalize('NFC').toLowerCase()
 }
 
 /**
@@ -26,7 +35,7 @@ function matchesAnyPattern(text, patterns) {
   if (!text || typeof text !== 'string') {
     return false
   }
-  const normalized = text.toLowerCase()
+  const normalized = foldForMatch(text)
   return patterns.some((pattern) => normalized.includes(pattern))
 }
 
@@ -308,8 +317,12 @@ function resolveMergeBase(gitHeadRef) {
   }).trim()
 }
 
+/** GET /pulls/{n}/commits silently stops at 250 commits (HTTP 200, oldest first). */
+const PR_COMMITS_API_CAP = 250
+
 /**
  * Fetches PR commits and unified diff as read-only data via GitHub REST API.
+ * Fails closed when the PR hits the commits endpoint cap.
  * @param {{
  *   repo: string,
  *   prNumber: string | number,
@@ -348,6 +361,11 @@ export async function fetchPullRequestDataFromApi(input) {
       break
     }
     page += 1
+  }
+  if (commits.length >= PR_COMMITS_API_CAP) {
+    throw new Error(
+      `PR has ${PR_COMMITS_API_CAP} or more commits; the GitHub API returns at most ${PR_COMMITS_API_CAP}, so commit messages cannot be fully scanned.`,
+    )
   }
 
   const diffUrl = `https://api.github.com/repos/${input.repo}/pulls/${input.prNumber}`

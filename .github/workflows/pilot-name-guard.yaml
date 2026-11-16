@@ -24,6 +24,10 @@ permissions:
 jobs:
   pilot-name-guard:
     name: Pilot Name Guard
+    # PILOT_NAME_PATTERNS is an Environment secret whose deployment branches are only `main`
+    # (this pull_request_target job runs as `main`). Never add a repository secret of the same
+    # name: same-repo `pull_request` runs use the PR head workflow and receive repository secrets.
+    environment: pilot-name-guard
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

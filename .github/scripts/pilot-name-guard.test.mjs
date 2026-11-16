@@ -411,12 +411,64 @@ test('Workflow security: build.yaml test job is secret-free and pull_request_tar
   // so only protected `main` may be a target; a feature-branch base would let pushers swap the script.
   assert.match(targetWorkflow, /branches:\s*\n\s*-\s*main\s*\n\s*types:/)
   assert.doesNotMatch(targetWorkflow, /feat\/\*|feature\/\*/)
+  // The secret lives in an Environment limited to `main`, so a same-repo `pull_request` run from a
+  // PR head cannot read it the way it could read a repository secret.
+  assert.match(targetWorkflow, /\n\s+environment:\s*pilot-name-guard\s*\n/)
   assert.match(targetWorkflow, /contents:\s*read/)
   assert.match(targetWorkflow, /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/)
   assert.match(targetWorkflow, /persist-credentials:\s*false/)
   assert.match(targetWorkflow, /PR_NUMBER:\s*\$\{\{\s*github\.event\.pull_request\.number\s*\}\}/)
   assert.match(targetWorkflow, /secrets\.PILOT_NAME_PATTERNS/)
   assert.match(targetWorkflow, /node \.github\/scripts\/pilot-name-guard\.mjs/)
+})
+
+// Regression: macOS stores filenames as NFD (u + U+0308) while a secret typed in the UI is NFC (ü),
+// so a plain lowercase substring check missed the decoded path.
+test('WHEN a quoted NFD path decodes to an NFC pattern THEN fails with diff file path only', () => {
+  const renameDiff = [
+    'diff --git a/docs/old.md "b/docs/Mu\\314\\210ller.md"',
+    'similarity index 100%',
+    'rename from docs/old.md',
+    'rename to "docs/Mu\\314\\210ller.md"',
+  ].join('\n')
+
+  const result = scanPullRequestContent({
+    rawPatterns: 'Müller\n',
+    prTitle: 'docs: rename',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: renameDiff,
+  })
+
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.violations, ['diff file path'])
+})
+
+// Regression: the PR commits endpoint returns at most 250 commits with HTTP 200, so stopping on the
+// first short page silently dropped newer commit messages and the job could pass.
+test('fetchPullRequestDataFromApi fails closed when the PR reaches the 250-commit API cap', async () => {
+  const pageSizes = [100, 100, 50]
+  const mockFetch = async (url) => {
+    const page = Number(new URL(String(url)).searchParams.get('page'))
+    const size = pageSizes[page - 1] ?? 0
+    return new Response(
+      JSON.stringify(
+        Array.from({ length: size }, (_, i) => ({ sha: `sha${page}-${i}`, commit: { message: 'clean' } })),
+      ),
+      { status: 200 },
+    )
+  }
+
+  await assert.rejects(
+    fetchPullRequestDataFromApi({
+      repo: 'vandean25/auto-core-platform',
+      prNumber: 1280,
+      token: 'tok',
+      fetchImpl: mockFetch,
+    }),
+    /250/,
+  )
 })
 
 test('fetchPullRequestDataFromApi loads PR commits and unified diff as read-only data', async () => {
