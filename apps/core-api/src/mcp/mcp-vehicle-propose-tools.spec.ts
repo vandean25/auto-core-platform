@@ -238,7 +238,7 @@ describe('MCP vehicle proposal tools (AUT-614)', () => {
       },
       context: { agentId: 'agent-1', onBehalfOfUserId: 'user-1' },
       actionType: 'mcp.propose_vehicle_create',
-      inputSummary: {},
+      inputSummary: { tool: 'propose_vehicle_create', args: {} },
       tier: AgentPolicyTier.PROPOSE,
       reasons: [],
     };

@@ -37,6 +37,20 @@ const CUSTOMER_CODE_DEFAULT_MATCHERS = [
     enabled: false,
     source: 'platform',
   }),
+  expect.objectContaining({
+    id: 'code-default:vehicle.create',
+    action_type: 'vehicle.create',
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+    source: 'platform',
+  }),
+  expect.objectContaining({
+    id: 'code-default:vehicle.update',
+    action_type: 'vehicle.update',
+    tier: AgentPolicyTier.PROPOSE,
+    enabled: false,
+    source: 'platform',
+  }),
 ];
 
 function expectListRulesIncludesCustomerDefaults(
@@ -215,9 +229,9 @@ async function expectOverrideAccepted(
   h: Harness,
   tier: AgentPolicyTier,
 ): Promise<void> {
-  await expect(h.service.upsertRule(ACTION_TYPE, { tier })).resolves.toMatchObject(
-    { tier, source: 'tenant' },
-  );
+  await expect(
+    h.service.upsertRule(ACTION_TYPE, { tier }),
+  ).resolves.toMatchObject({ tier, source: 'tenant' });
   expectRuleWritten(h, { tier });
 }
 
@@ -276,14 +290,14 @@ describe('AgentPolicyService.getEffectiveRule', () => {
     );
 
     await runAsRole(tenantContext, 'ADMIN', async () => {
-      await expect(service.getEffectiveRule(ACTION_TYPE)).resolves.toMatchObject(
-        {
-          id: 'tenant-row-2',
-          tier: AgentPolicyTier.PROPOSE,
-          enabled: false,
-          source: 'tenant',
-        },
-      );
+      await expect(
+        service.getEffectiveRule(ACTION_TYPE),
+      ).resolves.toMatchObject({
+        id: 'tenant-row-2',
+        tier: AgentPolicyTier.PROPOSE,
+        enabled: false,
+        source: 'tenant',
+      });
     });
 
     expect(platformFindFirst).not.toHaveBeenCalled();
@@ -296,13 +310,13 @@ describe('AgentPolicyService.getEffectiveRule', () => {
     platformFindFirst.mockResolvedValue(ruleRow());
 
     await runAsRole(tenantContext, 'ADMIN', async () => {
-      await expect(service.getEffectiveRule(ACTION_TYPE)).resolves.toMatchObject(
-        {
-          tier: AgentPolicyTier.AUTO,
-          enabled: true,
-          source: 'platform',
-        },
-      );
+      await expect(
+        service.getEffectiveRule(ACTION_TYPE),
+      ).resolves.toMatchObject({
+        tier: AgentPolicyTier.AUTO,
+        enabled: true,
+        source: 'platform',
+      });
     });
   });
 
@@ -344,9 +358,9 @@ describe('AgentPolicyService.getEffectiveRule', () => {
     platformFindFirst.mockResolvedValue(ruleRow());
 
     await runAsRole(tenantContext, 'SALES', async () => {
-      await expect(service.getEffectiveRule(ACTION_TYPE)).resolves.toMatchObject(
-        { source: 'platform' },
-      );
+      await expect(
+        service.getEffectiveRule(ACTION_TYPE),
+      ).resolves.toMatchObject({ source: 'platform' });
     });
   });
 });
@@ -376,7 +390,7 @@ describe('AgentPolicyService.listRules', () => {
 
     const { data } = await h.service.listRules();
     expectListRulesIncludesCustomerDefaults(data);
-    expect(data.slice(2)).toEqual([
+    expect(data.filter((r) => !r.id.startsWith('code-default:'))).toEqual([
       expectedDto({
         id: 'tenant-ipr',
         tier: AgentPolicyTier.HUMAN_ONLY,
@@ -412,6 +426,8 @@ describe('AgentPolicyService.listRules', () => {
       'customer.create',
       'customer.update',
       ACTION_TYPE,
+      'vehicle.create',
+      'vehicle.update',
       'workshop_order.create',
     ]);
   });
@@ -433,6 +449,8 @@ describe('AgentPolicyService.listRules', () => {
       'b.rule',
       'customer.create',
       'customer.update',
+      'vehicle.create',
+      'vehicle.update',
     ]);
   });
 
@@ -446,7 +464,7 @@ describe('AgentPolicyService.listRules', () => {
 
     const { data } = await h.service.listRules();
     expectListRulesIncludesCustomerDefaults(data);
-    expect(data.slice(2)).toEqual([
+    expect(data.filter((r) => !r.id.startsWith('code-default:'))).toEqual([
       expectedDto({
         id: 'platform-v3',
         tier: AgentPolicyTier.PROPOSE,
@@ -469,7 +487,7 @@ describe('AgentPolicyService.listRules', () => {
 
     const { data } = await h.service.listRules();
     expectListRulesIncludesCustomerDefaults(data);
-    expect(data.slice(2)).toEqual([
+    expect(data.filter((r) => !r.id.startsWith('code-default:'))).toEqual([
       expectedDto({
         id: 'tenant-v2',
         tier: AgentPolicyTier.HUMAN_ONLY,
@@ -509,7 +527,7 @@ describe('AgentPolicyService.listRules', () => {
 
     const { data } = await h.service.listRules();
     expectListRulesIncludesCustomerDefaults(data);
-    expect(data).toHaveLength(2);
+    expect(data).toHaveLength(4);
   });
 
   it.each(['ADMIN', 'OWNER'])('allows %s callers', async (role) => {
@@ -517,7 +535,7 @@ describe('AgentPolicyService.listRules', () => {
 
     const { data } = await h.service.listRules();
     expectListRulesIncludesCustomerDefaults(data);
-    expect(data).toHaveLength(2);
+    expect(data).toHaveLength(4);
   });
 
   it.each(['SALES', null])(
@@ -1157,7 +1175,6 @@ describe('AgentPolicyService.evaluateAction', () => {
   });
 });
 
-
 describe('AgentPolicyService code platform defaults', () => {
   it('resolves the code default of a customer action when no row exists', async () => {
     const h = buildHarness();
@@ -1176,7 +1193,9 @@ describe('AgentPolicyService code platform defaults', () => {
     const h = buildHarness();
 
     await expect(
-      h.service.upsertRule('customer.create', { tier: AgentPolicyTier.PROPOSE }),
+      h.service.upsertRule('customer.create', {
+        tier: AgentPolicyTier.PROPOSE,
+      }),
     ).resolves.toMatchObject({
       action_type: 'customer.create',
       tier: AgentPolicyTier.PROPOSE,
@@ -1198,18 +1217,22 @@ describe('AgentPolicyService code platform defaults', () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(UnprocessableEntityException);
-    expect((error as UnprocessableEntityException).getResponse()).toMatchObject({
-      code: 'AGENT_POLICY_LOOSER_THAN_PLATFORM',
-      message:
-        'Tenant policy tier must be at least as strict as the platform default.',
-    });
+    expect((error as UnprocessableEntityException).getResponse()).toMatchObject(
+      {
+        code: 'AGENT_POLICY_LOOSER_THAN_PLATFORM',
+        message:
+          'Tenant policy tier must be at least as strict as the platform default.',
+      },
+    );
     expect(h.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('fails closed while the code default is off', async () => {
     const h = buildHarness();
 
-    await expect(h.service.evaluateAction('customer.create')).resolves.toMatchObject({
+    await expect(
+      h.service.evaluateAction('customer.create'),
+    ).resolves.toMatchObject({
       tier: AgentPolicyTier.HUMAN_ONLY,
       reasons: ['rule_disabled_fail_closed'],
     });
