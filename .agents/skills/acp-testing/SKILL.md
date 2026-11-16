@@ -129,6 +129,18 @@ Before pushing a change that adds or edits tests:
 - [ ] Assertions go through the public API and check behaviour, not mocks or `toBeDefined`.
 - [ ] I ran only the local checks in `agents.md`: lint and typecheck/build for the workspace, related unit tests, and only the e2e/Playwright files I added or changed (backend e2e: migrate a fresh unseeded `auto_core_test`, then `npm run test:e2e --workspace=core-api -- --ci --runInBand test/<file>.e2e-spec.ts`). I did not run the full e2e suites.
 
+## Bug Regression at Base (CI)
+
+PRs labeled `bug` (or `Bug`) run `.github/workflows/bug-regression-at-base.yaml` (`.github/scripts/bug-regression-at-base.mjs`) in addition to the full CI and e2e suites (it never replaces or skips full e2e):
+
+- **How it works:** Checks out the PR merge-base, copies **only** the PR's new or changed test files (`*.spec.ts`, `*.e2e-spec.ts`, `*.test.ts`, `*.test.tsx`) and test-only helpers/fixtures (`test/helpers/**`, `test/fixtures/**`, `e2e/utils/**`, `e2e/fixtures/**`, `__fixtures__/**`, `*.fixture.*`, `*.test-helper.*`, `src/test/**`), and runs them against the base code (unit/API first, then e2e where needed).
+- **Pass condition:** Green **only** when at least one overlaid regression test (or suite) **fails** on the base branch; the failing test names are listed in the GitHub Actions job summary. If all tests pass on base, the job fails.
+- **No-test escape hatch:** A `bug` PR with no new or changed test fails unless the PR body contains an explicit, reviewed line with a reason:
+  ```text
+  regression-test: n/a — <reason, e.g. config-only fix>
+  ```
+  When present with a non-empty reason, preflight marks the check neutral and prints the reason in the summary.
+
 ## Credits
 
 Adapted for ACP from (all MIT; already-vendored sources are linked, not copied):

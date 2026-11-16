@@ -1,0 +1,126 @@
+name: Bug Regression at Base
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: bug-regression-at-base-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Bug Regression Preflight
+    if: contains(github.event.pull_request.labels.*.name, 'bug') || contains(github.event.pull_request.labels.*.name, 'Bug')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      decision: ${{ steps.check.outputs.decision }}
+      reason: ${{ steps.check.outputs.reason }}
+      merge_base: ${{ steps.check.outputs.merge_base }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check PR diff and escape hatch
+        id: check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          node .github/scripts/bug-regression-at-base.mjs --mode preflight
+
+  verify-at-base:
+    name: Bug Regression at Base
+    needs: [preflight]
+    if: needs.preflight.outputs.decision == 'run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: auto_core_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Switch working tree to PR base
+        env:
+          MERGE_BASE: ${{ needs.preflight.outputs.merge_base }}
+        run: |
+          cp .github/scripts/bug-regression-at-base.mjs "${{ runner.temp }}/bug-regression-at-base.mjs"
+          git checkout --detach "$MERGE_BASE"
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Restore workspace dependencies
+        id: node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            node_modules
+            apps/core-api/node_modules
+            apps/core-web/node_modules
+          key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'package.json', 'apps/core-api/package.json', 'apps/core-web/package.json', '.nvmrc') }}
+
+      - name: Install workspace dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Generate Prisma Client
+        run: npm exec --workspace=core-api -- prisma generate
+
+      - name: Overlay PR tests onto base and assert they fail
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: |
+          node "${{ runner.temp }}/bug-regression-at-base.mjs" \
+            --mode run \
+            --base "${{ needs.preflight.outputs.merge_base }}" \
+            --head "${{ needs.preflight.outputs.head_sha }}"
