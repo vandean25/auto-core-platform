@@ -1,11 +1,12 @@
 name: Pilot Name Guard
 
 on:
+  # pull_request_target runs this file and the checked-out script from the PR base branch.
+  # Only protected `main` is a trusted base: a feature-branch base would let anyone who can
+  # push that branch replace the script and read PILOT_NAME_PATTERNS.
   pull_request_target:
     branches:
       - main
-      - 'feat/*'
-      - 'feature/*'
     types:
       - opened
       - synchronize

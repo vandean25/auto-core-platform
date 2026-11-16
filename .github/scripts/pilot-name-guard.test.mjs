@@ -294,6 +294,65 @@ test('WHEN diff --git, rename to, or +++ path contains a pattern THEN fails with
   assert.equal(bothResult.message.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
 })
 
+// Regression: the GitHub API diff quotes non-ASCII paths with octal escapes, so a pattern
+// with umlauts never matched the raw header and the quoted path leaked into `path:line` hits.
+test('WHEN a quoted octal-escaped diff path decodes to a pattern THEN fails with diff file path only', () => {
+  const umlautPatterns = 'Müller\n'
+  const quoted = '"b/docs/M\\303\\274ller.md"'
+  const newFileDiff = [
+    `diff --git "a/docs/M\\303\\274ller.md" ${quoted}`,
+    'new file mode 100644',
+    '--- /dev/null',
+    `+++ ${quoted}`,
+    '@@ -0,0 +1 @@',
+    '+hello müller',
+  ].join('\n')
+
+  const newFileResult = scanPullRequestContent({
+    rawPatterns: umlautPatterns,
+    prTitle: 'docs: add file',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: newFileDiff,
+  })
+  assert.equal(newFileResult.ok, false)
+  assert.deepEqual(newFileResult.violations, ['diff file path'])
+
+  const renameOnlyDiff = [
+    'diff --git a/docs/old.md "b/docs/M\\303\\274ller.md"',
+    'similarity index 100%',
+    'rename from docs/old.md',
+    'rename to "docs/M\\303\\274ller.md"',
+  ].join('\n')
+  const renameResult = scanPullRequestContent({
+    rawPatterns: umlautPatterns,
+    prTitle: 'docs: rename',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: renameOnlyDiff,
+  })
+  assert.equal(renameResult.ok, false)
+  assert.deepEqual(renameResult.violations, ['diff file path'])
+
+  const cleanQuotedPathDiff = [
+    `diff --git "a/docs/G\\303\\274nther.md" "b/docs/G\\303\\274nther.md"`,
+    `+++ "b/docs/G\\303\\274nther.md"`,
+    '@@ -0,0 +1 @@',
+    '+hello müller',
+  ].join('\n')
+  const lineResult = scanPullRequestContent({
+    rawPatterns: umlautPatterns,
+    prTitle: 'docs: add file',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: cleanQuotedPathDiff,
+  })
+  assert.deepEqual(lineResult.violations, ['docs/Günther.md:1'])
+})
+
 test('CLI integration: base-tree execution scans GIT_HEAD_REF as data without checking out PR head', () => {
   const dir = mkdtempSync(joinTmpDir())
   try {
@@ -348,6 +407,10 @@ test('Workflow security: build.yaml test job is secret-free and pull_request_tar
     'utf8',
   )
   assert.match(targetWorkflow, /pull_request_target:/)
+  // pull_request_target runs the workflow and the checked-out script from the PR base branch,
+  // so only protected `main` may be a target; a feature-branch base would let pushers swap the script.
+  assert.match(targetWorkflow, /branches:\s*\n\s*-\s*main\s*\n\s*types:/)
+  assert.doesNotMatch(targetWorkflow, /feat\/\*|feature\/\*/)
   assert.match(targetWorkflow, /contents:\s*read/)
   assert.match(targetWorkflow, /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/)
   assert.match(targetWorkflow, /persist-credentials:\s*false/)

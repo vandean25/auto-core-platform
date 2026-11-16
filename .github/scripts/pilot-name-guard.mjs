@@ -30,12 +30,50 @@ function matchesAnyPattern(text, patterns) {
   return patterns.some((pattern) => normalized.includes(pattern))
 }
 
+const GIT_QUOTE_ESCAPES = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, '\\': 92 }
+
+/**
+ * Decodes git's C-style quoted path (`"b/M\303\274ller.md"`): octal escapes are UTF-8 bytes.
+ * @param {string} quotedBody The text between the quotes.
+ * @returns {string}
+ */
+function decodeGitQuotedBody(quotedBody) {
+  /** @type {number[]} */
+  const bytes = []
+  for (let i = 0; i < quotedBody.length; i += 1) {
+    const ch = quotedBody[i]
+    if (ch !== '\\') {
+      bytes.push(...Buffer.from(ch, 'utf8'))
+      continue
+    }
+    const octal = /^[0-7]{3}/.exec(quotedBody.slice(i + 1))
+    if (octal) {
+      bytes.push(Number.parseInt(octal[0], 8))
+      i += 3
+      continue
+    }
+    const next = quotedBody[i + 1]
+    bytes.push(GIT_QUOTE_ESCAPES[next] ?? next.charCodeAt(0))
+    i += 1
+  }
+  return Buffer.from(bytes).toString('utf8')
+}
+
+/**
+ * Replaces every git-quoted path segment in a diff header line with its decoded form.
+ * @param {string} text
+ * @returns {string}
+ */
+function decodeGitQuotedPaths(text) {
+  return text.replace(/"((?:[^"\\]|\\.)*)"/g, (_match, body) => decodeGitQuotedBody(body))
+}
+
 /**
  * @param {string} headerLine
  * @returns {string}
  */
 function parseDiffTargetPath(headerLine) {
-  const target = headerLine.slice(4)
+  const target = decodeGitQuotedPaths(headerLine.slice(4))
   if (target === '/dev/null') {
     return ''
   }
@@ -80,13 +118,13 @@ function stepDiffHeader(state, line, patterns) {
     state.remainingAdded = 0
     state.pathMatched = false
     state.recordedPathHit = false
-    if (matchesAnyPattern(line.slice(11), patterns)) {
+    if (matchesAnyPattern(decodeGitQuotedPaths(line.slice(11)), patterns)) {
       markDiffPathHit(state)
     }
     return true
   }
   if (state.remainingAdded === 0 && line.startsWith('rename to ')) {
-    if (matchesAnyPattern(line.slice(10), patterns)) {
+    if (matchesAnyPattern(decodeGitQuotedPaths(line.slice(10)), patterns)) {
       markDiffPathHit(state)
     }
     return true
