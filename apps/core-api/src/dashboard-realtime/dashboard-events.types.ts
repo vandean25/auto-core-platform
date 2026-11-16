@@ -27,7 +27,8 @@ export type DashboardEntityType =
   | 'INVOICE'
   | 'CREDIT_NOTE'
   | 'PAYMENT'
-  | 'FISCAL_RECEIPT';
+  | 'FISCAL_RECEIPT'
+  | 'SAVED_VIEW';
 
 export type DashboardEntityAction = 'CREATED' | 'UPDATED' | 'DELETED';
 
@@ -35,6 +36,8 @@ export interface DashboardEntityUpdatedPayload {
   type: DashboardEntityType;
   action: DashboardEntityAction;
   entityId?: string;
+  /** Present on SAVED_VIEW events (slim payload: id and list_path only, no name or href). */
+  listPath?: string;
   /** Payment or fiscal receipt status when applicable. */
   status?: string;
   /** Present when the event was emitted to a site room (ADR-0022). */

@@ -417,6 +417,8 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'ended_session_lineages',
     clean: (p) => p.endedSessionLineage.deleteMany(),
   },
+  { table: 'saved_views', clean: (p) => p.savedView.deleteMany() },
+  { table: 'saved_view_imports', clean: (p) => p.savedViewImport.deleteMany() },
   { table: 'tenant_members', clean: (p) => p.tenantMember.deleteMany() },
   { table: 'warranty_claims', clean: (p) => p.warrantyClaim.deleteMany() },
   {

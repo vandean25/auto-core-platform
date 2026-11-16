@@ -77,6 +77,7 @@ import { DryRunModule } from './dry-run/dry-run.module.js';
 import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 import { SettlementModule } from './settlement/settlement.module.js';
 import { SearchModule } from './search/search.module.js';
+import { SavedViewsModule } from './saved-views/saved-views.module.js';
 import { isSchedulerEnabled } from './scheduler/scheduler-enabled.js';
 import { SchedulerModule } from './scheduler/scheduler.module.js';
 
@@ -138,6 +139,7 @@ import { SchedulerModule } from './scheduler/scheduler.module.js';
     MarginRuleModule,
     SettlementModule,
     SearchModule,
+    SavedViewsModule,
     AgentPolicyModule,
     AgentProposalModule,
     WorkshopCommandModule,

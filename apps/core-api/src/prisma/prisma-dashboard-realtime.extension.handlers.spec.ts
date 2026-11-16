@@ -341,5 +341,30 @@ describe('createDashboardRealtimeExtension handlers', () => {
       ]);
       expect(emitEntityUpdated).not.toHaveBeenCalled();
     });
+
+    it('emits slim SAVED_VIEW payload with entityId and listPath only (no name or href)', async () => {
+      const { handlers, emitEntityUpdated } = buildAllModelsHandlers();
+      const query = jest.fn().mockResolvedValue({
+        id: 'sv-1',
+        list_path: '/sales/invoices',
+        name: 'Sensitive view name',
+        href: '/sales/invoices?search=secret',
+      });
+
+      await runWithTenant(() =>
+        handlers.create.call(undefined, {
+          model: 'SavedView',
+          args: { data: {} },
+          query,
+        }),
+      );
+
+      expect(emitEntityUpdated).toHaveBeenCalledWith(TENANT_ID, {
+        type: 'SAVED_VIEW',
+        action: 'CREATED',
+        entityId: 'sv-1',
+        listPath: '/sales/invoices',
+      });
+    });
   });
 });

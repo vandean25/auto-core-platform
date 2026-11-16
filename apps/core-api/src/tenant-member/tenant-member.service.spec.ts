@@ -7,6 +7,7 @@ import { TenantMemberRole } from '@prisma/client';
 import type { Auth } from 'firebase-admin/auth';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { TenantMemberService } from './tenant-member.service.js';
 
@@ -26,6 +27,21 @@ const mockSystemPrisma = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+  },
+  $transaction: jest.fn(),
+};
+
+const mockPrisma = {
+  tenantMember: {
+    delete: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  savedView: {
+    deleteMany: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  tenant: {
+    updateMany: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -63,6 +79,13 @@ describe('TenantMemberService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTenantContext.getRequiredTenantId.mockReturnValue('tenant-a');
+    mockTenantContext.getAuthenticatedUser.mockReturnValue({
+      userId: 'admin-user',
+      email: 'admin@autocore.com',
+      tenantId: 'tenant-a',
+      role: 'ADMIN',
+    });
     mockSystemPrisma.tenantMember.findMany.mockReset();
     mockSystemPrisma.tenantMember.count.mockReset();
     mockSystemPrisma.tenantMember.upsert.mockReset();
@@ -76,6 +99,15 @@ describe('TenantMemberService', () => {
       async (fn: (tx: typeof mockSystemPrisma) => Promise<unknown>) =>
         fn(mockSystemPrisma),
     );
+    mockPrisma.tenantMember.delete.mockReset();
+    mockPrisma.tenantMember.updateMany.mockReset();
+    mockPrisma.savedView.deleteMany.mockReset();
+    mockPrisma.savedView.updateMany.mockReset();
+    mockPrisma.$transaction.mockReset();
+    mockPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        fn(mockPrisma),
+    );
 
     mockDashboardRealtime = {
       emitClaimsUpdated: jest.fn(),
@@ -87,6 +119,7 @@ describe('TenantMemberService', () => {
       mockSystemPrisma as unknown as SystemPrismaService,
       mockTenantContext as unknown as TenantContextService,
       mockDashboardRealtime as unknown as DashboardRealtimeService,
+      mockPrisma as unknown as PrismaService,
     );
 
     mockFirebaseAuth = {
@@ -458,5 +491,67 @@ describe('TenantMemberService', () => {
         role: TenantMemberRole.SALES,
       }),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('removes membership, deletes PERSONAL saved views, and nulls TENANT owner in one transaction', async () => {
+    mockSystemPrisma.tenantMember.findFirst.mockResolvedValue({
+      id: 'membership-1',
+      tenant_id: 'tenant-a',
+      user_id: 'user-1',
+      role: TenantMemberRole.SALES,
+      is_active: true,
+      user: {
+        id: 'user-1',
+        firebaseUid: 'firebase-uid-1',
+        active_tenant_id: 'tenant-a',
+      },
+    });
+    mockSystemPrisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      firebaseUid: 'firebase-uid-1',
+      active_tenant_id: 'tenant-a',
+      platformAdmin: null,
+      memberships: [],
+    });
+    mockFirebaseAuth.getUser.mockResolvedValue({
+      uid: 'firebase-uid-1',
+      customClaims: {
+        tenantId: 'tenant-a',
+        role: TenantMemberRole.SALES,
+      },
+    });
+    mockFirebaseAuth.setCustomUserClaims.mockResolvedValue(undefined);
+    mockFirebaseAuth.revokeRefreshTokens.mockResolvedValue(undefined);
+
+    await service.remove('membership-1');
+
+    expect(mockPrisma.tenantMember.delete).toHaveBeenCalledWith({
+      where: { id: 'membership-1' },
+    });
+    expect(mockPrisma.savedView.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: 'tenant-a',
+        owner_user_id: 'user-1',
+        visibility: 'PERSONAL',
+      },
+    });
+    expect(mockPrisma.savedView.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: 'tenant-a',
+        owner_user_id: 'user-1',
+        visibility: 'TENANT',
+      },
+      data: {
+        owner_user_id: null,
+      },
+    });
+    expect(mockPrisma.tenantMember.updateMany).toHaveBeenCalledWith({
+      where: { tenant_id: 'tenant-a', user_id: 'user-1' },
+      data: { scope_epoch: { increment: 1 } },
+    });
+    expect(mockFirebaseAuth.setCustomUserClaims).toHaveBeenCalledWith(
+      'firebase-uid-1',
+      {},
+    );
   });
 });

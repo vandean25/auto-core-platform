@@ -7,6 +7,7 @@ import { getFirebaseAdminAuth } from '../auth/firebase-admin.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   InviteTenantMemberDto,
@@ -35,6 +36,7 @@ import {
   isSecuritySensitiveChange,
 } from './tenant-member.update.js';
 import { advanceScopeEpoch } from '../auth/scope-epoch.js';
+import { cleanupSavedViewsForRemovedMember } from '../saved-views/saved-views.cleanup.js';
 
 interface MembershipChange {
   securitySensitive: boolean;
@@ -48,6 +50,7 @@ export class TenantMemberService {
     private readonly systemPrisma: SystemPrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly dashboardRealtime: DashboardRealtimeService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async findAll(query: ListTenantMembersQueryDto) {
@@ -135,17 +138,7 @@ export class TenantMemberService {
     this.assertTenantAdminAccess();
 
     const tenantId = this.tenantContext.getRequiredTenantId();
-    const existingMembership = await this.systemPrisma.tenantMember.findFirst({
-      where: {
-        id,
-        tenant_id: tenantId,
-      },
-      include: { user: true },
-    });
-
-    if (!existingMembership) {
-      throw new BadRequestException(`Tenant member ${id} not found.`);
-    }
+    const existingMembership = await this.findMembershipOrThrow(id, tenantId);
 
     const updatedMembership = await this.systemPrisma.$transaction(
       async (tx) => {
@@ -184,6 +177,39 @@ export class TenantMemberService {
     });
 
     return mapTenantMember(updatedMembership);
+  }
+
+  async remove(id: string): Promise<void> {
+    this.assertTenantAdminAccess();
+
+    const tenantId = this.tenantContext.getRequiredTenantId();
+    const existingMembership = await this.findMembershipOrThrow(id, tenantId);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantMember.delete({
+        where: { id },
+      });
+      await cleanupSavedViewsForRemovedMember(
+        tx,
+        tenantId,
+        existingMembership.user_id,
+      );
+      await advanceScopeEpoch(tx, {
+        kind: 'member',
+        tenantId,
+        userId: existingMembership.user_id,
+      });
+    });
+
+    await this.syncUserClaims(existingMembership.user_id);
+
+    await this.publishMembershipChange(existingMembership.user.firebaseUid, {
+      securitySensitive: true,
+      deactivated: true,
+      wasActiveTenant:
+        existingMembership.tenant_id ===
+        existingMembership.user.active_tenant_id,
+    });
   }
 
   protected getFirebaseAuth() {
@@ -262,6 +288,22 @@ export class TenantMemberService {
     if (change.wasActiveTenant) {
       this.dashboardRealtime.emitSiteContextUpdated(firebaseUid, null);
     }
+  }
+
+  private async findMembershipOrThrow(id: string, tenantId: string) {
+    const existingMembership = await this.systemPrisma.tenantMember.findFirst({
+      where: {
+        id,
+        tenant_id: tenantId,
+      },
+      include: { user: true },
+    });
+
+    if (!existingMembership) {
+      throw new BadRequestException(`Tenant member ${id} not found.`);
+    }
+
+    return existingMembership;
   }
 
   private assertTenantAdminAccess(): void {

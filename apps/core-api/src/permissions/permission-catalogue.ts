@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 4;
+export const PERMISSION_CATALOGUE_VERSION = 5;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -710,6 +710,11 @@ const DEFINITIONS = [
     'View unbilled receipts',
   ],
   ['vendor.update', 'Lieferant ändern', 'Edit vendor'],
+  [
+    'views.shared.manage',
+    'Geteilte Ansichten verwalten',
+    'Manage shared views',
+  ],
   [
     'voice_translation.settings.read',
     'Sprachübersetzung ansehen',
