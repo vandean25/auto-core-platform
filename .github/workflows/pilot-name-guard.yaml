@@ -18,6 +18,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   pilot-name-guard:
@@ -29,7 +30,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node
@@ -40,12 +40,9 @@ jobs:
       - name: Scan PR title, body, branch, commits, and diff from base tree
         env:
           PILOT_NAME_PATTERNS: ${{ secrets.PILOT_NAME_PATTERNS }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          GIT_HEAD_REF: refs/remotes/origin/pr-head
-        run: |
-          git fetch --no-tags origin "refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head"
-          MERGE_BASE=$(git merge-base HEAD refs/remotes/origin/pr-head)
-          export MERGE_BASE
-          node .github/scripts/pilot-name-guard.mjs
+        run: node .github/scripts/pilot-name-guard.mjs

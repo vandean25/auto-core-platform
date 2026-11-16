@@ -265,7 +265,61 @@ function resolveMergeBase(gitHeadRef) {
   }).trim()
 }
 
-function runCli() {
+/**
+ * Fetches PR commits and unified diff as read-only data via GitHub REST API.
+ * @param {{
+ *   repo: string,
+ *   prNumber: string | number,
+ *   token: string,
+ *   fetchImpl?: typeof fetch,
+ * }} input
+ * @returns {Promise<{ commits: Array<{ sha: string, message: string }>, diffText: string }>}
+ */
+export async function fetchPullRequestDataFromApi(input) {
+  const fetchImpl = input.fetchImpl ?? fetch
+  const baseHeaders = {
+    Authorization: `Bearer ${input.token}`,
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+
+  /** @type {Array<{ sha: string, message: string }>} */
+  const commits = []
+  let page = 1
+  while (true) {
+    const commitsUrl = `https://api.github.com/repos/${input.repo}/pulls/${input.prNumber}/commits?per_page=100&page=${page}`
+    const res = await fetchImpl(commitsUrl, {
+      headers: { ...baseHeaders, Accept: 'application/vnd.github+json' },
+    })
+    if (!res.ok) {
+      throw new Error(`Failed to fetch PR commits from GitHub API (HTTP ${res.status}).`)
+    }
+    const batch = /** @type {Array<{ sha?: string, commit?: { message?: string } }>} */ (
+      await res.json()
+    )
+    for (const entry of batch) {
+      if (entry.sha) {
+        commits.push({ sha: entry.sha, message: entry.commit?.message ?? '' })
+      }
+    }
+    if (batch.length < 100) {
+      break
+    }
+    page += 1
+  }
+
+  const diffUrl = `https://api.github.com/repos/${input.repo}/pulls/${input.prNumber}`
+  const diffRes = await fetchImpl(diffUrl, {
+    headers: { ...baseHeaders, Accept: 'application/vnd.github.diff' },
+  })
+  if (!diffRes.ok) {
+    throw new Error(`Failed to fetch PR diff from GitHub API (HTTP ${diffRes.status}).`)
+  }
+  const diffText = await diffRes.text()
+
+  return { commits, diffText }
+}
+
+async function runCli() {
   const rawPatterns = process.env.PILOT_NAME_PATTERNS
   if (parsePatterns(rawPatterns).length === 0) {
     const missing = scanPullRequestContent({
@@ -280,14 +334,26 @@ function runCli() {
     process.exit(1)
   }
 
-  const gitHeadRef = process.env.GIT_HEAD_REF || 'HEAD'
-  const mergeBase = resolveMergeBase(gitHeadRef)
-  const commits = readCommits(mergeBase, gitHeadRef)
-  const diffText = execFileSync(
-    'git',
-    ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', mergeBase, gitHeadRef],
-    { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 },
-  )
+  let commits
+  let diffText
+  if (process.env.PR_NUMBER && process.env.GH_TOKEN && process.env.GITHUB_REPOSITORY) {
+    const data = await fetchPullRequestDataFromApi({
+      repo: process.env.GITHUB_REPOSITORY,
+      prNumber: process.env.PR_NUMBER,
+      token: process.env.GH_TOKEN,
+    })
+    commits = data.commits
+    diffText = data.diffText
+  } else {
+    const gitHeadRef = process.env.GIT_HEAD_REF || 'HEAD'
+    const mergeBase = resolveMergeBase(gitHeadRef)
+    commits = readCommits(mergeBase, gitHeadRef)
+    diffText = execFileSync(
+      'git',
+      ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', mergeBase, gitHeadRef],
+      { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 },
+    )
+  }
 
   const result = scanPullRequestContent({
     rawPatterns,
@@ -307,5 +373,8 @@ function runCli() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli()
+  runCli().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err))
+    process.exit(1)
+  })
 }

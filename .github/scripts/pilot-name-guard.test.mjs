@@ -6,7 +6,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { scanPullRequestContent } from './pilot-name-guard.mjs'
+import { fetchPullRequestDataFromApi, scanPullRequestContent } from './pilot-name-guard.mjs'
 
 const SCRIPT_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -339,9 +339,46 @@ test('Workflow security: build.yaml test job is secret-free and pull_request_tar
   assert.match(targetWorkflow, /contents:\s*read/)
   assert.match(targetWorkflow, /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/)
   assert.match(targetWorkflow, /persist-credentials:\s*false/)
-  assert.match(targetWorkflow, /refs\/pull\/\$\{\{\s*github\.event\.pull_request\.number\s*\}\}\/head/)
+  assert.match(targetWorkflow, /PR_NUMBER:\s*\$\{\{\s*github\.event\.pull_request\.number\s*\}\}/)
   assert.match(targetWorkflow, /secrets\.PILOT_NAME_PATTERNS/)
   assert.match(targetWorkflow, /node \.github\/scripts\/pilot-name-guard\.mjs/)
+})
+
+test('fetchPullRequestDataFromApi loads PR commits and unified diff as read-only data', async () => {
+  /** @type {Array<{ url: string, accept: string }>} */
+  const calls = []
+  const mockFetch = async (url, init) => {
+    calls.push({ url: String(url), accept: String(init?.headers?.Accept ?? '') })
+    if (String(url).includes('/commits')) {
+      return new Response(
+        JSON.stringify([{ sha: 'abc1234567890', commit: { message: 'feat: sample' } }]),
+        { status: 200 },
+      )
+    }
+    return new Response(`diff --git a/a.txt b/a.txt\n+++ b/a.txt\n@@ -0,0 +1 @@\n+${SYNTHETIC_PATTERN}\n`, {
+      status: 200,
+    })
+  }
+
+  const data = await fetchPullRequestDataFromApi({
+    repo: 'vandean25/auto-core-platform',
+    prNumber: 1280,
+    token: 'tok',
+    fetchImpl: mockFetch,
+  })
+
+  assert.equal(calls.length, 2)
+  assert.deepEqual(data.commits, [{ sha: 'abc1234567890', message: 'feat: sample' }])
+  const scan = scanPullRequestContent({
+    rawPatterns: SYNTHETIC_PATTERNS_RAW,
+    prTitle: 'Clean',
+    prBody: 'Clean',
+    headRef: 'feature/clean',
+    commits: data.commits,
+    diffText: data.diffText,
+  })
+  assert.equal(scan.ok, false)
+  assert.deepEqual(scan.violations, ['a.txt:1'])
 })
 
 function joinTmpDir() {
