@@ -352,7 +352,7 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
-  it('sends a null lock date when the field is empty and coerces an unparsable invoice number to 0', async () => {
+  it('omits an unedited lock date and coerces an unparsable invoice number to 0', async () => {
     renderSettings()
 
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.nextNumber), { target: { value: '' } })
@@ -360,7 +360,6 @@ describe('SettingsPage characterization: finance tab', () => {
 
     await waitFor(() => {
       expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith({
-        lock_date: null,
         invoice_prefix: 'RE',
         next_invoice_number: 0,
       })
