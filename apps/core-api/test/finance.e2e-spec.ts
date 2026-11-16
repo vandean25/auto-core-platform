@@ -1,19 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { TenantMemberRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { createGlobalValidationPipe } from './../src/common/index.js';
 import { PrismaService } from './../src/prisma/prisma.service.js';
+import { SystemPrismaService } from './../src/prisma/system-prisma.service.js';
 import { AuthService } from './../src/auth/auth.service.js';
-import { createTenantAwarePrisma, createTestAuthToken, createTestTenant } from './tenant-test-utils.js';
+import {
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+  runWithTenantContext,
+  seedTestTenantMember,
+} from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('FinanceModule (e2e)', () => {
   let app: INestApplication;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
   let authService: AuthService;
   let authHeader: string;
   let tenantId: string;
+  const roleHeaders: Partial<Record<TenantMemberRole, string>> = {};
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -23,12 +33,12 @@ describe('FinanceModule (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
 
-    const testTenant = await createTestTenant(prisma);
+    const testTenant = await createTestTenant(basePrisma);
     tenantId = testTenant.tenantId;
-    prisma = createTenantAwarePrisma(prisma, tenantId);
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
     // sales_orders.order_number is globally unique in the database (init migration), so every tenant
     // starting at SO-2026-1001 collides with other suites that share this database. Start this tenant's
     // counter at a per-run value instead.
@@ -43,6 +53,47 @@ describe('FinanceModule (e2e)', () => {
       },
     });
     authHeader = `Bearer ${createTestAuthToken(authService, testTenant)}`;
+    roleHeaders.ADMIN = authHeader;
+
+    const systemPrisma = app.get(SystemPrismaService);
+    await runWithTenantContext(tenantId, async () => {
+      for (const role of ['OWNER', 'SALES', 'TECH', 'DEMO'] as const) {
+        const firebaseUid = `fin-${role.toLowerCase()}-${tenantId}`;
+        const email = `fin-${role.toLowerCase()}-${tenantId}@test.com`;
+        const user = await systemPrisma.user.create({
+          data: { firebaseUid, email },
+        });
+        await seedTestTenantMember(prisma, {
+          tenantId,
+          userId: user.id,
+          role,
+        });
+        if (role === 'DEMO') {
+          const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
+            data: {
+              email,
+              name: 'Finance Demo Viewer',
+              betrieb: 'E2E',
+              consent_recorded_at: new Date(),
+            },
+            select: { id: true },
+          });
+          await systemPrisma.landingDemoSignInGrant.create({
+            data: {
+              access_request_id: accessRequest.id,
+              user_id: user.id,
+              expires_at: new Date(Date.now() + 60 * 60 * 1000),
+            },
+          });
+        }
+        roleHeaders[role] = `Bearer ${createTestAuthToken(authService, {
+          ...testTenant,
+          firebaseUid,
+          email,
+          role,
+        })}`;
+      }
+    });
   });
 
   afterAll(async () => {
@@ -225,5 +276,127 @@ describe('FinanceModule (e2e)', () => {
         ],
       })
       .expect(400);
+  });
+
+  // AUT-1007 Scenario 1: OWNER and ADMIN can update finance settings
+  it.each(['OWNER', 'ADMIN'] as const)(
+    'allows %s to PATCH /finance/settings (200 and values saved)',
+    async (role) => {
+      const nextMonth = role === 'OWNER' ? 3 : 4;
+      const response = await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders[role] ?? '')
+        .send({ fiscal_year_start_month: nextMonth })
+        .expect(200);
+
+      expect(response.body.fiscal_year_start_month).toBe(nextMonth);
+
+      const saved = await prisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+      });
+      expect(saved?.fiscal_year_start_month).toBe(nextMonth);
+    },
+  );
+
+  // AUT-1007 Scenario 2 & Anti-criterion 1: SALES, TECH, and DEMO get 403 and DB row is byte-identical
+  it.each(['SALES', 'TECH', 'DEMO'] as const)(
+    'rejects %s on PATCH /finance/settings with 403 and leaves DB row unchanged',
+    async (role) => {
+      const fixtureLockDate = new Date('2025-11-30T00:00:00.000Z');
+      await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders.OWNER!)
+        .send({
+          fiscal_year_start_month: 1,
+          lock_date: fixtureLockDate.toISOString(),
+        })
+        .expect(200);
+
+      const before = await prisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+      });
+
+      await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders[role] ?? '')
+        .send({
+          fiscal_year_start_month: 7,
+          lock_date: null,
+        })
+        .expect(403);
+
+      const after = await prisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+      });
+      expect(after).toEqual(before);
+    },
+  );
+
+  // AUT-1007 Scenario 3 & Anti-criterion 2: PATCH without lock_date preserves existing lock_date
+  it('keeps lock_date unchanged when OWNER patches fiscal_year_start_month only', async () => {
+    const fixtureLockDate = new Date('2025-10-31T00:00:00.000Z');
+    await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({
+        fiscal_year_start_month: 1,
+        lock_date: fixtureLockDate.toISOString(),
+      })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ fiscal_year_start_month: 5 })
+      .expect(200);
+
+    expect(response.body.fiscal_year_start_month).toBe(5);
+    expect(new Date(response.body.lock_date).toISOString()).toBe(
+      fixtureLockDate.toISOString(),
+    );
+
+    const saved = await prisma.financeSettings.findFirst({
+      where: { tenant_id: tenantId },
+    });
+    expect(saved?.lock_date?.toISOString()).toBe(fixtureLockDate.toISOString());
+  });
+
+  // AUT-1007 Scenario 4: Explicit lock_date: null clears it and records an audit entry with old and new value
+  it('clears lock_date when OWNER sends lock_date: null and writes audit entry with old and new value', async () => {
+    const fixtureLockDate = new Date('2025-09-30T00:00:00.000Z');
+    await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ lock_date: fixtureLockDate.toISOString() })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ lock_date: null })
+      .expect(200);
+
+    expect(response.body.lock_date).toBeNull();
+
+    const saved = await prisma.financeSettings.findFirst({
+      where: { tenant_id: tenantId },
+    });
+    expect(saved?.lock_date).toBeNull();
+
+    const auditEntry = await prisma.auditLog.findFirst({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'FinanceSettings',
+        action: 'UPDATE',
+      },
+      orderBy: { occurred_at: 'desc' },
+    });
+    expect(auditEntry).not.toBeNull();
+    expect(
+      (auditEntry?.before as { lock_date?: string | null } | null)?.lock_date,
+    ).toBe(fixtureLockDate.toISOString());
+    expect(
+      (auditEntry?.after as { lock_date?: string | null } | null)?.lock_date,
+    ).toBeNull();
   });
 });

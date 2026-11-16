@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import { Loader2, Save, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
+import type { FinanceSettings } from "@/api/types"
 import { useFinanceSettings, useUpdateFinanceSettings } from "@/api/useFinance"
 import { SettingsSectionHeading } from "@/components/settings/SettingsSectionHeading"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -37,6 +38,8 @@ export function useFinanceSettingsForm() {
     })
     const [isAlertOpen, setIsAlertOpen] = React.useState(false)
 
+    const initialLockDate = settings?.lock_date ? format(new Date(settings.lock_date), 'yyyy-MM-dd') : ""
+
     React.useEffect(() => {
         if (settings) {
             setFormState({
@@ -58,11 +61,14 @@ export function useFinanceSettingsForm() {
 
     const handleSave = async () => {
         try {
-            await updateMutation.mutateAsync({
-                lock_date: formState.lock_date || null,
+            const payload: Partial<FinanceSettings> = {
                 invoice_prefix: formState.invoice_prefix,
-                next_invoice_number: formState.next_invoice_number
-            })
+                next_invoice_number: formState.next_invoice_number,
+            }
+            if (formState.lock_date !== initialLockDate) {
+                payload.lock_date = formState.lock_date || null
+            }
+            await updateMutation.mutateAsync(payload)
             toast.success(t('finance.toast.updated'))
             setIsAlertOpen(false)
         } catch (error) {
@@ -84,7 +90,7 @@ export function useFinanceSettingsForm() {
 
 type FinanceSettingsForm = ReturnType<typeof useFinanceSettingsForm>
 
-function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
+function FiscalSettingsForm({ form, canEdit }: { form: FinanceSettingsForm; canEdit: boolean }) {
     const { t } = useTranslation(['settings', 'common'])
     const { formState, setFormState } = form
 
@@ -105,6 +111,7 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                             id="lock_date"
                             aria-label={t('finance.fiscal.lockDate')}
                             value={formState.lock_date}
+                            disabled={!canEdit}
                             onChange={(lockDate) => setFormState(prev => ({ ...prev, lock_date: lockDate }))}
                         />
                         <p className="text-sm text-muted-foreground">
@@ -123,6 +130,7 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                             <Input
                                 id="prefix"
                                 value={formState.invoice_prefix}
+                                disabled={!canEdit}
                                 onChange={e => setFormState(prev => ({ ...prev, invoice_prefix: e.target.value }))}
                             />
                         </div>
@@ -132,6 +140,7 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                                 id="next_number"
                                 type="number"
                                 value={formState.next_invoice_number}
+                                disabled={!canEdit}
                                 onChange={e => setFormState(prev => ({ ...prev, next_invoice_number: parseInt(e.target.value) || 0 }))}
                             />
                         </div>
@@ -139,12 +148,14 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
                 </div>
             </div>
 
-            <div className="flex justify-end">
-                <Button type="submit" disabled={form.isPending}>
-                    {form.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    {t('finance.saveChanges')}
-                </Button>
-            </div>
+            {canEdit ? (
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={form.isPending}>
+                        {form.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {t('finance.saveChanges')}
+                    </Button>
+                </div>
+            ) : null}
         </form>
     )
 }
@@ -152,10 +163,12 @@ function FiscalSettingsForm({ form }: { form: FinanceSettingsForm }) {
 export function FinanceSettingsTab({
     form,
     canManageExports,
+    canEdit = false,
     openExportProfile = false,
 }: {
     form: FinanceSettingsForm;
     canManageExports: boolean;
+    canEdit?: boolean;
     /** Deep link from the export readiness page: start on the accounting export sub tab. */
     openExportProfile?: boolean;
 }) {
@@ -170,7 +183,7 @@ export function FinanceSettingsTab({
                 ) : null}
             </TabsList>
             <TabsContent value="fiscal" className="space-y-6">
-                <FiscalSettingsForm form={form} />
+                <FiscalSettingsForm form={form} canEdit={canEdit} />
             </TabsContent>
             {canManageExports ? (
                 <TabsContent value="accounting-export" className="space-y-6">
