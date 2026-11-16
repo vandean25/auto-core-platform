@@ -732,3 +732,21 @@ jobs:
           path: fallow-artifacts
           retention-days: 14
           if-no-files-found: warn
+
+  pilot-name-guard-tests:
+    name: Pilot Name Guard (Tests)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify pilot name guard script (unit tests)
+        run: npm run pilot-name-guard:test
+

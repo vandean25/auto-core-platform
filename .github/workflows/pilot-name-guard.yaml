@@ -1,0 +1,53 @@
+name: Pilot Name Guard
+
+on:
+  # pull_request_target runs this file and the checked-out script from the PR base branch.
+  # Only protected `main` is a trusted base: a feature-branch base would let anyone who can
+  # push that branch replace the script and read PILOT_NAME_PATTERNS.
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+concurrency:
+  group: pilot-name-guard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pilot-name-guard:
+    name: Pilot Name Guard
+    # PILOT_NAME_PATTERNS is an Environment secret whose deployment branches are only `main`
+    # (this pull_request_target job runs as `main`). Never add a repository secret of the same
+    # name: same-repo `pull_request` runs use the PR head workflow and receive repository secrets.
+    environment: pilot-name-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout base tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Scan PR title, body, branch, commits, and diff from base tree
+        env:
+          PILOT_NAME_PATTERNS: ${{ secrets.PILOT_NAME_PATTERNS }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: node .github/scripts/pilot-name-guard.mjs
