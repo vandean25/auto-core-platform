@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -214,6 +214,134 @@ test('CLI integration: failing run logs 0 hits of test pattern and missing secre
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('WHEN diff --git, rename to, or +++ path contains a pattern THEN fails with diff file path and never prints the path', () => {
+  const renameDiff = [
+    `diff --git a/docs/old.md b/docs/${SYNTHETIC_PATTERN}.md`,
+    'similarity index 100%',
+    'rename from docs/old.md',
+    `rename to docs/${SYNTHETIC_PATTERN}.md`,
+  ].join('\n')
+
+  const renameResult = scanPullRequestContent({
+    rawPatterns: SYNTHETIC_PATTERNS_RAW,
+    prTitle: 'docs: rename file',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: renameDiff,
+  })
+
+  assert.equal(renameResult.ok, false)
+  assert.deepEqual(renameResult.violations, ['diff file path'])
+  assert.equal(renameResult.message.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
+
+  const newFileWithCleanContentDiff = [
+    `diff --git a/docs/${SYNTHETIC_PATTERN}.md b/docs/${SYNTHETIC_PATTERN}.md`,
+    'new file mode 100644',
+    '--- /dev/null',
+    `+++ b/docs/${SYNTHETIC_PATTERN}.md`,
+    '@@ -0,0 +1 @@',
+    '+hello',
+  ].join('\n')
+
+  const newFileResult = scanPullRequestContent({
+    rawPatterns: SYNTHETIC_PATTERNS_RAW,
+    prTitle: 'docs: add file',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: newFileWithCleanContentDiff,
+  })
+
+  assert.equal(newFileResult.ok, false)
+  assert.deepEqual(newFileResult.violations, ['diff file path'])
+  assert.equal(newFileResult.message.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
+
+  const bothPathAndLineMatchDiff = [
+    `diff --git a/docs/${SYNTHETIC_PATTERN}.md b/docs/${SYNTHETIC_PATTERN}.md`,
+    'new file mode 100644',
+    '--- /dev/null',
+    `+++ b/docs/${SYNTHETIC_PATTERN}.md`,
+    '@@ -0,0 +1 @@',
+    `+hello ${SYNTHETIC_PATTERN}`,
+  ].join('\n')
+
+  const bothResult = scanPullRequestContent({
+    rawPatterns: SYNTHETIC_PATTERNS_RAW,
+    prTitle: 'docs: add file',
+    prBody: 'Clean body',
+    headRef: 'feature/clean',
+    commits: [],
+    diffText: bothPathAndLineMatchDiff,
+  })
+
+  assert.equal(bothResult.ok, false)
+  assert.deepEqual(bothResult.violations, ['diff file path'])
+  assert.equal(bothResult.message.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
+})
+
+test('CLI integration: base-tree execution scans GIT_HEAD_REF as data without checking out PR head', () => {
+  const dir = mkdtempSync(joinTmpDir())
+  try {
+    execFileSync('git', ['init', '-b', 'main'], { cwd: dir, stdio: 'ignore' })
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir })
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir })
+
+    writeFileSync(path.join(dir, 'base.txt'), 'clean base\n')
+    execFileSync('git', ['add', 'base.txt'], { cwd: dir })
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' })
+    const baseSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()
+
+    execFileSync('git', ['checkout', '-b', 'feature/pr-data'], { cwd: dir, stdio: 'ignore' })
+    writeFileSync(path.join(dir, `${SYNTHETIC_PATTERN}.md`), 'clean line\n')
+    execFileSync('git', ['add', `${SYNTHETIC_PATTERN}.md`], { cwd: dir })
+    execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' })
+    const prHeadSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()
+
+    // Switch back to base tree (main) before running the guard, mirroring pull_request_target.
+    execFileSync('git', ['checkout', 'main'], { cwd: dir, stdio: 'ignore' })
+
+    const result = spawnSync('node', [SCRIPT_PATH], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PILOT_NAME_PATTERNS: SYNTHETIC_PATTERNS_RAW,
+        PR_TITLE: 'Clean PR',
+        PR_BODY: 'Clean body',
+        HEAD_REF: 'feature/pr-data',
+        MERGE_BASE: baseSha,
+        GIT_HEAD_REF: prHeadSha,
+      },
+    })
+
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /diff file path/)
+    assert.equal(result.stderr.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('Workflow security: build.yaml test job is secret-free and pull_request_target workflow runs from base tree', () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+  const buildYaml = readFileSync(path.join(repoRoot, '.github/workflows/build.yaml'), 'utf8')
+  assert.equal(buildYaml.includes('PILOT_NAME_PATTERNS'), false)
+  assert.match(buildYaml, /npm run pilot-name-guard:test/)
+
+  const targetWorkflow = readFileSync(
+    path.join(repoRoot, '.github/workflows/pilot-name-guard.yaml'),
+    'utf8',
+  )
+  assert.match(targetWorkflow, /pull_request_target:/)
+  assert.match(targetWorkflow, /contents:\s*read/)
+  assert.match(targetWorkflow, /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/)
+  assert.match(targetWorkflow, /persist-credentials:\s*false/)
+  assert.match(targetWorkflow, /refs\/pull\/\$\{\{\s*github\.event\.pull_request\.number\s*\}\}\/head/)
+  assert.match(targetWorkflow, /secrets\.PILOT_NAME_PATTERNS/)
+  assert.match(targetWorkflow, /node \.github\/scripts\/pilot-name-guard\.mjs/)
 })
 
 function joinTmpDir() {

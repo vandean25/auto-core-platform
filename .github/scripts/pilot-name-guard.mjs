@@ -58,19 +58,45 @@ function parseHunkHeader(hunkLine) {
 }
 
 /**
- * @param {{ currentFile: string, nextLine: number, remainingAdded: number, hits: string[] }} state
+ * @param {{ currentFile: string, nextLine: number, remainingAdded: number, pathMatched: boolean, recordedPathHit: boolean, hits: string[] }} state
+ */
+function markDiffPathHit(state) {
+  state.pathMatched = true
+  if (!state.recordedPathHit) {
+    state.recordedPathHit = true
+    state.hits.push('diff file path')
+  }
+}
+
+/**
+ * @param {{ currentFile: string, nextLine: number, remainingAdded: number, pathMatched: boolean, recordedPathHit: boolean, hits: string[] }} state
  * @param {string} line
  * @param {string[]} patterns
+ * @returns {boolean} True if the line was handled as a diff header/hunk line.
  */
-function stepDiffLine(state, line, patterns) {
+function stepDiffHeader(state, line, patterns) {
   if (line.startsWith('diff --git ')) {
     state.currentFile = ''
     state.remainingAdded = 0
-    return
+    state.pathMatched = false
+    state.recordedPathHit = false
+    if (matchesAnyPattern(line.slice(11), patterns)) {
+      markDiffPathHit(state)
+    }
+    return true
+  }
+  if (state.remainingAdded === 0 && line.startsWith('rename to ')) {
+    if (matchesAnyPattern(line.slice(10), patterns)) {
+      markDiffPathHit(state)
+    }
+    return true
   }
   if (state.remainingAdded === 0 && line.startsWith('+++ ')) {
     state.currentFile = parseDiffTargetPath(line)
-    return
+    if (state.currentFile && matchesAnyPattern(state.currentFile, patterns)) {
+      markDiffPathHit(state)
+    }
+    return true
   }
   if (line.startsWith('@@ ')) {
     const hunk = parseHunkHeader(line)
@@ -78,20 +104,37 @@ function stepDiffLine(state, line, patterns) {
       state.nextLine = hunk.nextLine
       state.remainingAdded = hunk.remainingAdded
     }
-    return
+    return true
   }
-  if (state.remainingAdded > 0 && line.startsWith('+')) {
-    if (state.currentFile && matchesAnyPattern(line.slice(1), patterns)) {
-      state.hits.push(`${state.currentFile}:${state.nextLine}`)
-    }
-    state.nextLine += 1
-    state.remainingAdded -= 1
-  }
+  return false
 }
 
 /**
- * Scans added lines in a `git diff -U0` output and returns `<file>:<line>` hits.
- * Never returns matched line text.
+ * @param {{ currentFile: string, nextLine: number, remainingAdded: number, pathMatched: boolean, recordedPathHit: boolean, hits: string[] }} state
+ * @param {string} line
+ * @param {string[]} patterns
+ */
+function stepDiffLine(state, line, patterns) {
+  if (stepDiffHeader(state, line, patterns)) {
+    return
+  }
+  if (state.remainingAdded <= 0 || !line.startsWith('+')) {
+    return
+  }
+  if (state.currentFile && matchesAnyPattern(line.slice(1), patterns)) {
+    if (state.pathMatched) {
+      markDiffPathHit(state)
+    } else {
+      state.hits.push(`${state.currentFile}:${state.nextLine}`)
+    }
+  }
+  state.nextLine += 1
+  state.remainingAdded -= 1
+}
+
+/**
+ * Scans added lines and file paths in a `git diff -U0` output.
+ * Never returns matched line text or matched file paths.
  * @param {string} diffText
  * @param {string[]} patterns
  * @returns {string[]}
@@ -100,7 +143,14 @@ export function scanDiffAddedLines(diffText, patterns) {
   if (!diffText) {
     return []
   }
-  const state = { currentFile: '', nextLine: 0, remainingAdded: 0, hits: [] }
+  const state = {
+    currentFile: '',
+    nextLine: 0,
+    remainingAdded: 0,
+    pathMatched: false,
+    recordedPathHit: false,
+    hits: [],
+  }
   for (const line of diffText.split(/\r?\n/)) {
     stepDiffLine(state, line, patterns)
   }
@@ -180,10 +230,11 @@ export function scanPullRequestContent(input) {
 
 /**
  * @param {string} mergeBase
+ * @param {string} gitHeadRef
  * @returns {Array<{ sha: string, message: string }>}
  */
-function readCommits(mergeBase) {
-  const raw = execFileSync('git', ['log', '--format=%H%x00%B%x00', `${mergeBase}..HEAD`], {
+function readCommits(mergeBase, gitHeadRef) {
+  const raw = execFileSync('git', ['log', '--format=%H%x00%B%x00', `${mergeBase}..${gitHeadRef}`], {
     encoding: 'utf8',
     maxBuffer: 10 * 1024 * 1024,
   })
@@ -201,14 +252,15 @@ function readCommits(mergeBase) {
 }
 
 /**
+ * @param {string} gitHeadRef
  * @returns {string}
  */
-function resolveMergeBase() {
+function resolveMergeBase(gitHeadRef) {
   if (process.env.MERGE_BASE) {
     return process.env.MERGE_BASE
   }
   const baseRef = process.env.BASE_REF || 'main'
-  return execFileSync('git', ['merge-base', 'HEAD', `origin/${baseRef}`], {
+  return execFileSync('git', ['merge-base', gitHeadRef, `origin/${baseRef}`], {
     encoding: 'utf8',
   }).trim()
 }
@@ -228,11 +280,12 @@ function runCli() {
     process.exit(1)
   }
 
-  const mergeBase = resolveMergeBase()
-  const commits = readCommits(mergeBase)
+  const gitHeadRef = process.env.GIT_HEAD_REF || 'HEAD'
+  const mergeBase = resolveMergeBase(gitHeadRef)
+  const commits = readCommits(mergeBase, gitHeadRef)
   const diffText = execFileSync(
     'git',
-    ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', mergeBase, 'HEAD'],
+    ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', mergeBase, gitHeadRef],
     { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 },
   )
 
