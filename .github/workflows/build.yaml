@@ -732,3 +732,34 @@ jobs:
           path: fallow-artifacts
           retention-days: 14
           if-no-files-found: warn
+
+  pilot-name-guard:
+    name: Pilot Name Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify pilot name guard script (unit tests)
+        run: npm run pilot-name-guard:test
+
+      - name: Scan PR title, body, branch, commits, and diff
+        env:
+          PILOT_NAME_PATTERNS: ${{ secrets.PILOT_NAME_PATTERNS }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          node .github/scripts/pilot-name-guard.mjs
+
