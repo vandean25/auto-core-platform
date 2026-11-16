@@ -62,7 +62,7 @@ describe('inventory price-operations system fence & retention job (e2e)', () => 
     return createTenantAwarePrisma(prisma, tenantId);
   }
 
-  function operationKeyAt(ms: number, suffix: string) {
+  function operationKeyAt(ms: number, suffix = '0001') {
     return testUuidV7At(ms).replace(/0001$/, suffix.padStart(4, '0'));
   }
 
