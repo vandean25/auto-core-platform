@@ -11,6 +11,7 @@ import { InventoryItemMutationsService } from './inventory-item-mutations.servic
 import { GuardedPriceService } from './guarded-price/guarded-price.service.js';
 import { GuardedPriceDiscoveryService } from './guarded-price/guarded-price-discovery.service.js';
 import { GuardedPriceFenceService } from './guarded-price/guarded-price-fence.service.js';
+import { GuardedPriceOpsJobService } from './guarded-price/guarded-price-ops-job.service.js';
 import { InventoryPriceOperationsController } from './inventory-price-operations.controller.js';
 import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
@@ -28,11 +29,18 @@ import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtim
     GuardedPriceService,
     GuardedPriceDiscoveryService,
     GuardedPriceFenceService,
+    GuardedPriceOpsJobService,
     InventoryPatchBodyPipe,
     LedgerService,
     LocationService,
     AtpService,
   ],
-  exports: [LedgerService, LocationService, AtpService, InventoryService],
+  exports: [
+    LedgerService,
+    LocationService,
+    AtpService,
+    InventoryService,
+    GuardedPriceOpsJobService,
+  ],
 })
 export class InventoryModule {}

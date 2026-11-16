@@ -9,6 +9,7 @@ export const CORE_API_CRON_JOB_NAMES = [
   'import-job-row-purge',
   'import-job-upload-purge',
   'import-job-worker-recovery',
+  'inventory-price-ops-job',
   'landing-demo-access-cleanup',
   'mechanic-shift-close',
   'notification-outbox-recovery',
