@@ -89,6 +89,16 @@ test('WHEN an added diff line contains a pattern (any case) THEN the job fails w
     '@@ -25 +27 @@ export function other() {',
     '-  const removed = "SyntheticPilotTokenAlpha"',
     `+  const alsoBad = 'SyntheticPilotAliasBeta'`,
+    '@@ -40,7 +40,7 @@ export function withContext() {',
+    '   const ctx1 = 1',
+    `   const ctx2 = '${SYNTHETIC_PATTERN}' // pre-existing context line must not match`,
+    '   const ctx3 = 3',
+    '-  const oldLine = 4',
+    `+  const addedInContextHunk = '${SYNTHETIC_PATTERN}'`,
+    '   const ctx4 = 5',
+    '   const ctx5 = 6',
+    '   const ctx6 = 7',
+    '\\ No newline at end of file',
   ].join('\n')
 
   const result = scanPullRequestContent({
@@ -104,9 +114,11 @@ test('WHEN an added diff line contains a pattern (any case) THEN the job fails w
   assert.deepEqual(result.violations, [
     'apps/core-api/src/example.ts:12',
     'apps/core-api/src/example.ts:27',
+    'apps/core-api/src/example.ts:43',
   ])
   assert.match(result.message, /apps\/core-api\/src\/example\.ts:12/)
   assert.match(result.message, /apps\/core-api\/src\/example\.ts:27/)
+  assert.match(result.message, /apps\/core-api\/src\/example\.ts:43/)
   assert.equal(result.message.toLowerCase().includes(SYNTHETIC_PATTERN.toLowerCase()), false)
 })
 

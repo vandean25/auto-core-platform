@@ -115,10 +115,15 @@ function stepDiffHeader(state, line, patterns) {
  * @param {string[]} patterns
  */
 function stepDiffLine(state, line, patterns) {
-  if (stepDiffHeader(state, line, patterns)) {
+  if (stepDiffHeader(state, line, patterns) || state.remainingAdded <= 0) {
     return
   }
-  if (state.remainingAdded <= 0 || !line.startsWith('+')) {
+  if (line.startsWith(' ')) {
+    state.nextLine += 1
+    state.remainingAdded -= 1
+    return
+  }
+  if (!line.startsWith('+')) {
     return
   }
   if (state.currentFile && matchesAnyPattern(line.slice(1), patterns)) {
