@@ -45,7 +45,12 @@ export function hasScreenshotOrNa(body) {
     return false
   }
 
-  const stripped = body.replace(/<!--[\s\S]*?-->/g, '')
+  let stripped = body
+  let prev
+  do {
+    prev = stripped
+    stripped = stripped.replace(/<!--[\s\S]*?-->/g, '')
+  } while (stripped !== prev)
   if (
     MARKDOWN_IMAGE_RE.test(stripped) ||
     HTML_IMAGE_RE.test(stripped) ||
