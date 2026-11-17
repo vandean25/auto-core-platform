@@ -364,4 +364,296 @@ describe('SupplierChunkedApplyRunner', () => {
       IMPORT_SYNC_ROW_TX_MAX_ATTEMPTS,
     );
   }, 30_000);
+
+  it('applies a chunk of N supplier rows with batched reads and writes (query count does not scale per-row for reads/history/creates)', async () => {
+    const updateCount = 15;
+    const createCount = 10;
+    const totalRows = updateCount + createCount;
+    const worker = backgroundWorker('lease-batch');
+    const catalogItemFindMany = jest.fn(async () =>
+      Array.from({ length: updateCount }, (_, idx) => ({
+        id: `item-${idx + 1}`,
+        cost_price: 10,
+        retail_price: 20,
+      })),
+    );
+    const catalogItemCreateManyAndReturn = jest.fn(async () =>
+      Array.from({ length: createCount }, (_, idx) => ({
+        id: `created-${idx + 1}`,
+        sku: `NEW-${idx + 1}`,
+      })),
+    );
+    const catalogItemUpdate = jest.fn(async () => ({}));
+    const vendorArticleFindMany = jest.fn(async () => []);
+    const vendorArticleCreateMany = jest.fn(async () => ({
+      count: totalRows,
+    }));
+    const catalogPriceHistoryCreateMany = jest.fn(async () => ({
+      count: totalRows,
+    }));
+    const importJobRowUpdate = jest.fn(async () => ({}));
+    const importJobUpdate = jest.fn(async () => ({
+      id: 'job-supplier',
+      status: ImportJobStatus.APPLIED,
+    }));
+
+    const rows: ImportApplyRow[] = [
+      ...Array.from({ length: updateCount }, (_, idx) => ({
+        row_no: idx + 1,
+        apply_seq: idx + 1,
+        action: ImportRowAction.UPDATE,
+        entity_id: `item-${idx + 1}`,
+        external_id: `UPD-${idx + 1}`,
+        normalized_json: {
+          supplier_article_no: `UPD-${idx + 1}`,
+          cost_price: 12,
+          retail_price: 24,
+          rrp: 30,
+          old_cost: 10,
+          old_retail: 20,
+        },
+      })),
+      ...Array.from({ length: createCount }, (_, idx) => ({
+        row_no: updateCount + idx + 1,
+        apply_seq: updateCount + idx + 1,
+        action: ImportRowAction.CREATE,
+        entity_id: null,
+        external_id: `NEW-${idx + 1}`,
+        normalized_json: {
+          supplier_article_no: `NEW-${idx + 1}`,
+          description: `Part ${idx + 1}`,
+          cost_price: 15,
+          retail_price: 25,
+          rrp: 30,
+        },
+      })),
+    ];
+
+    let jobStatus: ImportJobStatus = ImportJobStatus.APPLYING;
+    const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(
+          withApplyPersistedTotalsTransactionClient(
+            {
+              catalogItem: {
+                findMany: catalogItemFindMany,
+                createManyAndReturn: catalogItemCreateManyAndReturn,
+                update: catalogItemUpdate,
+              },
+              vendorArticle: {
+                findMany: vendorArticleFindMany,
+                createMany: vendorArticleCreateMany,
+              },
+              catalogPriceHistory: {
+                createMany: catalogPriceHistoryCreateMany,
+              },
+              importJobRow: { update: importJobRowUpdate },
+              importJob: {
+                findFirst: async () => ({
+                  id: 'job-supplier',
+                  tenant_id: 'tenant-1',
+                  status: jobStatus,
+                  options_json: { worker },
+                  totals_json: {
+                    rows: totalRows,
+                    create: createCount,
+                    update: updateCount,
+                    skip: 0,
+                    error: 0,
+                  },
+                }),
+                update: importJobUpdate,
+                updateMany: async (args: { data: Record<string, unknown> }) => {
+                  if (args.data.status === ImportJobStatus.APPLIED) {
+                    jobStatus = ImportJobStatus.APPLIED;
+                  }
+                  return { count: 1 };
+                },
+              },
+            },
+            {
+              tenantId: 'tenant-1',
+              expectedRows: totalRows,
+              persistedRows: rows.map((r) => ({ action: r.action })),
+            },
+          ),
+        ),
+      importJob: {
+        findFirst: async () => ({
+          id: 'job-supplier',
+          status: jobStatus,
+          totals_json: {
+            rows: totalRows,
+            create: createCount,
+            update: updateCount,
+            skip: 0,
+            error: 0,
+          },
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+
+    const runner = makeRunner(prisma);
+    const result = await runner.run(
+      supplierInput(rows, {
+        batchOptions: {
+          stopAfterBatch: true,
+          leaseToken: 'lease-batch',
+        },
+      }),
+      vendor,
+    );
+
+    expect(result.status).toBe(ImportJobStatus.APPLIED);
+    expect(catalogItemFindMany).toHaveBeenCalledTimes(1);
+    expect(vendorArticleFindMany).toHaveBeenCalledTimes(1);
+    expect(catalogItemCreateManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(catalogPriceHistoryCreateMany).toHaveBeenCalledTimes(1);
+    expect(vendorArticleCreateMany).toHaveBeenCalledTimes(1);
+    expect(catalogItemUpdate).toHaveBeenCalledTimes(updateCount);
+    expect(importJobRowUpdate).toHaveBeenCalledTimes(createCount);
+    // Worker cursor committed once for the chunk, not once per row
+    expect(importJobUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to row-by-row when a row fails mid-batch, applying valid neighbours and marking only the failing row ERROR', async () => {
+    const rows: ImportApplyRow[] = [
+      {
+        row_no: 1,
+        action: ImportRowAction.UPDATE,
+        entity_id: 'item-1',
+        external_id: 'UPD-1',
+        normalized_json: {
+          supplier_article_no: 'UPD-1',
+          cost_price: 12,
+          retail_price: 24,
+          old_cost: 10,
+          old_retail: 20,
+        },
+      },
+      {
+        row_no: 2,
+        action: ImportRowAction.UPDATE,
+        entity_id: 'item-stale',
+        external_id: 'UPD-STALE',
+        normalized_json: {
+          supplier_article_no: 'UPD-STALE',
+          cost_price: 12,
+          retail_price: 24,
+          old_cost: 10,
+          old_retail: 20,
+        },
+      },
+      {
+        row_no: 3,
+        action: ImportRowAction.UPDATE,
+        entity_id: 'item-3',
+        external_id: 'UPD-3',
+        normalized_json: {
+          supplier_article_no: 'UPD-3',
+          cost_price: 30,
+          retail_price: 50,
+          old_cost: 20,
+          old_retail: 40,
+        },
+      },
+    ];
+
+    const catalogItems: Record<
+      string,
+      { id: string; cost_price: number; retail_price: number }
+    > = {
+      'item-1': { id: 'item-1', cost_price: 10, retail_price: 20 },
+      'item-3': { id: 'item-3', cost_price: 20, retail_price: 40 },
+    };
+    const importJobRowUpdate = jest.fn(async () => ({}));
+    const catalogItemUpdate = jest.fn(async () => ({}));
+    const vendorArticleUpsert = jest.fn(async () => ({}));
+    const catalogPriceHistoryCreate = jest.fn(async () => ({}));
+    const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(
+          withApplyPersistedTotalsTransactionClient(
+            {
+              catalogItem: {
+                findMany: async () => Object.values(catalogItems),
+                findFirst: async (args: { where: { id: string } }) =>
+                  catalogItems[args.where.id] ?? null,
+                update: catalogItemUpdate,
+              },
+              vendorArticle: {
+                findMany: async () => [],
+                findFirst: async () => null,
+                upsert: vendorArticleUpsert,
+              },
+              catalogPriceHistory: {
+                create: catalogPriceHistoryCreate,
+              },
+              importJob: {
+                findFirst: async () => ({
+                  id: 'job-supplier',
+                  tenant_id: 'tenant-1',
+                  status: ImportJobStatus.APPLYING,
+                  options_json: {},
+                }),
+                update: async (args: { data: Record<string, unknown> }) => ({
+                  id: 'job-supplier',
+                  status: ImportJobStatus.APPLIED,
+                  totals_json: args.data.totals_json,
+                }),
+              },
+            },
+            {
+              tenantId: 'tenant-1',
+              expectedRows: 3,
+              persistedRows: [
+                { action: ImportRowAction.UPDATE },
+                { action: ImportRowAction.ERROR },
+                { action: ImportRowAction.UPDATE },
+              ],
+            },
+          ),
+        ),
+      importJob: {
+        findFirst: async () => ({
+          id: 'job-supplier',
+          status: ImportJobStatus.APPLIED,
+          totals_json: { rows: 3, create: 0, update: 2, skip: 0, error: 1 },
+        }),
+      },
+      importJobRow: { update: importJobRowUpdate },
+      auditLog: { create: jest.fn() },
+    };
+
+    const runner = makeRunner(prisma);
+    const result = await runner.run(supplierInput(rows), vendor);
+
+    expect(result.status).toBe(ImportJobStatus.APPLIED);
+    expect(result.totals).toEqual({
+      rows: 3,
+      create: 0,
+      update: 2,
+      skip: 0,
+      error: 1,
+    });
+    expect(catalogItemUpdate).toHaveBeenCalledTimes(2);
+    expect(importJobRowUpdate).toHaveBeenCalledWith({
+      where: {
+        tenant_id_import_job_id_row_no: {
+          tenant_id: 'tenant-1',
+          import_job_id: 'job-supplier',
+          row_no: 2,
+        },
+      },
+      data: {
+        action: ImportRowAction.ERROR,
+        errors_json: [
+          expect.objectContaining({
+            code: 'IMPORT_ROW_STALE',
+          }),
+        ],
+      },
+    });
+  });
 });

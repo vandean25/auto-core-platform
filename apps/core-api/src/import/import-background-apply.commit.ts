@@ -33,7 +33,7 @@ export async function assertApplyWorkerLease(
   tenantId: string,
   jobId: string,
   leaseToken: string,
-): Promise<void> {
+) {
   const job = await tx.importJob.findFirst({
     where: {
       tenant_id: tenantId,
@@ -45,12 +45,10 @@ export async function assertApplyWorkerLease(
     throw new ImportWorkerLeaseLostError();
   }
   const options = job.options_json as ImportJobOptionsWithWorker;
-  if (!options.worker) {
-    return;
-  }
-  if (options.worker.lease_token !== leaseToken) {
+  if (options.worker && options.worker.lease_token !== leaseToken) {
     throw new ImportWorkerLeaseLostError();
   }
+  return job;
 }
 
 async function resolveBackgroundApplyFinishState(
@@ -75,47 +73,54 @@ async function resolveBackgroundApplyFinishState(
   return { totals, finished: complete };
 }
 
-/** Persists cursor, totals, and optionally APPLIED in the same transaction as the row write. */
-export async function commitBackgroundApplyRowInTransaction(
+function advanceWorkerThroughSpan(
+  worker: NonNullable<ImportJobOptionsWithWorker['worker']>,
+  applySeqs: number[],
+  rowNos: number[],
+) {
+  let applyWatermark = worker.last_committed_apply_seq ?? 0;
+  for (const seq of applySeqs) {
+    applyWatermark = advanceContiguousApplySeqWatermark(applyWatermark, seq);
+  }
+  let workerNext: NonNullable<ImportJobOptionsWithWorker['worker']> = {
+    ...worker,
+    last_committed_apply_seq: applyWatermark,
+    processed_rows: applyWatermark,
+  };
+  for (const rowNo of rowNos) {
+    workerNext = withoutTechnicalRetryRow(workerNext, rowNo);
+  }
+  return { applyWatermark, workerNext };
+}
+
+/** Persists cursor, totals, and optionally APPLIED for one or more rows in the same transaction. */
+export async function commitBackgroundApplySpanInTransaction(
   tx: Prisma.TransactionClient,
   params: {
     tenantId: string;
     jobId: string;
     leaseToken: string;
-    applySeq: number;
+    applySeqs: number[];
     totals: ImportJobTotals;
     maxApplySeq: number;
-    rowNo?: number;
+    rowNos: number[];
   },
 ): Promise<boolean> {
-  await assertApplyWorkerLease(
+  const job = await assertApplyWorkerLease(
     tx,
     params.tenantId,
     params.jobId,
     params.leaseToken,
   );
-  const job = await tx.importJob.findFirst({
-    where: { tenant_id: params.tenantId, id: params.jobId },
-  });
-  if (!job) {
-    throw new ImportWorkerLeaseLostError();
-  }
   const options = job.options_json as ImportJobOptionsWithWorker;
   const worker = options.worker;
   if (!worker) {
     throw new ImportWorkerLeaseLostError();
   }
-  const applyWatermark = advanceContiguousApplySeqWatermark(
-    worker.last_committed_apply_seq ?? 0,
-    params.applySeq,
-  );
-  const workerNext = withoutTechnicalRetryRow(
-    {
-      ...worker,
-      last_committed_apply_seq: applyWatermark,
-      processed_rows: applyWatermark,
-    },
-    params.rowNo,
+  const { applyWatermark, workerNext } = advanceWorkerThroughSpan(
+    worker,
+    params.applySeqs,
+    params.rowNos,
   );
   const storedTotals = (job.totals_json ?? {}) as ImportJobTotals;
   const mergedTotals = mergeMonotonicApplyTotals(storedTotals, params.totals);
@@ -170,4 +175,28 @@ export async function commitBackgroundApplyRowInTransaction(
     },
   });
   return finished;
+}
+
+/** Persists cursor, totals, and optionally APPLIED in the same transaction as the row write. */
+export async function commitBackgroundApplyRowInTransaction(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    jobId: string;
+    leaseToken: string;
+    applySeq: number;
+    totals: ImportJobTotals;
+    maxApplySeq: number;
+    rowNo?: number;
+  },
+): Promise<boolean> {
+  return commitBackgroundApplySpanInTransaction(tx, {
+    tenantId: params.tenantId,
+    jobId: params.jobId,
+    leaseToken: params.leaseToken,
+    applySeqs: [params.applySeq],
+    totals: params.totals,
+    maxApplySeq: params.maxApplySeq,
+    rowNos: params.rowNo !== undefined ? [params.rowNo] : [],
+  });
 }

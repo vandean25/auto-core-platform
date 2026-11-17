@@ -1,24 +1,36 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import { ImportEntityType, ImportJobStatus } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   classifyImportApplyError,
   describeImportApplyCause,
   ImportApplyRetryExhaustedError,
+  resolveImportExternalId,
   type ImportApplyFailureReason,
 } from './import-apply.errors.js';
 import type { ImportAuditWriter } from './import-audit.writer.js';
 import { applySeqForRow } from './import-apply-sequence.js';
+import { commitBackgroundApplySpanInTransaction } from './import-background-apply.commit.js';
 import { persistImportJobApplyingTotals } from './import-job.guarded-persist.util.js';
-import { commitApplyWorkerRowInTransaction } from './import-job.store.worker-lease.js';
+import {
+  commitApplyWorkerChunkInTransaction,
+  commitApplyWorkerRowInTransaction,
+} from './import-job.store.worker-lease.js';
 import { planImportApplyBatch } from './import-apply-batch.plan.js';
 import {
   IMPORT_LOGGER_CONTEXT,
+  IMPORT_ROW_TX_MAX_ATTEMPTS,
   IMPORT_SERIALIZABLE_TX,
 } from './import.constants.js';
 import {
+  delayMs,
   isImportSyncLegacyApplyPath,
+  retryableTransactionDelayMs,
   withImportSyncApplyIoRetry,
 } from './import-transaction-retry.util.js';
 import type {
@@ -53,6 +65,21 @@ import {
 
 function isPastApplyUnitDeadline(deadlineMs: number | undefined): boolean {
   return deadlineMs !== undefined && Date.now() > deadlineMs;
+}
+
+function isNoOpRowAction(action: ImportRowAction): boolean {
+  return action === ImportRowAction.SKIP || action === ImportRowAction.ERROR;
+}
+
+function collectNoOpSpan(
+  rows: ImportApplyRow[],
+  startIndex: number,
+): ImportApplyRow[] {
+  let end = startIndex + 1;
+  while (end < rows.length && isNoOpRowAction(rows[end].action)) {
+    end += 1;
+  }
+  return rows.slice(startIndex, end);
 }
 
 /**
@@ -237,12 +264,28 @@ export class RowByRowApplyRunner {
       },
       async () => {
         const batchStartedAt = Date.now();
+        const prefetchedCommittedCreates = options?.useApplySequence
+          ? undefined
+          : await this.prefetchCommittedCreateExternalIds(
+              input,
+              entityType,
+              batchRows,
+            );
         let appliedInBatch = 0;
         let stoppedEarly = false;
-        for (const row of batchRows) {
+        let index = 0;
+        while (index < batchRows.length) {
           if (isPastApplyUnitDeadline(options?.chunkDeadlineMs)) {
             stoppedEarly = true;
             break;
+          }
+          const row = batchRows[index];
+          if (isNoOpRowAction(row.action)) {
+            const span = collectNoOpSpan(batchRows, index);
+            await this.commitNoOpSpan(input, span, totals, options);
+            appliedInBatch += span.length;
+            index += span.length;
+            continue;
           }
           await this.applyOne(
             input,
@@ -251,8 +294,10 @@ export class RowByRowApplyRunner {
             row,
             totals,
             options,
+            prefetchedCommittedCreates,
           );
           appliedInBatch += 1;
+          index += 1;
         }
         if (options?.stopAfterBatch) {
           this.logger.log(
@@ -267,6 +312,142 @@ export class RowByRowApplyRunner {
         return stoppedEarly;
       },
     );
+  }
+
+  private async prefetchCommittedCreateExternalIds(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    batchRows: ImportApplyRow[],
+  ): Promise<Set<string> | undefined> {
+    const mappingDelegate = this.prisma.externalIdMapping as
+      { findMany?: PrismaService['externalIdMapping']['findMany'] } | undefined;
+    if (typeof mappingDelegate?.findMany !== 'function') {
+      return undefined;
+    }
+    const externalIds = [
+      ...new Set(
+        batchRows
+          .filter((row) => row.action === ImportRowAction.CREATE)
+          .map((row) =>
+            resolveImportExternalId(
+              row.normalized_json as Record<string, unknown>,
+              row.external_id,
+            ),
+          )
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (externalIds.length === 0) {
+      return new Set();
+    }
+    const mappings = await this.prisma.externalIdMapping.findMany({
+      where: {
+        tenant_id: input.tenantId,
+        entity_type: entityType,
+        source_system: input.job.source_system,
+        external_id: { in: externalIds },
+      },
+      select: { external_id: true, first_seen_import_job_id: true },
+    });
+    return new Set(
+      mappings
+        .filter((m) => m.first_seen_import_job_id === input.job.id)
+        .map((m) => m.external_id),
+    );
+  }
+
+  private async commitNoOpSpan(
+    input: ImportApplyInput,
+    span: ImportApplyRow[],
+    totals: ImportJobTotals,
+    options?: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const skipCount = span.filter(
+      (row) => row.action === ImportRowAction.SKIP,
+    ).length;
+    const errorCount = span.length - skipCount;
+    if (options?.useApplySequence) {
+      await this.commitSequenceNoOpSpan(
+        input,
+        span,
+        totals,
+        skipCount,
+        errorCount,
+        options,
+      );
+      return;
+    }
+    totals.skip += skipCount;
+    totals.error += errorCount;
+    const leaseToken = options?.leaseToken;
+    if (!leaseToken) {
+      return;
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await commitApplyWorkerChunkInTransaction(
+        tx,
+        input.tenantId,
+        input.job.id,
+        leaseToken,
+        span.map(applySeqForRow),
+        span.map((row) => row.row_no),
+      );
+    }, IMPORT_SERIALIZABLE_TX);
+  }
+
+  private async commitSequenceNoOpSpan(
+    input: ImportApplyInput,
+    span: ImportApplyRow[],
+    totals: ImportJobTotals,
+    skipCount: number,
+    errorCount: number,
+    options: ImportApplyBatchOptions,
+  ): Promise<void> {
+    const leaseToken = options.leaseToken;
+    const maxApplySeq = options.maxApplySeq;
+    const applySeqs = span.map((row) => row.apply_seq);
+    if (
+      applySeqs.some((seq) => seq == null) ||
+      !leaseToken ||
+      maxApplySeq == null
+    ) {
+      throw new Error('Background apply row is missing apply_seq');
+    }
+    if (maxApplySeq === 0) {
+      throw new Error('Background apply job has no apply_seq assigned');
+    }
+    const nextTotals: ImportJobTotals = {
+      ...totals,
+      skip: totals.skip + skipCount,
+      error: totals.error + errorCount,
+    };
+    const rowNos = span.map((row) => row.row_no);
+    for (let attempt = 0; attempt < IMPORT_ROW_TX_MAX_ATTEMPTS; attempt++) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await commitBackgroundApplySpanInTransaction(tx, {
+            tenantId: input.tenantId,
+            jobId: input.job.id,
+            leaseToken,
+            applySeqs: applySeqs as number[],
+            totals: nextTotals,
+            maxApplySeq,
+            rowNos,
+          });
+        }, IMPORT_SERIALIZABLE_TX);
+        Object.assign(totals, nextTotals);
+        return;
+      } catch (error) {
+        if (
+          classifyImportApplyError(error) === 'retryable' &&
+          attempt < IMPORT_ROW_TX_MAX_ATTEMPTS - 1
+        ) {
+          await delayMs(retryableTransactionDelayMs(attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   private async markJobApplied(
@@ -376,6 +557,7 @@ export class RowByRowApplyRunner {
     row: ImportApplyRow,
     totals: ImportJobTotals,
     options?: ImportApplyBatchOptions,
+    prefetchedCommittedCreates?: Set<string>,
   ): Promise<void> {
     if (options?.useApplySequence) {
       const ctx: SequenceApplyRowContext = {
@@ -394,7 +576,7 @@ export class RowByRowApplyRunner {
       return;
     }
     await applyOneLegacy(
-      this.legacyRowContext(),
+      this.legacyRowContext(prefetchedCommittedCreates),
       input,
       entityType,
       writeRow,
@@ -404,10 +586,13 @@ export class RowByRowApplyRunner {
     );
   }
 
-  private legacyRowContext(): LegacyRowApplyContext {
+  private legacyRowContext(
+    prefetchedCommittedCreates?: Set<string>,
+  ): LegacyRowApplyContext {
     return {
       logger: this.logger,
       prisma: this.prisma,
+      prefetchedCommittedCreates,
       advanceWorkerCursor: (input, row, options) =>
         this.advanceWorkerCursor(input, row, options),
     };

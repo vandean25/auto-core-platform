@@ -478,4 +478,94 @@ describe('RowByRowApplyRunner batches and job state', () => {
     ).rejects.toBeInstanceOf(ImportWorkerLeaseLostError);
     expect(rowUpdate).not.toHaveBeenCalled();
   });
+
+  it('coalesces contiguous SKIP/ERROR rows into a single worker cursor commit instead of N transactions', async () => {
+    const totalRows = 20;
+    const worker = createWorker('lease-coalesce');
+    const txCalls: unknown[] = [];
+    const importJobUpdate = jest.fn(
+      async (args: { data: Record<string, unknown> }) => {
+        if (
+          args.data.options_json &&
+          (args.data.options_json as { worker?: ImportJobWorkerState }).worker
+        ) {
+          Object.assign(
+            worker,
+            (args.data.options_json as { worker: ImportJobWorkerState }).worker,
+          );
+        }
+        return {
+          id: 'job-1',
+          status:
+            (args.data.status as ImportJobStatus) ?? ImportJobStatus.APPLYING,
+          totals_json: args.data.totals_json ?? emptyTotals(totalRows),
+        };
+      },
+    );
+    const prisma = {
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+        txCalls.push(true);
+        return fn(
+          withApplyPersistedTotalsTransactionClient(
+            {
+              importJob: {
+                findFirst: async () => ({
+                  id: 'job-1',
+                  tenant_id: 'tenant-1',
+                  status: ImportJobStatus.APPLYING,
+                  options_json: { worker },
+                  totals_json: emptyTotals(totalRows),
+                }),
+                update: importJobUpdate,
+              },
+            },
+            {
+              tenantId: 'tenant-1',
+              expectedRows: totalRows,
+              persistedRows: Array.from({ length: totalRows }, () => ({
+                action: ImportRowAction.SKIP,
+              })),
+            },
+          ),
+        );
+      },
+      importJob: {
+        findFirst: async () => ({
+          id: 'job-1',
+          tenant_id: 'tenant-1',
+          status: ImportJobStatus.APPLIED,
+          options_json: { worker },
+          totals_json: {
+            rows: totalRows,
+            create: 0,
+            update: 0,
+            skip: totalRows,
+            error: 0,
+          },
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const rows = makeSkipRows(totalRows).map((r) => ({
+      ...r,
+      apply_seq: r.row_no,
+    }));
+    const runner = createRunner(prisma);
+    await runner.run(
+      applyInput(rows, { optionsJson: { worker } }),
+      CUSTOMER,
+      noWrite,
+      {
+        stopAfterBatch: true,
+        useApplySequence: true,
+        leaseToken: 'lease-coalesce',
+        maxApplySeq: totalRows,
+        chunkDeadlineMs: Date.now() + 60_000,
+      },
+    );
+
+    expect(txCalls).toHaveLength(1);
+    expect(importJobUpdate).toHaveBeenCalledTimes(1);
+    expect(worker.last_committed_apply_seq).toBe(totalRows);
+  });
 });

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { ImportJobStatus } from '@prisma/client';
+import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { RequestContextService } from '../common/services/request-context.service.js';
@@ -219,51 +220,59 @@ export class ImportWorkerOrchestration {
         const candidates: ReturnType<
           typeof filterExpiredImportWorkerCandidates
         > = [];
-        for (const { id: tenantId } of tenants) {
-          try {
-            await requestContext.runAsWorker(
-              tenantId,
-              async () => {
-                const stale = await prisma.importJob.findMany({
-                  where: { status: ImportJobStatus.APPLYING },
-                  select: {
-                    id: true,
-                    tenant_id: true,
-                    options_json: true,
-                    worker_handoff_at: true,
-                  },
-                  take: 50,
-                });
-                candidates.push(
-                  ...filterExpiredImportWorkerCandidates(stale, now),
-                );
-              },
-              { workerId: 'import-job-worker-recovery' },
-            );
-          } catch (cause) {
-            logger.warn(
-              `Import worker recovery listing failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown'}`,
-            );
-          }
-        }
-        for (const candidate of candidates.slice(0, 50)) {
-          try {
-            await requestContext.runAsWorker(
-              candidate.tenantId,
-              () =>
-                enqueueImportWorkerRecoveryHandoff(
-                  this.workerFlowForRecovery(),
-                  candidate,
-                ),
-              { workerId: 'import-job-worker-recovery' },
-            );
-          } catch (cause) {
-            logger.error(
-              `Import worker recovery enqueue failed: ${cause instanceof Error ? cause.message : 'unknown'}`,
-            );
-            throw cause;
-          }
-        }
+        await chunkedPromiseAll(
+          tenants,
+          async ({ id: tenantId }) => {
+            try {
+              await requestContext.runAsWorker(
+                tenantId,
+                async () => {
+                  const stale = await prisma.importJob.findMany({
+                    where: { status: ImportJobStatus.APPLYING },
+                    select: {
+                      id: true,
+                      tenant_id: true,
+                      options_json: true,
+                      worker_handoff_at: true,
+                    },
+                    take: 50,
+                  });
+                  candidates.push(
+                    ...filterExpiredImportWorkerCandidates(stale, now),
+                  );
+                },
+                { workerId: 'import-job-worker-recovery' },
+              );
+            } catch (cause) {
+              logger.warn(
+                `Import worker recovery listing failed for one tenant: ${cause instanceof Error ? cause.name : 'unknown'}`,
+              );
+            }
+          },
+          10,
+        );
+        await chunkedPromiseAll(
+          candidates.slice(0, 50),
+          async (candidate) => {
+            try {
+              await requestContext.runAsWorker(
+                candidate.tenantId,
+                () =>
+                  enqueueImportWorkerRecoveryHandoff(
+                    this.workerFlowForRecovery(),
+                    candidate,
+                  ),
+                { workerId: 'import-job-worker-recovery' },
+              );
+            } catch (cause) {
+              logger.error(
+                `Import worker recovery enqueue failed: ${cause instanceof Error ? cause.message : 'unknown'}`,
+              );
+              throw cause;
+            }
+          },
+          10,
+        );
       },
       logger,
     );
@@ -610,8 +619,10 @@ export class ImportWorkerOrchestration {
     }
     const batch = await this.readBackgroundApplyBatch(tenantId, jobId, worker);
     const { resumeAfter, rows, page, hasMoreRowsAfterBatch } = batch;
-    const maxApplySeq = await jobStore.maxApplySeq(tenantId, jobId);
-    const rowCount = await jobStore.countApplyRows(tenantId, jobId);
+    const [maxApplySeq, rowCount] = await Promise.all([
+      jobStore.maxApplySeq(tenantId, jobId),
+      jobStore.countApplyRows(tenantId, jobId),
+    ]);
     if (
       await this.failBackgroundApplyWhenApplySeqMissing(
         tenantId,
