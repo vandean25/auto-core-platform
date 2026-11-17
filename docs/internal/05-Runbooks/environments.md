@@ -13,7 +13,7 @@ pipeline is therefore a release/UAT pipeline and is not called production.
 | Environment | Git ref | Cloud Build trigger | Cloud Run service | Neon branch / database | Firebase Hosting site | Database GSM secret |
 |---|---|---|---|---|---|---|
 | Staging/UAT | `main` | Not enabled until the production cutover; then create a push trigger for `cloudbuild.staging.yaml` | `core-api-staging` | UAT branch / UAT database; the actual Neon names remain in the GSM URL | Hosting preview channel on `auto-core-platform-vande` until a dedicated site is provisioned | `DATABASE_URL_UAT`; current pooled secret is `acp-core-api-database-url-pooled` |
-| Production | `^v.*$` | Existing tag trigger is currently UAT/live; switch it to production only after the operator steps below | `core-api` | Production branch / production database; operator must provision these separately from UAT | `auto-core-platform-vande` | `DATABASE_URL_PROD`; pooled URL `acp-core-api-database-url-pooled-prod` |
+| Production | `^v.*$` | Existing tag trigger is currently UAT/live; switch it to production only after the operator steps below (follow [release.md](./release.md) before tagging) | `core-api` | Production branch / production database; operator must provision these separately from UAT | `auto-core-platform-vande` | `DATABASE_URL_PROD`; pooled URL `acp-core-api-database-url-pooled-prod` |
 
 Neon branch and database names are intentionally not hard-coded in this
 repository: their connection URLs are secret values. The names in the table
