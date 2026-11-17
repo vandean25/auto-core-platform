@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
 import {
   cleanupTestTenantGraph,
   createTestAuthToken,
@@ -63,6 +64,7 @@ describe('Saved Views (AUT-938)', () => {
   }
 
   beforeAll(async () => {
+    stubFirebaseAdminAuthForCustomClaimsE2e();
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get(PrismaService);
     authService = app.get(AuthService);
