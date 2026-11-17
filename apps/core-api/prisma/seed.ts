@@ -14,6 +14,7 @@ import {
   seedDemoSiteAccess,
   seedDemoUsers,
   seedDemoWorkshopAccountingProfile,
+  seedDemoWorkshopDocumentBranding,
   seedVehicleStockAgeDemo,
   seedDemoGewaehrleistungSales,
   seedDemoVehicleTradeInExample,
@@ -38,6 +39,11 @@ async function main() {
     foundation.defaultTenant.id,
     foundation.defaultLegalEntity.id,
     finance.revenueGroups,
+  );
+  await seedDemoWorkshopDocumentBranding(
+    prisma,
+    foundation.defaultTenant.id,
+    foundation.defaultLegalEntity.id,
   );
   const brands = await seedBrands(prisma, foundation.defaultTenant.id);
   const inventory = await seedInventory(prisma, foundation, finance, brands.allBrands);

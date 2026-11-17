@@ -184,7 +184,29 @@ async function verify() {
     }
     console.log('AUT-408 Gewährleistung demo sales verified: 2-year B2C, negotiated 1-year B2C, B2B');
 
+    await verifyDefaultWorkshopBranding();
+
     console.log('--- Verification Finished ---');
+}
+
+async function verifyDefaultWorkshopBranding() {
+    const brandProfile = await prisma.documentBrandProfile.findFirst({
+        where: {
+            tenant: { is: { slug: 'default-workshop' } },
+        },
+        include: { activeLogoAsset: true },
+    });
+    const isConfirmed = Boolean(
+        brandProfile &&
+        brandProfile.active_revision >= 1 &&
+        brandProfile.confirmed_at &&
+        brandProfile.active_logo_asset_id &&
+        brandProfile.activeLogoAsset?.state === 'READY',
+    );
+    if (!isConfirmed) {
+        throw new Error('Default Workshop document branding profile is not confirmed with a READY logo asset');
+    }
+    console.log('Document branding profile verified: confirmed with READY demo logo');
 }
 
 verify()
