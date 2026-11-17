@@ -18,6 +18,8 @@ import {
 } from './vehicle-duplicate-check.js';
 import { partyWriteContext, setOwnerInTx } from './vehicle-party.writer.js';
 import { normalizePlate, withPlateNormalized } from './vehicle-plate.util.js';
+import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
+import { hasVehicleIdentityChanged } from './vehicle-write.mapper.js';
 import {
   assertVehicleRegulatoryFields,
   normalizeVehicleRegulatoryFields,
@@ -517,7 +519,9 @@ export async function applyVehicleUpdateProposal(
   await persistVehicleUpdate(
     context,
     vehicle.id,
-    buildScalarUpdateData(changes),
+    changes,
+    proposal.before_digest,
+    buildScalarUpdateData(changes, vehicle),
     nextOwnerId,
   );
 
@@ -571,18 +575,73 @@ async function resolveUpdateOwnerId(
   return undefined;
 }
 
+function buildPriorValuesFilter(
+  vehicle: Vehicle,
+  changes: VehicleProposalFields,
+): Record<string, unknown> {
+  const filter: Record<string, unknown> = {};
+  for (const [sourceKey, targetKey] of SCALAR_FIELD_MAP) {
+    if (changes[sourceKey] !== undefined) {
+      filter[targetKey] =
+        (vehicle as Record<string, unknown>)[targetKey] ?? null;
+    }
+  }
+  if (changes.first_registration_date !== undefined) {
+    filter.first_registration_date = vehicle.first_registration_date ?? null;
+  }
+  if (changes.owner_customer_id !== undefined) {
+    filter.customer_id = vehicle.customer_id ?? null;
+  }
+  return filter;
+}
+
+function throwStaleProposalConflict(): never {
+  throw new ConflictException({
+    code: VEHICLE_STALE_PROPOSAL_CODE,
+    message: `${VEHICLE_STALE_PROPOSAL_CODE}: the vehicle data changed since this proposal was created. Reload the vehicle and propose the change again.`,
+  });
+}
+
 async function persistVehicleUpdate(
   context: ProposalContext,
   vehicleId: string,
+  changes: VehicleProposalFields,
+  beforeDigest: string,
   updateData: Record<string, unknown>,
   nextOwnerId: string | null | undefined,
 ): Promise<void> {
   await context.prisma.$transaction(async (tx) => {
+    const txVehicle = await tx.vehicle.findFirst({
+      where: { id: vehicleId, tenant_id: context.tenantId },
+    });
+    if (!txVehicle) {
+      throw new NotFoundException(`Vehicle with ID ${vehicleId} not found`);
+    }
+    if (
+      digestOfVehicleFields(pickBeforeSubset(txVehicle, changes)) !==
+      beforeDigest
+    ) {
+      throwStaleProposalConflict();
+    }
     if (Object.keys(updateData).length > 0) {
-      await tx.vehicle.updateMany({
-        where: { id: vehicleId, tenant_id: context.tenantId },
+      const result = await tx.vehicle.updateMany({
+        where: {
+          id: vehicleId,
+          tenant_id: context.tenantId,
+          ...buildPriorValuesFilter(txVehicle, changes),
+        },
         data: withPlateNormalized(updateData),
       });
+      if (result.count === 0) {
+        const stillExists = await tx.vehicle.findFirst({
+          where: { id: vehicleId, tenant_id: context.tenantId },
+          select: { id: true },
+        });
+        if (!stillExists) {
+          throw new NotFoundException(`Vehicle with ID ${vehicleId} not found`);
+        }
+        throwStaleProposalConflict();
+      }
     }
     if (nextOwnerId !== undefined) {
       await setOwnerInTx(
@@ -620,7 +679,10 @@ const SCALAR_FIELD_MAP: ReadonlyArray<
   ['national_code', 'national_code'],
 ];
 
-function buildScalarUpdateData(changes: VehicleProposalFields) {
+function buildScalarUpdateData(
+  changes: VehicleProposalFields,
+  existingVehicle: Pick<Vehicle, 'vin' | 'plate'>,
+) {
   const data: Record<string, unknown> = {};
   for (const [sourceKey, targetKey] of SCALAR_FIELD_MAP) {
     if (changes[sourceKey] !== undefined) {
@@ -631,6 +693,11 @@ function buildScalarUpdateData(changes: VehicleProposalFields) {
     data.first_registration_date = parseIsoDateOrNull(
       changes.first_registration_date,
     );
+  }
+  if (hasVehicleIdentityChanged(existingVehicle, changes)) {
+    Object.assign(data, VEHICLE_IDENTITY_RESET, {
+      identity_resolution_token: null,
+    });
   }
   return data;
 }

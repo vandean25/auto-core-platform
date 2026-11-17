@@ -14,6 +14,7 @@ import {
   proposeVehicleCreateInputSchema,
   proposeVehicleUpdateInputSchema,
 } from './vehicle-propose.schema.js';
+import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const CUSTOMER_ID = '00000000-0000-4000-8000-000000000010';
@@ -527,6 +528,141 @@ describe('vehicle-propose (AUT-614)', () => {
           },
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('clears brand and identity columns when VIN or plate changes', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: CUSTOMER_ID,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { plate: 'W-99999B' },
+          reason: 'Plate reassigned',
+          idempotency_key: 'k-plate-reset',
+        },
+      );
+
+      await applyVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        payload,
+      );
+
+      expect(prisma.vehicle.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: VEHICLE_ID,
+            tenant_id: TENANT_ID,
+            plate: 'W12345A',
+          }),
+          data: expect.objectContaining({
+            plate: 'W99999B',
+            plate_normalized: 'W99999B',
+            ...VEHICLE_IDENTITY_RESET,
+            identity_resolution_token: null,
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when updateMany matches 0 rows because vehicle was deleted', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: CUSTOMER_ID,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst
+        .mockResolvedValueOnce(original) // enrichVehicleUpdateProposal
+        .mockResolvedValueOnce(original) // applyVehicleUpdateProposal pre-check
+        .mockResolvedValueOnce(original) // persistVehicleUpdate tx re-read
+        .mockResolvedValueOnce(null); // stillExists check after count === 0
+      prisma.vehicle.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { mileage_km: 55000 },
+          reason: 'Service check-in',
+          idempotency_key: 'k-deleted-mid-tx',
+        },
+      );
+
+      await expect(
+        applyVehicleUpdateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          payload,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException when updateMany matches 0 rows due to concurrent edit', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: CUSTOMER_ID,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst
+        .mockResolvedValueOnce(original) // enrichVehicleUpdateProposal
+        .mockResolvedValueOnce(original) // applyVehicleUpdateProposal pre-check
+        .mockResolvedValueOnce(original) // persistVehicleUpdate tx re-read
+        .mockResolvedValueOnce({ id: VEHICLE_ID }); // stillExists check after count === 0
+      prisma.vehicle.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { mileage_km: 55000 },
+          reason: 'Service check-in',
+          idempotency_key: 'k-concurrent-edit',
+        },
+      );
+
+      await expect(
+        applyVehicleUpdateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          payload,
+        ),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });
