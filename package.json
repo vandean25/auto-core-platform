@@ -29,6 +29,7 @@
     "gate-override:verify:test": "node --test .github/scripts/verify-gate-override.test.mjs",
     "pilot-name-guard:test": "node --test .github/scripts/pilot-name-guard.test.mjs",
     "risk-from-paths:test": "node --test .github/scripts/risk-from-paths.test.mjs",
+    "ui-screenshots-check:test": "node --test .github/scripts/ui-screenshots-check.test.mjs",
     "interaction-baselines:check": "node tools/check-interaction-baselines.mjs --base origin/main",
     "interaction-baselines:check:test": "node --test tools/interaction-baselines.test.mjs",
     "allowlist-growth:check": "node tools/check-allowlist-growth.mjs --base origin/main",

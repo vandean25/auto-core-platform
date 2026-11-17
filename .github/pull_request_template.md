@@ -1,6 +1,9 @@
 ## Summary
 <!-- What changed and why? -->
 
+## Screenshots
+<!-- Required when apps/core-web/src/**/*.tsx changes (excluding tests): before/after at desktop and 390 px, or `Screenshots: n/a – <reason>`. -->
+
 ## Risk
 <!-- Required on every PR. Must be >= the path-derived minimum (CI checks touched files vs G2 critical paths). -->
 Risk: low

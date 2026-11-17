@@ -223,7 +223,7 @@ Adapted from Anthropic's `frontend-design` skill (Apache-2.0), toned down for a 
 
 Paste this into the PR body and tick every line.
 
-- [ ] **Screenshots:** before and after for every changed screen, at desktop width and at 390 px, in the PR body. Docs-only PRs write `Screenshots: n/a (docs-only, no UI change)`.
+- [ ] **Screenshots:** take the **before** shots before the first UI commit; include before and after for every changed screen, at desktop width and at 390 px, in the PR body. Non-UI PRs (or UI PRs without visual changes) write `Screenshots: n/a – <reason>`.
 - [ ] **States:** loading, empty, error and loaded each checked in the browser.
 - [ ] **Rules grep:** no new `slate-`, `gray-` or `amber-` classes, no `text-[Npx]`, no raw `<table>`, no `@radix-ui/react-icons` import, no `toLocaleString` or `Intl` outside `src/lib/format/`.
 - [ ] **Keyboard:** a keyboard-only pass over the change, with a visible focus ring on every control.

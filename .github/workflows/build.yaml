@@ -117,6 +117,18 @@ jobs:
           git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
           node .github/scripts/risk-from-paths.mjs
 
+      - name: Verify UI screenshot check script (unit tests)
+        run: npm run ui-screenshots-check:test
+
+      - name: Verify UI PRs include screenshots
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          node .github/scripts/ui-screenshots-check.mjs
+
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
