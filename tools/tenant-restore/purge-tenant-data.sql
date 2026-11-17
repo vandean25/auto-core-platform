@@ -48,6 +48,8 @@ VALUES
   ('push_devices'),
   ('push_preferences'),
   ('revenue_groups'),
+  ('saved_view_imports'),
+  ('saved_views'),
   ('tenant_api_keys'),
   ('tenant_members'),
   ('tyre_storage_settings'),
@@ -488,6 +490,10 @@ VALUES
   ('sales_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('sales_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sales_orders', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
+  ('saved_view_imports', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
+  ('saved_view_imports', 'users', 'user_id', 'id', 'CASCADE', 'CASCADE'),
+  ('saved_views', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
+  ('saved_views', 'users', 'owner_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('site_memberships', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('site_memberships', 'tenant_members', 'tenant_id,user_id', 'tenant_id,user_id', 'CASCADE', 'CASCADE'),
   ('site_memberships', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1130,6 +1136,10 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_members"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_api_keys"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."saved_views"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."saved_view_imports"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

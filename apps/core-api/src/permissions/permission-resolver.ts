@@ -49,6 +49,9 @@ for (const entry of [
   }
 }
 
+PERMISSIONS_BY_ROLE.OWNER.add('views.shared.manage');
+PERMISSIONS_BY_ROLE.ADMIN.add('views.shared.manage');
+
 export function legacyAccess(role: LegacyRole | null): EffectiveAccess {
   return {
     role,

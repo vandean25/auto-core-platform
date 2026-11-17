@@ -1691,6 +1691,22 @@
       "public": true,
       "params": []
     },
+    "SAVED_VIEW_CHANGED": {
+      "public": true,
+      "params": []
+    },
+    "SAVED_VIEW_DUPLICATE": {
+      "public": true,
+      "params": []
+    },
+    "SAVED_VIEW_INVALID": {
+      "public": true,
+      "params": []
+    },
+    "SAVED_VIEW_LIMIT": {
+      "public": true,
+      "params": []
+    },
     "SEAT_HEATING": {
       "public": false,
       "params": []

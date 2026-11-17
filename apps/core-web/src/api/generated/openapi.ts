@@ -4784,7 +4784,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["TenantMemberController_remove"];
         options?: never;
         head?: never;
         patch: operations["TenantMemberController_update"];
@@ -5476,6 +5476,54 @@ export interface paths {
         get: operations["SearchController_search"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/saved-views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SavedViewsController_list"];
+        put?: never;
+        post: operations["SavedViewsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/saved-views/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["SavedViewsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["SavedViewsController_update"];
+        trace?: never;
+    };
+    "/api/saved-views/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["SavedViewsController_copy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12520,6 +12568,47 @@ export interface components {
         };
         SearchResponseDto: {
             groups: components["schemas"]["SearchGroupDto"][];
+        };
+        /** @enum {string} */
+        SavedViewVisibility: "PERSONAL" | "TENANT";
+        SavedViewDto: {
+            id: string;
+            listPath: string;
+            name: string;
+            href: string;
+            visibility: components["schemas"]["SavedViewVisibility"];
+            ownerUserId: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SavedViewsListResponseDto: {
+            data: components["schemas"]["SavedViewDto"][];
+        };
+        CreateSavedViewDto: {
+            /** @example /sales/invoices */
+            listPath: string;
+            /** @example Offene Rechnungen */
+            name: string;
+            /** @example /sales/invoices?filter_status=ISSUED */
+            href: string;
+            /** @default PERSONAL */
+            visibility: components["schemas"]["SavedViewVisibility"];
+        };
+        UpdateSavedViewDto: {
+            /** @example Offene Rechnungen (AT) */
+            name?: string;
+            /** @example /sales/invoices?filter_status=OVERDUE */
+            href?: string;
+            visibility?: components["schemas"]["SavedViewVisibility"];
+            /** @example 1 */
+            version: number;
+        };
+        CopySavedViewDto: {
+            /** @example Kopie: Offene Rechnungen */
+            name?: string;
         };
         WorkshopCommandPositionLineDto: {
             preset_key?: string;
@@ -22581,6 +22670,25 @@ export interface operations {
             };
         };
     };
+    TenantMemberController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     TenantMemberController_update: {
         parameters: {
             query?: never;
@@ -23948,6 +24056,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponseDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_list: {
+        parameters: {
+            query?: {
+                /** @description Optional list path filter (e.g. /sales/invoices). Omit to return all permitted views. */
+                listPath?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewsListResponseDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSavedViewDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_remove: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SavedViewsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSavedViewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopySavedViewDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewDto"];
                 };
             };
         };

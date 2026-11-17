@@ -208,6 +208,8 @@ model Tenant {
   pushPreferences                  PushPreference[]
   vehicleParties                   VehicleParty[]
   vehicleNotices                   VehicleNotice[]
+  savedViews                       SavedView[]
+  savedViewImports                 SavedViewImport[]
 
   @@map("tenants")
 }
@@ -334,6 +336,8 @@ model User {
   tyreMeasurements                  TyreMeasurement[]
   pushDevices                       PushDevice[]
   pushPreferences                   PushPreference[]
+  savedViews                        SavedView[]
+  savedViewImports                  SavedViewImport[]
   createdAt                         DateTime                     @default(now())
   updatedAt                         DateTime                     @updatedAt
 
@@ -5762,4 +5766,43 @@ model PushPreference {
   @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@map("push_preferences")
+}
+
+enum SavedViewVisibility {
+  PERSONAL
+  TENANT
+}
+
+/// Server-backed saved list views (AUT-938): tenant-scoped PERSONAL or TENANT views with optimistic version.
+model SavedView {
+  id            String              @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  owner_user_id String?
+  owner         User?               @relation(fields: [owner_user_id], references: [id], onDelete: SetNull)
+  list_path     String              @db.VarChar(128)
+  name          String              @db.VarChar(60)
+  href          String              @db.VarChar(2000)
+  visibility    SavedViewVisibility
+  version       Int                 @default(1)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([tenant_id, owner_user_id])
+  @@index([tenant_id, visibility])
+  @@index([tenant_id, list_path])
+  @@map("saved_views")
+}
+
+/// One-time localStorage import marker per (tenant, user) (AUT-938 / AUT-942).
+model SavedViewImport {
+  tenant_id   String
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  imported_at DateTime @default(now())
+
+  @@id([tenant_id, user_id])
+  @@index([user_id])
+  @@map("saved_view_imports")
 }

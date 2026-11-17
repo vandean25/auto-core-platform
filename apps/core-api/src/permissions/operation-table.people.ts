@@ -89,4 +89,5 @@ export const PEOPLE_OPERATIONS: OperationTable = {
   'TenantMemberController.findAll': op('member.read', ADMINS, 'tenant'),
   'TenantMemberController.invite': op('member.invite', ADMINS, 'tenant'),
   'TenantMemberController.update': op('member.update', ADMINS, 'tenant'),
+  'TenantMemberController.remove': op('member.update', ADMINS, 'tenant'),
 };

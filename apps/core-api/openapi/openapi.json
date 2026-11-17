@@ -15470,6 +15470,27 @@
         "tags": [
           "tenant-members"
         ]
+      },
+      "delete": {
+        "operationId": "TenantMemberController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "tenant-members"
+        ]
       }
     },
     "/api/tenants/current/locale": {
@@ -17628,6 +17649,177 @@
         },
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/api/saved-views": {
+      "get": {
+        "operationId": "SavedViewsController_list",
+        "parameters": [
+          {
+            "name": "listPath",
+            "required": false,
+            "in": "query",
+            "description": "Optional list path filter (e.g. /sales/invoices). Omit to return all permitted views.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewsListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      },
+      "post": {
+        "operationId": "SavedViewsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSavedViewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      }
+    },
+    "/api/saved-views/{id}": {
+      "patch": {
+        "operationId": "SavedViewsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSavedViewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      },
+      "delete": {
+        "operationId": "SavedViewsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      }
+    },
+    "/api/saved-views/{id}/copy": {
+      "post": {
+        "operationId": "SavedViewsController_copy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopySavedViewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
         ]
       }
     },
@@ -41679,6 +41871,144 @@
         "required": [
           "groups"
         ]
+      },
+      "SavedViewVisibility": {
+        "type": "string",
+        "enum": [
+          "PERSONAL",
+          "TENANT"
+        ]
+      },
+      "SavedViewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "listPath": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SavedViewVisibility"
+              }
+            ]
+          },
+          "ownerUserId": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "listPath",
+          "name",
+          "href",
+          "visibility",
+          "ownerUserId",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "SavedViewsListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedViewDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateSavedViewDto": {
+        "type": "object",
+        "properties": {
+          "listPath": {
+            "type": "string",
+            "example": "/sales/invoices"
+          },
+          "name": {
+            "type": "string",
+            "example": "Offene Rechnungen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/sales/invoices?filter_status=ISSUED"
+          },
+          "visibility": {
+            "default": "PERSONAL",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SavedViewVisibility"
+              }
+            ]
+          }
+        },
+        "required": [
+          "listPath",
+          "name",
+          "href"
+        ]
+      },
+      "UpdateSavedViewDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Offene Rechnungen (AT)"
+          },
+          "href": {
+            "type": "string",
+            "example": "/sales/invoices?filter_status=OVERDUE"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SavedViewVisibility"
+              }
+            ]
+          },
+          "version": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "CopySavedViewDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Kopie: Offene Rechnungen"
+          }
+        }
       },
       "WorkshopCommandPositionLineDto": {
         "type": "object",

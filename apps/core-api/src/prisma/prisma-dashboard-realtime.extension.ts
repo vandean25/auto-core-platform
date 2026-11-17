@@ -41,6 +41,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   CREDIT_NOTE: true,
   PAYMENT: true,
   FISCAL_RECEIPT: true,
+  SAVED_VIEW: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {
@@ -80,12 +81,24 @@ export function emitRealtimeForOperation(
   }
 
   const entityId = extractEntityId(result);
+  if (type === 'SAVED_VIEW' && !entityId) {
+    // updateMany/deleteMany return { count }; SavedViewsService emits the slim event with id + listPath.
+    return;
+  }
   const enriched = enrichRealtimePayload(type, result, {
     type,
     action,
     entityId,
   });
   dashboardRealtime.emitEntityUpdated(tenantId, enriched);
+}
+
+function readStringField(obj: unknown, key: string): string | undefined {
+  if (!obj || typeof obj !== 'object') {
+    return undefined;
+  }
+  const value = (obj as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 function enrichRealtimePayload(
@@ -100,26 +113,22 @@ function enrichRealtimePayload(
   if (!result || typeof result !== 'object') {
     return base;
   }
-  const row = result as Record<string, unknown>;
+  if (type === 'SAVED_VIEW') {
+    return { ...base, listPath: readStringField(result, 'list_path') };
+  }
   if (type === 'PAYMENT') {
     return {
       ...base,
-      siteId: typeof row.site_id === 'string' ? row.site_id : undefined,
-      status: typeof row.status === 'string' ? row.status : undefined,
+      siteId: readStringField(result, 'site_id'),
+      status: readStringField(result, 'status'),
     };
   }
   if (type === 'FISCAL_RECEIPT') {
-    const payment = row.payment;
-    const siteId =
-      payment &&
-      typeof payment === 'object' &&
-      typeof (payment as { site_id?: unknown }).site_id === 'string'
-        ? (payment as { site_id: string }).site_id
-        : undefined;
+    const payment = (result as Record<string, unknown>).payment;
     return {
       ...base,
-      siteId,
-      status: typeof row.state === 'string' ? row.state : undefined,
+      siteId: readStringField(payment, 'site_id'),
+      status: readStringField(result, 'state'),
     };
   }
   return base;

@@ -2,12 +2,39 @@ import {
   ADMINS,
   BACK_OFFICE,
   BACK_OFFICE_DEMO,
+  BACK_OFFICE_TECH,
   EVERY_ROLE,
+  classified,
   op,
 } from './operation-helpers.js';
 import type { OperationTable } from './operation-types.js';
 
 export const ADMIN_OPERATIONS: OperationTable = {
+  'SavedViewsController.list': classified(
+    'session',
+    'List personal and permitted tenant saved views.',
+    EVERY_ROLE,
+  ),
+  'SavedViewsController.create': classified(
+    'session',
+    'Create a personal or shared saved view (service checks list read permission and views.shared.manage).',
+    BACK_OFFICE_TECH,
+  ),
+  'SavedViewsController.update': classified(
+    'session',
+    'Update a personal or shared saved view (service checks ownership and views.shared.manage).',
+    BACK_OFFICE_TECH,
+  ),
+  'SavedViewsController.remove': classified(
+    'session',
+    'Delete a personal or shared saved view (service checks ownership and views.shared.manage).',
+    BACK_OFFICE_TECH,
+  ),
+  'SavedViewsController.copy': classified(
+    'session',
+    'Copy a permitted saved view into own personal views.',
+    BACK_OFFICE_TECH,
+  ),
   'SiteController.listSites': op('site.read', BACK_OFFICE_DEMO, 'tenant'),
   'SiteController.getSite': op('site.read', BACK_OFFICE_DEMO, 'tenant', [
     'site_membership',

@@ -1,13 +1,20 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   InviteTenantMemberDto,
   ListTenantMembersQueryDto,
@@ -38,5 +45,12 @@ export class TenantMemberController {
   @ApiOkResponse({ type: TenantMemberResponseDto })
   update(@Param('id') id: string, @Body() dto: UpdateTenantMemberDto) {
     return this.tenantMemberService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  remove(@Param('id') id: string) {
+    return this.tenantMemberService.remove(id);
   }
 }
