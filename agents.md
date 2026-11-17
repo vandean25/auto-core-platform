@@ -264,6 +264,17 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 - This is faster, more reliable, and avoids UI-related issues or authentication problems
 - **Claude Code cloud sessions:** GitHub access there allows REST only, not GraphQL, so `gh pr create`, `gh pr view` and other GraphQL-based `gh` commands fail. Use `gh api` with REST routes instead, e.g. `gh api repos/vandean25/auto-core-platform/pulls/<n>` (read) and `gh api -X POST repos/vandean25/auto-core-platform/pulls -f title=... -f head=<branch> -f base=main -f body=...` (create).
 
+### PR body (checked by CI)
+- `gh pr create --body` / `gh api ... -f body=...` do **not** apply `.github/pull_request_template.md`. Write the body from the template yourself and keep every section (Summary, Screenshots, Risk, Issue, Tests).
+- `Risk: low|medium|high|critical` is required on every PR and must be at least the path-derived minimum (G5, `.github/scripts/risk-from-paths.mjs`). The template default `Risk: low` fails when critical paths are touched.
+- UI PRs (`apps/core-web/src/**/*.tsx`, excluding tests) need screenshots or `Screenshots: n/a – <reason>`.
+- Check before opening the PR:
+  ```bash
+  BASE_REF=main PR_BODY="$(cat pr-body.md)" node .github/scripts/risk-from-paths.mjs
+  BASE_REF=main PR_BODY="$(cat pr-body.md)" node .github/scripts/ui-screenshots-check.mjs
+  ```
+- If CI reports a missing or too low Risk line or missing screenshots, fix the body (`gh pr edit <n> --body-file pr-body.md`) and push a new commit (an empty one is fine) so CI reruns.
+
 ### PR Lifecycle & CI Verification
 - When opening a pull request for a Linear issue, create it initially as a **Draft PR** (`gh pr create --draft ...`).
 - UI ticket acceptance criterion: **Every new record action is a registry action and reachable via Cmd+K.**
