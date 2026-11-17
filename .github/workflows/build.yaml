@@ -729,7 +729,7 @@ jobs:
         uses: fallow-rs/fallow@65ff0b9feec74cacd8c3bbbfc13731394bb8ef25 # v3.43.0
         with:
           command: audit
-          version: 3.41.0
+          version: 3.43.0
           gate: new-only
           # SARIF lands in the fallow-audit artifact. Code-scanning upload is off: audit SARIF has
           # several runs per category, which the CodeQL upload action rejects.
