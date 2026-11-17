@@ -1,6 +1,21 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { InternalServerErrorException, Injectable } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
+
+export const BUNDLED_DEMO_BRANDING_BUCKET = 'bundled-demo-branding';
+export const BUNDLED_DEMO_LOGO_OBJECT_KEY = 'demo-workshop-logo.png';
+export const BUNDLED_DEMO_LOGO_GENERATION = '1';
+
+export function bundledDemoLogoPath(): string {
+  return resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    'assets',
+    BUNDLED_DEMO_LOGO_OBJECT_KEY,
+  );
+}
 
 @Injectable()
 export class DocumentBrandingAssetStorage {
@@ -42,6 +57,13 @@ export class DocumentBrandingAssetStorage {
     objectKey: string,
     generation: string,
   ) {
+    if (
+      bucketName === BUNDLED_DEMO_BRANDING_BUCKET &&
+      objectKey === BUNDLED_DEMO_LOGO_OBJECT_KEY &&
+      generation === BUNDLED_DEMO_LOGO_GENERATION
+    ) {
+      return readFile(bundledDemoLogoPath());
+    }
     const [bytes] = await this.storage
       .bucket(bucketName)
       .file(objectKey, { generation })
@@ -54,6 +76,9 @@ export class DocumentBrandingAssetStorage {
     objectKey: string,
     generation: string,
   ) {
+    if (bucketName === BUNDLED_DEMO_BRANDING_BUCKET) {
+      return;
+    }
     await this.storage
       .bucket(bucketName)
       .file(objectKey, { generation })
