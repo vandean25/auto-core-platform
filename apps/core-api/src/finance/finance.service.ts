@@ -20,6 +20,7 @@ import {
   DEFAULT_NEXT_INVOICE_NUMBER,
   resolveSiteTimeZone,
 } from '../sales/helpers/invoice-number.helpers.js';
+import { lockFinanceSettings } from './fiscal-lock.helpers.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
@@ -54,6 +55,49 @@ export type GetRevenueReportParams = {
   scope?: 'site' | 'tenant';
   enforce_report_role?: boolean;
 };
+
+async function advanceInvoiceSequence(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  sequenceYear: number,
+  nextInvoiceNumber: number,
+): Promise<void> {
+  const existing = await tx.invoiceSequence.findFirst({
+    where: { tenant_id: tenantId, year: sequenceYear },
+    select: { current: true },
+  });
+
+  if (!existing) {
+    await tx.invoiceSequence.create({
+      data: {
+        tenant_id: tenantId,
+        year: sequenceYear,
+        current: nextInvoiceNumber - 1,
+      },
+    });
+    return;
+  }
+
+  if (nextInvoiceNumber <= existing.current) {
+    throw new ConflictException(
+      `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number (${existing.current}) for ${sequenceYear}.`,
+    );
+  }
+
+  const updated = await tx.invoiceSequence.updateMany({
+    where: {
+      tenant_id: tenantId,
+      year: sequenceYear,
+      current: { lt: nextInvoiceNumber },
+    },
+    data: { current: nextInvoiceNumber - 1 },
+  });
+  if (updated.count === 0) {
+    throw new ConflictException(
+      `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number for ${sequenceYear}.`,
+    );
+  }
+}
 
 @Injectable()
 export class FinanceService {
@@ -107,27 +151,33 @@ export class FinanceService {
     const nextInvoiceNumber = data.next_invoice_number;
     const activeSite = (await this.siteContext.tryGetSite?.()) ?? null;
     return this.prisma.$transaction(async (tx) => {
+      await lockFinanceSettings(tx, tenantId);
+
+      const currentSettings = await tx.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: { invoice_prefix: true },
+      });
+      const effectivePrefix =
+        data.invoice_prefix ??
+        currentSettings?.invoice_prefix ??
+        DEFAULT_INVOICE_PREFIX;
+
       const timeZone = await resolveSiteTimeZone(
         tx,
         tenantId,
         activeSite?.id ?? null,
       );
-      const year = calendarYearInTimeZone(new Date(), timeZone);
-      const existingSeq = await tx.invoiceSequence.findFirst({
-        where: { tenant_id: tenantId, year },
-        select: { current: true },
-      });
-      const highestIssued = existingSeq?.current ?? 0;
-      if (nextInvoiceNumber <= highestIssued) {
-        throw new ConflictException(
-          `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number (${highestIssued}) for ${year}.`,
-        );
-      }
-      await tx.invoiceSequence.upsert({
-        where: { tenant_id_year: { tenant_id: tenantId, year } },
-        update: { current: nextInvoiceNumber - 1 },
-        create: { tenant_id: tenantId, year, current: nextInvoiceNumber - 1 },
-      });
+      const sequenceYear = effectivePrefix.includes('{YYYY}')
+        ? calendarYearInTimeZone(new Date(), timeZone)
+        : 0;
+
+      await advanceInvoiceSequence(
+        tx,
+        tenantId,
+        sequenceYear,
+        nextInvoiceNumber,
+      );
+
       return tx.financeSettings.update({
         where: { tenant_id: tenantId },
         data: updateData,

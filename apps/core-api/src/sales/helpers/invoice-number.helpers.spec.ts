@@ -104,7 +104,7 @@ describe('generateInvoiceNumber', () => {
     'formats prefix "$prefix" with sequence $current as "$expected"',
     async ({ prefix, current, expected }) => {
       jest.useFakeTimers({ now: new Date('2026-06-15T12:00:00.000Z') });
-      const { tx } = createMockTx({
+      const { tx, invoiceSequenceUpsert } = createMockTx({
         invoicePrefix: prefix,
         sequenceCurrent: current,
       });
@@ -112,6 +112,16 @@ describe('generateInvoiceNumber', () => {
       const result = await generateInvoiceNumber(tx, 'tenant-1');
 
       expect(result).toBe(expected);
+      expect(invoiceSequenceUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id_year: {
+              tenant_id: 'tenant-1',
+              year: prefix.includes('{YYYY}') ? 2026 : 0,
+            },
+          },
+        }),
+      );
     },
   );
 

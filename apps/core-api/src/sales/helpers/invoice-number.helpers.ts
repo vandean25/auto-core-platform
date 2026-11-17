@@ -52,12 +52,6 @@ export async function generateInvoiceNumber(
   const timeZone = await resolveSiteTimeZone(tx, tenantId, options?.siteId);
   const year = calendarYearInTimeZone(options?.now ?? new Date(), timeZone);
 
-  const sequence = await tx.invoiceSequence.upsert({
-    where: { tenant_id_year: { tenant_id: tenantId, year } },
-    update: { current: { increment: 1 } },
-    create: { tenant_id: tenantId, year, current: 1 },
-  });
-
   const settings = tx.financeSettings?.findFirst
     ? await tx.financeSettings.findFirst({
         where: { tenant_id: tenantId },
@@ -66,6 +60,13 @@ export async function generateInvoiceNumber(
     : null;
 
   const prefix = settings?.invoice_prefix ?? DEFAULT_INVOICE_PREFIX;
+  const sequenceYear = prefix.includes('{YYYY}') ? year : 0;
+
+  const sequence = await tx.invoiceSequence.upsert({
+    where: { tenant_id_year: { tenant_id: tenantId, year: sequenceYear } },
+    update: { current: { increment: 1 } },
+    create: { tenant_id: tenantId, year: sequenceYear, current: 1 },
+  });
 
   if (settings && tx.financeSettings?.update) {
     await tx.financeSettings.update({

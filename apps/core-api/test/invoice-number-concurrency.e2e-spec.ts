@@ -68,13 +68,8 @@ describe('Invoice numbering concurrency (e2e)', () => {
       ),
     );
 
-    expect(
-      responses.map((res) => ({ status: res.status, body: res.body })),
-    ).toEqual(
-      responses.map((res) => ({
-        status: 200,
-        body: res.body,
-      })),
+    expect(responses.map((res) => res.status)).toEqual(
+      Array(count).fill(200),
     );
 
     const numbers = responses.map((res) => res.body.invoice_number as string);

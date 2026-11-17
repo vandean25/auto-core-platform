@@ -537,6 +537,10 @@ describe('FinanceModule (e2e)', () => {
         const settingsBefore = await prisma.financeSettings.findFirst({
           where: { tenant_id: tenantId },
         });
+        const sequenceBefore = await prisma.invoiceSequence.findFirst({
+          where: { tenant_id: tenantId },
+          orderBy: { year: 'desc' },
+        });
 
         await request(app.getHttpServer())
           .patch('/finance/settings')
@@ -547,7 +551,12 @@ describe('FinanceModule (e2e)', () => {
         const settingsAfter = await prisma.financeSettings.findFirst({
           where: { tenant_id: tenantId },
         });
+        const sequenceAfter = await prisma.invoiceSequence.findFirst({
+          where: { tenant_id: tenantId },
+          orderBy: { year: 'desc' },
+        });
         expect(settingsAfter).toEqual(settingsBefore);
+        expect(sequenceAfter).toEqual(sequenceBefore);
       },
     );
 
