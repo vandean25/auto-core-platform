@@ -1,10 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import ts from 'typescript';
 import { createSearchProviders } from './search-providers.js';
 import { parseSearchQuery } from './search-query.parser.js';
-import type {
-  SearchContext,
-  SearchProvider,
-  SearchResultType,
-  SiteScope,
+import {
+  SEARCH_RESULT_TYPES,
+  type SearchContext,
+  type SearchProvider,
+  type SearchResultType,
+  type SiteScope,
 } from './search.types.js';
 
 type Call = { model: string; method: string; args: any };
@@ -61,67 +65,450 @@ function provider(
   return providers.find((p) => p.type === type)!;
 }
 
-describe('createSearchProviders (registry)', () => {
+const REPO_ROOT = fs.existsSync(path.resolve(process.cwd(), 'locales'))
+  ? process.cwd()
+  : path.resolve(process.cwd(), '../..');
+
+type ProviderFixture = {
+  model: string;
+  q: string;
+  row: Record<string, unknown>;
+};
+
+const PROVIDER_FIXTURES: Record<SearchResultType, ProviderFixture> = {
+  customer: {
+    model: 'customer',
+    q: 'Max Mustermann',
+    row: {
+      id: 'c1',
+      first_name: 'Max',
+      last_name: 'Mustermann',
+      company_name: null,
+      email: null,
+      phone: null,
+    },
+  },
+  vehicle: {
+    model: 'vehicle',
+    q: 'W 12345 A',
+    row: {
+      id: 'v1',
+      make: 'VW',
+      model: 'Golf',
+      plate: 'W 12345 A',
+      vin: null,
+      site_id: null,
+    },
+  },
+  stock_vehicle: {
+    model: 'vehicle',
+    q: 'W 12345 A',
+    row: {
+      id: 'sv1',
+      make: 'VW',
+      model: 'Golf',
+      plate: 'W 12345 A',
+      vin: null,
+      site_id: 'site-a',
+    },
+  },
+  workshop_order: {
+    model: 'workshopOrder',
+    q: 'WO-2026-1',
+    row: {
+      id: 'wo1',
+      order_number: 'WO-2026-1',
+      site_id: 'site-a',
+      customer: null,
+      vehicle: { make: 'VW', model: 'Golf', plate: 'W 12345 A' },
+    },
+  },
+  invoice: {
+    model: 'invoice',
+    q: 'RE-2026-1',
+    row: {
+      id: 'inv1',
+      invoice_number: 'RE-2026-1',
+      site_id: 'site-a',
+      customer: {
+        first_name: 'Max',
+        last_name: 'Mustermann',
+        company_name: null,
+      },
+      vehicle: null,
+    },
+  },
+  part: {
+    model: 'catalogItem',
+    q: 'brake pad',
+    row: { id: 'p1', sku: 'BP-1', name: 'Brake pad' },
+  },
+};
+
+function readFrontendSearchGroups(): Record<string, string> {
+  const filePath = path.join(
+    REPO_ROOT,
+    'apps/core-web/src/components/global-search/global-search-types.ts',
+  );
+  const source = fs.readFileSync(filePath, 'utf8');
+  const sf = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+  const groups: Record<string, string> = {};
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === 'SEARCH_TYPE_REGISTRY' &&
+      node.initializer &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      for (const prop of node.initializer.properties) {
+        if (
+          ts.isPropertyAssignment(prop) &&
+          ts.isObjectLiteralExpression(prop.initializer)
+        ) {
+          const typeKey = prop.name.getText(sf).replace(/['"]/g, '');
+          const labelProp = prop.initializer.properties.find(
+            (p) =>
+              ts.isPropertyAssignment(p) &&
+              p.name.getText(sf).replace(/['"]/g, '') === 'labelKey',
+          );
+          if (
+            labelProp &&
+            ts.isPropertyAssignment(labelProp) &&
+            ts.isStringLiteral(labelProp.initializer)
+          ) {
+            groups[typeKey] = labelProp.initializer.text;
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return groups;
+}
+
+function readAppRoutePatterns(): string[] {
+  const filePath = path.join(
+    REPO_ROOT,
+    'apps/core-web/src/lib/app-route-paths.ts',
+  );
+  const source = fs.readFileSync(filePath, 'utf8');
+  const sf = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+  const routes: string[] = [];
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === 'APP_ROUTE_PATHS' &&
+      node.initializer
+    ) {
+      const expr = ts.isAsExpression(node.initializer)
+        ? node.initializer.expression
+        : node.initializer;
+      if (ts.isObjectLiteralExpression(expr)) {
+        for (const prop of expr.properties) {
+          if (
+            ts.isPropertyAssignment(prop) &&
+            ts.isStringLiteral(prop.initializer)
+          ) {
+            routes.push(prop.initializer.text);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return routes;
+}
+
+function readLocaleSearchGroups(lang: 'de' | 'en'): Record<string, string> {
+  const filePath = path.join(REPO_ROOT, 'locales', lang, 'nav.json');
+  const json = JSON.parse(fs.readFileSync(filePath, 'utf8')) as {
+    globalSearch?: { groups?: Record<string, string> };
+  };
+  return json.globalSearch?.groups ?? {};
+}
+
+function matchesAppRoute(href: string, routePatterns: string[]): boolean {
+  const pathname = href.split('?')[0];
+  const segments = pathname.split('/').filter(Boolean);
+  return routePatterns.some((pattern) => {
+    const patternSegments = pattern.split('/').filter(Boolean);
+    if (patternSegments.length !== segments.length) return false;
+    return patternSegments.every(
+      (seg, idx) => seg.startsWith(':') || seg === segments[idx],
+    );
+  });
+}
+
+function validateProviderRegistryEntry(
+  entry: { type: string; allowedRoles: readonly string[]; sampleHref: string },
+  frontendGroups: Record<string, string>,
+  deGroups: Record<string, string>,
+  enGroups: Record<string, string>,
+  routePatterns: string[],
+): void {
+  if (entry.allowedRoles.length === 0) {
+    throw new Error(`Search provider "${entry.type}" has empty allowedRoles`);
+  }
+  const labelKey = frontendGroups[entry.type];
+  if (!labelKey) {
+    throw new Error(
+      `Search provider "${entry.type}" has no entry in frontend SEARCH_TYPE_REGISTRY`,
+    );
+  }
+  const groupKey = labelKey.replace(/^nav:globalSearch\.groups\./, '');
+  if (!deGroups[groupKey] || !enGroups[groupKey]) {
+    throw new Error(
+      `Search provider "${entry.type}" is missing de/en nav.json label for "${labelKey}"`,
+    );
+  }
+  if (!matchesAppRoute(entry.sampleHref, routePatterns)) {
+    throw new Error(
+      `Search provider "${entry.type}" href "${entry.sampleHref}" does not match any APP_ROUTE_PATHS record route`,
+    );
+  }
+}
+
+function assertProviderQueryContract(
+  p: SearchProvider,
+  calls: Call[],
+  tenantId: string,
+  limit: number,
+): void {
+  if (p.allowedRoles.length === 0) {
+    throw new Error(`Search provider "${p.type}" has empty allowedRoles`);
+  }
+  if (calls.length === 0) {
+    throw new Error(`Search provider "${p.type}" issued no Prisma calls`);
+  }
+  for (const call of calls) {
+    if (call.method !== 'findMany') {
+      throw new Error(
+        `Search provider "${p.type}" used disallowed Prisma method ${call.method}`,
+      );
+    }
+    if (call.args?.where?.tenant_id !== tenantId) {
+      throw new Error(
+        `Search provider "${p.type}" omitted tenant_id=${tenantId} in where clause`,
+      );
+    }
+    if (call.args?.take !== limit) {
+      throw new Error(
+        `Search provider "${p.type}" must set take=${limit}, got ${String(call.args?.take)}`,
+      );
+    }
+    if (!call.args?.select || call.args?.include !== undefined) {
+      throw new Error(
+        `Search provider "${p.type}" must use select without include`,
+      );
+    }
+  }
+}
+
+const SENSITIVE_COLUMN_RE =
+  /^(iban|bic|.*_encrypted|.*secret.*|password|password_hash|.*token.*|birth_date|date_of_birth|tax_id)$/i;
+
+function findSensitiveColumnUsages(
+  fileName: string,
+  sourceText: string,
+): string[] {
+  const sf = ts.createSourceFile(
+    fileName,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const hits: string[] = [];
+
+  function checkName(raw: string) {
+    const clean = raw.replace(/['"]/g, '');
+    if (SENSITIVE_COLUMN_RE.test(clean)) {
+      hits.push(`${path.basename(fileName)}:${clean}`);
+    }
+  }
+
+  function visit(node: ts.Node) {
+    if (ts.isPropertyAssignment(node)) {
+      checkName(node.name.getText(sf));
+    } else if (ts.isShorthandPropertyAssignment(node)) {
+      checkName(node.name.text);
+    } else if (ts.isPropertyAccessExpression(node)) {
+      checkName(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  return hits;
+}
+
+describe('createSearchProviders (registry guards)', () => {
   const { prisma } = createPrismaMock();
   const providers = createSearchProviders(prisma);
+  const frontendGroups = readFrontendSearchGroups();
+  const deGroups = readLocaleSearchGroups('de');
+  const enGroups = readLocaleSearchGroups('en');
+  const routePatterns = readAppRoutePatterns();
 
-  it('registers the six types once, in response order', () => {
-    expect(providers.map((p) => p.type)).toEqual([
-      'customer',
-      'vehicle',
-      'stock_vehicle',
-      'workshop_order',
-      'invoice',
-      'part',
-    ]);
+  it('registers every SEARCH_RESULT_TYPES entry once without duplicates', () => {
+    const types = providers.map((p) => p.type);
+    expect(new Set(types).size).toBe(types.length);
+    expect(types).toEqual([...SEARCH_RESULT_TYPES]);
   });
 
-  it('declares the default role matrix per provider', () => {
-    const roles = Object.fromEntries(
-      providers.map((p) => [p.type, [...p.allowedRoles]]),
-    );
-    expect(roles).toEqual({
-      customer: ['OWNER', 'ADMIN', 'SALES', 'TECH', 'DEMO'],
-      vehicle: ['OWNER', 'ADMIN', 'SALES', 'TECH', 'DEMO'],
-      stock_vehicle: ['OWNER', 'ADMIN', 'SALES', 'DEMO'],
-      workshop_order: ['OWNER', 'ADMIN', 'SALES', 'TECH', 'DEMO'],
-      invoice: ['OWNER', 'ADMIN', 'SALES', 'DEMO'],
-      part: ['OWNER', 'ADMIN', 'SALES', 'DEMO'],
-    });
-  });
-});
+  it('has a frontend group, de/en i18n key, non-empty allowedRoles and valid record route for every registered provider', async () => {
+    for (const p of providers) {
+      const fixture = PROVIDER_FIXTURES[p.type];
+      expect(fixture).toBeDefined();
+      const { prisma: rowPrisma } = createPrismaMock({
+        [fixture.model]: [fixture.row],
+      });
+      const hits = await provider(
+        createSearchProviders(rowPrisma),
+        p.type,
+      ).search(ctx(fixture.q));
+      expect(hits.length).toBeGreaterThan(0);
 
-describe.each<[SearchResultType, string, string]>([
-  ['customer', 'customer', 'Max Mustermann'],
-  ['vehicle', 'vehicle', 'W 12345 A'],
-  ['stock_vehicle', 'vehicle', 'W 12345 A'],
-  ['workshop_order', 'workshopOrder', 'WO-2026-1'],
-  ['invoice', 'invoice', 'RE-2026-1'],
-  ['part', 'catalogItem', 'brake pad'],
-])('%s provider query shape', (type, model, q) => {
-  it('only uses findMany with tenant_id from the context, take: limit and a select', async () => {
-    const { prisma, calls } = createPrismaMock();
-    await provider(createSearchProviders(prisma), type).search(ctx(q));
-    expect(calls.length).toBeGreaterThan(0);
-    for (const call of calls) {
-      expect(call.model).toBe(model);
-      expect(call.method).toBe('findMany');
-      expect(call.args.where.tenant_id).toBe('tenant-a');
-      expect(call.args.take).toBe(5);
-      expect(call.args.select).toBeDefined();
-      expect(call.args.include).toBeUndefined();
-      expect(call.args.orderBy.at(-1)).toEqual({ id: 'asc' });
+      validateProviderRegistryEntry(
+        {
+          type: p.type,
+          allowedRoles: p.allowedRoles,
+          sampleHref: hits[0].href,
+        },
+        frontendGroups,
+        deGroups,
+        enGroups,
+        routePatterns,
+      );
     }
   });
 
-  it('never trusts a tenant id other than the context one', async () => {
-    const { prisma, calls } = createPrismaMock();
-    await provider(createSearchProviders(prisma), type).search(
-      ctx(q, { tenantId: 'tenant-b' }),
-    );
-    expect(calls.every((c) => c.args.where.tenant_id === 'tenant-b')).toBe(
-      true,
-    );
+  it('fails naming the type when a fixture provider lacks a frontend group, record route, or de/en key', () => {
+    expect(() =>
+      validateProviderRegistryEntry(
+        {
+          type: 'missing_group_fixture',
+          allowedRoles: ['ADMIN'],
+          sampleHref: '/customers/c1',
+        },
+        frontendGroups,
+        deGroups,
+        enGroups,
+        routePatterns,
+      ),
+    ).toThrow(/missing_group_fixture/);
+
+    expect(() =>
+      validateProviderRegistryEntry(
+        {
+          type: 'missing_route_fixture',
+          allowedRoles: ['ADMIN'],
+          sampleHref: '/non-existent-record-route/x1',
+        },
+        { ...frontendGroups, missing_route_fixture: 'nav:globalSearch.groups.customer' },
+        deGroups,
+        enGroups,
+        routePatterns,
+      ),
+    ).toThrow(/missing_route_fixture/);
+
+    expect(() =>
+      validateProviderRegistryEntry(
+        {
+          type: 'missing_i18n_fixture',
+          allowedRoles: ['ADMIN'],
+          sampleHref: '/customers/c1',
+        },
+        { ...frontendGroups, missing_i18n_fixture: 'nav:globalSearch.groups.nonExistentKey' },
+        deGroups,
+        enGroups,
+        routePatterns,
+      ),
+    ).toThrow(/missing_i18n_fixture/);
+  });
+
+  it('enforces findMany, tenant_id from context, take: limit, select-only and id tie-breaker for every registered provider', async () => {
+    for (const p of providers) {
+      const fixture = PROVIDER_FIXTURES[p.type];
+      const { prisma: mockPrismaA, calls: callsA } = createPrismaMock();
+      await provider(createSearchProviders(mockPrismaA), p.type).search(
+        ctx(fixture.q),
+      );
+      assertProviderQueryContract(p, callsA, 'tenant-a', 5);
+      for (const call of callsA) {
+        expect(call.model).toBe(fixture.model);
+        expect(call.args.orderBy.at(-1)).toEqual({ id: 'asc' });
+      }
+
+      const { prisma: mockPrismaB, calls: callsB } = createPrismaMock();
+      await provider(createSearchProviders(mockPrismaB), p.type).search(
+        ctx(fixture.q, { tenantId: 'tenant-b' }),
+      );
+      assertProviderQueryContract(p, callsB, 'tenant-b', 5);
+    }
+  });
+
+  it('fails when a fixture provider skips tenant_id or has empty allowedRoles', () => {
+    const noTenantProvider: SearchProvider = {
+      type: 'customer',
+      allowedRoles: ['ADMIN'],
+      search: async () => [],
+    };
+    const noTenantCalls: Call[] = [
+      {
+        model: 'customer',
+        method: 'findMany',
+        args: {
+          where: { last_name: { contains: 'Max' } },
+          select: { id: true },
+          take: 5,
+        },
+      },
+    ];
+    expect(() =>
+      assertProviderQueryContract(noTenantProvider, noTenantCalls, 'tenant-a', 5),
+    ).toThrow(/tenant_id/);
+
+    const emptyRolesProvider: SearchProvider = {
+      type: 'customer',
+      allowedRoles: [],
+      search: async () => [],
+    };
+    expect(() =>
+      assertProviderQueryContract(emptyRolesProvider, noTenantCalls, 'tenant-a', 5),
+    ).toThrow(/allowedRoles/);
+  });
+
+  it('never touches denylisted sensitive or encrypted columns in any provider', () => {
+    const providersDir = path.join(REPO_ROOT, 'apps/core-api/src/search/providers');
+    const files = fs
+      .readdirSync(providersDir)
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.spec.ts'));
+    const allHits = files.flatMap((file) => {
+      const fullPath = path.join(providersDir, file);
+      return findSensitiveColumnUsages(fullPath, fs.readFileSync(fullPath, 'utf8'));
+    });
+    expect(allHits).toEqual([]);
+  });
+
+  it('detects denylisted sensitive columns in a negative fixture provider', () => {
+    const badProviderSource = `
+      const SELECT = { id: true, iban: true, ssn_encrypted: true, api_secret: true };
+      const where = { bic: { equals: 'RZKTAT2K' }, password: 'x', reset_token: 'y' };
+    `;
+    const hits = findSensitiveColumnUsages('bad-provider.ts', badProviderSource);
+    expect(hits).toEqual([
+      'bad-provider.ts:iban',
+      'bad-provider.ts:ssn_encrypted',
+      'bad-provider.ts:api_secret',
+      'bad-provider.ts:bic',
+      'bad-provider.ts:password',
+      'bad-provider.ts:reset_token',
+    ]);
   });
 });
 

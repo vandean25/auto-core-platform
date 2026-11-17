@@ -82,6 +82,8 @@ The backfill upper-cases with the database's `UPPER`, which follows the database
 
 Known gap: phone numbers match the stored formatting only (as typed, or without separators). There is no normalised phone column; a follow-up ticket covers it.
 
+Case-insensitivity and umlauts: Postgres `ILIKE` matches German umlauts (`ä`, `ö`, `ü`) case-insensitively (`MÜLLER` finds `Müller`). It does not fold `ß` to `ss` (`strasse` does not match `Straße`) and accent folding (`unaccent`) is not in place today.
+
 ## Role matrix
 
 | Role | customer | vehicle | stock_vehicle | workshop_order | invoice | part |

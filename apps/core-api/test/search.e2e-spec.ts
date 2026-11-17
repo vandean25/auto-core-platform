@@ -2,6 +2,11 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import {
+  SEARCH_PROVIDERS,
+  type SearchProvider,
+  type SearchResultType,
+} from '../src/search/search.types.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
@@ -44,7 +49,9 @@ describe('Global search (e2e)', () => {
   let techToken: string;
   let salesToken: string;
   let tenantBToken: string;
+  let providers: SearchProvider[];
   const ids: Record<string, string> = {};
+  const umlautIds: Partial<Record<SearchResultType, string>> = {};
 
   async function search(token: string, query: Record<string, string | number>) {
     return request(app.getHttpServer())
@@ -150,6 +157,7 @@ describe('Global search (e2e)', () => {
     app = await createE2eApp();
     basePrisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
+    providers = app.get<SearchProvider[]>(SEARCH_PROVIDERS);
 
     tenantA = await createTestTenant(basePrisma, 'search-a');
     tenantB = await createTestTenant(basePrisma, 'search-b');
@@ -247,6 +255,77 @@ describe('Global search (e2e)', () => {
       },
     });
     ids.part = part.id;
+
+    const umlautCustomer = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        first_name: 'Österreich',
+        last_name: `Müller${SUFFIX}`,
+        company_name: `Straße${SUFFIX} GmbH`,
+        type: 'PRIVATE',
+      },
+    });
+    umlautIds.customer = umlautCustomer.id;
+
+    const umlautVehicle = await prismaA.vehicle.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        make: `Müller${SUFFIX}`,
+        model: 'Ärger',
+        year: 2021,
+        plate: `MUE${SUFFIX}`,
+        plate_normalized: `MUE${SUFFIX}`,
+        customer_id: umlautCustomer.id,
+      },
+    });
+    umlautIds.vehicle = umlautVehicle.id;
+
+    const umlautStock = await prismaA.vehicle.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        make: 'Stock',
+        model: `Müller${SUFFIX}`,
+        year: 2022,
+        plate: `STM${SUFFIX}`,
+        plate_normalized: `STM${SUFFIX}`,
+        inventory_role: 'USED',
+        stock_status: 'IN_STOCK',
+        site_id: mainSiteId,
+      },
+    });
+    umlautIds.stock_vehicle = umlautStock.id;
+
+    umlautIds.workshop_order = await createOrder(
+      mainSiteId,
+      `WO-UML-${SUFFIX}`,
+      umlautCustomer.id,
+      umlautVehicle.id,
+    );
+
+    const umlautInvoice = await prismaA.invoice.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        customer_id: umlautCustomer.id,
+        invoice_number: `RE-UML-${SUFFIX}`,
+        status: 'ISSUED',
+        due_date: new Date(),
+        total_net: 10,
+        total_tax: 2,
+        total_gross: 12,
+      },
+    });
+    umlautIds.invoice = umlautInvoice.id;
+
+    const umlautPart = await prismaA.catalogItem.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        sku: `UML-PART-${SUFFIX}`,
+        name: `Müller${SUFFIX} Filter`,
+        retail_price: 15,
+      },
+    });
+    umlautIds.part = umlautPart.id;
   });
 
   afterAll(async () => {
@@ -356,21 +435,26 @@ describe('Global search (e2e)', () => {
   });
 
   describe('tenant isolation', () => {
-    it('tenant B sees nothing of tenant A', async () => {
-      const queries = [
-        `Searchable${SUFFIX}`,
-        PLATE_NORMALIZED,
-        VIN,
-        `Lot${SUFFIX}`,
-        `WO-SRCH-${SUFFIX}`,
-        `RE-SRCH-${SUFFIX}`,
-        `SRCH-PAD-${SUFFIX}`,
-        ids.customer,
-      ];
-      for (const q of queries) {
-        const groups = await groupsFor(tenantBToken, q);
-        expect(groups.flatMap((g) => g.results)).toEqual([]);
+    it('tenant B sees nothing of tenant A for any registered provider', async () => {
+      const fixtureByType: Record<SearchResultType, string> = {
+        customer: `Searchable${SUFFIX}`,
+        vehicle: PLATE_NORMALIZED,
+        stock_vehicle: `Lot${SUFFIX}`,
+        workshop_order: `WO-SRCH-${SUFFIX}-1`,
+        invoice: `RE-SRCH-${SUFFIX}`,
+        part: `SRCH-PAD-${SUFFIX}`,
+      };
+      for (const p of providers) {
+        const q = fixtureByType[p.type];
+        expect(q).toBeDefined();
+        const tenantAHits = await groupsFor(adminToken, q, { types: p.type });
+        expect(tenantAHits[0].results.length).toBeGreaterThan(0);
+
+        const tenantBHits = await groupsFor(tenantBToken, q, { types: p.type });
+        expect(tenantBHits[0].results).toEqual([]);
       }
+      const idGroups = await groupsFor(tenantBToken, ids.customer);
+      expect(idGroups.flatMap((g) => g.results)).toEqual([]);
     });
   });
 
@@ -399,25 +483,26 @@ describe('Global search (e2e)', () => {
   });
 
   describe('role split', () => {
-    it('SALES receives all six types', async () => {
-      const groups = await groupsFor(salesToken, `Searchable${SUFFIX}`);
-      expect(groups.map((g) => g.type)).toHaveLength(6);
-    });
+    it('returns exactly each role allowed types in registry order and drops/rejects disallowed types', async () => {
+      const roleTokens: Array<{ role: string; token: string }> = [
+        { role: 'ADMIN', token: adminToken },
+        { role: 'SALES', token: salesToken },
+        { role: 'TECH', token: techToken },
+      ];
+      for (const { role, token } of roleTokens) {
+        const expectedTypes = providers
+          .filter((p) => p.allowedRoles.includes(role))
+          .map((p) => p.type);
+        const groups = await groupsFor(token, `Searchable${SUFFIX}`);
+        expect(groups.map((g) => g.type)).toEqual(expectedTypes);
 
-    it('TECH gets 200 with only customer, vehicle and workshop_order', async () => {
-      const groups = await groupsFor(techToken, `Searchable${SUFFIX}`);
-      expect(groups.map((g) => g.type)).toEqual([
-        'customer',
-        'vehicle',
-        'workshop_order',
-      ]);
-    });
-
-    it('TECH cannot request restricted types', async () => {
-      const groups = await groupsFor(techToken, `RE-SRCH-${SUFFIX}`, {
-        types: 'invoice,part',
-      });
-      expect(groups).toEqual([]);
+        for (const p of providers.filter((item) => !item.allowedRoles.includes(role))) {
+          const restricted = await groupsFor(token, `Searchable${SUFFIX}`, {
+            types: p.type,
+          });
+          expect(restricted).toEqual([]);
+        }
+      }
     });
 
     it('TECH customer results carry no email or phone', async () => {
@@ -506,6 +591,45 @@ describe('Global search (e2e)', () => {
         .get('/api/search')
         .query({ q: 'max' });
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('umlauts and sharp s', () => {
+    it('matches German umlauts case-insensitively (MÜLLER finds Müller) for every registered provider', async () => {
+      for (const p of providers) {
+        const expectedId = umlautIds[p.type];
+        expect(expectedId).toBeDefined();
+        const groups = await groupsFor(adminToken, `MÜLLER${SUFFIX}`, {
+          types: p.type,
+        });
+        expect(groups[0].results.map((r) => r.id)).toContain(expectedId);
+      }
+    });
+
+    it('matches ä/ö case-insensitively and documents that ß does not fold to ss', async () => {
+      const oeGroups = await groupsFor(adminToken, 'ÖSTERREICH', {
+        types: 'customer',
+      });
+      expect(oeGroups[0].results.map((r) => r.id)).toContain(
+        umlautIds.customer,
+      );
+
+      const aeGroups = await groupsFor(adminToken, 'ÄRGER', {
+        types: 'vehicle',
+      });
+      expect(aeGroups[0].results.map((r) => r.id)).toContain(umlautIds.vehicle);
+
+      const exactSharpS = await groupsFor(adminToken, `Straße${SUFFIX}`, {
+        types: 'customer',
+      });
+      expect(exactSharpS[0].results.map((r) => r.id)).toContain(
+        umlautIds.customer,
+      );
+
+      const foldedSharpS = await groupsFor(adminToken, `strasse${SUFFIX}`, {
+        types: 'customer',
+      });
+      expect(foldedSharpS[0].results).toEqual([]);
     });
   });
 });
