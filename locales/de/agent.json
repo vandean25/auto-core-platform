@@ -204,12 +204,14 @@
       "plate": "Kennzeichen",
       "make": "Marke",
       "model": "Modell",
-      "variant": "Variante",
       "year": "Baujahr",
       "first_registration_date": "Erstzulassung",
       "mileage_km": "Kilometerstand",
       "fuel_type": "Kraftstoff",
       "national_code": "Nationalcode"
+    },
+    "warnings": {
+      "mileage_decrease": "Kilometerstand ist niedriger als der aktuell erfasste Wert"
     }
   }
 }

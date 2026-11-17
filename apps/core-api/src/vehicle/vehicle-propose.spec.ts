@@ -14,6 +14,8 @@ import {
   proposeVehicleCreateInputSchema,
   proposeVehicleUpdateInputSchema,
 } from './vehicle-propose.schema.js';
+import { DryRunChangeCollector } from '../dry-run/dry-run-change-collector.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
 
 const TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -779,6 +781,144 @@ describe('vehicle-propose (AUT-614)', () => {
           }),
         ]),
       );
+    });
+
+    it('records a Vehicle update in DryRunChangeCollector for scalar and owner updates', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: null,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { mileage_km: 42000, owner_customer_id: CUSTOMER_ID },
+          reason: 'Cluster replaced',
+          idempotency_key: 'k-dry-run-collector',
+        },
+      );
+
+      const collector = new DryRunChangeCollector();
+      await DryRunStorage.run(
+        { isDryRun: true, tx: prisma as never, collector },
+        () =>
+          applyVehicleUpdateProposal(
+            { prisma: prisma as never, tenantId: TENANT_ID },
+            payload,
+          ),
+      );
+
+      expect(collector.getChanges()).toEqual([
+        {
+          entity: 'Vehicle',
+          id: VEHICLE_ID,
+          op: 'update',
+          provisional: false,
+        },
+      ]);
+    });
+
+    it('omits owner_customer_id from diff when proposed owner no longer exists at apply time', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: null,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+      prisma.customer.findFirst
+        .mockResolvedValueOnce({ id: CUSTOMER_ID }) // propose time
+        .mockResolvedValueOnce(null); // apply time: owner deleted
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { mileage_km: 51000, owner_customer_id: CUSTOMER_ID },
+          reason: 'Service check-in',
+          idempotency_key: 'k-missing-owner-at-apply',
+        },
+      );
+
+      const outcome = await applyVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        payload,
+      );
+
+      expect(outcome.warnings).toEqual(
+        expect.arrayContaining([expect.stringMatching(/owner link was skipped/i)]),
+      );
+      expect(outcome.diff).toEqual([
+        { field: 'mileage_km', before: '50000', after: '51000' },
+      ]);
+    });
+
+    it('tells caller to update the conflicting vehicle instead when update hits another VIN', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: null,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: null,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+      prisma.vehicle.findMany.mockResolvedValueOnce([
+        {
+          id: OTHER_VEHICLE_ID,
+          vin: VALID_VIN,
+          plate: 'W99999B',
+          plate_normalized: 'W99999B',
+          make: 'VW',
+          model: 'Golf',
+          customer_id: null,
+          first_registration_date: null,
+        },
+      ]);
+
+      await expect(
+        enrichVehicleUpdateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          {
+            vehicle_id: VEHICLE_ID,
+            changes: { vin: VALID_VIN },
+            reason: 'Add VIN',
+            idempotency_key: 'k-update-vin-dup',
+          },
+        ),
+      ).rejects.toThrow(/Update that vehicle instead/);
     });
   });
 });

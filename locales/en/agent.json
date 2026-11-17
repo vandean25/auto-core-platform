@@ -204,12 +204,14 @@
       "plate": "License plate",
       "make": "Make",
       "model": "Model",
-      "variant": "Variant",
       "year": "Year",
       "first_registration_date": "First registration",
       "mileage_km": "Mileage (km)",
       "fuel_type": "Fuel type",
       "national_code": "National code"
+    },
+    "warnings": {
+      "mileage_decrease": "Mileage decreased compared to current recorded value"
     }
   }
 }

@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { VehicleRecordSource, type Vehicle } from '@prisma/client';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   isValidVinCheckDigit,
@@ -130,14 +131,19 @@ function appendDuplicateWarnings(
 
 function assertNoBlockingVinDuplicate(
   candidates: VehicleDuplicateCandidate[],
+  mode: 'create' | 'update',
 ): void {
   const blocking = candidates.find((c) =>
     c.match_reasons.includes(VEHICLE_MATCH_REASONS.vin),
   );
   if (!blocking) return;
+  const guidance =
+    mode === 'create'
+      ? 'Propose an update for that vehicle instead of a create.'
+      : 'Update that vehicle instead or remove the conflicting VIN.';
   throw new UnprocessableEntityException({
     code: VEHICLE_DUPLICATE_CODE,
-    message: `${VEHICLE_DUPLICATE_CODE}: a vehicle with the same VIN already exists (vehicle_id ${blocking.vehicle_id}). Propose an update for that vehicle instead of a create.`,
+    message: `${VEHICLE_DUPLICATE_CODE}: a vehicle with the same VIN already exists (vehicle_id ${blocking.vehicle_id}). ${guidance}`,
   });
 }
 
@@ -250,7 +256,7 @@ export async function enrichVehicleCreateProposal(
       first_registration_date: dateObj ?? null,
     },
   );
-  assertNoBlockingVinDuplicate(candidates);
+  assertNoBlockingVinDuplicate(candidates, 'create');
   appendDuplicateWarnings(candidates, warnings);
 
   return {
@@ -378,7 +384,7 @@ export async function enrichVehicleUpdateProposal(
     buildVehicleDuplicateProbe(vehicle, changes, probeFirstReg),
     vehicle.id,
   );
-  assertNoBlockingVinDuplicate(candidates);
+  assertNoBlockingVinDuplicate(candidates, 'update');
   appendDuplicateWarnings(candidates, warnings);
 
   return {
@@ -439,7 +445,7 @@ export async function applyVehicleCreateProposal(
       ),
     },
   );
-  assertNoBlockingVinDuplicate(candidates);
+  assertNoBlockingVinDuplicate(candidates, 'create');
 
   const resolvedOwnerId = await resolveCreateOwnerId(
     context,
@@ -519,7 +525,7 @@ export async function applyVehicleUpdateProposal(
     buildVehicleDuplicateProbe(vehicle, changes, probeFirstReg),
     vehicle.id,
   );
-  assertNoBlockingVinDuplicate(candidates);
+  assertNoBlockingVinDuplicate(candidates, 'update');
 
   const nextOwnerId = await resolveUpdateOwnerId(
     context,
@@ -534,6 +540,10 @@ export async function applyVehicleUpdateProposal(
     buildScalarUpdateData(changes, vehicle),
     nextOwnerId,
   );
+  const appliedChanges =
+    changes.owner_customer_id !== undefined && nextOwnerId === undefined
+      ? { ...changes, owner_customer_id: undefined }
+      : changes;
 
   return {
     id: vehicle.id,
@@ -542,7 +552,7 @@ export async function applyVehicleUpdateProposal(
     op: 'update',
     diff: buildVehicleProposalDiff(
       currentSubset,
-      changes,
+      appliedChanges,
       buildMileageWarningsByField(changes, vehicle),
     ),
     duplicate_candidates: candidates,
@@ -661,6 +671,13 @@ async function persistVehicleUpdate(
         nextOwnerId,
         VehicleRecordSource.MANUAL,
       );
+    }
+    if (Object.keys(updateData).length > 0 || nextOwnerId !== undefined) {
+      DryRunStorage.getCollector()?.recordChange({
+        entity: 'Vehicle',
+        id: vehicleId,
+        op: 'update',
+      });
     }
   });
 }
