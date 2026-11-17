@@ -319,11 +319,11 @@ describe('Saved Views (AUT-938)', () => {
       tenant.tenantId,
       () =>
         Promise.all([
-          prisma.savedView.findUnique({
-            where: { id: personalView.body.id },
+          prisma.savedView.findFirst({
+            where: { id: personalView.body.id, tenant_id: tenant.tenantId },
           }),
-          prisma.savedView.findUnique({
-            where: { id: tenantView.body.id },
+          prisma.savedView.findFirst({
+            where: { id: tenantView.body.id, tenant_id: tenant.tenantId },
           }),
         ]),
     );
