@@ -491,6 +491,11 @@ describe('TenantMemberService', () => {
         role: TenantMemberRole.SALES,
       }),
     ).rejects.toThrow(ForbiddenException);
+
+    await expect(service.remove('membership-1')).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(mockPrisma.tenantMember.delete).not.toHaveBeenCalled();
   });
 
   it('removes membership, deletes PERSONAL saved views, and nulls TENANT owner in one transaction', async () => {

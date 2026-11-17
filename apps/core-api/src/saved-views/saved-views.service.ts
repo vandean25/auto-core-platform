@@ -272,22 +272,25 @@ export class SavedViewsService {
       dto.href !== undefined
         ? validateSavedViewHref(dto.href, existing.list_path)
         : existing.href;
+    const owner_user_id =
+      nextVisibility === SavedViewVisibility.PERSONAL
+        ? (existing.owner_user_id ?? userId)
+        : existing.owner_user_id;
     if (nextVisibility !== existing.visibility) {
+      const destinationOwner = existing.owner_user_id ?? userId;
       const scopeOwner =
-        nextVisibility === SavedViewVisibility.PERSONAL ? userId : 'TENANT';
+        nextVisibility === SavedViewVisibility.PERSONAL
+          ? destinationOwner
+          : 'TENANT';
       await acquireSavedViewLock(tx, tenantId, scopeOwner, existing.list_path);
       await assertWithinLimit(
         tx,
         tenantId,
         nextVisibility,
-        userId,
+        destinationOwner,
         existing.list_path,
       );
     }
-    const owner_user_id =
-      nextVisibility === SavedViewVisibility.PERSONAL
-        ? (existing.owner_user_id ?? userId)
-        : existing.owner_user_id;
     return { name, href, visibility: nextVisibility, owner_user_id };
   }
 

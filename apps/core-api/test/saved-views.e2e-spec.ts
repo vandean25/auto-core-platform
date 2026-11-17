@@ -384,4 +384,93 @@ describe('Saved Views (AUT-938)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(204);
   });
+
+  it('unsharing a TENANT view counts against the original owner personal limit and leaves row TENANT on 422', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-unshare-lim');
+    tenantIds.push(tenant.tenantId);
+
+    const ownerAdmin = await createMember(
+      tenant.tenantId,
+      'ADMIN',
+      'sv-ul-owner',
+    );
+    const otherAdmin = await createMember(
+      tenant.tenantId,
+      'ADMIN',
+      'sv-ul-other',
+    );
+
+    const shared = await request(app.getHttpServer())
+      .post('/api/saved-views')
+      .set('Authorization', `Bearer ${ownerAdmin.token}`)
+      .send({
+        listPath: '/customers',
+        name: 'Shared View To Unshare',
+        href: '/customers?search=shared',
+        visibility: 'TENANT',
+      })
+      .expect(201);
+
+    await runWithTenantContext(tenant.tenantId, () =>
+      prisma.savedView.createMany({
+        data: Array.from({ length: 50 }, (_, i) => ({
+          tenant_id: tenant.tenantId,
+          owner_user_id: ownerAdmin.user.id,
+          list_path: '/customers',
+          name: `Owner Personal ${i + 1}`,
+          href: `/customers?search=p${i + 1}`,
+          visibility: 'PERSONAL',
+        })),
+      }),
+    );
+
+    const unshareRes = await request(app.getHttpServer())
+      .patch(`/api/saved-views/${shared.body.id}`)
+      .set('Authorization', `Bearer ${otherAdmin.token}`)
+      .send({ visibility: 'PERSONAL', version: shared.body.version })
+      .expect(422);
+
+    expect(unshareRes.body.code).toBe('SAVED_VIEW_LIMIT');
+
+    const persisted = await runWithTenantContext(tenant.tenantId, () =>
+      prisma.savedView.findFirst({
+        where: { id: shared.body.id, tenant_id: tenant.tenantId },
+      }),
+    );
+    expect(persisted?.visibility).toBe('TENANT');
+    expect(persisted?.owner_user_id).toBe(ownerAdmin.user.id);
+  });
+
+  it('rejects DELETE /api/tenant-members/:id for non-admin roles with 403 and preserves membership', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-del-403');
+    tenantIds.push(tenant.tenantId);
+
+    const sales = await createMember(tenant.tenantId, 'SALES', 'sv-d403-sls');
+    const tech = await createMember(tenant.tenantId, 'TECH', 'sv-d403-tch');
+
+    await request(app.getHttpServer())
+      .delete(`/api/tenant-members/${tech.membership.id}`)
+      .set('Authorization', `Bearer ${sales.token}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete(`/api/tenant-members/${sales.membership.id}`)
+      .set('Authorization', `Bearer ${tech.token}`)
+      .expect(403);
+
+    const [salesRow, techRow] = await runWithTenantContext(
+      tenant.tenantId,
+      () =>
+        Promise.all([
+          prisma.tenantMember.findFirst({
+            where: { id: sales.membership.id, tenant_id: tenant.tenantId },
+          }),
+          prisma.tenantMember.findFirst({
+            where: { id: tech.membership.id, tenant_id: tenant.tenantId },
+          }),
+        ]),
+    );
+    expect(salesRow).not.toBeNull();
+    expect(techRow).not.toBeNull();
+  });
 });
