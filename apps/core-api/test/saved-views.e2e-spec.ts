@@ -330,6 +330,26 @@ describe('Saved Views (AUT-938)', () => {
     expect(personalRow).toBeNull();
     expect(tenantRow).not.toBeNull();
     expect(tenantRow?.owner_user_id).toBeNull();
+    expect(tenantRow?.version).toBe(tenantView.body.version + 1);
+
+    const stalePatchRes = await request(app.getHttpServer())
+      .patch(`/api/saved-views/${tenantView.body.id}`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({
+        name: 'Renamed by stale PATCH',
+        version: tenantView.body.version,
+      })
+      .expect(409);
+    expect(stalePatchRes.body.code).toBe('SAVED_VIEW_CHANGED');
+
+    const afterStalePatch = await runWithTenantContext(tenant.tenantId, () =>
+      prisma.savedView.findFirst({
+        where: { id: tenantView.body.id, tenant_id: tenant.tenantId },
+      }),
+    );
+    expect(afterStalePatch?.name).toBe('Team View by Leaver');
+    expect(afterStalePatch?.visibility).toBe('TENANT');
+    expect(afterStalePatch?.owner_user_id).toBeNull();
   });
 
   it('enforces optimistic concurrency (409 SAVED_VIEW_CHANGED) and duplicate name (409 SAVED_VIEW_DUPLICATE)', async () => {

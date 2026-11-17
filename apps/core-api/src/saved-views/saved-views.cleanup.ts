@@ -32,6 +32,7 @@ export async function cleanupSavedViewsForRemovedMember(
     },
     data: {
       owner_user_id: null,
+      version: { increment: 1 },
     },
   });
 }

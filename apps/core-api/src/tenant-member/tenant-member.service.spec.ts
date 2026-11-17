@@ -548,6 +548,7 @@ describe('TenantMemberService', () => {
       },
       data: {
         owner_user_id: null,
+        version: { increment: 1 },
       },
     });
     expect(mockPrisma.tenantMember.updateMany).toHaveBeenCalledWith({
