@@ -9,6 +9,7 @@ import {
   cleanupTestTenantGraph,
   createTestAuthToken,
   createTestTenant,
+  runWithTenantContext,
 } from './tenant-test-utils.js';
 
 describe('Saved Views (AUT-938)', () => {
@@ -26,25 +27,30 @@ describe('Saved Views (AUT-938)', () => {
   ) {
     const uid = `${prefix}-${randomUUID()}`;
     const email = `${uid}@saved-views.test`;
-    const user = await prisma.user.create({
-      data: {
-        firebaseUid: uid,
-        email,
-        firstName: prefix,
-        lastName: 'Tester',
-        active_tenant_id: tenantId,
+    const { user, membership } = await runWithTenantContext(
+      tenantId,
+      async () => {
+        const createdUser = await prisma.user.create({
+          data: {
+            firebaseUid: uid,
+            email,
+            firstName: prefix,
+            lastName: 'Tester',
+            active_tenant_id: tenantId,
+          },
+        });
+        const createdMembership = await prisma.tenantMember.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: createdUser.id,
+            role,
+            is_active: true,
+          },
+        });
+        return { user: createdUser, membership: createdMembership };
       },
-    });
+    );
     userIds.push(user.id);
-
-    const membership = await prisma.tenantMember.create({
-      data: {
-        tenant_id: tenantId,
-        user_id: user.id,
-        role,
-        is_active: true,
-      },
-    });
 
     const token = createTestAuthToken(authService, {
       tenantId,
@@ -228,16 +234,18 @@ describe('Saved Views (AUT-938)', () => {
     const member = await createMember(tenant.tenantId, 'ADMIN', 'sv-s5-user');
 
     // Seed 49 PERSONAL views directly for this user + list.
-    await prisma.savedView.createMany({
-      data: Array.from({ length: 49 }, (_, i) => ({
-        tenant_id: tenant.tenantId,
-        owner_user_id: member.user.id,
-        list_path: '/customers',
-        name: `Seed View ${i + 1}`,
-        href: `/customers?search=v${i + 1}`,
-        visibility: 'PERSONAL',
-      })),
-    });
+    await runWithTenantContext(tenant.tenantId, () =>
+      prisma.savedView.createMany({
+        data: Array.from({ length: 49 }, (_, i) => ({
+          tenant_id: tenant.tenantId,
+          owner_user_id: member.user.id,
+          list_path: '/customers',
+          name: `Seed View ${i + 1}`,
+          href: `/customers?search=v${i + 1}`,
+          visibility: 'PERSONAL',
+        })),
+      }),
+    );
 
     const [resA, resB] = await Promise.all([
       request(app.getHttpServer())
@@ -305,14 +313,19 @@ describe('Saved Views (AUT-938)', () => {
       .set('Authorization', `Bearer ${owner.token}`)
       .expect(204);
 
-    const personalRow = await prisma.savedView.findUnique({
-      where: { id: personalView.body.id },
-    });
+    const [personalRow, tenantRow] = await runWithTenantContext(
+      tenant.tenantId,
+      () =>
+        Promise.all([
+          prisma.savedView.findUnique({
+            where: { id: personalView.body.id },
+          }),
+          prisma.savedView.findUnique({
+            where: { id: tenantView.body.id },
+          }),
+        ]),
+    );
     expect(personalRow).toBeNull();
-
-    const tenantRow = await prisma.savedView.findUnique({
-      where: { id: tenantView.body.id },
-    });
     expect(tenantRow).not.toBeNull();
     expect(tenantRow?.owner_user_id).toBeNull();
   });
