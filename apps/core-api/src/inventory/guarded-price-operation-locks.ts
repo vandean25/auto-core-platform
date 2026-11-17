@@ -46,10 +46,38 @@ export async function lockGuardedPriceJournalRow(
   );
 }
 
+type BoundQueryRaw<T> = (
+  query: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<T>;
+
+function boundQueryRaw<T>(tx: Tx): BoundQueryRaw<T> {
+  const queryRaw = tx['$queryRaw'].bind(tx) as BoundQueryRaw<T>;
+  return queryRaw;
+}
+
 export async function lockGuardedPriceCatalogItem(
   tx: Tx,
   tenantId: string,
   itemId: string,
 ): Promise<void> {
   await lockSingleTenantTableRow(tx, 'catalog_items', tenantId, itemId);
+}
+
+export async function selectAndLockStaleAcceptedPriceOperations(
+  tx: Tx,
+  tenantId: string,
+  cutoff: Date,
+  limit: number,
+): Promise<Array<{ id: string }>> {
+  return boundQueryRaw<Array<{ id: string }>>(tx)`
+    SELECT id
+    FROM inventory_price_operations
+    WHERE tenant_id = ${tenantId}
+      AND state = 'ACCEPTED'::"InventoryPriceOperationState"
+      AND accepted_at < ${cutoff}
+    ORDER BY accepted_at ASC, id ASC
+    LIMIT ${limit}
+    FOR UPDATE SKIP LOCKED
+  `;
 }
