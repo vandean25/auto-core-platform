@@ -7,7 +7,6 @@ export type VehicleProposalFields = {
   plate?: string | null;
   make?: string;
   model?: string;
-  variant?: string | null;
   year?: number;
   first_registration_date?: string | null;
   mileage_km?: number | null;
@@ -18,6 +17,7 @@ export type VehicleProposalFields = {
 export type VehicleCreateFields = VehicleProposalFields & {
   make: string;
   model: string;
+  year: number;
 };
 
 export type VehicleDuplicateCheck = {
@@ -57,7 +57,6 @@ const FIELD_KEYS = [
   'plate',
   'make',
   'model',
-  'variant',
   'year',
   'first_registration_date',
   'mileage_km',

@@ -38,7 +38,6 @@ export const vehicleProposeChangesSchema = z
     plate: z.string().trim().min(1).max(32).nullable().optional(),
     make: z.string().trim().min(1).max(120).optional(),
     model: z.string().trim().min(1).max(120).optional(),
-    variant: z.string().trim().min(1).max(120).nullable().optional(),
     year: z.number().int().min(1900).max(2100).optional(),
     first_registration_date: z
       .string()
@@ -60,7 +59,6 @@ export const proposeVehicleCreateInputSchema = z
     plate: z.string().trim().min(1).max(32).optional(),
     make: z.string().trim().min(1).max(120),
     model: z.string().trim().min(1).max(120),
-    variant: z.string().trim().min(1).max(120).optional(),
     year: z.number().int().min(1900).max(2100).optional(),
     first_registration_date: z.string().trim().min(1).max(40).optional(),
     mileage_km: z.number().int().min(0).max(5_000_000).optional(),

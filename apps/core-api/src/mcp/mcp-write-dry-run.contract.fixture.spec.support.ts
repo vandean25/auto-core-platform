@@ -116,6 +116,7 @@ export const DRY_RUN_MINIMAL_INPUTS: Partial<
   propose_vehicle_create: {
     make: 'VW',
     model: 'Golf',
+    year: 2022,
     idempotency_key: 'aut614-dry-run-create',
   },
   propose_vehicle_update: {

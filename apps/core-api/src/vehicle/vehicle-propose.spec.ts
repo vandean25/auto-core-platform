@@ -80,6 +80,7 @@ function createMockPrisma(overrides: Record<string, unknown> = {}) {
 describe('vehicle-propose (AUT-614)', () => {
   describe('schema forbidden fields', () => {
     it.each([
+      'variant',
       'inventory_role',
       'stock_status',
       'tax_scheme',
@@ -94,13 +95,20 @@ describe('vehicle-propose (AUT-614)', () => {
       const parsed = proposeVehicleCreateInputSchema.safeParse({
         make: 'VW',
         model: 'Golf',
+        year: 2022,
         idempotency_key: 'k1',
         [field]: 'forbidden',
       });
       expect(parsed.success).toBe(false);
     });
 
-    it.each(['inventory_role', 'stock_status', 'tax_scheme', 'listings'])(
+    it.each([
+      'variant',
+      'inventory_role',
+      'stock_status',
+      'tax_scheme',
+      'listings',
+    ])(
       'rejects forbidden field %s on propose_vehicle_update changes',
       (field) => {
         const parsed = proposeVehicleUpdateInputSchema.safeParse({
@@ -112,6 +120,34 @@ describe('vehicle-propose (AUT-614)', () => {
         expect(parsed.success).toBe(false);
       },
     );
+
+    it('rejects propose_vehicle_create when both year and first_registration_date are missing', async () => {
+      const prisma = createMockPrisma();
+      await expect(
+        enrichVehicleCreateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          {
+            make: 'VW',
+            model: 'Golf',
+            idempotency_key: 'k-no-year',
+          },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('derives year from first_registration_date when year is omitted', async () => {
+      const prisma = createMockPrisma();
+      const payload = await enrichVehicleCreateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          make: 'VW',
+          model: 'Golf',
+          first_registration_date: '2019-06-15',
+          idempotency_key: 'k-derive-year',
+        },
+      );
+      expect(payload.fields.year).toBe(2019);
+    });
   });
 
   describe('VIN validation and plate normalization', () => {
@@ -123,6 +159,7 @@ describe('vehicle-propose (AUT-614)', () => {
           {
             make: 'VW',
             model: 'Golf',
+            year: 2022,
             vin: 'INVALID_VIN_TOO_SHORT',
             idempotency_key: 'k1',
           },
@@ -138,6 +175,7 @@ describe('vehicle-propose (AUT-614)', () => {
           {
             make: 'VW',
             model: 'Golf',
+            year: 2022,
             vin: '1HGCM82633A00435I',
             idempotency_key: 'k1',
           },
@@ -152,6 +190,7 @@ describe('vehicle-propose (AUT-614)', () => {
         {
           make: 'VW',
           model: 'Golf',
+          year: 2022,
           vin: NON_ISO_CHECK_DIGIT_VIN,
           plate: 'W-12345 A',
           idempotency_key: 'k1',
@@ -175,6 +214,7 @@ describe('vehicle-propose (AUT-614)', () => {
         {
           make: 'VW',
           model: 'Golf',
+          year: 2022,
           plate: raw,
           idempotency_key: 'k-plate',
         },
@@ -205,6 +245,7 @@ describe('vehicle-propose (AUT-614)', () => {
           {
             make: 'VW',
             model: 'Golf',
+            year: 2022,
             vin: VALID_VIN,
             idempotency_key: 'k-dup-vin',
           },
@@ -237,6 +278,7 @@ describe('vehicle-propose (AUT-614)', () => {
         {
           make: 'VW',
           model: 'Golf',
+          year: 2022,
           plate: 'w 12345-a',
           idempotency_key: 'k-dup-plate',
         },
@@ -373,6 +415,7 @@ describe('vehicle-propose (AUT-614)', () => {
         {
           make: 'VW',
           model: 'Golf',
+          year: 2022,
           vin: VALID_VIN,
           idempotency_key: 'k-reval-vin',
         },
@@ -407,6 +450,7 @@ describe('vehicle-propose (AUT-614)', () => {
           owner_customer_id: CUSTOMER_ID,
           make: 'VW',
           model: 'Golf',
+          year: 2022,
           idempotency_key: 'k-owner-gone',
         },
       );

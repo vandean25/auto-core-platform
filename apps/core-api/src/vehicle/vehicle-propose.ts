@@ -196,7 +196,9 @@ function resolveVehicleYear(
 ): number {
   if (year !== undefined) return year;
   if (firstRegDate) return firstRegDate.getUTCFullYear();
-  return new Date().getUTCFullYear();
+  throw new BadRequestException(
+    'Either year or first_registration_date is required to propose a vehicle',
+  );
 }
 
 export async function enrichVehicleCreateProposal(
@@ -211,6 +213,7 @@ export async function enrichVehicleCreateProposal(
   const { isoDate, dateObj } = normalizeAndValidateFirstReg(
     parsed.first_registration_date,
   );
+  const year = resolveVehicleYear(parsed.year, dateObj);
   if (parsed.owner_customer_id) {
     await assertCustomerExists(context, parsed.owner_customer_id);
   }
@@ -222,8 +225,7 @@ export async function enrichVehicleCreateProposal(
     ...(plate !== undefined ? { plate } : {}),
     make: parsed.make,
     model: parsed.model,
-    ...(parsed.variant !== undefined ? { variant: parsed.variant } : {}),
-    year: resolveVehicleYear(parsed.year, dateObj),
+    year,
     ...(isoDate !== undefined ? { first_registration_date: isoDate } : {}),
     ...(parsed.mileage_km !== undefined
       ? { mileage_km: parsed.mileage_km }
@@ -286,7 +288,6 @@ function normalizeUpdateChanges(
   for (const key of [
     'make',
     'model',
-    'variant',
     'year',
     'mileage_km',
     'fuel_type',
@@ -440,7 +441,10 @@ export async function applyVehicleCreateProposal(
         tenant_id: context.tenantId,
         make: fields.make,
         model: fields.model,
-        year: fields.year ?? new Date().getUTCFullYear(),
+        year: resolveVehicleYear(
+          fields.year,
+          parseIsoDateOrNull(fields.first_registration_date),
+        ),
         vin: fields.vin ?? null,
         plate: fields.plate ?? null,
         first_registration_date: parseIsoDateOrNull(
