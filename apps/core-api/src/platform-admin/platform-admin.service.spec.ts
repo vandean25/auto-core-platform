@@ -152,7 +152,7 @@ describe('PlatformAdminService', () => {
       data: expect.objectContaining({
         tenant_id: 'tenant-2',
         fiscal_year_start_month: 1,
-        next_invoice_number: 1001,
+        next_invoice_number: 1,
         next_sales_order_number: 1001,
         next_workshop_order_number: 1,
       }),

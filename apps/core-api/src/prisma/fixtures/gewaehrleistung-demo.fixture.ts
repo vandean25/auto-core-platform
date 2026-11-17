@@ -16,6 +16,7 @@ import { computeGewaehrleistung } from '../../vehicle-stock/gewaehrleistung/comp
 import { costBasis, marginVatGross } from '../../vehicle-stock/vehicle-cost.js';
 import { daysInStock } from '../../vehicle-stock/vehicle-stock-reports.math.js';
 import { InvoiceSnapshotCommitService } from '../../invoices/invoice-snapshot-commit.service.js';
+import { generateInvoiceNumber } from '../../sales/helpers/invoice-number.helpers.js';
 import type { SiteContextService } from '../../site/site-context.service.js';
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
 import {
@@ -239,11 +240,10 @@ export async function seedDemoGewaehrleistungSales(
         const invoiceDate = new Date();
         const dueDate = new Date(invoiceDate);
         dueDate.setDate(dueDate.getDate() + 14);
-        const invoiceNumber = await generateInvoiceNumber(
-          tx,
-          tenantId,
-          invoiceDate.getFullYear(),
-        );
+        const invoiceNumber = await generateInvoiceNumber(tx, tenantId, {
+          siteId: foundation.mainSite.id,
+          now: invoiceDate,
+        });
         const net = new Prisma.Decimal(sale.salePrice).sub(marginVat);
         const invoice = await tx.invoice.create({
           data: {
@@ -335,17 +335,4 @@ export async function seedDemoGewaehrleistungSales(
       });
     }),
   );
-}
-
-async function generateInvoiceNumber(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  year: number,
-): Promise<string> {
-  const sequence = await tx.invoiceSequence.upsert({
-    where: { tenant_id_year: { tenant_id: tenantId, year } },
-    update: { current: { increment: 1 } },
-    create: { tenant_id: tenantId, year, current: 1 },
-  });
-  return `RE-${year}-${String(sequence.current).padStart(4, '0')}`;
 }

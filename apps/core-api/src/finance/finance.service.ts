@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,13 @@ import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
+import {
+  calendarYearInTimeZone,
+  DEFAULT_INVOICE_PREFIX,
+  DEFAULT_INVOICE_TIME_ZONE,
+  DEFAULT_NEXT_INVOICE_NUMBER,
+  resolveSiteTimeZone,
+} from '../sales/helpers/invoice-number.helpers.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
@@ -57,7 +65,10 @@ export class FinanceService {
 
   async getSettings() {
     const tenantId = await this.tenantContext.getTenantId();
-    const currentYear = new Date().getFullYear();
+    const currentYear = calendarYearInTimeZone(
+      new Date(),
+      DEFAULT_INVOICE_TIME_ZONE,
+    );
     return this.prisma.financeSettings.upsert({
       where: { tenant_id: tenantId },
       update: {},
@@ -65,8 +76,8 @@ export class FinanceService {
         tenant_id: tenantId,
         fiscal_year_start_month: 1,
         lock_date: null,
-        next_invoice_number: 1001,
-        invoice_prefix: `RE-${currentYear}-`,
+        next_invoice_number: DEFAULT_NEXT_INVOICE_NUMBER,
+        invoice_prefix: DEFAULT_INVOICE_PREFIX,
         next_sales_order_number: 1001,
         sales_order_prefix: `SO-${currentYear}-`,
         next_workshop_order_number: 1,
@@ -85,9 +96,42 @@ export class FinanceService {
         lock_date: lock_date === null ? null : new Date(lock_date),
       }),
     };
-    return this.prisma.financeSettings.update({
-      where: { tenant_id: tenantId },
-      data: updateData,
+
+    if (data.next_invoice_number === undefined) {
+      return this.prisma.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: updateData,
+      });
+    }
+
+    const nextInvoiceNumber = data.next_invoice_number;
+    const activeSite = (await this.siteContext.tryGetSite?.()) ?? null;
+    return this.prisma.$transaction(async (tx) => {
+      const timeZone = await resolveSiteTimeZone(
+        tx,
+        tenantId,
+        activeSite?.id ?? null,
+      );
+      const year = calendarYearInTimeZone(new Date(), timeZone);
+      const existingSeq = await tx.invoiceSequence.findFirst({
+        where: { tenant_id: tenantId, year },
+        select: { current: true },
+      });
+      const highestIssued = existingSeq?.current ?? 0;
+      if (nextInvoiceNumber <= highestIssued) {
+        throw new ConflictException(
+          `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number (${highestIssued}) for ${year}.`,
+        );
+      }
+      await tx.invoiceSequence.upsert({
+        where: { tenant_id_year: { tenant_id: tenantId, year } },
+        update: { current: nextInvoiceNumber - 1 },
+        create: { tenant_id: tenantId, year, current: nextInvoiceNumber - 1 },
+      });
+      return tx.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: updateData,
+      });
     });
   }
 

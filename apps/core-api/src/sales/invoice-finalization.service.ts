@@ -87,7 +87,9 @@ export class InvoiceFinalizationService {
           });
 
           span.setAttribute('step', 'allocate_number');
-          const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
+          const invoiceNumber = await generateInvoiceNumber(tx, tenantId, {
+            siteId: prepared.ownership.siteId,
+          });
 
           span.setAttribute('step', 'deduct_inventory');
           await processSaleInventoryDeduction({

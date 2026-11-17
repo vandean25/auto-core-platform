@@ -133,3 +133,80 @@ describe('FinanceService.getRevenueReport', () => {
     });
   });
 });
+
+describe('FinanceService.updateSettings', () => {
+  it('syncs InvoiceSequence in the same transaction when raising next_invoice_number', async () => {
+    const tx = {
+      site: {
+        findFirst: jest.fn().mockResolvedValue({ timezone: 'Europe/Vienna' }),
+      },
+      invoiceSequence: {
+        findFirst: jest.fn().mockResolvedValue({ current: 5 }),
+        upsert: jest.fn().mockResolvedValue({ current: 4512 }),
+      },
+      financeSettings: {
+        update: jest.fn().mockResolvedValue({
+          id: 'fs-1',
+          next_invoice_number: 4513,
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {
+      tryGetSite: jest.fn().mockResolvedValue({ id: SITE_ID }),
+    } as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    const result = await service.updateSettings({ next_invoice_number: 4513 });
+
+    expect(result.next_invoice_number).toBe(4513);
+    expect(tx.invoiceSequence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { current: 4512 },
+        create: expect.objectContaining({ current: 4512 }),
+      }),
+    );
+  });
+
+  it('throws 409 ConflictException and leaves DB unchanged when next_invoice_number <= highest issued', async () => {
+    const tx = {
+      site: {
+        findFirst: jest.fn().mockResolvedValue({ timezone: 'Europe/Vienna' }),
+      },
+      invoiceSequence: {
+        findFirst: jest.fn().mockResolvedValue({ current: 5 }),
+        upsert: jest.fn(),
+      },
+      financeSettings: {
+        update: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {
+      tryGetSite: jest.fn().mockResolvedValue({ id: SITE_ID }),
+    } as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    await expect(
+      service.updateSettings({ next_invoice_number: 5 }),
+    ).rejects.toThrow('must be greater than the highest issued invoice number');
+    expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
+    expect(tx.financeSettings.update).not.toHaveBeenCalled();
+  });
+});

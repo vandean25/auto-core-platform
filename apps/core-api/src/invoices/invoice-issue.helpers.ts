@@ -95,7 +95,10 @@ export async function executeIssueInvoice(
   });
 
   const invoiceNumber =
-    invoice.invoice_number ?? (await generateInvoiceNumber(tx, tenantId));
+    invoice.invoice_number ??
+    (await generateInvoiceNumber(tx, tenantId, {
+      siteId: prepared?.ownership?.siteId ?? invoice.site_id,
+    }));
 
   await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {
     id: invoiceId,
