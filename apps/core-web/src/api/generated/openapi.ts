@@ -12254,7 +12254,6 @@ export interface components {
              */
             tyreSetId?: string;
         };
-        Object: Record<string, never>;
         TyreMeasurementListResponseDto: {
             data: components["schemas"]["TyreMeasurementResponseDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
@@ -23537,8 +23536,8 @@ export interface operations {
     TyreMeasurementController_listForOrder: {
         parameters: {
             query?: {
-                limit?: components["schemas"]["Object"];
-                page?: components["schemas"]["Object"];
+                limit?: Record<string, never>;
+                page?: Record<string, never>;
             };
             header?: never;
             path: {
@@ -23586,8 +23585,8 @@ export interface operations {
     TyreMeasurementController_listForCheckIn: {
         parameters: {
             query?: {
-                limit?: components["schemas"]["Object"];
-                page?: components["schemas"]["Object"];
+                limit?: Record<string, never>;
+                page?: Record<string, never>;
             };
             header?: never;
             path: {
@@ -23635,8 +23634,8 @@ export interface operations {
     TyreMeasurementController_listForEvent: {
         parameters: {
             query?: {
-                limit?: components["schemas"]["Object"];
-                page?: components["schemas"]["Object"];
+                limit?: Record<string, never>;
+                page?: Record<string, never>;
             };
             header?: never;
             path: {
