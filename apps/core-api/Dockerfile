@@ -25,7 +25,7 @@ RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
 # Pinned by digest: v1.65.0-noble ships Node 26.13.0 upstream; purge it locally and copy exact .nvmrc Node from builder (AUT-673, AUT-981, AUT-993).
-FROM mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d AS worker
+FROM mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579 AS worker
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get purge -y nodejs \
     && rm -f /etc/apt/sources.list.d/nodesource.list \
