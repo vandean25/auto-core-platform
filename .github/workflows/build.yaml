@@ -726,10 +726,10 @@ jobs:
 
       - name: Fallow audit
         if: steps.override.outputs.skip != 'true'
-        uses: fallow-rs/fallow@34269241152fa2e7e6a9de1aba698dcae93035b3 # v3.41.0
+        uses: fallow-rs/fallow@b6a3e048dc882bdf11c8269c73167223b9e32774 # v3.43.2
         with:
           command: audit
-          version: 3.41.0
+          version: 3.43.2
           gate: new-only
           # SARIF lands in the fallow-audit artifact. Code-scanning upload is off: audit SARIF has
           # several runs per category, which the CodeQL upload action rejects.
