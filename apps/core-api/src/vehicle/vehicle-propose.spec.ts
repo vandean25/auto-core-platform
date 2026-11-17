@@ -664,5 +664,121 @@ describe('vehicle-propose (AUT-614)', () => {
         ),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('leaves plate and identity untouched when echoing the current plate in display form', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W-12345 A',
+        plate_normalized: 'W12345A',
+        customer_id: CUSTOMER_ID,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+
+      await expect(
+        enrichVehicleUpdateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          {
+            vehicle_id: VEHICLE_ID,
+            changes: { plate: 'W-12345 A' },
+            reason: 'No-op echo',
+            idempotency_key: 'k-plate-echo-only',
+          },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { plate: 'W 12345 A', make: 'Audi' },
+          reason: 'Fix make only',
+          idempotency_key: 'k-plate-echo-with-make',
+        },
+      );
+
+      expect(payload.changes).toEqual({ make: 'Audi' });
+
+      await applyVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        payload,
+      );
+
+      expect(prisma.vehicle.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { make: 'Audi' },
+        }),
+      );
+    });
+
+    it('requires reason and flags warning when clearing mileage_km to null', async () => {
+      const prisma = createMockPrisma();
+      const original = {
+        id: VEHICLE_ID,
+        tenant_id: TENANT_ID,
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        vin: VALID_VIN,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        customer_id: CUSTOMER_ID,
+        mileage: 50000,
+        fuel_type: 'DIESEL',
+        national_code: null,
+        first_registration_date: new Date('2021-05-10T00:00:00.000Z'),
+      };
+      prisma.vehicle.findFirst.mockResolvedValue(original);
+
+      await expect(
+        enrichVehicleUpdateProposal(
+          { prisma: prisma as never, tenantId: TENANT_ID },
+          {
+            vehicle_id: VEHICLE_ID,
+            changes: { mileage_km: null },
+            idempotency_key: 'k-mileage-null-no-reason',
+          },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const payload = await enrichVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          vehicle_id: VEHICLE_ID,
+          changes: { mileage_km: null },
+          reason: 'Odometer reading was entered in error',
+          idempotency_key: 'k-mileage-null-with-reason',
+        },
+      );
+
+      expect(payload.warnings).toEqual(
+        expect.arrayContaining([expect.stringMatching(/mileage.*decreas/i)]),
+      );
+
+      const outcome = await applyVehicleUpdateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        payload,
+      );
+
+      expect(outcome.diff).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'mileage_km',
+            before: '50000',
+            after: null,
+            warning: expect.stringMatching(/decreas/i),
+          }),
+        ]),
+      );
+    });
   });
 });

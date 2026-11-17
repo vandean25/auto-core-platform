@@ -313,12 +313,27 @@ function filterChangedFields(
   ) as (keyof VehicleProposalFields)[]) {
     const nextVal = normalized[key];
     if (nextVal === undefined) continue;
+    if (key === 'plate') {
+      const prevNorm =
+        vehicle.plate_normalized ?? normalizePlate(vehicle.plate);
+      const nextNorm =
+        typeof nextVal === 'string' ? normalizePlate(nextVal) : null;
+      if (prevNorm === nextNorm) continue;
+    }
     const prevVal = current[key] ?? null;
     if (prevVal !== nextVal) {
       (diffed as Record<string, unknown>)[key] = nextVal;
     }
   }
   return diffed;
+}
+
+function isMileageDecreaseOrClear(
+  nextMileage: number | null | undefined,
+  currentMileage: number | null,
+): boolean {
+  if (nextMileage === undefined || currentMileage === null) return false;
+  return nextMileage === null || nextMileage < currentMileage;
 }
 
 export async function enrichVehicleUpdateProposal(
@@ -339,12 +354,7 @@ export async function enrichVehicleUpdateProposal(
       message: `${VEHICLE_NO_CHANGES_CODE}: the submitted changes match the current vehicle data`,
     });
   }
-  if (
-    changes.mileage_km !== undefined &&
-    changes.mileage_km !== null &&
-    vehicle.mileage !== null &&
-    changes.mileage_km < vehicle.mileage
-  ) {
+  if (isMileageDecreaseOrClear(changes.mileage_km, vehicle.mileage)) {
     if (!parsed.reason) {
       throw new BadRequestException({
         code: VEHICLE_MILEAGE_DECREASE_REQUIRES_REASON_CODE,
@@ -659,11 +669,9 @@ function buildMileageWarningsByField(
   changes: VehicleProposalFields,
   vehicle: Vehicle,
 ): Record<string, string> {
-  const isDecrease =
-    typeof changes.mileage_km === 'number' &&
-    vehicle.mileage !== null &&
-    changes.mileage_km < vehicle.mileage;
-  return isDecrease ? { mileage_km: MILEAGE_DECREASE_WARNING } : {};
+  return isMileageDecreaseOrClear(changes.mileage_km, vehicle.mileage)
+    ? { mileage_km: MILEAGE_DECREASE_WARNING }
+    : {};
 }
 
 const SCALAR_FIELD_MAP: ReadonlyArray<
@@ -681,7 +689,7 @@ const SCALAR_FIELD_MAP: ReadonlyArray<
 
 function buildScalarUpdateData(
   changes: VehicleProposalFields,
-  existingVehicle: Pick<Vehicle, 'vin' | 'plate'>,
+  existingVehicle: Pick<Vehicle, 'vin' | 'plate' | 'plate_normalized'>,
 ) {
   const data: Record<string, unknown> = {};
   for (const [sourceKey, targetKey] of SCALAR_FIELD_MAP) {
@@ -694,7 +702,17 @@ function buildScalarUpdateData(
       changes.first_registration_date,
     );
   }
-  if (hasVehicleIdentityChanged(existingVehicle, changes)) {
+  if (
+    hasVehicleIdentityChanged(
+      {
+        vin: existingVehicle.vin,
+        plate:
+          existingVehicle.plate_normalized ??
+          normalizePlate(existingVehicle.plate),
+      },
+      changes,
+    )
+  ) {
     Object.assign(data, VEHICLE_IDENTITY_RESET, {
       identity_resolution_token: null,
     });
