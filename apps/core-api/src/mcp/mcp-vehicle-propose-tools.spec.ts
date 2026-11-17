@@ -21,9 +21,33 @@ const VEHICLE_TOOLS = [
 
 describe('MCP vehicle proposal tools (AUT-614)', () => {
   it('registers both tools with a closed input schema', () => {
+    const validPayloads: Record<(typeof VEHICLE_TOOLS)[number], unknown> = {
+      propose_vehicle_create: {
+        make: 'VW',
+        model: 'Golf',
+        year: 2021,
+        idempotency_key: 'aut614-create-valid',
+      },
+      propose_vehicle_update: {
+        vehicle_id: '00000000-0000-4000-8000-000000000020',
+        changes: { mileage_km: 50000 },
+        reason: 'Service check-in',
+        idempotency_key: 'aut614-update-valid',
+      },
+    };
+
     for (const tool of VEHICLE_TOOLS) {
-      const schema = MCP_REGISTERED_TOOL_INPUT_SCHEMAS[tool];
+      const schema = MCP_REGISTERED_TOOL_INPUT_SCHEMAS[tool] as {
+        safeParse: (value: unknown) => { success: boolean };
+      };
       expect(schema).toBeDefined();
+      expect(schema.safeParse(validPayloads[tool]).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...(validPayloads[tool] as Record<string, unknown>),
+          unknown_extra_key: 'FORBIDDEN',
+        }).success,
+      ).toBe(false);
     }
   });
 

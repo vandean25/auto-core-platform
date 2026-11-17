@@ -832,6 +832,42 @@ describe('vehicle-propose (AUT-614)', () => {
       ]);
     });
 
+    it('records Vehicle create on DryRunStorage collector when a dry run is active', async () => {
+      const prisma = createMockPrisma();
+      const payload = await enrichVehicleCreateProposal(
+        { prisma: prisma as never, tenantId: TENANT_ID },
+        {
+          owner_customer_id: CUSTOMER_ID,
+          make: 'VW',
+          model: 'Golf',
+          year: 2021,
+          vin: VALID_VIN,
+          plate: 'W12345A',
+          mileage_km: 45000,
+          idempotency_key: 'k-dry-run-create-collector',
+        },
+      );
+
+      const collector = new DryRunChangeCollector();
+      await DryRunStorage.run(
+        { isDryRun: true, tx: prisma as never, collector },
+        () =>
+          applyVehicleCreateProposal(
+            { prisma: prisma as never, tenantId: TENANT_ID },
+            payload,
+          ),
+      );
+
+      expect(collector.getChanges()).toEqual([
+        {
+          entity: 'Vehicle',
+          id: VEHICLE_ID,
+          op: 'create',
+          provisional: true,
+        },
+      ]);
+    });
+
     it('omits owner_customer_id from diff when proposed owner no longer exists at apply time', async () => {
       const prisma = createMockPrisma();
       const original = {

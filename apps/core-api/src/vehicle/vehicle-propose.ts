@@ -482,6 +482,11 @@ export async function applyVehicleCreateProposal(
         VehicleRecordSource.MANUAL,
       );
     }
+    DryRunStorage.getCollector()?.recordChange({
+      entity: 'Vehicle',
+      id: row.id,
+      op: 'create',
+    });
     return row;
   });
 
