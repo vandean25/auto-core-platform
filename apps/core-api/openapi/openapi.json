@@ -17015,11 +17015,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           },
           {
@@ -17029,11 +17025,7 @@
             "schema": {
               "minimum": 1,
               "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           }
         ],
@@ -17112,11 +17104,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           },
           {
@@ -17126,11 +17114,7 @@
             "schema": {
               "minimum": 1,
               "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           }
         ],
@@ -17171,11 +17155,7 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           },
           {
@@ -17185,11 +17165,7 @@
             "schema": {
               "minimum": 1,
               "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
+              "type": "object"
             }
           }
         ],
@@ -41089,10 +41065,6 @@
         "required": [
           "wheels"
         ]
-      },
-      "Object": {
-        "type": "object",
-        "properties": {}
       },
       "TyreMeasurementListResponseDto": {
         "type": "object",
