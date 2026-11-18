@@ -79,12 +79,14 @@ function readFitment(
 
 async function ensureFitment(
   tx: Prisma.TransactionClient,
+  tenantId: string,
   laborOperationId: string,
   fitment: NormalizedLaborFitmentRow,
   options: ImportJobOptions,
 ): Promise<void> {
   const existing = await tx.laborFitment.findFirst({
     where: {
+      tenant_id: tenantId,
       labor_operation_id: laborOperationId,
       make: { equals: fitment.make, mode: 'insensitive' },
       model: { equals: fitment.model, mode: 'insensitive' },
@@ -93,6 +95,7 @@ async function ensureFitment(
   if (!existing) {
     await tx.laborFitment.create({
       data: {
+        tenant_id: tenantId,
         labor_operation_id: laborOperationId,
         make: fitment.make,
         model: fitment.model,
@@ -248,7 +251,7 @@ async function updateLaborOperation(
   });
   const fitment = readFitment(payload);
   if (fitment) {
-    await ensureFitment(tx, entityId, fitment, options);
+    await ensureFitment(tx, ctx.tenantId, entityId, fitment, options);
   }
   const after = await tx.laborOperation.findFirst({
     where: { tenant_id: ctx.tenantId, id: entityId },

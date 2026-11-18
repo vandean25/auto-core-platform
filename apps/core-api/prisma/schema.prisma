@@ -146,6 +146,7 @@ model Tenant {
   laborCategories                  LaborCategory[]
   laborPriceGroups                 LaborPriceGroup[]
   laborOperations                  LaborOperation[]
+  laborFitments                    LaborFitment[]
   laborEntries                     LaborEntry[]
   catalogProviderSettings          CatalogProviderSettings?
   catalogOemConcerns               CatalogOemConcern[]
@@ -5197,6 +5198,7 @@ model LaborOperation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@unique([tenant_id, code]) // tenant-scoped
   @@index([tenant_id])
   @@index([description])
@@ -5211,8 +5213,10 @@ model LaborOperation {
 
 model LaborFitment {
   id                 String         @id @default(uuid()) @db.Uuid
+  tenant_id          String
+  tenant             Tenant         @relation(fields: [tenant_id], references: [id])
   labor_operation_id String         @db.Uuid
-  labor_operation    LaborOperation @relation(fields: [labor_operation_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  labor_operation    LaborOperation @relation(fields: [tenant_id, labor_operation_id], references: [tenant_id, id], onDelete: Cascade, onUpdate: Cascade)
   make               String
   model              String
   year_from          Int?
@@ -5223,6 +5227,7 @@ model LaborFitment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenant_id])
   @@index([labor_operation_id])
   @@index([make, model, year_from, year_to, engine_code])
   @@map("labor_fitments")
@@ -5586,13 +5591,12 @@ model CatalogPriceHistory {
 }
 
 model MasterPart {
-  id                   String          @id @default(uuid()) @db.Uuid
-  supplier_part_number String          @unique
+  id                   String        @id @default(uuid()) @db.Uuid
+  supplier_part_number String        @unique
   oem_number           String?
   description          String
   brand                String
   fitments             PartFitment[]
-  local_inventory      LocalInventory?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -5618,22 +5622,6 @@ model PartFitment {
   @@index([master_part_id])
   @@index([make, model, year_from, year_to, engine_code])
   @@map("part_fitments")
-}
-
-model LocalInventory {
-  id               String     @id @default(uuid()) @db.Uuid
-  master_part_id   String     @unique @db.Uuid
-  master_part      MasterPart @relation(fields: [master_part_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  quantity_on_hand Int        @default(0)
-  bin_location     String?
-  cost_price       Decimal    @db.Decimal(10, 2)
-  retail_price     Decimal    @db.Decimal(10, 2)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([quantity_on_hand])
-  @@map("local_inventories")
 }
 
 // ============================================================================

@@ -245,9 +245,6 @@ export class CatalogService {
             },
           ],
         },
-        include: {
-          local_inventory: true,
-        },
         orderBy: [{ supplier_part_number: 'asc' }],
         take: SEARCH_LIMIT,
       }),
@@ -305,12 +302,6 @@ export class CatalogService {
       oem_number: string | null;
       description: string;
       brand: string;
-      local_inventory: {
-        quantity_on_hand: Prisma.Decimal | number;
-        bin_location: string | null;
-        cost_price: Prisma.Decimal | number;
-        retail_price: Prisma.Decimal | number;
-      } | null;
     }>,
   ) {
     const partResults: Array<{
@@ -367,14 +358,10 @@ export class CatalogService {
         oemNumber: part.oem_number,
         description: part.description,
         brand: part.brand,
-        quantityOnHand: Number(part.local_inventory?.quantity_on_hand ?? 0),
-        binLocation: part.local_inventory?.bin_location ?? null,
-        costPrice: part.local_inventory
-          ? Number(part.local_inventory.cost_price)
-          : null,
-        retailPrice: part.local_inventory
-          ? Number(part.local_inventory.retail_price)
-          : null,
+        quantityOnHand: 0,
+        binLocation: null,
+        costPrice: null,
+        retailPrice: null,
       });
       if (partResults.length >= SEARCH_LIMIT) {
         break;

@@ -272,6 +272,15 @@ describe('Labor Module (e2e)', () => {
         engineCode: '2AR-FE',
       });
       operationId = res.body.id;
+
+      const persistedFitments = await prisma.laborFitment.findMany({
+        where: { labor_operation_id: operationId },
+      });
+      expect(persistedFitments).toHaveLength(1);
+      expect(persistedFitments[0]).toMatchObject({
+        tenant_id: tenantId,
+        labor_operation_id: operationId,
+      });
     });
 
     it('should reject duplicate operation code → 409', async () => {
@@ -325,6 +334,15 @@ describe('Labor Module (e2e)', () => {
         yearFrom: 2018,
         yearTo: 2023,
         engineCode: null,
+      });
+
+      const persistedFitments = await prisma.laborFitment.findMany({
+        where: { labor_operation_id: operationId },
+      });
+      expect(persistedFitments).toHaveLength(1);
+      expect(persistedFitments[0]).toMatchObject({
+        tenant_id: tenantId,
+        labor_operation_id: operationId,
       });
     });
 

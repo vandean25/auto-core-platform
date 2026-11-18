@@ -1206,5 +1206,53 @@ describe('Tenant Isolation Regression (e2e)', () => {
         /\[TenantIsolation\] Do not use aggregateRaw\(\) on model 'Brand'\. Raw queries bypass tenant isolation\./,
       );
     });
+
+    it('scopes laborFitment.findMany() without a filter to the calling tenant', async () => {
+      const opA = await tenantAPrisma.laborOperation.create({
+        data: {
+          tenant_id: tenantAId,
+          code: `${prefix}-OP-A`,
+          description: 'Tenant A operation',
+          standard_aw: 1.0,
+          hourly_rate: 80.0,
+          fitments: {
+            create: [{ make: 'VW', model: 'Golf' }],
+          },
+        },
+        include: { fitments: true },
+      });
+
+      const opB = await tenantBPrisma.laborOperation.create({
+        data: {
+          tenant_id: tenantBId,
+          code: `${prefix}-OP-B`,
+          description: 'Tenant B operation',
+          standard_aw: 1.0,
+          hourly_rate: 80.0,
+          fitments: {
+            create: [{ make: 'BMW', model: '320d' }],
+          },
+        },
+        include: { fitments: true },
+      });
+
+      try {
+        const fitmentsA = await tenantAPrisma.laborFitment.findMany();
+        const fitmentsB = await tenantBPrisma.laborFitment.findMany();
+
+        expect(fitmentsA.map((f) => f.id)).toContain(opA.fitments[0].id);
+        expect(fitmentsA.map((f) => f.id)).not.toContain(opB.fitments[0].id);
+
+        expect(fitmentsB.map((f) => f.id)).toContain(opB.fitments[0].id);
+        expect(fitmentsB.map((f) => f.id)).not.toContain(opA.fitments[0].id);
+      } finally {
+        await tenantAPrisma.laborOperation.deleteMany({
+          where: { id: opA.id },
+        });
+        await tenantBPrisma.laborOperation.deleteMany({
+          where: { id: opB.id },
+        });
+      }
+    });
   });
 });
