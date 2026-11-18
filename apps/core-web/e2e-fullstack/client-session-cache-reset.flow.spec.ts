@@ -262,7 +262,10 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
       activeSiteId: SITE_B.id,
     }))
     await page.route('**/api/saved-views*', async (route) => {
-      if (route.request().method() !== 'GET') {
+      if (
+        new URL(route.request().url()).pathname !== '/api/saved-views' ||
+        route.request().method() !== 'GET'
+      ) {
         await route.continue()
         return
       }
