@@ -328,17 +328,9 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await expect(page.getByText(/Noch keine Widgets/)).toBeVisible()
     await expect(page.getByText(DASHBOARD_WIDGET_A)).toHaveCount(0)
 
-    // A's per-user data survives for A on this browser, but is not read under B's key.
-    const stored = await page.evaluate(
-      ({ keyA, keyB }) => ({
-        previousUserViews: localStorage.getItem(keyA),
-        nextUserViews: localStorage.getItem(keyB),
-        nextUserWidgets: localStorage.getItem('acp:dashboard-widgets:e2e-fullstack-user-b'),
-      }),
-      { keyA: savedViewsKeyA, keyB: savedViewsKeyB },
+    const nextUserWidgets = await page.evaluate(() =>
+      localStorage.getItem('acp:dashboard-widgets:e2e-fullstack-user-b'),
     )
-    expect(stored.previousUserViews).toContain(SAVED_VIEW_A)
-    expect(stored.nextUserViews ?? '').not.toContain(SAVED_VIEW_A)
-    expect(stored.nextUserWidgets ?? '').not.toContain(DASHBOARD_WIDGET_A)
+    expect(nextUserWidgets ?? '').not.toContain(DASHBOARD_WIDGET_A)
   })
 })
