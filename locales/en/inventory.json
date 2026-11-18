@@ -95,9 +95,21 @@
       "description_other": "Applies to {{count}} selected parts.",
       "percentLabel": "Change in %",
       "percentHint": "From -50 to 100, for example 5 for +5%.",
+      "preview": "Review preview",
+      "previewLoading": "Loading preview…",
+      "previewHeading": "Price change preview",
+      "previewSummary_one": "{{count}} part will be updated.",
+      "previewSummary_other": "{{count}} parts will be updated.",
+      "previewReadFailed": "Preview could not be loaded.",
+      "confirm": "Confirm changes",
       "submit": "Change prices",
       "retryFailed": "Retry failed parts",
       "submitting": "Changing…",
+      "back": "Back",
+      "close": "Close",
+      "newPreview": "New preview",
+      "markNotApplied": "Mark as not applied",
+      "markingNotApplied": "Marking…",
       "limit": "At most {{max}} parts per action.",
       "result": "{{updated}} of {{total}} changed.",
       "forbiddenHint": "Only owners and administrators can change prices.",
@@ -107,7 +119,29 @@
       "reasonForbidden": "Not permitted",
       "reasonFailed": "Failed",
       "success_one": "{{count}} price changed",
-      "success_other": "{{count}} prices changed"
+      "success_other": "{{count}} prices changed",
+      "states": {
+        "applied": "Applied",
+        "conflict": "Price changed",
+        "pending": "Pending (< 2 min)",
+        "unresolved": "Unresolved",
+        "notApplied": "Not applied",
+        "outcomeUnavailable": "Outcome unknown – check price",
+        "forbidden": "Not permitted",
+        "notFound": "Not found",
+        "invalid": "Invalid request"
+      },
+      "discovery": {
+        "bannerTitle_one": "{{count}} price change to review",
+        "bannerTitle_other": "{{count}} price changes to review",
+        "showDetails": "Show details",
+        "hideDetails": "Hide",
+        "markSeen": "Mark as seen",
+        "markAllSeen": "Dismiss completed",
+        "loadMore": "Load more",
+        "panelHeading": "Recent price changes",
+        "priceTransition": "{{basis}} → {{target}}"
+      }
     }
   },
   "addItemDialog": {

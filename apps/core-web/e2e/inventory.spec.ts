@@ -374,5 +374,131 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
       await expect(toolbar).toContainText(selectedCount(50));
       expect(await pageOverflow(page)).toBe(0);
     });
+
+    test('guarded price at 375px: WHEN the viewport is 375px THEN the preview, the states and the "mark not applied" action are visible with >= 44 px targets', async ({
+      page,
+    }) => {
+      const bulk = DE_INVENTORY.bulk.adjustPrice;
+      const staleAcceptedAt = new Date(Date.now() - 5 * 60_000).toISOString();
+      const opKey = '01930000-0000-7000-8000-000000000099';
+      let fenced = false;
+
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/inventory/price-operations/${opKey}/fence`), async (route) => {
+        fenced = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            key: opKey,
+            itemId: 'item-0002',
+            sku: 'SKU-0002',
+            state: 'FENCED',
+            kind: 'RETAIL_PRICE',
+            expectedRevision: 3,
+            retail_price: '55.00',
+            basis_retail_price: '50.00',
+            acceptedAt: staleAcceptedAt,
+            finalAt: new Date().toISOString(),
+            errorCode: null,
+          }),
+        });
+      });
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: [
+              {
+                key: opKey,
+                itemId: 'item-0002',
+                sku: 'SKU-0002',
+                state: fenced ? 'FENCED' : 'ACCEPTED',
+                kind: 'RETAIL_PRICE',
+                expectedRevision: 3,
+                retail_price: '55.00',
+                basis_retail_price: '50.00',
+                acceptedAt: staleAcceptedAt,
+                finalAt: fenced ? new Date().toISOString() : null,
+                errorCode: null,
+              },
+            ],
+            meta: { limit: 50, hasNextPage: false, nextCursor: null },
+          }),
+        });
+      });
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/item-0000'), async (route) => {
+        if (route.request().method() === 'PATCH') {
+          await route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({ code: 'INVENTORY_REVISION_CONFLICT' }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'item-0000', sku: 'SKU-0000', name: 'Bremsscheibe 0000', price: 100, cost_price: 60, revision: 4 }),
+        });
+      });
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/item-0001'), async (route) => {
+        if (route.request().method() === 'PATCH') {
+          await route.fulfill({
+            status: 410,
+            contentType: 'application/json',
+            body: JSON.stringify({ code: 'OUTCOME_UNAVAILABLE' }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'item-0001', sku: 'SKU-0001', name: 'Bremsscheibe 0001', price: 200, cost_price: 120, revision: 5 }),
+        });
+      });
+
+      await openParts(page);
+
+      // 1. Discovery panel: Unresolved + "Als nicht angewendet markieren" >= 44px
+      const fenceButton = page.getByRole('button', { name: bulk.markNotApplied });
+      await expect(fenceButton).toBeVisible();
+      expect((await fenceButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await fenceButton.click();
+      await expect(page.getByText(bulk.states.notApplied)).toBeVisible();
+      expect(await pageOverflow(page)).toBe(0);
+
+      // 2. Select two items and open guarded bulk price dialog
+      const cards = page.locator('li[data-table-row="true"]');
+      await cards.nth(0).locator('label').filter({ has: page.getByRole('checkbox', { name: selectRow }) }).click();
+      await cards.nth(1).locator('label').filter({ has: page.getByRole('checkbox', { name: selectRow }) }).click();
+      const toolbar = page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label });
+      const actionBtn = toolbar.getByRole('button', { name: bulk.action });
+      expect((await actionBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await actionBtn.click();
+
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel(bulk.percentLabel).fill('10');
+      const previewBtn = dialog.getByRole('button', { name: bulk.preview });
+      expect((await previewBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await previewBtn.click();
+
+      // 3. Preview step
+      await expect(dialog.getByText(bulk.previewHeading)).toBeVisible();
+      const confirmBtn = dialog.getByRole('button', { name: bulk.confirm });
+      expect((await confirmBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(await pageOverflow(page)).toBe(0);
+      await confirmBtn.click();
+
+      // 4. Result states: Conflict + Outcome unavailable
+      await expect(dialog.getByText(bulk.states.conflict)).toBeVisible();
+      await expect(dialog.getByText(bulk.states.outcomeUnavailable)).toBeVisible();
+      const newPreviewBtn = dialog.getByRole('button', { name: bulk.newPreview });
+      expect((await newPreviewBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(await pageOverflow(page)).toBe(0);
+    });
   });
 });

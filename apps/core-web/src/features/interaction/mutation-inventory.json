@@ -2,11 +2,25 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "operationId": "inventory.item.bulkAdjustPrice",
-      "owningHook": "useBulkAdjustInventoryPrices",
-      "sourceFile": "api/inventory.ts",
+      "operationId": "inventory.item.previewBulkPrice",
+      "owningHook": "usePreviewGuardedPriceChanges",
+      "sourceFile": "api/inventory-price-operations.ts",
       "classification": "server-confirmed",
-      "serverConfirmedReason": "Price edits change what is invoiced and are role-checked per part on the server; the result (updated, forbidden, failed) is reported per part before the list is refreshed."
+      "serverConfirmedReason": "Preview reads fresh authorized prices and revisions per part before the user consents to any mutation."
+    },
+    {
+      "operationId": "inventory.item.guardedBulkAdjustPrice",
+      "owningHook": "useExecuteGuardedPriceChanges",
+      "sourceFile": "api/inventory-price-operations.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Guarded price updates are durable journaled operations; each part reports its server-confirmed state (applied, conflict, pending, unresolved, fenced, or definite failure)."
+    },
+    {
+      "operationId": "inventory.item.fencePriceOperation",
+      "owningHook": "useFenceInventoryPriceOperation",
+      "sourceFile": "api/inventory-price-operations.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "User fencing requires the server journal-row lock to settle whether the operation is fenced or already applied/conflicted."
     },
     {
       "operationId": "inventory.item.receive",
