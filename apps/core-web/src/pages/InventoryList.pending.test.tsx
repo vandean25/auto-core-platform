@@ -75,6 +75,9 @@ beforeEach(() => {
       return httpResponse(200, { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 1 } })
     }
     if (path.startsWith('/api/inventory/locations')) return httpResponse(200, [])
+    if (path.startsWith('/api/inventory/price-operations')) {
+      return httpResponse(200, { data: [], meta: { hasNextPage: false, nextCursor: null } })
+    }
     if (init?.method === 'POST' && path === '/api/inventory') {
       return postGate ? postGate.promise : httpResponse(201, serverItem)
     }
