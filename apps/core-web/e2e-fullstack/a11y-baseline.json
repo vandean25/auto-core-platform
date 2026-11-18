@@ -1,0 +1,54 @@
+{
+  "auth-home": {
+    "page-has-heading-one": 1,
+    "region": 2
+  },
+  "customers-list": {
+    "empty-table-header": 1,
+    "region": 2
+  },
+  "login-screen": {
+    "landmark-one-main": 1,
+    "region": 1
+  },
+  "vehicle-purchase-new": {
+    "region": 2
+  },
+  "vehicle-stock-detail": {
+    "page-has-heading-one": 1,
+    "region": 2
+  },
+  "vehicle-sale-new": {
+    "page-has-heading-one": 1,
+    "region": 2
+  },
+  "vehicle-sale-detail": {
+    "button-name": 1,
+    "region": 2
+  },
+  "margin-scheme-invoice-detail": {
+    "page-has-heading-one": 1,
+    "region": 2
+  },
+  "sales-order-detail": {
+    "region": 2
+  },
+  "sales-invoice-draft-edit": {
+    "button-name": 1,
+    "empty-table-header": 2,
+    "label": 5,
+    "region": 2
+  },
+  "sales-invoice-detail": {
+    "region": 2
+  },
+  "workshop-checkout-panel": {
+    "region": 2
+  },
+  "workshop-orders-list": {
+    "region": 2
+  },
+  "workshop-board": {
+    "region": 2
+  }
+}

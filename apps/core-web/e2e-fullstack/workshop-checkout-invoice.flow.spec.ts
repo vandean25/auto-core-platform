@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
 import { DE_FULLSTACK_WORKSHOP } from './de-copy.ts'
@@ -40,6 +41,7 @@ test.describe('Full-stack workshop checkout VAT (AUT-965)', () => {
     expect(net).toMatch(/90,00/)
     expect(vat).toMatch(/18,00/)
     expect(total).toMatch(/108,00/)
+    await scanA11y(page, 'workshop-checkout-panel')
   })
 
   test('issued invoice totals match the checkout panel (DE)', async ({ page, request }) => {

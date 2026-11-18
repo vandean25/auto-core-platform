@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession, useApiBearerToken } from './harness.ts'
 import { DE_FULLSTACK_STATUS, DE_FULLSTACK_WORKSHOP } from './de-copy.ts'
@@ -15,6 +16,7 @@ test.describe('Full-stack workshop mechanic queue flow', () => {
     await expect(page.getByTestId('board-column-unassigned')).toContainText(
       fixture.workshopOrderNumber,
     )
+    await scanA11y(page, 'workshop-board')
 
     const assignResponse = page.waitForResponse(
       (response) =>
@@ -37,6 +39,7 @@ test.describe('Full-stack workshop mechanic queue flow', () => {
       page.getByRole('heading', { name: DE_FULLSTACK_WORKSHOP.mechanicQueueTitle }),
     ).toBeVisible()
     await expect(page.getByText(fixture.workshopTaskTitle)).toBeVisible()
+    await scanA11y(page, 'mechanic-queue')
 
     await page.getByRole('link', { name: fixture.workshopTaskTitle }).click()
     await expect(page).toHaveURL(`/mechanic/tasks/${fixture.workshopTaskId}`)
@@ -49,5 +52,6 @@ test.describe('Full-stack workshop mechanic queue flow', () => {
       .click()
 
     await expect(page.getByText(DE_FULLSTACK_STATUS.DONE).first()).toBeVisible()
+    await scanA11y(page, 'mechanic-task-detail')
   })
 })
