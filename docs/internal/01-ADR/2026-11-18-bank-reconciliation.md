@@ -11,7 +11,11 @@ tags: [adr, finance, invoices, bank-reconciliation]
 
 ## Status
 
-**Accepted (2026-11-18).** The Product Owner confirmed the V1 scope for [AUT-1001](https://linear.app/auto-core-platform/issue/AUT-1001). The release gates below still apply. This ADR changes documentation only. It establishes the contract for BR-1 through BR-3.
+**Accepted (2026-11-18).** Dejan Dosenovic confirmed the V1 scope for [AUT-1001](https://linear.app/auto-core-platform/issue/AUT-1001).
+
+> yes, this captures the v1 scope. write the docs-only ADR for AUT-1001.
+
+The release gates below still apply. This decision establishes the contract for BR-1 through BR-3.
 
 ## Context
 
@@ -21,8 +25,17 @@ Workshops issue invoices in ACP and receive transfers in their bank accounts. St
 
 ### Access and ownership
 
-- `FinanceSettings.bank_reconciliation_enabled` defaults to `false`. Owners, Admins, and accountants with an explicit tenant-wide reconciliation grant can change the switch. Record the actor, time, and old and new values. The session exposes effective access, and the API enforces it on every request. With the flag off, reconciliation endpoints return 404 and the page, navigation, and Cmd+K actions are unavailable. MCP access to the switch is read-only.
+Dejan confirmed the Finance Settings decision on 2026-11-18.
+
+> yes, keep bank reconciliation off by default, with an audited switch in Finance Settings that only tenant owners and admin can change.
+
+He then added switch access for accountants with tenant-wide reconciliation access.
+
+> yes, only accountants with tenant-wide reconciliation access can change the switch. accountants assigned to specific legal entities can reconcile only for those entities.
+
+- `FinanceSettings.bank_reconciliation_enabled` defaults to `false`. Owners and Admins can change it. Accountants need both tenant-wide reconciliation access and an explicit grant to change the switch. Record the actor, time, and old and new values. The session exposes effective access, and the API enforces it on every request. With the flag off, reconciliation endpoints return 404 and the page, navigation, and Cmd+K actions are unavailable. MCP access to the switch is read-only.
 - Owners, Admins, and accountants with reconciliation access can import, review, confirm, undo, dismiss, restore, handle follow-up, and export within their authorized scope. An accountant assigned to specific legal entities can act only for those entities. The same scope applies to bank account setup, search, export history, and re-downloads. Derive scope from authenticated membership and grants. Verify tenant and legal entity ownership at lookup and again when committing changes.
+- The current tenant roles have no `ACCOUNTANT` role. BR-1 must provide a reviewed permission model for accountant access before enabling it. Define separate permissions for changing the tenant switch and operating reconciliation, with an explicit tenant-wide or legal-entity scope for operational access. Follow the operation-based design in [ADR-0034](2026-11-02-custom-tenant-roles.md), which is currently proposed. Accountant authorization requires an active membership and an enforceable grant. A legal-entity grant alone cannot authorize a tenant-wide settings write, and the settings grant applies only to this switch.
 - Register each receiving bank account under one legal entity in the tenant. Derive statement ownership from the normalized receiving IBAN. Block unknown accounts and files that would resolve to more than one legal entity. A transfer can settle only invoices issued by the legal entity that received it.
 
 ### Statement import
@@ -43,6 +56,7 @@ Workshops issue invoices in ACP and receive transfers in their bank accounts. St
 ### Confirmation, balance, and undo
 
 - Support one transfer covering one invoice, several transfers against the same invoice, and one transfer split across several invoices. Staff review the invoice and amount on each line and explicitly confirm the split. Commit the split atomically. Each confirmed line creates a `BANK_TRANSFER` payment linked to the source transaction. Use `SETTLED` for a confirmed bank allocation. `SETTLED_EXTERNAL` retains its meaning for cash-register settlement with an external receipt. Once RKSV review clears the bank-transfer path, it generates no fiscal receipt.
+- `SETTLED` records completion of a payment. Classify a payment as RKSV-signed only when it is a fiscal cash/card payment with a linked receipt whose state is `SIGNED`. Use the payment method and receipt evidence when selecting fiscal payments for display, reports, exports, and reversals. A settled bank-transfer allocation has no fiscal receipt, and undo uses the bank allocation inverse. BR-2 must verify that the bank payment appears in invoice payment history and is excluded from RKSV-signed results.
 - Calculate outstanding balance from the issued invoice gross amount, less finalized credit notes and active settled payments, floored at zero. Keep the signed difference for follow-up. A partial allocation leaves the invoice `ISSUED`. An allocation moves it to `PAID` when the balance reaches zero. Prevent over-collection through competing settlement paths and recheck pending fiscal settlement before confirming. [AUT-916](https://linear.app/auto-core-platform/issue/AUT-916) guards the existing cash/card path against collecting gross after a finalized credit note. The bank path uses the net outstanding balance.
 - Recheck versions, permissions, ownership, and all amounts in the same transaction as confirmation. A split can consume at most the transfer's unallocated amount, and each line can consume at most its invoice's outstanding balance. Stale or conflicting requests change nothing. Retrying a confirmed request cannot create duplicate allocations. Record the confirming user and time, whether the split came from rules, the model, or manual entry, and the verified evidence shown at confirmation.
 - Undo one allocation through a version-checked server inverse per [ADR-0036 R3](2026-11-02-frontend-interaction-rules.md#r3-undo-only-a-committed-safely-reversible-operation). Keep the original payment and reversal history. Recalculate the invoice balance and release the reversed amount without changing the other allocations. Reopen a paid invoice when it has a positive outstanding balance again. Staff handle a returned transfer by recording the return reason and manually reversing its affected allocations. Once marked returned, the transfer is ineligible for further allocations. Import, navigation, and suggestion generation never book or reverse a payment.
