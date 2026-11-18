@@ -67,6 +67,7 @@ export type GuardedPriceItemOutcome = {
   expectedRevision: number
   status: GuardedPriceItemStatus
   acceptedAt: string | null
+  retryable?: boolean
 }
 
 function readStorageJson<T>(storageKey: string, fallback: T): T {
@@ -324,6 +325,31 @@ export type FenceOperationResult =
   | { outcome: 'OPERATION'; operation: InventoryPriceOperationDto }
   | { outcome: 'OUTCOME_UNAVAILABLE' }
   | { outcome: 'OPERATION_UNRESOLVED' }
+  | { outcome: 'DEFINITE_FAILURE'; status: 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' }
+
+export function fenceResultToStatus(result: FenceOperationResult): GuardedPriceItemStatus {
+  if (result.outcome === 'OUTCOME_UNAVAILABLE') return 'OUTCOME_UNAVAILABLE'
+  if (result.outcome === 'DEFINITE_FAILURE') return result.status
+  if (result.outcome === 'OPERATION') return mapOperationDtoToStatus(result.operation)
+  return 'UNRESOLVED'
+}
+
+const FENCE_DEFINITE_FAILURE_MAP: Record<number, 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID'> = {
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  400: 'INVALID',
+}
+
+function classifyFenceErrorResponse(status: number, code: string | null): FenceOperationResult | null {
+  if (status === 410 || code === 'OUTCOME_UNAVAILABLE') {
+    return { outcome: 'OUTCOME_UNAVAILABLE' }
+  }
+  if (status === 409 && code === 'OPERATION_UNRESOLVED') {
+    return { outcome: 'OPERATION_UNRESOLVED' }
+  }
+  const definiteStatus = FENCE_DEFINITE_FAILURE_MAP[status]
+  return definiteStatus ? { outcome: 'DEFINITE_FAILURE', status: definiteStatus } : null
+}
 
 export function useFenceInventoryPriceOperation() {
   const queryClient = useQueryClient()
@@ -344,12 +370,8 @@ export function useFenceInventoryPriceOperation() {
         return { outcome: 'OPERATION', operation }
       }
       const code = await parseErrorCode(response)
-      if (response.status === 410 || code === 'OUTCOME_UNAVAILABLE') {
-        return { outcome: 'OUTCOME_UNAVAILABLE' }
-      }
-      if (response.status === 409 && code === 'OPERATION_UNRESOLVED') {
-        return { outcome: 'OPERATION_UNRESOLVED' }
-      }
+      const classified = classifyFenceErrorResponse(response.status, code)
+      if (classified) return classified
       throw new Error(code ?? 'FENCE_FAILED')
     },
     onSuccess: () => {

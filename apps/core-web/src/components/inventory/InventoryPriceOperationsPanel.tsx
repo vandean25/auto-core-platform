@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { toast } from 'sonner'
 import {
+  fenceResultToStatus,
   getSeenPriceOperationKeys,
   mapOperationDtoToStatus,
   markPriceOperationsSeen,
@@ -192,13 +194,11 @@ export function InventoryPriceOperationsPanel({ enabled, onNewPreview }: PanelPr
         retail_price: Number(op.retail_price),
         expectedRevision: op.expectedRevision,
       })
-      const next =
-        result.outcome === 'OUTCOME_UNAVAILABLE'
-          ? 'OUTCOME_UNAVAILABLE'
-          : result.outcome === 'OPERATION'
-            ? mapOperationDtoToStatus(result.operation)
-            : null
-      if (next) setStatusOverrides((prev) => ({ ...prev, [op.key]: next }))
+      if (result.outcome !== 'OPERATION_UNRESOLVED') {
+        setStatusOverrides((prev) => ({ ...prev, [op.key]: fenceResultToStatus(result) }))
+      }
+    } catch {
+      toast.error(t('bulk.adjustPrice.states.outcomeUnavailable'))
     } finally {
       setFencingKey(null)
     }

@@ -736,6 +736,44 @@ describe('InventoryList bulk price change (AUT-886 / AUT-936)', () => {
     expect(await screen.findByText(bulk.states.notApplied)).toBeInTheDocument()
   })
 
+  it('WHEN the fence endpoint returns 404 THEN the panel shows Not found and removes the fence action', async () => {
+    const staleAcceptedAt = new Date(Date.now() - 5 * 60_000).toISOString()
+    const opKey = '01930000-0000-7000-8000-000000000010'
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url) === `/api/inventory/price-operations/${opKey}/fence` && init?.method === 'POST') {
+        return json(404, { statusCode: 404 })
+      }
+      if (String(url) === '/api/inventory/price-operations') {
+        return json(200, {
+          data: [
+            {
+              key: opKey,
+              itemId: 'item-2',
+              sku: 'BRK-002',
+              state: 'ACCEPTED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 6,
+              retail_price: '60.00',
+              basis_retail_price: '50.00',
+              acceptedAt: staleAcceptedAt,
+              finalAt: null,
+              errorCode: null,
+            },
+          ],
+          meta: { limit: 50, hasNextPage: false, nextCursor: null },
+        })
+      }
+      return json(200, emptyDiscovery)
+    })
+
+    renderList()
+
+    fireEvent.click(await screen.findByRole('button', { name: bulk.markNotApplied }))
+
+    expect(await screen.findByText(bulk.states.notFound)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: bulk.markNotApplied })).not.toBeInTheDocument()
+  })
+
   it('WHEN the role may not edit prices THEN no bulk price action or discovery is offered', () => {
     authRole.current = 'SALES'
     renderList()

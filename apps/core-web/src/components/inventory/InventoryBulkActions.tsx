@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
+  fenceResultToStatus,
   freezePriceIntents,
   isDefiniteFailureStatus,
-  mapOperationDtoToStatus,
   markPriceOperationsSeen,
   removeFrozenIntents,
   useExecuteGuardedPriceChanges,
@@ -14,6 +14,7 @@ import {
   type FrozenGuardedPriceIntent,
   type GuardedPriceItemOutcome,
   type PreviewPriceResult,
+  type PreviewReadFailure,
 } from '@/api/inventory-price-operations'
 import type { InventoryItem } from '@/api/types'
 import { mapRegistryActionsToPalette } from '@/components/global-search/global-search-context-actions'
@@ -140,7 +141,7 @@ function BulkPreviewStep({ preview, isSubmitting, onBack, onConfirm }: PreviewSt
 
 type ResultStepProps = {
   outcomes: GuardedPriceItemOutcome[]
-  previewFailuresCount: number
+  previewFailures: PreviewReadFailure[]
   isRetrying: boolean
   fencingKey: string | null
   onRetryDefinite: () => void
@@ -151,7 +152,7 @@ type ResultStepProps = {
 
 function BulkResultStep({
   outcomes,
-  previewFailuresCount,
+  previewFailures,
   isRetrying,
   fencingKey,
   onRetryDefinite,
@@ -161,11 +162,16 @@ function BulkResultStep({
 }: ResultStepProps) {
   const { t } = useTranslation('inventory')
   const appliedCount = outcomes.filter((item) => item.status === 'APPLIED').length
-  const totalCount = outcomes.length + previewFailuresCount
-  const definiteFailures = outcomes.filter(
+  const totalCount = outcomes.length + previewFailures.length
+  const patchDefiniteFailures = outcomes.filter(
     (item): item is GuardedPriceItemOutcome & { status: 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' } =>
-      isDefiniteFailureStatus(item.status),
+      isDefiniteFailureStatus(item.status) && item.retryable !== false,
   )
+  const fenceDefiniteFailures = outcomes.filter(
+    (item): item is GuardedPriceItemOutcome & { status: 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' } =>
+      isDefiniteFailureStatus(item.status) && item.retryable === false,
+  )
+  const definiteFailures = [...patchDefiniteFailures, ...fenceDefiniteFailures, ...previewFailures]
   const stateEntries = outcomes.filter(
     (item) => item.status !== 'APPLIED' && !isDefiniteFailureStatus(item.status),
   )
@@ -231,7 +237,7 @@ function BulkResultStep({
         <Button type="button" variant="outline" className="min-h-11 md:min-h-9" onClick={onClose}>
           {t('bulk.adjustPrice.close')}
         </Button>
-        {definiteFailures.length > 0 ? (
+        {patchDefiniteFailures.length > 0 ? (
           <Button type="button" className="min-h-11 md:min-h-9" disabled={isRetrying} onClick={onRetryDefinite}>
             {isRetrying ? t('bulk.adjustPrice.submitting') : t('bulk.adjustPrice.retryFailed')}
           </Button>
@@ -276,12 +282,6 @@ function BulkPercentStep({ percent, isValid, isLoading, onPercentChange, onSubmi
   )
 }
 
-function fenceResultToStatus(result: Awaited<ReturnType<ReturnType<typeof useFenceInventoryPriceOperation>['mutateAsync']>>) {
-  if (result.outcome === 'OUTCOME_UNAVAILABLE') return 'OUTCOME_UNAVAILABLE' as const
-  if (result.outcome === 'OPERATION') return mapOperationDtoToStatus(result.operation)
-  return 'UNRESOLVED' as const
-}
-
 function mergeFrozenIntents(
   existing: FrozenGuardedPriceIntent[],
   incoming: FrozenGuardedPriceIntent[],
@@ -305,7 +305,7 @@ type DialogBodyProps = {
   percent: string
   value: number | null
   preview: PreviewPriceResult | null
-  previewFailuresCount: number
+  previewFailures: PreviewReadFailure[]
   outcomes: GuardedPriceItemOutcome[]
   fencingKey: string | null
   isPreviewPending: boolean
@@ -345,7 +345,7 @@ function BulkPriceDialogBody(props: DialogBodyProps) {
   return (
     <BulkResultStep
       outcomes={props.outcomes}
-      previewFailuresCount={props.previewFailuresCount}
+      previewFailures={props.previewFailures}
       isRetrying={props.isExecutePending}
       fencingKey={props.fencingKey}
       onRetryDefinite={props.onRetryDefinite}
@@ -374,7 +374,7 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
   const [percent, setPercent] = useState('')
   const [step, setStep] = useState<'percent' | 'preview' | 'result'>('percent')
   const [preview, setPreview] = useState<PreviewPriceResult | null>(null)
-  const [previewFailuresCount, setPreviewFailuresCount] = useState(0)
+  const [previewFailures, setPreviewFailures] = useState<PreviewReadFailure[]>([])
   const [frozenIntents, setFrozenIntents] = useState<FrozenGuardedPriceIntent[]>([])
   const [outcomes, setOutcomes] = useState<GuardedPriceItemOutcome[]>([])
   const [fencingKey, setFencingKey] = useState<string | null>(null)
@@ -388,17 +388,23 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
     const nextPreview = await previewMutation.mutateAsync({ items: targetItems, percent: targetPercent })
     setPreview(nextPreview)
     if (resetBatch) {
-      setPreviewFailuresCount(nextPreview.failed.length)
+      setPreviewFailures(nextPreview.failed)
       setFrozenIntents([])
       setOutcomes([])
     }
     setStep('preview')
   }
 
-  const finalizeIfAllApplied = (nextOutcomes: GuardedPriceItemOutcome[], failedReadsCount: number) => {
-    const allApplied = failedReadsCount === 0 && nextOutcomes.every((entry) => entry.status === 'APPLIED')
+  const finalizeIfAllApplied = (nextOutcomes: GuardedPriceItemOutcome[], failedReads: PreviewReadFailure[]) => {
+    const allApplied = failedReads.length === 0 && nextOutcomes.every((entry) => entry.status === 'APPLIED')
     if (!allApplied) {
-      onPartial(nextOutcomes.filter((entry) => entry.status !== 'APPLIED').map((entry) => entry.itemId))
+      const remainingIds = Array.from(
+        new Set([
+          ...nextOutcomes.filter((entry) => entry.status !== 'APPLIED').map((entry) => entry.itemId),
+          ...failedReads.map((entry) => entry.itemId),
+        ]),
+      )
+      onPartial(remainingIds)
       return false
     }
     const keys = nextOutcomes.map((entry) => entry.key)
@@ -416,18 +422,22 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
     setFrozenIntents((prev) => mergeFrozenIntents(prev, frozen))
     const batchOutcomes = await executeMutation.mutateAsync(frozen)
     const nextOutcomes = mergeOutcomesByItem(outcomes, batchOutcomes)
-    if (finalizeIfAllApplied(nextOutcomes, previewFailuresCount)) return
+    if (finalizeIfAllApplied(nextOutcomes, previewFailures)) return
     setOutcomes(nextOutcomes)
     setStep('result')
   }
 
   const retryDefiniteFailures = async () => {
-    const retryKeys = new Set(outcomes.filter((entry) => isDefiniteFailureStatus(entry.status)).map((entry) => entry.key))
+    const retryKeys = new Set(
+      outcomes
+        .filter((entry) => isDefiniteFailureStatus(entry.status) && entry.retryable !== false)
+        .map((entry) => entry.key),
+    )
     const intentsToRetry = frozenIntents.filter((intent) => retryKeys.has(intent.key))
     if (intentsToRetry.length === 0) return
     const retriedByKey = new Map((await executeMutation.mutateAsync(intentsToRetry)).map((entry) => [entry.key, entry]))
     const merged = outcomes.map((entry) => retriedByKey.get(entry.key) ?? entry)
-    if (finalizeIfAllApplied(merged, previewFailuresCount)) return
+    if (finalizeIfAllApplied(merged, previewFailures)) return
     setOutcomes(merged)
   }
 
@@ -441,7 +451,12 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
         expectedRevision: outcome.expectedRevision,
       })
       const nextStatus = fenceResultToStatus(result)
-      setOutcomes((prev) => prev.map((entry) => (entry.key === outcome.key ? { ...entry, status: nextStatus } : entry)))
+      const retryable = result.outcome === 'DEFINITE_FAILURE' ? false : outcome.retryable
+      setOutcomes((prev) =>
+        prev.map((entry) => (entry.key === outcome.key ? { ...entry, status: nextStatus, retryable } : entry)),
+      )
+    } catch {
+      toast.error(t('bulk.adjustPrice.states.outcomeUnavailable'))
     } finally {
       setFencingKey(null)
     }
@@ -466,7 +481,7 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
           percent={percent}
           value={value}
           preview={preview}
-          previewFailuresCount={previewFailuresCount}
+          previewFailures={previewFailures}
           outcomes={outcomes}
           fencingKey={fencingKey}
           isPreviewPending={previewMutation.isPending}
