@@ -1917,3 +1917,14 @@ describe.each([
     );
   });
 });
+
+describe('TRANSFER_INCLUDE (AUT-1020)', () => {
+  it('orders transfer lines with an id tie-breaker when createdAt timestamps tie', async () => {
+    const { TRANSFER_INCLUDE } = await import('./stock-transfer-include.js');
+
+    expect(TRANSFER_INCLUDE.lines.orderBy).toEqual([
+      { createdAt: 'asc' },
+      { id: 'asc' },
+    ]);
+  });
+});

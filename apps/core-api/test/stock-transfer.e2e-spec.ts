@@ -231,9 +231,9 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
     }
 
     const created = await createRequest().expect(201);
-    const lineIds: string[] = created.body.lines.map(
-      (line: { id: string }) => line.id,
-    );
+    const createdLines: Array<{ id: string; requestedQty: string }> =
+      created.body.lines;
+    const lineIds = createdLines.map((line) => line.id);
     if (action === 'approve') {
       return statements(() =>
         postAction(created.body.id, 'approve', { expectedVersion: 1 }),
@@ -255,9 +255,9 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       postAction(created.body.id, 'receive', {
         expectedVersion: 3,
         idempotencyKey: `aut861-${lineCount}-${lineQuantities ? 'distinct' : 'equal'}`,
-        lines: lineIds.map((id, index) => ({
-          id,
-          receiveQty: quantities[index],
+        lines: createdLines.map((line) => ({
+          id: line.id,
+          receiveQty: Number(line.requestedQty),
           destLocationId: grzBinId,
         })),
       }),
@@ -548,7 +548,8 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
 
       const detailRun = async (lineCount: number) => {
         const transferId = await createRequestedTransfer(lineCount, sourceBins);
-        let lines: Array<{ fromBinCode: string }> = [];
+        let lines: Array<{ sourceLocationId: string; fromBinCode: string }> =
+          [];
         const statements = await countDbStatements(async () => {
           const res = await getDetail(transferId).expect(200);
           lines = res.body.lines;
@@ -560,15 +561,25 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       const tenLines = await detailRun(10);
 
       expect(tenLines.statements).toBe(twoLines.statements);
-      expect(twoLines.lines.map((line) => line.fromBinCode)).toEqual([
-        'BIN-A1',
-        'BIN-A2',
-      ]);
-      expect(tenLines.lines.map((line) => line.fromBinCode)).toEqual(
-        Array.from({ length: 10 }, (_, index) =>
-          index % 2 === 0 ? 'BIN-A1' : 'BIN-A2',
-        ),
-      );
+      const expectedBinCode = (sourceLocationId: string) =>
+        sourceLocationId === mainBinId ? 'BIN-A1' : 'BIN-A2';
+      for (const run of [twoLines, tenLines]) {
+        for (const line of run.lines) {
+          expect(line.fromBinCode).toBe(expectedBinCode(line.sourceLocationId));
+        }
+      }
+      expect(
+        twoLines.lines.filter((line) => line.fromBinCode === 'BIN-A1'),
+      ).toHaveLength(1);
+      expect(
+        twoLines.lines.filter((line) => line.fromBinCode === 'BIN-A2'),
+      ).toHaveLength(1);
+      expect(
+        tenLines.lines.filter((line) => line.fromBinCode === 'BIN-A1'),
+      ).toHaveLength(5);
+      expect(
+        tenLines.lines.filter((line) => line.fromBinCode === 'BIN-A2'),
+      ).toHaveLength(5);
     });
   });
 
