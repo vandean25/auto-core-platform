@@ -47,6 +47,11 @@ function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
 
   return (first, ...rest) => {
     if (typeof first !== 'function') {
+      if (Array.isArray(first)) {
+        return PrismaTransactionContext.runInBatch(() =>
+          runTransaction(first, ...rest),
+        );
+      }
       return runTransaction(first, ...rest);
     }
     const callback = first as PrismaTransactionCallback;

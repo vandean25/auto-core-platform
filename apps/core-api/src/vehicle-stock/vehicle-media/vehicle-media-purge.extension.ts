@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
+import { PrismaTransactionContext } from '../../prisma/prisma-transaction-context.js';
 import { getVehicleMediaPurgeStorage } from './vehicle-media-purge.registry.js';
 import type { VehicleMediaStorage } from './vehicle-media.storage.js';
 
@@ -233,17 +234,19 @@ export function createVehicleMediaPurgeTransactionExtension() {
             );
           }
           if (Array.isArray(arg)) {
-            return runWithDeferredVehicleMediaPurges(() => {
-              if (!batchTxRunners.runExtendedTransaction) {
-                throw new Error(
-                  'Vehicle media purge batch transaction is not ready.',
-                );
-              }
-              return batchTxRunners.runExtendedTransaction(arg, {
-                ...transactionOptions,
-                [skipVehicleMediaPurgeDeferral]: true,
-              });
-            });
+            return PrismaTransactionContext.runInBatch(() =>
+              runWithDeferredVehicleMediaPurges(() => {
+                if (!batchTxRunners.runExtendedTransaction) {
+                  throw new Error(
+                    'Vehicle media purge batch transaction is not ready.',
+                  );
+                }
+                return batchTxRunners.runExtendedTransaction(arg, {
+                  ...transactionOptions,
+                  [skipVehicleMediaPurgeDeferral]: true,
+                });
+              }),
+            );
           }
           return runParentTransaction(arg, options);
         },

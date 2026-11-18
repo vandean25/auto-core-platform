@@ -1729,6 +1729,34 @@ describe('Prisma Audit Extension', () => {
         expect(queryFn).toHaveBeenCalledTimes(1);
       },
     );
+
+    it('does not open a nested transaction when inside PrismaTransactionContext.runInBatch', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const outerTxFn = jest.fn();
+      const outerCtx = {
+        ...mockContext,
+        $transaction: outerTxFn,
+      };
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      await runWithContext(undefined, undefined, () =>
+        PrismaTransactionContext.runInBatch(() =>
+          applyAuditUpdate.call(
+            outerCtx,
+            outerCtx,
+            'Customer',
+            { where: { id: 'cust-1' }, data: { name: 'After' } },
+            queryFn,
+          ),
+        ),
+      );
+
+      expect(outerTxFn).not.toHaveBeenCalled();
+      expect(queryFn).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+    });
   });
 
 

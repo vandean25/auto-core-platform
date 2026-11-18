@@ -711,7 +711,8 @@ type AuditTransactionRunner = <T>(
 function hasActiveTransaction(): boolean {
   return Boolean(
     PrismaTransactionContext.getClient() ??
-    DryRunStorage.getTransactionClient(),
+    DryRunStorage.getTransactionClient() ??
+    (PrismaTransactionContext.isInBatch() ? true : undefined),
   );
 }
 

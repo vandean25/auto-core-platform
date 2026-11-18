@@ -507,8 +507,8 @@ describe('Audit Tracing and Governance (e2e)', () => {
         }),
       ).rejects.toThrow('Simulated audit insert failure (AUT-1009)');
 
-      const persisted = await prismaA.customer.findUniqueOrThrow({
-        where: { id: customer.id },
+      const persisted = await prismaA.customer.findFirstOrThrow({
+        where: { id: customer.id, tenant_id: tenantA },
       });
       expect(persisted.first_name).toBe('BeforeRollback');
 
