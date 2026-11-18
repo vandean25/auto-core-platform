@@ -74,6 +74,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           if [ -n "$BASE_REF" ]; then
+            git config --global --add safe.directory "$PWD"
             git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
             export A11Y_BASELINE_BASE_REF="origin/${BASE_REF}"
           fi
