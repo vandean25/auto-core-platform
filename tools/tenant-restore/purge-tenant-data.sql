@@ -434,6 +434,7 @@ VALUES
   ('loaner_vehicles', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('loaner_vehicles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('loaner_vehicles', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('local_inventories', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('margin_rules', 'brands', 'brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
