@@ -15,7 +15,7 @@ tags:
 
 ## Summary
 
-> `GET /api/search` replaces the command palette's separate requests with one call. It returns grouped, ranked results for six entity types, isolated by tenant, filtered by session role on the server, ordered by site and tolerant of a single failing type. The palette switch is a separate frontend ticket (AUT-663).
+> `GET /api/search` replaces the command palette's separate requests with one call. It returns grouped, ranked results for all 19 entity types, isolated by tenant, filtered by session role on the server, ordered by site and tolerant of a single failing type.
 
 ---
 
@@ -26,7 +26,7 @@ tags:
 | Param | Rule |
 |---|---|
 | `q` | Trimmed. At least 2 characters; a purely numeric input may be 1 character. At most 100. |
-| `types` | Optional, comma-separated subset of the six types. Types the session role may not see are dropped silently. |
+| `types` | Optional, comma-separated subset of the 19 types. Types the session role may not see are dropped silently. |
 | `limit` | Results per type. Default 5, maximum 10. |
 
 The route is `@MechanicAccessible()`, so TECH sessions get `200` with their restricted types instead of `403`.
@@ -47,7 +47,7 @@ The route is `@MechanicAccessible()`, so TECH sessions get `200` with their rest
 }
 ```
 
-- Groups follow the provider registry order: `customer`, `vehicle`, `stock_vehicle`, `workshop_order`, `invoice`, `part`.
+- Groups follow the provider registry order: `customer`, `vehicle`, `stock_vehicle`, `workshop_order`, `appointment`, `estimate`, `sales_order`, `vehicle_sale`, `invoice`, `credit_note`, `part`, `labor_operation`, `vendor`, `purchase_order`, `purchase_invoice`, `employee`, `user`, `legal_entity`, `site`.
 - `siteId` is set only for site-scoped types. `error: "unavailable"` appears only on a group whose provider failed (its `results` is empty); the other groups are unaffected.
 - Order inside a group: active-site hits first, then `score` descending, then the provider's database order (which always ends in `id`).
 
@@ -55,7 +55,7 @@ The route is `@MechanicAccessible()`, so TECH sessions get `200` with their rest
 
 The parser classifies the trimmed input (first match wins): `uuid`, `email` (contains `@`), `vin` (17 characters, ISO 3779 charset, at least one letter), `phone` (6+ digits, starts with `+` or `0`), `number` (digits only, or 2+ letters, a dash and a digit later, like `RE-2026-0012`), `plate`, `name`. Independently of the kind, a plate-shaped input keeps its normalised plate (`AB-123` is a `number` and a plate) and an input of 6 to 17 VIN-charset characters keeps an upper-cased VIN fragment.
 
-Each provider runs three parallel queries against the trigram indexes from AUT-661 (`ILIKE`, `take: limit`, `select` only):
+Each provider runs three parallel queries against the trigram indexes from AUT-661 / AUT-664 (`ILIKE`, `take: limit`, `select` only):
 
 | Tier | Filter | Score |
 |---|---|---|
@@ -69,12 +69,25 @@ Two fields are narrower than the tiers: an email is looked up exact and as prefi
 
 | Type | Matches |
 |---|---|
-| customer | uuid → id; email; phone; name words (each word must hit first name, last name or company name, in any order) |
-| vehicle | `inventory_role = CUSTOMER`. `plate_normalized`, VIN fragment (prefix/suffix, exact when full), make/model words |
+| customer | uuid → id; email; phone; name words (first/last/company); `ExternalIdMapping.external_id` (exact/prefix) |
+| vehicle | `inventory_role = CUSTOMER`. `plate_normalized`, VIN fragment, make/model words; `ExternalIdMapping.external_id` (exact/prefix) |
 | stock_vehicle | Dealer roles with a `stock_status`, same matching as vehicle |
 | workshop_order | order number, uuid, vehicle (plate/VIN/make/model), customer (name/email/phone) |
-| invoice | invoice number, uuid, vehicle, customer. Only issued invoices (those with a number) |
+| appointment | scheduled workshop orders (`scheduled_start_at != null`), same matching as workshop_order |
+| estimate | `estimate_number`, uuid, workshop order vehicle/customer |
+| sales_order | `order_number`, uuid, customer, vehicle |
+| vehicle_sale | `sale_number`, uuid, buyer (customer), vehicle |
+| invoice | `invoice_number`, uuid, vehicle, customer. Only issued invoices (those with a number) |
+| credit_note | `credit_number`, uuid, original invoice customer. Only finalized credit notes (those with a number) |
 | part | SKU, name words, uuid |
+| labor_operation | `code`, `description` words, uuid |
+| vendor | `name` words, `account_number`, `email`, uuid |
+| purchase_order | `order_number`, vendor `name`, uuid |
+| purchase_invoice | `invoice_number`, `vendor_invoice_number`, vendor `name`, uuid |
+| employee | `name` words, uuid |
+| user | active `TenantMember`: `User.email`, `firstName`, `lastName`, uuid |
+| legal_entity | `name` words, `tax_number`, `registration_number`, uuid |
+| site | `name` words, `code`, uuid |
 
 The plate normaliser is shared with the vehicle import (`vehicle/vehicle-plate.util.ts`): whitespace, hyphens and dots are removed and letters upper-cased. `vehicles.plate_normalized` holds `normalizePlate(plate)`. The migration backfills it with an equivalent SQL expression (an e2e test runs the migration statement and `normalizePlate` on the same sample plates), and every write path that sets `plate` goes through `withPlateNormalized`: `VehicleService` create/update (via the persistence service), the dealer stock lot payload (purchase receive), workshop intake and registration intake, the vehicle import, and the seed fixtures.
 
@@ -86,21 +99,20 @@ Case-insensitivity and umlauts: Postgres `ILIKE` matches German umlauts (`ä`, `
 
 ## Role matrix
 
-| Role | customer | vehicle | stock_vehicle | workshop_order | invoice | part |
-|---|---|---|---|---|---|---|
-| OWNER, ADMIN | yes | yes | yes | yes | yes | yes |
-| SALES | yes | yes | yes | yes | yes | yes |
-| TECH | name only | yes | – | yes | – | – |
-| DEMO | like SALES (read-only) | | | | | |
+| Role | customer, vehicle, workshop_order, appointment | stock_vehicle, estimate, sales_order, vehicle_sale, invoice, credit_note, part, labor_operation, vendor, purchase_order, purchase_invoice | employee, user, legal_entity, site |
+|---|---|---|---|
+| OWNER, ADMIN | yes | yes | yes |
+| SALES, DEMO | yes | yes | – |
+| TECH | yes (customer name only, no email/phone) | – | – |
 
-TECH customer results carry only `id`, a name `title`, `href` and an empty `subtitle`; email and phone are never selected, and email/phone input finds no customer. Any other role (service or API key principals) receives no groups.
+TECH customer, workshop_order, and appointment results carry no email or phone; email and phone input finds no customer. Any other role (service or API key principals) receives no groups.
 
 ## Site rule (ADR-0022)
 
 - `tenant_id` comes only from the tenant context.
-- Site-scoped types (`workshop_order`, `invoice`) return the active site's hits first and hits of the caller's other authorized sites after, with `siteId`. Authorized sites are active `SiteMembership` joined to an active `TenantMember`; no request parameter is read. Rows without a `site_id` are not returned.
+- Site-scoped types (`workshop_order`, `appointment`, `estimate`, `sales_order`, `vehicle_sale`, `invoice`, `credit_note`, `purchase_order`) return the active site's hits first and hits of the caller's other authorized sites after, with `siteId`. Authorized sites are active `SiteMembership` joined to an active `TenantMember`; no request parameter is read. Rows without a `site_id` are not returned.
 - `stock_vehicle` is visible for the active site only, like `GET /api/vehicle-stock/:id`.
-- `vehicle`, `customer` and `part` are tenant-wide (no `site_id`).
+- `customer`, `vehicle`, `part`, `labor_operation`, `vendor`, `purchase_invoice`, `employee`, `user`, `legal_entity`, and `site` are tenant-wide.
 - If the site scope cannot be resolved, site-scoped types return nothing (fail closed).
 
 ## Providers
@@ -109,7 +121,7 @@ Providers sit behind the `SEARCH_PROVIDERS` injection token (`createSearchProvid
 
 ## Database Impact
 
-`vehicles.plate_normalized` (nullable `TEXT`) with a btree index on `(tenant_id, plate_normalized)`; expand-only migration with a backfill from `plate`. No other schema change.
+`vehicles.plate_normalized` (nullable `TEXT`) with a btree index on `(tenant_id, plate_normalized)`; expand-only migrations for `pg_trgm` GIN indexes across searched text columns.
 
 ### Deletion Policy Impact
 

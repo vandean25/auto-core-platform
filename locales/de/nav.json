@@ -131,8 +131,21 @@
       "vehicle": "Fahrzeuge",
       "stockVehicle": "Fahrzeugbestand",
       "workshopOrder": "Werkstattaufträge",
+      "appointment": "Termine",
+      "estimate": "Kostenvoranschläge",
+      "salesOrder": "Kundenaufträge",
+      "vehicleSale": "Fahrzeugverkäufe",
       "invoice": "Rechnungen",
-      "part": "Teile"
+      "creditNote": "Gutschriften",
+      "part": "Teile",
+      "laborOperation": "Arbeitswerte",
+      "vendor": "Lieferanten",
+      "purchaseOrder": "Bestellungen",
+      "purchaseInvoice": "Eingangsrechnungen",
+      "employee": "Mitarbeiter",
+      "user": "Benutzer",
+      "legalEntity": "Firmen",
+      "site": "Standorte"
     },
     "contextActions": {
       "heading": "Aktueller Datensatz",

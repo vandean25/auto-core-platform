@@ -123,6 +123,63 @@ const PROVIDER_FIXTURES: Record<SearchResultType, ProviderFixture> = {
       vehicle: { make: 'VW', model: 'Golf', plate: 'W 12345 A' },
     },
   },
+  appointment: {
+    model: 'workshopOrder',
+    q: 'WO-2026-1',
+    row: {
+      id: 'app1',
+      order_number: 'WO-2026-1',
+      site_id: 'site-a',
+      scheduled_start_at: new Date('2026-10-24T09:00:00.000Z'),
+      customer: null,
+      vehicle: { make: 'VW', model: 'Golf', plate: 'W 12345 A' },
+    },
+  },
+  estimate: {
+    model: 'workshopEstimate',
+    q: 'KV-2026-1',
+    row: {
+      id: 'est1',
+      estimate_number: 'KV-2026-1',
+      site_id: 'site-a',
+      workshop_order_id: 'wo1',
+      workshop_order: {
+        order_number: 'WO-2026-1',
+        customer: null,
+        vehicle: { plate: 'W 12345 A' },
+      },
+    },
+  },
+  sales_order: {
+    model: 'salesOrder',
+    q: 'SO-2026-1',
+    row: {
+      id: 'so1',
+      order_number: 'SO-2026-1',
+      site_id: 'site-a',
+      customer: {
+        first_name: 'Max',
+        last_name: 'Mustermann',
+        company_name: null,
+      },
+      vehicle: null,
+    },
+  },
+  vehicle_sale: {
+    model: 'vehicleSale',
+    q: 'VS-2026-1',
+    row: {
+      id: 'vs1',
+      sale_number: 'VS-2026-1',
+      site_id: 'site-a',
+      customer: {
+        first_name: 'Max',
+        last_name: 'Mustermann',
+        company_name: null,
+      },
+      vehicle: { make: 'VW', model: 'Golf', plate: 'W 12345 A' },
+    },
+  },
   invoice: {
     model: 'invoice',
     q: 'RE-2026-1',
@@ -138,10 +195,99 @@ const PROVIDER_FIXTURES: Record<SearchResultType, ProviderFixture> = {
       vehicle: null,
     },
   },
+  credit_note: {
+    model: 'creditNote',
+    q: 'GS-2026-1',
+    row: {
+      id: 'cn1',
+      credit_number: 'GS-2026-1',
+      site_id: 'site-a',
+      original_invoice: {
+        invoice_number: 'RE-2026-1',
+        customer: {
+          first_name: 'Max',
+          last_name: 'Mustermann',
+          company_name: null,
+        },
+      },
+    },
+  },
   part: {
     model: 'catalogItem',
     q: 'brake pad',
     row: { id: 'p1', sku: 'BP-1', name: 'Brake pad' },
+  },
+  labor_operation: {
+    model: 'laborOperation',
+    q: 'AW-100',
+    row: { id: 'lo1', code: 'AW-100', description: 'Oil service' },
+  },
+  vendor: {
+    model: 'vendor',
+    q: 'Bosch',
+    row: {
+      id: 'vnd1',
+      name: 'Bosch GmbH',
+      email: 'orders@bosch.example.test',
+      account_number: '70001',
+    },
+  },
+  purchase_order: {
+    model: 'purchaseOrder',
+    q: 'PO-2026-1',
+    row: {
+      id: 'po1',
+      order_number: 'PO-2026-1',
+      site_id: 'site-a',
+      vendor: { name: 'Bosch GmbH' },
+    },
+  },
+  purchase_invoice: {
+    model: 'purchaseInvoice',
+    q: 'ER-2026-1',
+    row: {
+      id: 'pi1',
+      invoice_number: 'ER-2026-1',
+      vendor_invoice_number: 'VND-991',
+      vendor: { name: 'Bosch GmbH' },
+    },
+  },
+  employee: {
+    model: 'employee',
+    q: 'Anna',
+    row: { id: 'emp1', name: 'Anna Gruber', user: null },
+  },
+  user: {
+    model: 'tenantMember',
+    q: 'anna@example.test',
+    row: {
+      id: 'tm1',
+      user: {
+        email: 'anna@example.test',
+        firstName: 'Anna',
+        lastName: 'Gruber',
+      },
+    },
+  },
+  legal_entity: {
+    model: 'legalEntity',
+    q: 'Autohaus',
+    row: {
+      id: 'le1',
+      name: 'Autohaus Wien GmbH',
+      tax_number: 'ATU12345678',
+      registration_number: 'FN 123456a',
+    },
+  },
+  site: {
+    model: 'site',
+    q: 'Wien',
+    row: {
+      id: 'site1',
+      name: 'Standort Wien',
+      code: 'VIE',
+      address_city: 'Wien',
+    },
   },
 };
 
@@ -923,3 +1069,108 @@ describe('invoice and part providers', () => {
     expect(result.siteId).toBeUndefined();
   });
 });
+
+describe('external id (incadea) matching and new providers', () => {
+  it('matches customers and vehicles by external_id on exact/prefix tiers and omits contains', async () => {
+    const extFindMany = jest
+      .fn()
+      .mockResolvedValueOnce([{ entity_id: 'c1' }])
+      .mockResolvedValueOnce([]);
+    const custFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'c1',
+        first_name: 'Max',
+        last_name: 'Mustermann',
+        company_name: null,
+        email: null,
+        phone: null,
+      },
+    ]);
+    const custHits = await provider(
+      createSearchProviders({
+        customer: { findMany: custFindMany },
+        externalIdMapping: { findMany: extFindMany },
+      } as never),
+      'customer',
+    ).search(ctx('00123'));
+
+    expect(custHits.map((h) => [h.id, h.score])).toEqual([['c1', 1]]);
+    expect(extFindMany).toHaveBeenCalledTimes(2);
+    expect(extFindMany.mock.calls[0][0].where).toEqual({
+      tenant_id: 'tenant-a',
+      entity_type: 'CUSTOMER',
+      external_id: { equals: '00123', mode: 'insensitive' },
+    });
+
+    const vehExtFindMany = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ entity_id: 'v1' }]);
+    const vehFindMany = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'v1',
+          make: 'VW',
+          model: 'Golf',
+          plate: 'W 123 A',
+          vin: null,
+          site_id: null,
+        },
+      ]);
+    const vehHits = await provider(
+      createSearchProviders({
+        vehicle: { findMany: vehFindMany },
+        externalIdMapping: { findMany: vehExtFindMany },
+      } as never),
+      'vehicle',
+    ).search(ctx('FZ-99'));
+
+    expect(vehHits.map((h) => [h.id, h.score])).toEqual([['v1', 0.8]]);
+  });
+
+  it('filters appointments to scheduled orders and redacts TECH customer contact', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ workshopOrder: { findMany } } as never),
+      'appointment',
+    ).search(
+      ctx('WO-2026-1', {
+        role: 'TECH',
+        siteScope: { activeSiteId: 'site-a', siteIds: ['site-a'] },
+      }),
+    );
+    expect(findMany.mock.calls[0][0].where.AND).toContainEqual({
+      scheduled_start_at: { not: null },
+    });
+
+    const emailCalls = jest.fn().mockResolvedValue([]);
+    await provider(
+      createSearchProviders({ workshopOrder: { findMany: emailCalls } } as never),
+      'appointment',
+    ).search(ctx('max@example.com', { role: 'TECH' }));
+    expect(emailCalls).not.toHaveBeenCalled();
+  });
+
+  it('searches finalized credit notes only and restricts HR/company providers to OWNER/ADMIN', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const providers = createSearchProviders({ creditNote: { findMany } } as never);
+    await provider(providers, 'credit_note').search(
+      ctx('GS-2026-1', {
+        siteScope: { activeSiteId: 'site-a', siteIds: ['site-a'] },
+      }),
+    );
+    expect(findMany.mock.calls[0][0].where.AND).toContainEqual({
+      credit_number: { not: null },
+    });
+
+    for (const adminType of ['employee', 'user', 'legal_entity', 'site'] as const) {
+      expect(provider(providers, adminType).allowedRoles).toEqual([
+        'OWNER',
+        'ADMIN',
+      ]);
+    }
+  });
+});
+

@@ -12541,7 +12541,7 @@ export interface components {
         };
         SearchResultDto: {
             /** @enum {string} */
-            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "invoice" | "part";
+            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "appointment" | "estimate" | "sales_order" | "vehicle_sale" | "invoice" | "credit_note" | "part" | "labor_operation" | "vendor" | "purchase_order" | "purchase_invoice" | "employee" | "user" | "legal_entity" | "site";
             /** Format: uuid */
             id: string;
             title: string;
@@ -12558,7 +12558,7 @@ export interface components {
         };
         SearchGroupDto: {
             /** @enum {string} */
-            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "invoice" | "part";
+            type: "customer" | "vehicle" | "stock_vehicle" | "workshop_order" | "appointment" | "estimate" | "sales_order" | "vehicle_sale" | "invoice" | "credit_note" | "part" | "labor_operation" | "vendor" | "purchase_order" | "purchase_invoice" | "employee" | "user" | "legal_entity" | "site";
             results: components["schemas"]["SearchResultDto"][];
             /**
              * @description Set when this type failed; the other groups are still valid.

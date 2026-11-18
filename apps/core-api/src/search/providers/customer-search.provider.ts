@@ -1,12 +1,17 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import { collectMatches, type ScoredRow } from '../search-ranking.js';
+import {
+  collectMatches,
+  type MatchTier,
+  type ScoredRow,
+} from '../search-ranking.js';
 import type {
   SearchContext,
   SearchProvider,
   SearchResult,
 } from '../search.types.js';
 import { customerMatchWhere } from './customer-match.js';
+import { findMatchingExternalEntityIds } from './external-id-match.js';
 import { customerLabel, joinParts } from './search-format.js';
 
 const BASE_SELECT = {
@@ -51,16 +56,36 @@ export class CustomerSearchProvider implements SearchProvider {
 
   async search(ctx: SearchContext): Promise<SearchResult[]> {
     const restricted = ctx.role === 'TECH';
-    const rows = await collectMatches<CustomerRow, Prisma.CustomerWhereInput>(
+    const rows = await collectMatches<
+      CustomerRow,
+      { tier: MatchTier; match: Prisma.CustomerWhereInput | null }
+    >(
       ctx,
-      (tier) => customerMatchWhere(ctx.query, tier, restricted),
-      (match) =>
-        this.prisma.customer.findMany({
-          where: { ...match, tenant_id: ctx.tenantId },
+      (tier) => ({
+        tier,
+        match: customerMatchWhere(ctx.query, tier, restricted),
+      }),
+      async ({ tier, match }) => {
+        const externalIds = await findMatchingExternalEntityIds(
+          this.prisma,
+          ctx,
+          'CUSTOMER',
+          tier,
+        );
+        const clauses: Prisma.CustomerWhereInput[] = [];
+        if (match) clauses.push(match);
+        if (externalIds.length > 0) clauses.push({ id: { in: externalIds } });
+        if (clauses.length === 0) return [];
+        return this.prisma.customer.findMany({
+          where: {
+            ...(clauses.length === 1 ? clauses[0] : { OR: clauses }),
+            tenant_id: ctx.tenantId,
+          },
           select: restricted ? BASE_SELECT : FULL_SELECT,
           orderBy: ORDER_BY,
           take: ctx.limit,
-        }),
+        });
+      },
     );
     return rows.map(toResult);
   }

@@ -46,8 +46,10 @@ describe('Global search (e2e)', () => {
   let branchSiteId: string;
   let foreignSiteId: string;
   let adminToken: string;
+  let ownerToken: string;
   let techToken: string;
   let salesToken: string;
+  let demoToken: string;
   let tenantBToken: string;
   let providers: SearchProvider[];
   const ids: Record<string, string> = {};
@@ -70,13 +72,21 @@ describe('Global search (e2e)', () => {
     return res.body.groups as Group[];
   }
 
-  async function createMember(role: 'TECH' | 'SALES', label: string) {
+  async function createMember(
+    role: 'OWNER' | 'TECH' | 'SALES' | 'DEMO',
+    label: string,
+    name?: { firstName: string; lastName: string },
+  ) {
     return runWithTenantContext(tenantA.tenantId, async () => {
       const firebaseUid = `e2e-search-${label}-${SUFFIX}`;
       const user = await basePrisma.user.create({
-        data: { firebaseUid, email: `${firebaseUid}@example.test` },
+        data: {
+          firebaseUid,
+          email: `${firebaseUid}@example.test`,
+          ...(name ?? {}),
+        },
       });
-      await seedTestTenantMember(basePrisma, {
+      const member = await seedTestTenantMember(basePrisma, {
         tenantId: tenantA.tenantId,
         userId: user.id,
         role,
@@ -93,11 +103,12 @@ describe('Global search (e2e)', () => {
         where: { id: user.id },
         data: { active_site_id: mainSiteId },
       });
-      return createTestAuthToken(authService, tenantA, {
+      const token = createTestAuthToken(authService, tenantA, {
         sub: firebaseUid,
         email: user.email,
         role,
       });
+      return { token, memberId: member.id };
     });
   }
 
@@ -168,8 +179,25 @@ describe('Global search (e2e)', () => {
 
     adminToken = createTestAuthToken(authService, tenantA);
     tenantBToken = createTestAuthToken(authService, tenantB);
-    techToken = await createMember('TECH', 'tech');
-    salesToken = await createMember('SALES', 'sales');
+    ownerToken = (await createMember('OWNER', 'owner')).token;
+    techToken = (await createMember('TECH', 'tech')).token;
+    const salesMember = await createMember('SALES', 'sales', {
+      firstName: 'Searchable',
+      lastName: `User${SUFFIX}`,
+    });
+    salesToken = salesMember.token;
+    ids.user = salesMember.memberId;
+    const demoMember = await createMember('DEMO', 'demo', {
+      firstName: 'Demo',
+      lastName: `Müller${SUFFIX}`,
+    });
+    demoToken = demoMember.token;
+    umlautIds.user = demoMember.memberId;
+
+    const legalEntity = await prismaA.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+      select: { id: true },
+    });
 
     const customer = await prismaA.customer.create({
       data: {
@@ -196,6 +224,40 @@ describe('Global search (e2e)', () => {
       },
     });
     ids.vehicle = vehicle.id;
+
+    const importJob = await prismaA.importJob.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        entity_type: 'CUSTOMER',
+        source_system: 'incadea',
+        file_name: 'search-e2e.csv',
+        file_sha256: `sha-${SUFFIX}`,
+        status: 'APPLIED',
+        mapping_json: {},
+        options_json: {},
+        totals_json: {},
+      },
+    });
+    await prismaA.externalIdMapping.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        entity_type: 'CUSTOMER',
+        source_system: 'incadea',
+        external_id: `INC-C-${SUFFIX}`,
+        entity_id: customer.id,
+        first_seen_import_job_id: importJob.id,
+      },
+    });
+    await prismaA.externalIdMapping.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        entity_type: 'VEHICLE',
+        source_system: 'incadea',
+        external_id: `INC-V-${SUFFIX}`,
+        entity_id: vehicle.id,
+        first_seen_import_job_id: importJob.id,
+      },
+    });
 
     const stock = await prismaA.vehicle.create({
       data: {
@@ -231,6 +293,56 @@ describe('Global search (e2e)', () => {
       vehicle.id,
     );
 
+    const appointment = await prismaA.workshopOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        order_number: `WO-APP-${SUFFIX}`,
+        customer_id: customer.id,
+        vehicle_id: vehicle.id,
+        odometer: 1000,
+        fuel_level: 50,
+        status: 'SCHEDULED',
+        scheduled_start_at: new Date('2026-10-25T10:00:00.000Z'),
+      },
+    });
+    ids.appointment = appointment.id;
+
+    const estimate = await prismaA.workshopEstimate.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        workshop_order_id: ids.orderMain,
+        estimate_number: `KV-SRCH-${SUFFIX}`,
+        year: 2026,
+      },
+    });
+    ids.estimate = estimate.id;
+
+    const salesOrder = await prismaA.salesOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        order_number: `SO-SRCH-${SUFFIX}`,
+        customer_id: customer.id,
+        vehicle_id: vehicle.id,
+        total_amount: 100,
+      },
+    });
+    ids.sales_order = salesOrder.id;
+
+    const vehicleSale = await prismaA.vehicleSale.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        sale_number: `VS-SRCH-${SUFFIX}`,
+        vehicle_id: stock.id,
+        customer_id: customer.id,
+        sale_price: 15000,
+      },
+    });
+    ids.vehicle_sale = vehicleSale.id;
+
     const invoice = await prismaA.invoice.create({
       data: {
         tenant_id: tenantA.tenantId,
@@ -246,6 +358,20 @@ describe('Global search (e2e)', () => {
     });
     ids.invoice = invoice.id;
 
+    const creditNote = await prismaA.creditNote.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        original_invoice_id: invoice.id,
+        site_id: mainSiteId,
+        legal_entity_id: legalEntity.id,
+        status: 'FINALIZED',
+        credit_number: `GS-SRCH-${SUFFIX}`,
+        date: new Date(),
+        reason: 'Search test credit',
+      },
+    });
+    ids.credit_note = creditNote.id;
+
     const part = await prismaA.catalogItem.create({
       data: {
         tenant_id: tenantA.tenantId,
@@ -255,6 +381,81 @@ describe('Global search (e2e)', () => {
       },
     });
     ids.part = part.id;
+
+    const laborOp = await prismaA.laborOperation.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        code: `AW-SRCH-${SUFFIX}`,
+        description: `Searchable Inspection ${SUFFIX}`,
+        standard_aw: 1,
+        hourly_rate: 120,
+      },
+    });
+    ids.labor_operation = laborOp.id;
+
+    const vendor = await prismaA.vendor.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Searchable Vendor ${SUFFIX}`,
+        email: `vendor.${SUFFIX}@searchable.example.test`,
+        account_number: `VND-${SUFFIX}`,
+      },
+    });
+    ids.vendor = vendor.id;
+
+    const purchaseOrder = await prismaA.purchaseOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        vendor_id: vendor.id,
+        order_number: `PO-SRCH-${SUFFIX}`,
+      },
+    });
+    ids.purchase_order = purchaseOrder.id;
+
+    const purchaseInvoice = await prismaA.purchaseInvoice.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        vendor_id: vendor.id,
+        invoice_number: `ER-SRCH-${SUFFIX}`,
+        vendor_invoice_number: `VINV-${SUFFIX}`,
+        invoice_date: new Date(),
+        due_date: new Date(),
+        total_amount: 250,
+      },
+    });
+    ids.purchase_invoice = purchaseInvoice.id;
+
+    const employee = await prismaA.employee.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Searchable Mechanic ${SUFFIX}`,
+        role: 'MECHANIC',
+      },
+    });
+    ids.employee = employee.id;
+
+    const extraLegalEntity = await prismaA.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Searchable Autohaus ${SUFFIX}`,
+        country_iso: 'AT',
+        tax_number: `ATU${SUFFIX}`,
+        registration_number: `FN${SUFFIX}`,
+      },
+    });
+    ids.legal_entity = extraLegalEntity.id;
+
+    const extraSite = await prismaA.site.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        legal_entity_id: extraLegalEntity.id,
+        code: `S${SUFFIX}`,
+        name: `Searchable Standort ${SUFFIX}`,
+        is_active: true,
+      },
+    });
+    ids.site = extraSite.id;
 
     const umlautCustomer = await prismaA.customer.create({
       data: {
@@ -302,6 +503,55 @@ describe('Global search (e2e)', () => {
       umlautVehicle.id,
     );
 
+    const umlautAppointment = await prismaA.workshopOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        order_number: `WO-UAPP-${SUFFIX}`,
+        customer_id: umlautCustomer.id,
+        vehicle_id: umlautVehicle.id,
+        odometer: 1000,
+        fuel_level: 50,
+        status: 'SCHEDULED',
+        scheduled_start_at: new Date('2026-10-25T11:00:00.000Z'),
+      },
+    });
+    umlautIds.appointment = umlautAppointment.id;
+
+    const umlautEstimate = await prismaA.workshopEstimate.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        workshop_order_id: umlautIds.workshop_order,
+        estimate_number: `KV-UML-${SUFFIX}`,
+        year: 2026,
+      },
+    });
+    umlautIds.estimate = umlautEstimate.id;
+
+    const umlautSalesOrder = await prismaA.salesOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        order_number: `SO-UML-${SUFFIX}`,
+        customer_id: umlautCustomer.id,
+        total_amount: 50,
+      },
+    });
+    umlautIds.sales_order = umlautSalesOrder.id;
+
+    const umlautVehicleSale = await prismaA.vehicleSale.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        sale_number: `VS-UML-${SUFFIX}`,
+        vehicle_id: umlautStock.id,
+        customer_id: umlautCustomer.id,
+        sale_price: 12000,
+      },
+    });
+    umlautIds.vehicle_sale = umlautVehicleSale.id;
+
     const umlautInvoice = await prismaA.invoice.create({
       data: {
         tenant_id: tenantA.tenantId,
@@ -317,6 +567,20 @@ describe('Global search (e2e)', () => {
     });
     umlautIds.invoice = umlautInvoice.id;
 
+    const umlautCreditNote = await prismaA.creditNote.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        original_invoice_id: umlautInvoice.id,
+        site_id: mainSiteId,
+        legal_entity_id: legalEntity.id,
+        status: 'FINALIZED',
+        credit_number: `GS-UML-${SUFFIX}`,
+        date: new Date(),
+        reason: 'Umlaut credit',
+      },
+    });
+    umlautIds.credit_note = umlautCreditNote.id;
+
     const umlautPart = await prismaA.catalogItem.create({
       data: {
         tenant_id: tenantA.tenantId,
@@ -326,6 +590,79 @@ describe('Global search (e2e)', () => {
       },
     });
     umlautIds.part = umlautPart.id;
+
+    const umlautLabor = await prismaA.laborOperation.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        code: `AW-UML-${SUFFIX}`,
+        description: `Müller${SUFFIX} Ölwechsel`,
+        standard_aw: 1,
+        hourly_rate: 100,
+      },
+    });
+    umlautIds.labor_operation = umlautLabor.id;
+
+    const umlautVendor = await prismaA.vendor.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Müller${SUFFIX} Teile GmbH`,
+        email: `mueller.${SUFFIX}@example.test`,
+        account_number: `UMV-${SUFFIX}`,
+      },
+    });
+    umlautIds.vendor = umlautVendor.id;
+
+    const umlautPo = await prismaA.purchaseOrder.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: mainSiteId,
+        vendor_id: umlautVendor.id,
+        order_number: `PO-UML-${SUFFIX}`,
+      },
+    });
+    umlautIds.purchase_order = umlautPo.id;
+
+    const umlautPi = await prismaA.purchaseInvoice.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        vendor_id: umlautVendor.id,
+        invoice_number: `ER-UML-${SUFFIX}`,
+        vendor_invoice_number: `UVI-${SUFFIX}`,
+        invoice_date: new Date(),
+        due_date: new Date(),
+        total_amount: 100,
+      },
+    });
+    umlautIds.purchase_invoice = umlautPi.id;
+
+    const umlautEmp = await prismaA.employee.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Anna Müller${SUFFIX}`,
+        role: 'MECHANIC',
+      },
+    });
+    umlautIds.employee = umlautEmp.id;
+
+    const umlautLe = await prismaA.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: `Müller${SUFFIX} GmbH`,
+        country_iso: 'AT',
+      },
+    });
+    umlautIds.legal_entity = umlautLe.id;
+
+    const umlautSite = await prismaA.site.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        legal_entity_id: umlautLe.id,
+        code: `U${SUFFIX}`,
+        name: `Standort Müller${SUFFIX}`,
+        is_active: true,
+      },
+    });
+    umlautIds.site = umlautSite.id;
   });
 
   afterAll(async () => {
@@ -349,8 +686,46 @@ describe('Global search (e2e)', () => {
         'orderMain',
         `/workshop/orders/`,
       ],
+      ['appointment', `WO-APP-${SUFFIX}`, 'appointment', `/workshop/orders/`],
+      ['estimate', `KV-SRCH-${SUFFIX}`, 'estimate', `/workshop/orders/`],
+      ['sales_order', `SO-SRCH-${SUFFIX}`, 'sales_order', `/sales-orders/`],
+      [
+        'vehicle_sale',
+        `VS-SRCH-${SUFFIX}`,
+        'vehicle_sale',
+        `/vehicle-stock/sales/`,
+      ],
       ['invoice', `RE-SRCH-${SUFFIX}`, 'invoice', `/sales/invoices/`],
+      ['credit_note', `GS-SRCH-${SUFFIX}`, 'credit_note', `/finance/credit-notes/`],
       ['part', `SRCH-PAD-${SUFFIX}`, 'part', `/inventory/`],
+      [
+        'labor_operation',
+        `AW-SRCH-${SUFFIX}`,
+        'labor_operation',
+        `/settings?tab=labor`,
+      ],
+      ['vendor', `VND-${SUFFIX}`, 'vendor', `/vendors/`],
+      [
+        'purchase_order',
+        `PO-SRCH-${SUFFIX}`,
+        'purchase_order',
+        `/purchase-orders/`,
+      ],
+      [
+        'purchase_invoice',
+        `ER-SRCH-${SUFFIX}`,
+        'purchase_invoice',
+        `/purchase-bills/`,
+      ],
+      ['employee', `Searchable Mechanic ${SUFFIX}`, 'employee', `/hr/employees`],
+      ['user', `User${SUFFIX}`, 'user', `/settings?tab=team`],
+      [
+        'legal_entity',
+        `ATU${SUFFIX}`,
+        'legal_entity',
+        `/settings?tab=legal-entities`,
+      ],
+      ['site', `Searchable Standort ${SUFFIX}`, 'site', `/settings?tab=sites`],
     ])('%s is found by %s', async (type, q, idKey, hrefPrefix) => {
       const groups = await groupsFor(adminToken, q);
       const group = groups.find((g) => g.type === type)!;
@@ -361,25 +736,30 @@ describe('Global search (e2e)', () => {
       expect(hit!.score).toBeGreaterThan(0);
     });
 
-    it('returns all six groups in registry order for ADMIN', async () => {
+    it('returns all 19 groups in registry order for ADMIN', async () => {
       const groups = await groupsFor(adminToken, `Searchable${SUFFIX}`);
-      expect(groups.map((g) => g.type)).toEqual([
-        'customer',
-        'vehicle',
-        'stock_vehicle',
-        'workshop_order',
-        'invoice',
-        'part',
-      ]);
+      expect(groups.map((g) => g.type)).toEqual(providers.map((p) => p.type));
     });
 
-    it('finds a customer by multi-word name in any order and by email', async () => {
+    it('finds a customer by multi-word name in any order, by email, and by formatted phone', async () => {
       for (const q of [
         `searchable${SUFFIX} hubertus`,
         `hubertus.${SUFFIX}@searchable.example.test`,
+        `+43 660 ${SUFFIX}`,
       ]) {
         const groups = await groupsFor(adminToken, q, { types: 'customer' });
         expect(groups[0].results.map((r) => r.id)).toContain(ids.customer);
+      }
+    });
+
+    it('finds customers and vehicles by incadea external_id (exact and prefix)', async () => {
+      for (const q of [`INC-C-${SUFFIX}`, `INC-C-`]) {
+        const groups = await groupsFor(adminToken, q, { types: 'customer' });
+        expect(groups[0].results.map((r) => r.id)).toContain(ids.customer);
+      }
+      for (const q of [`INC-V-${SUFFIX}`, `INC-V-`]) {
+        const groups = await groupsFor(adminToken, q, { types: 'vehicle' });
+        expect(groups[0].results.map((r) => r.id)).toContain(ids.vehicle);
       }
     });
 
@@ -441,8 +821,21 @@ describe('Global search (e2e)', () => {
         vehicle: PLATE_NORMALIZED,
         stock_vehicle: `Lot${SUFFIX}`,
         workshop_order: `WO-SRCH-${SUFFIX}-1`,
+        appointment: `WO-APP-${SUFFIX}`,
+        estimate: `KV-SRCH-${SUFFIX}`,
+        sales_order: `SO-SRCH-${SUFFIX}`,
+        vehicle_sale: `VS-SRCH-${SUFFIX}`,
         invoice: `RE-SRCH-${SUFFIX}`,
+        credit_note: `GS-SRCH-${SUFFIX}`,
         part: `SRCH-PAD-${SUFFIX}`,
+        labor_operation: `AW-SRCH-${SUFFIX}`,
+        vendor: `VND-${SUFFIX}`,
+        purchase_order: `PO-SRCH-${SUFFIX}`,
+        purchase_invoice: `ER-SRCH-${SUFFIX}`,
+        employee: `Searchable Mechanic ${SUFFIX}`,
+        user: `User${SUFFIX}`,
+        legal_entity: `ATU${SUFFIX}`,
+        site: `Searchable Standort ${SUFFIX}`,
       };
       for (const p of providers) {
         const q = fixtureByType[p.type];
@@ -485,9 +878,11 @@ describe('Global search (e2e)', () => {
   describe('role split', () => {
     it('returns exactly each role allowed types in registry order and drops/rejects disallowed types', async () => {
       const roleTokens: Array<{ role: string; token: string }> = [
+        { role: 'OWNER', token: ownerToken },
         { role: 'ADMIN', token: adminToken },
         { role: 'SALES', token: salesToken },
         { role: 'TECH', token: techToken },
+        { role: 'DEMO', token: demoToken },
       ];
       for (const { role, token } of roleTokens) {
         const expectedTypes = providers
@@ -630,6 +1025,28 @@ describe('Global search (e2e)', () => {
         types: 'customer',
       });
       expect(foldedSharpS[0].results).toEqual([]);
+    });
+  });
+
+  describe('partial failure', () => {
+    it('returns 200 with error: unavailable on the failing group without affecting other groups', async () => {
+      const spy = jest
+        .spyOn(providers[0], 'search')
+        .mockRejectedValueOnce(new Error('provider boom'));
+      try {
+        const groups = await groupsFor(adminToken, `Searchable${SUFFIX}`);
+        const failing = groups.find((g) => g.type === providers[0].type);
+        expect(failing).toEqual({
+          type: providers[0].type,
+          results: [],
+          error: 'unavailable',
+        });
+        const partGroup = groups.find((g) => g.type === 'part');
+        expect(partGroup?.error).toBeUndefined();
+        expect(partGroup?.results.map((r) => r.id)).toContain(ids.part);
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 });
