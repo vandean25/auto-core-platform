@@ -38,7 +38,7 @@ type SaveCurrentViewButtonProps = {
 export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
   const { t } = useTranslation('common')
   const location = useLocation()
-  const { addSavedView } = useSavedViews()
+  const { addSavedView, isOfflineError } = useSavedViews()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(() => t('savedViews.defaultName', { title }))
 
@@ -47,12 +47,12 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
 
   if (!shouldShow) return null
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     const normalizedName = name.trim()
     if (!normalizedName) return
 
-    const result = addSavedView({ name: normalizedName, href })
+    const result = await addSavedView({ name: normalizedName, href })
     if (result.created) {
       toast.success(t('savedViews.added'))
       setOpen(false)
@@ -62,27 +62,38 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
       toast.message(t('savedViews.duplicate'))
       return
     }
+    if (result.reason === 'limit') {
+      toast.error(t('savedViews.limitReached'))
+      return
+    }
     toast.error(t('savedViews.failed'))
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <TooltipHint hint={t('savedViews.saveHint')}>
-        <DialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 max-md:size-11 max-md:px-0"
-            aria-label={t('savedViews.saveAria', { title })}
-            onClick={() => {
-              setName(t('savedViews.defaultName', { title }))
-            }}
-          >
-            <Bookmark className="h-4 w-4" />
-            <span className="max-md:sr-only">{t('savedViews.saveButton')}</span>
-          </Button>
-        </DialogTrigger>
-      </TooltipHint>
+    <div className="flex items-center gap-2">
+      {isOfflineError ? (
+        <span role="status" className="text-xs text-destructive">
+          {t('savedViews.offlineError')}
+        </span>
+      ) : null}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <TooltipHint hint={isOfflineError ? t('savedViews.offlineError') : t('savedViews.saveHint')}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isOfflineError}
+              className="gap-2 max-md:size-11 max-md:px-0"
+              aria-label={t('savedViews.saveAria', { title })}
+              onClick={() => {
+                setName(t('savedViews.defaultName', { title }))
+              }}
+            >
+              <Bookmark className="h-4 w-4" />
+              <span className="max-md:sr-only">{t('savedViews.saveButton')}</span>
+            </Button>
+          </DialogTrigger>
+        </TooltipHint>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSave}>
           <DialogHeader>
@@ -111,5 +122,6 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
         </form>
       </DialogContent>
     </Dialog>
+    </div>
   )
 }

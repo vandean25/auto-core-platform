@@ -429,6 +429,39 @@
       "sourceFile": "api/usePurchaseInvoices.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "Removing a line changes the price and the tax. The server recalculates the bill."
+    },
+    {
+      "operationId": "saved-view.create",
+      "owningHook": "useCreateSavedView",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creating a saved view assigns the server UUID and initial version and enforces per-list limits and duplicate name checks."
+    },
+    {
+      "operationId": "saved-view.rename",
+      "owningHook": "useRenameSavedView",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "saved-view.delete",
+      "owningHook": "useRemoveSavedView",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "optimistic"
+    },
+    {
+      "operationId": "saved-view.share",
+      "owningHook": "useShareSavedView",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Sharing or unsharing a saved view moves it between Personal and Team sections and checks views.shared.manage and team duplicate/limit rules on the server."
+    },
+    {
+      "operationId": "saved-view.copy",
+      "owningHook": "useCopySavedView",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Copying a team view into a personal view assigns a new server UUID and version and enforces personal view limits."
     }
   ]
 }

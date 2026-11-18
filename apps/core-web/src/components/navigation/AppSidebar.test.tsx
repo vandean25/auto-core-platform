@@ -1,13 +1,20 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import axe from 'axe-core'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchWithAuth } from '@/api/client'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
 import { changeUiLanguage } from '@/lib/i18n'
 import { registerGermanUiForTests } from '@/test/german-ui'
 import { AppSidebar } from './AppSidebar'
+
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
+  fetchWithAuth: vi.fn(),
+}))
 
 const capabilities = vi.hoisted(() => ({ pickerl57a: true }))
 vi.mock('@/api/auth-session', async (original) => ({
@@ -20,6 +27,11 @@ registerGermanUiForTests()
 beforeEach(() => {
   capabilities.pickerl57a = true
   window.localStorage.clear()
+  vi.mocked(fetchWithAuth).mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ data: [] }),
+  } as Response)
 })
 
 afterEach(cleanup)
@@ -41,15 +53,20 @@ const sidebarProps = {
   activeRole: 'ADMIN' as const,
 }
 
-function renderSidebar(path = '/dashboard') {
+function renderSidebar(path = '/dashboard', tenantId: string | null = null) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <SavedViewsProvider userKey="test-user">
-      <MemoryRouter initialEntries={[path]}>
-        <SidebarProvider>
-          <AppSidebar {...sidebarProps} />
-        </SidebarProvider>
-      </MemoryRouter>
-    </SavedViewsProvider>,
+    <QueryClientProvider client={queryClient}>
+      <SavedViewsProvider userKey="test-user" tenantId={tenantId}>
+        <MemoryRouter initialEntries={[path]}>
+          <SidebarProvider>
+            <AppSidebar {...sidebarProps} />
+          </SidebarProvider>
+        </MemoryRouter>
+      </SavedViewsProvider>
+    </QueryClientProvider>,
   )
 }
 
@@ -62,12 +79,28 @@ function openAccountMenu() {
 }
 
 describe('AppSidebar navigation', () => {
-  it('hides saved Pickerl views when the capability is unavailable', () => {
+  it('hides saved Pickerl views when the capability is unavailable', async () => {
     capabilities.pickerl57a = false
-    window.localStorage.setItem('acp:saved-views:test-user', JSON.stringify([
-      { id: 'p', name: 'Saved Pickerl view', href: '/vehicles/pickerl-due?status=OVERDUE', createdAt: '2026-01-01' },
-    ]))
-    renderSidebar()
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          {
+            id: 'p',
+            listPath: '/vehicles/pickerl-due',
+            name: 'Saved Pickerl view',
+            href: '/vehicles/pickerl-due?status=OVERDUE',
+            visibility: 'PERSONAL',
+            ownerUserId: 'test-user',
+            version: 1,
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
+        ],
+      }),
+    } as Response)
+    renderSidebar('/dashboard', 'tenant-a')
     expect(screen.queryByRole('link', { name: 'Saved Pickerl view' })).not.toBeInTheDocument()
   })
   it('groups the entries under labelled sections that start open', () => {

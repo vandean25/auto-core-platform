@@ -13,15 +13,23 @@ function RenameViewDialog({ view, onClose }: { view: SavedView; onClose: () => v
   const [name, setName] = useState(view.name)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    const result = renameSavedView(view.id, name)
+    const result = await renameSavedView(view.id, name)
     if (result.ok) {
       toast.success(t('savedViews.renamed'))
       onClose()
       return
     }
-    setError(result.reason === 'duplicate' ? t('savedViews.renameDuplicate') : t('savedViews.renameFailed'))
+    if (result.reason === 'conflict') {
+      onClose()
+      return
+    }
+    setError(
+      result.reason === 'duplicate'
+        ? t('savedViews.renameDuplicate')
+        : t('savedViews.renameFailed'),
+    )
   }
 
   return (

@@ -1,9 +1,22 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchWithAuth } from '@/api/client'
 import { DashboardWidgetsProvider, useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
-import { SavedViewsProvider, savedViewsStorageKey, useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { SavedViewsProvider, useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
+  fetchWithAuth: vi.fn(),
+}))
+
+beforeEach(() => {
+  window.localStorage.clear()
+  vi.clearAllMocks()
+})
 
 afterEach(() => {
+  cleanup()
   window.localStorage.clear()
 })
 
@@ -29,72 +42,43 @@ function DashboardWidgetsProbe() {
 }
 
 describe('provider hydration persistence', () => {
-  it('keeps saved views after provider mount', () => {
-    const storageKey = savedViewsStorageKey('test-user', 'tenant-a')
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify([
-        {
-          id: 'view-1',
-          name: 'My Overdue Orders',
-          href: '/workshop/orders?search=Gruber',
-          createdAt: '2026-03-09T09:00:00.000Z',
-        },
-      ]),
-    )
+  it('hydrates saved views from the API per tenant and never writes to localStorage', async () => {
+    vi.mocked(fetchWithAuth).mockImplementation(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          {
+            id: 'view-1',
+            listPath: '/workshop/orders',
+            name: 'My Overdue Orders',
+            href: '/workshop/orders?search=Gruber',
+            visibility: 'PERSONAL',
+            ownerUserId: 'test-user',
+            version: 1,
+            createdAt: '2026-03-09T09:00:00.000Z',
+            updatedAt: '2026-03-09T09:00:00.000Z',
+          },
+        ],
+      }),
+    }) as Response)
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
 
     render(
-      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
-        <SavedViewsProbe />
-      </SavedViewsProvider>,
+      <QueryClientProvider client={queryClient}>
+        <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+          <SavedViewsProbe />
+        </SavedViewsProvider>
+      </QueryClientProvider>,
     )
 
-    expect(screen.getByTestId('saved-count')).toHaveTextContent('1')
+    await waitFor(() => expect(screen.getByTestId('saved-count')).toHaveTextContent('1'))
     expect(screen.getByTestId('saved-first')).toHaveTextContent('My Overdue Orders')
-    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '[]')).toHaveLength(1)
-  })
-
-  it('moves the views saved before tenant scoping into the first tenant that loads them, once', () => {
-    const legacyKey = 'acp:saved-views:test-user'
-    window.localStorage.setItem(
-      legacyKey,
-      JSON.stringify([{ id: 'old-1', name: 'Alt', href: '/customers?search=a', createdAt: '2026-03-09T09:00:00.000Z' }]),
-    )
-
-    const first = render(
-      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
-        <SavedViewsProbe />
-      </SavedViewsProvider>,
-    )
-    expect(screen.getByTestId('saved-first')).toHaveTextContent('Alt')
-    first.unmount()
-    cleanup()
-    render(
-      <SavedViewsProvider userKey="test-user" tenantId="tenant-b">
-        <SavedViewsProbe />
-      </SavedViewsProvider>,
-    )
-
-    expect(screen.getByTestId('saved-count')).toHaveTextContent('0')
-    expect(window.localStorage.getItem(legacyKey)).toBeNull()
-    expect(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a'))).toContain('Alt')
-  })
-
-  it('drops the page number of views stored before saved views stopped keeping it', () => {
-    window.localStorage.setItem(
-      savedViewsStorageKey('test-user', 'tenant-a'),
-      JSON.stringify([
-        { id: 'old-1', name: 'Seite 3', href: '/workshop/orders?page=3&search=Gruber', createdAt: '2026-03-09T09:00:00.000Z' },
-      ]),
-    )
-
-    render(
-      <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
-        <SavedViewsProbe />
-      </SavedViewsProvider>,
-    )
-
     expect(screen.getByTestId('saved-first-href')).toHaveTextContent('/workshop/orders?search=Gruber')
+    expect(window.localStorage.length).toBe(0)
   })
 
   it('keeps dashboard widgets after provider mount', () => {
