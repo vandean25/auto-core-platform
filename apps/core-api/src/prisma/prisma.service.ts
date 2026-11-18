@@ -125,10 +125,11 @@ export class PrismaService
     });
 
     this.pool = pool;
+    const baseClient = this as unknown as PrismaClient;
     this.client = this.$extends(createTenantIsolationExtension())
       .$extends(createVehicleMediaPurgeExtension())
-      .$extends(createAuditExtension())
       .$extends(createDashboardRealtimeExtension(dashboardRealtime))
+      .$extends(createAuditExtension({ transactionClient: baseClient }))
       .$extends(
         createVehicleMediaPurgeTransactionExtension(),
       ) as unknown as PrismaClient;

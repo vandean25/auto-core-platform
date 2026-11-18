@@ -435,5 +435,99 @@ describe('Audit Tracing and Governance (e2e)', () => {
         .expect(403);
     },
   );
+
+  it('11. AUT-1009: Brand upsert that creates a row writes a CREATE AuditLog entry', async () => {
+    const brandName = `AuditUpsertBrand-${Date.now()}`;
+    const brand = await prismaA.brand.upsert({
+      where: {
+        tenant_id_name: {
+          tenant_id: tenantA,
+          name: brandName,
+        },
+      },
+      update: { isVehicleMake: true },
+      create: {
+        tenant_id: tenantA,
+        name: brandName,
+        normalized_name: brandName.toLowerCase(),
+        isVehicleMake: true,
+      },
+    });
+
+    const logs = await prismaA.auditLog.findMany({
+      where: {
+        entity_type: 'Brand',
+        entity_id: String(brand.id),
+        action: AuditLogAction.CREATE,
+      },
+    });
+
+    expect(logs).toHaveLength(1);
+    expect(logs[0].before).toBeNull();
+    expect((logs[0].after as Record<string, unknown>)?.name).toBe(brandName);
+  });
+
+  it('12. AUT-1009: failing audit insert outside a transaction rolls back the business write in Postgres', async () => {
+    const customer = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantA,
+        first_name: 'BeforeRollback',
+        last_name: 'Atomicity',
+        email: `rollback-${Date.now()}@example.com`,
+      },
+    });
+
+    const triggerName = 'trg_aut1009_fail_audit_insert';
+    const functionName = 'fn_aut1009_fail_audit_insert';
+    const safeCustomerId = customer.id.replace(/'/g, "''");
+
+    await prisma.$executeRawUnsafe(`
+      CREATE OR REPLACE FUNCTION ${functionName}()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        IF NEW.entity_id = '${safeCustomerId}' THEN
+          RAISE EXCEPTION 'Simulated audit insert failure (AUT-1009)';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TRIGGER ${triggerName}
+      BEFORE INSERT ON audit_logs
+      FOR EACH ROW
+      EXECUTE FUNCTION ${functionName}();
+    `);
+
+    try {
+      await expect(
+        prismaA.customer.update({
+          where: { id: customer.id },
+          data: { first_name: 'AfterRollback' },
+        }),
+      ).rejects.toThrow('Simulated audit insert failure (AUT-1009)');
+
+      const persisted = await prismaA.customer.findUniqueOrThrow({
+        where: { id: customer.id },
+      });
+      expect(persisted.first_name).toBe('BeforeRollback');
+
+      const logs = await prismaA.auditLog.findMany({
+        where: {
+          entity_type: 'Customer',
+          entity_id: customer.id,
+          action: AuditLogAction.UPDATE,
+        },
+      });
+      expect(logs).toHaveLength(0);
+    } finally {
+      await prisma.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS ${triggerName} ON audit_logs;`,
+      );
+      await prisma.$executeRawUnsafe(
+        `DROP FUNCTION IF EXISTS ${functionName}();`,
+      );
+    }
+  });
 });
 
