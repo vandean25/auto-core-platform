@@ -116,11 +116,19 @@ Ticket WHEN/THEN scenarios map to exactly one test, preferably in the existing s
 | Leaving `setLoanerNowForTests(...)` set after the case | Later tests in the file inherit the frozen clock | Reset in `afterEach` |
 | `test.skip` / new baseline line to silence a gate | Hides the failure | Fix the test or the product |
 
+## Bug findings and reviews
+
+- **Red-on-base rule for bug findings:** A review finding of type **bug** counts only with a test that is **red** on the PR base (or old code) and **green** after the fix; otherwise it is a **note**, not a blocker.
+- **Fresh-session review:** Reviews run in a fresh session without the implementer's history.
+- **Stop after 2 failed fixes:** After 2 failed fix attempts on the same finding, stop, write what was tried, and request a root-cause note from the SE (see [systematic-debugging](../superpowers/systematic-debugging/SKILL.md)).
+- **CI enforcement:** Enforced on `bug`-labeled PRs by the **Bug Regression at Base** job (`.github/workflows/bug-regression-at-base.yaml`, see [Bug Regression at Base (CI)](#bug-regression-at-base-ci)). No bypass exists other than its reviewed `regression-test: n/a — <reason>` escape line in the PR body.
+
 ## Pre-push checklist
 
 Before pushing a change that adds or edits tests:
 
 - [ ] The test names the break it catches; I watched it fail for the right reason when the behaviour was missing (TDD, unless the change is a pure refactor).
+- [ ] Bug fix: new/changed test fails on base.
 - [ ] No new calendar literal is compared with "now" or with a record dated "today". Dates are derived from created records, or the whole scenario uses one fixture/injected clock (reset afterwards).
 - [ ] I thought about UTC vs `Europe/Vienna` and midnight / month / year / `lock_date` boundaries.
 - [ ] No new sleep / `waitForTimeout` unless the interval itself is the behaviour and is documented.
