@@ -1,9 +1,10 @@
-import { CircleCheck, TriangleAlert, OctagonAlert } from 'lucide-react'
+import { CircleCheck, Info, TriangleAlert, OctagonAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { components } from '@/api/generated/openapi'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { NEUTRAL, statusClassMap } from '@/components/status/status-class-map'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import sketchSvg from '@/features/workshop/check-in/assets/check-in-vehicle-sketch-v1.svg?raw'
@@ -30,10 +31,7 @@ const REASON_SEVERITY: Record<string, number> = {
   UNSUPPORTED_COUNTRY: 5,
 }
 
-export function getWheelReasonLine(
-  wheel: Wheel,
-  t: TFunction<'workshop', undefined>,
-): string | null {
+function getWorstReasonCode(wheel: Wheel): Wheel['evaluation']['reasonCodes'][number] | null {
   const { evaluation } = wheel
   if (evaluation.status !== 'URGENT' && evaluation.status !== 'RECOMMENDED') {
     return null
@@ -45,11 +43,18 @@ export function getWheelReasonLine(
   const sortedCodes = [...codes].sort(
     (a, b) => (REASON_SEVERITY[b] ?? 0) - (REASON_SEVERITY[a] ?? 0),
   )
-  const worstReason = sortedCodes[0]
+  return sortedCodes[0] ?? null
+}
+
+export function getWheelReasonLine(
+  wheel: Wheel,
+  t: TFunction<'workshop', undefined>,
+): string | null {
+  const worstReason = getWorstReasonCode(wheel)
   if (!worstReason) {
     return null
   }
-  const thresholds = evaluation.thresholds
+  const thresholds = wheel.evaluation.thresholds
   let value: string | undefined
   if (worstReason === 'TREAD_BELOW_LEGAL_MINIMUM') {
     value = formatNumber(thresholds?.ordinaryMinimumMm ?? 1.6)
@@ -91,7 +96,11 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
   const cardBorderClass = statusClassMap[statusKey] ?? NEUTRAL
   const statusLabel = getWheelStatusLabel(evaluation, tEnums)
   const ageDisplay = formatDotAge(evaluation.dot, Boolean(wheel.dot), t)
+  const worstReason = getWorstReasonCode(wheel)
   const reasonLine = getWheelReasonLine(wheel, t)
+  const reasonDetail = worstReason === 'AT_WINTER_RULE_NOTICE'
+    ? t('tyreReport.reasonDetails.AT_WINTER_RULE_NOTICE')
+    : null
 
   return (
     <article aria-label={position} className={cn('min-w-0 space-y-3 rounded-md border-2 p-4', cardBorderClass)}>
@@ -130,7 +139,25 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
       </dl>
       {photoUrl && <img src={photoUrl} alt={t('tyreReport.photo', { position })} className="h-24 w-24 rounded-md object-cover" />}
       {reasonLine && (
-        <p className="text-sm font-medium text-foreground">{reasonLine}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="whitespace-nowrap text-sm font-medium text-foreground">{reasonLine}</p>
+          {reasonDetail && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t('tyreReport.reasonInfoAria')}
+                  className="inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Info className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 text-sm">
+                {reasonDetail}
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       )}
     </article>
   )

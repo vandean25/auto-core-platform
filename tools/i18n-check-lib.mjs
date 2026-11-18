@@ -3,6 +3,9 @@ import path from 'node:path'
 
 const PLURAL_SUFFIXES = new Set(['zero', 'one', 'two', 'few', 'many', 'other'])
 const INTERPOLATION_RE = /\{\{(\w+)\}\}/g
+const PLACEHOLDER_RE = /\{\{[^}]+\}\}/g
+const MAX_STATUS_REASON_LENGTH = 60
+const STATUS_REASON_OBJECT_KEYS = new Set(['reasons', 'blockers'])
 const DEFAULT_LOCALES_ROOT = 'locales'
 const DEFAULT_MANIFEST = 'tools/i18n-check-manifest.json'
 const DEFAULT_SCAN_ROOT = 'apps/core-web/src'
@@ -23,6 +26,45 @@ export function collectLeafKeys(value, prefix = '') {
     }
     return [next]
   })
+}
+
+function checkReasonLeaf(text, fileLabel, keyPath, errors) {
+  const visibleLength = text.replace(PLACEHOLDER_RE, '').length
+  if (visibleLength > MAX_STATUS_REASON_LENGTH) {
+    errors.push(
+      `Status reason exceeds ${MAX_STATUS_REASON_LENGTH} chars in ${fileLabel}: ${keyPath} (${visibleLength} chars)`,
+    )
+  }
+}
+
+function collectStatusReasonErrors(value, fileLabel, prefix, inReasonObject, errors) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return
+  }
+  for (const [key, child] of Object.entries(value)) {
+    const keyPath = prefix ? `${prefix}.${key}` : key
+    if (typeof child === 'string') {
+      if (inReasonObject) {
+        checkReasonLeaf(child, fileLabel, keyPath, errors)
+      }
+      continue
+    }
+    collectStatusReasonErrors(
+      child,
+      fileLabel,
+      keyPath,
+      inReasonObject || STATUS_REASON_OBJECT_KEYS.has(key),
+      errors,
+    )
+  }
+}
+
+function collectAllStatusReasonErrors(byLanguage, errors) {
+  for (const [language, namespaces] of byLanguage) {
+    for (const [namespace, tree] of [...namespaces.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      collectStatusReasonErrors(tree, `locales/${language}/${namespace}.json`, '', false, errors)
+    }
+  }
 }
 
 /**
@@ -419,6 +461,8 @@ export function runI18nCheck(options = {}) {
       errors.push(`Plural form mismatch for ${family}: de [${deForms}] vs en [${enForms}]`)
     }
   }
+
+  collectAllStatusReasonErrors(byLanguage, errors)
 
   const manifest = loadManifest(manifestPath)
   const usedKeys = collectUsedKeysFromSources(scanRoot)
