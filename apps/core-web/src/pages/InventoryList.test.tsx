@@ -311,9 +311,10 @@ describe('InventoryList row actions', () => {
   })
 })
 
-describe('InventoryList bulk price change (AUT-886)', () => {
+describe('InventoryList bulk price change (AUT-886 / AUT-936)', () => {
   const bulk = deInventory.bulk.adjustPrice
   const items: InventoryItem[] = ['1', '2', '3'].map((n) => ({ ...item, id: `item-${n}`, sku: `BRK-00${n}`, name: `Pad ${n}` }))
+  const UUID_V7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   let restoreLayout: () => void
 
   const cursorListOf = (rows: InventoryItem[]) => ({
@@ -341,16 +342,26 @@ describe('InventoryList bulk price change (AUT-886)', () => {
   const requests = () =>
     fetchWithAuth.mock.calls.map(([url, init]) => `${(init as RequestInit | undefined)?.method ?? 'GET'} ${String(url)}`)
 
+  const emptyDiscovery = { data: [], meta: { limit: 50, hasNextPage: false, nextCursor: null } }
+
   beforeEach(() => {
     restoreLayout = mockListLayout()
     vi.clearAllMocks()
+    window.localStorage.clear()
     authRole.current = 'ADMIN'
     asMock(inventoryApi.useInventory).mockReturnValue({ data: undefined, isLoading: false })
     asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(items))
     asMock(locationsApi.useLocations).mockReturnValue({ data: [], isLoading: false })
+    fetchWithAuth.mockImplementation((url: string) => {
+      if (String(url).startsWith('/api/inventory/price-operations')) {
+        return json(200, emptyDiscovery)
+      }
+      return json(200, { id: String(url).split('/').pop(), sku: 'BRK-001', name: 'Pad', brand_id: null, cost_price: 60, price: 100, revision: 5 })
+    })
   })
   afterEach(() => {
     cleanup()
+    window.localStorage.clear()
     restoreLayout()
   })
   afterAll(settleVirtualizerTimers)
@@ -377,55 +388,91 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     return screen.getByRole('dialog')
   }
 
-  function submitPercent(dialog: HTMLElement, percent: string) {
+  async function previewAndConfirm(dialog: HTMLElement, percent: string) {
     fireEvent.change(within(dialog).getByLabelText(bulk.percentLabel), { target: { value: percent } })
-    fireEvent.click(within(dialog).getByRole('button', { name: bulk.submit }))
+    fireEvent.click(within(dialog).getByRole('button', { name: bulk.preview }))
+    const confirmBtn = await within(dialog).findByRole('button', { name: bulk.confirm })
+    fireEvent.click(confirmBtn)
   }
 
-  it('WHEN the bulk price action runs THEN only the selected IDs are sent to the server', async () => {
-    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
-      init?.method === 'PATCH'
-        ? json(200, {})
-        : json(200, { id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 }),
-    )
+  // Scenario 1: consent freezes intent
+  it('consent freezes intent: WHEN the user confirms a preview THEN each selected item gets exactly one guarded PATCH with the frozen target, revision and key', async () => {
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+      if (init?.method === 'PATCH') return json(200, {})
+      const id = String(url).split('/').pop()
+      return json(200, {
+        id,
+        sku: id === 'item-1' ? 'BRK-001' : 'BRK-002',
+        name: 'Pad',
+        brand_id: null,
+        cost_price: 60,
+        price: id === 'item-1' ? 100 : 200,
+        revision: id === 'item-1' ? 7 : 12,
+      })
+    })
     renderList()
 
-    submitPercent(selectFirstTwoAndOpenDialog(), '10')
+    await previewAndConfirm(selectFirstTwoAndOpenDialog(), '10')
 
     await waitFor(() => expect(requests().filter((entry) => entry.startsWith('PATCH'))).toHaveLength(2))
-    expect(new Set(requests())).toEqual(
-      new Set(['GET /api/inventory/item-1', 'GET /api/inventory/item-2', 'PATCH /api/inventory/item-1', 'PATCH /api/inventory/item-2']),
-    )
-    const patch = fetchWithAuth.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH')
-    expect(JSON.parse((patch?.[1] as RequestInit).body as string)).toMatchObject({ retail_price: 110, cost_price: 60 })
+    const patchCalls = fetchWithAuth.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH')
+    expect(patchCalls).toHaveLength(2)
+
+    const seenKeys = new Set<string>()
+    for (const [url, init] of patchCalls) {
+      const reqInit = init as RequestInit
+      const headers = reqInit.headers as Record<string, string>
+      expect(headers['Idempotency-Key']).toMatch(UUID_V7_RE)
+      seenKeys.add(headers['Idempotency-Key'])
+      const body = JSON.parse(reqInit.body as string) as Record<string, unknown>
+      expect(Object.keys(body).sort()).toEqual(['expectedRevision', 'retail_price'])
+      if (String(url).endsWith('item-1')) {
+        expect(body).toEqual({ retail_price: 110, expectedRevision: 7 })
+      } else {
+        expect(body).toEqual({ retail_price: 220, expectedRevision: 12 })
+      }
+    }
+    expect(seenKeys.size).toBe(2)
   })
 
-  it('WHEN the server answers 403 for every record THEN the dialog reports each part and the selection stays', async () => {
-    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
-      init?.method === 'PATCH'
-        ? json(403, { statusCode: 403, message: 'Only OWNER or ADMIN can receive, adjust, or edit inventory items.' })
-        : json(200, { id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 }),
-    )
+  // Scenario 5: 403 per item
+  it('403 per item: WHEN the server answers 403 for every record THEN the dialog reports each part and the selection stays', async () => {
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+      if (init?.method === 'PATCH') {
+        return json(403, { statusCode: 403, message: 'Only OWNER or ADMIN can receive, adjust, or edit inventory items.' })
+      }
+      const id = String(url).split('/').pop()
+      return json(200, { id, sku: id === 'item-1' ? 'BRK-001' : 'BRK-002', name: 'Pad', brand_id: null, cost_price: 60, price: 100, revision: 5 })
+    })
     renderList()
 
-    submitPercent(selectFirstTwoAndOpenDialog(), '10')
+    await previewAndConfirm(selectFirstTwoAndOpenDialog(), '10')
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(`${deInventory.bulk.adjustPrice.result.replace('{{updated}}', '0').replace('{{total}}', '2')}`)
+    expect(alert).toHaveTextContent('0 von 2 geändert.')
     expect(alert).toHaveTextContent('Keine Berechtigung: 2 Teile (BRK-001, BRK-002)')
     expect(alert).toHaveTextContent(bulk.forbiddenHint)
     expect(alert).not.toHaveTextContent('BRK-003')
     expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('2 ausgewählt')
   })
 
-  // Review of 9c9b2aa: a retry after a partial failure used to apply the percentage again to parts that had succeeded.
-  describe('result states', () => {
-    const detail = (url: string) => ({ id: url.split('/').pop(), sku: 'X', name: 'Pad', brand_id: null, cost_price: 60, price: 100 })
-    /** PATCH answers per part from `status`, which a test may change between submits (the cause was fixed). */
-    function serverWith(status: Record<string, number>) {
-      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
-        init?.method === 'PATCH' ? json(status[url.split('/').pop() as string] ?? 200, {}) : json(200, detail(url)),
-      )
+  describe('result states and retry', () => {
+    const detail = (url: string) => {
+      const id = String(url).split('/').pop()
+      return { id, sku: id === 'item-1' ? 'BRK-001' : 'BRK-002', name: 'Pad', brand_id: null, cost_price: 60, price: 100, revision: 5 }
+    }
+    function serverWith(patchResponses: Record<string, { status: number; body?: unknown }>) {
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+        if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+        if (init?.method === 'PATCH') {
+          const id = String(url).split('/').pop() as string
+          const entry = patchResponses[id] ?? { status: 200, body: {} }
+          return json(entry.status, entry.body ?? {})
+        }
+        return json(200, detail(url))
+      })
     }
     const patched = () => requests().filter((entry) => entry.startsWith('PATCH'))
 
@@ -433,96 +480,120 @@ describe('InventoryList bulk price change (AUT-886)', () => {
       serverWith({})
       renderList()
 
-      submitPercent(selectFirstTwoAndOpenDialog(), '10')
+      await previewAndConfirm(selectFirstTwoAndOpenDialog(), '10')
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
       expect(toast.success).toHaveBeenCalledWith('2 Preise geändert')
       expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
     })
 
-    it('WHEN only some parts fail THEN only those are listed and the count says how many changed', async () => {
-      serverWith({ 'item-2': 500 })
+    // Scenario 2: retry only definite failures
+    it('retry only definite failures: WHEN one item returns INVENTORY_REVISION_CONFLICT and another returns 403 THEN retry resends only the definite failure and conflict new preview keeps definite failure selected and listed', async () => {
+      const responses: Record<string, { status: number; body?: unknown }> = {
+        'item-1': { status: 409, body: { code: 'INVENTORY_REVISION_CONFLICT' } },
+        'item-2': { status: 403, body: { statusCode: 403 } },
+      }
+      serverWith(responses)
       renderList()
-
-      submitPercent(selectFirstTwoAndOpenDialog(), '10')
+      const dialog = selectFirstTwoAndOpenDialog()
+      await previewAndConfirm(dialog, '10')
 
       const alert = await screen.findByRole('alert')
-      expect(alert).toHaveTextContent('1 von 2 geändert.')
-      expect(alert).toHaveTextContent('Fehlgeschlagen: 1 Teil (BRK-002)')
-      expect(alert).not.toHaveTextContent('BRK-001')
-      expect(screen.getByRole('dialog')).toBeInTheDocument()
-    })
+      expect(alert).toHaveTextContent(bulk.states.conflict)
+      expect(alert).toHaveTextContent('Keine Berechtigung: 1 Teil (BRK-002)')
+      expect(within(dialog).getByRole('button', { name: bulk.newPreview })).toBeInTheDocument()
 
-    it('WHEN the user retries after a partial failure THEN only the failed parts are sent again and the percentage is not applied twice', async () => {
-      const status: Record<string, number> = { 'item-2': 500 }
-      serverWith(status)
-      renderList()
-      const dialog = selectFirstTwoAndOpenDialog()
-      submitPercent(dialog, '10')
-      await screen.findByRole('alert')
-      status['item-2'] = 200
-
-      expect(within(dialog).getByLabelText(deInventory.bulk.adjustPrice.percentLabel)).toBeDisabled()
       fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
-
-      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await waitFor(() => expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2))
       expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
-      expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2)
-      expect(toast.success).toHaveBeenCalledWith('2 Preise geändert')
-    })
 
-    it('WHEN the dialog is closed after a failure and opened again THEN it starts empty', async () => {
-      serverWith({ 'item-2': 500 })
-      renderList()
-      const dialog = selectFirstTwoAndOpenDialog()
-      submitPercent(dialog, '10')
-      await screen.findByRole('alert')
+      responses['item-1'] = { status: 200, body: {} }
+      fireEvent.click(within(dialog).getByRole('button', { name: bulk.newPreview }))
+      fireEvent.click(await within(dialog).findByRole('button', { name: bulk.confirm }))
 
-      fireEvent.keyDown(dialog, { key: 'Escape' })
+      const updatedAlert = await screen.findByRole('alert')
+      expect(updatedAlert).toHaveTextContent('1 von 2 geändert.')
+      expect(updatedAlert).toHaveTextContent('Keine Berechtigung: 1 Teil (BRK-002)')
+      expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('1 ausgewählt')
+
+      responses['item-2'] = { status: 200, body: {} }
+      fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-      fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
-
-      const reopened = screen.getByRole('dialog')
-      expect(within(reopened).getByLabelText(bulk.percentLabel)).toHaveValue('')
-      expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
     })
-    // Review of 34925ea: closing and reopening used to target the whole selection again, including parts already changed.
-    it('WHEN the dialog is closed after a partial failure and opened again THEN only the failed parts are selected and sent', async () => {
-      const status: Record<string, number> = { 'item-2': 500 }
-      serverWith(status)
+
+    it.each([
+      {
+        label: '409 OPERATION_UNRESOLVED',
+        patchItem1: () => json(409, { code: 'OPERATION_UNRESOLVED' }),
+      },
+      {
+        label: 'PATCH throws and follow-up GET is 404',
+        patchItem1: () => Promise.reject(new Error('network lost')),
+      },
+    ])(
+      'WHEN $label and journal row is 404 THEN row shows Outcome unavailable with no retry of that key',
+      async ({ patchItem1 }) => {
+        fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+          if (String(url).startsWith('/api/inventory/price-operations/')) return json(404, { statusCode: 404 })
+          if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+          if (init?.method === 'PATCH') {
+            return String(url).endsWith('item-1') ? patchItem1() : json(403, { statusCode: 403 })
+          }
+          return json(200, detail(url))
+        })
+        renderList()
+        const dialog = selectFirstTwoAndOpenDialog()
+        await previewAndConfirm(dialog, '10')
+
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(bulk.states.outcomeUnavailable)
+        expect(alert).not.toHaveTextContent(bulk.states.pending)
+        expect(alert).not.toHaveTextContent(bulk.states.unresolved)
+
+        fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
+        await waitFor(() => expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2))
+        expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
+      },
+    )
+
+    it('WHEN the dialog is closed after a failure and opened again THEN it starts empty and narrows selection', async () => {
+      const responses: Record<string, { status: number; body?: unknown }> = { 'item-2': { status: 404 } }
+      serverWith(responses)
       renderList()
       const dialog = selectFirstTwoAndOpenDialog()
-      submitPercent(dialog, '10')
+      await previewAndConfirm(dialog, '10')
       await screen.findByRole('alert')
-      status['item-2'] = 200
+      responses['item-2'] = { status: 200 }
 
       fireEvent.keyDown(dialog, { key: 'Escape' })
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
       expect(screen.getByRole('toolbar')).toHaveTextContent('1 ausgewählt')
       fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
+
       const reopened = screen.getByRole('dialog')
       expect(within(reopened).getByLabelText(bulk.percentLabel)).toHaveValue('')
       expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
-      submitPercent(reopened, '10')
+      await previewAndConfirm(reopened, '10')
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
       expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
       expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2)
     })
 
-    // Review of 34925ea: a partial result written into a dismissed dialog was never seen.
     it('WHEN the dialog is dismissed while the request runs THEN it stays open and shows the result', async () => {
       const releases: Array<() => void> = []
-      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
-        init?.method === 'PATCH'
-          ? new Promise<Response>((resolve) => {
-              releases.push(() => resolve(new Response('{}', { status: 500 })))
-            })
-          : json(200, detail(url)),
-      )
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+        if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+        if (init?.method === 'PATCH') {
+          return new Promise<Response>((resolve) => {
+            releases.push(() => resolve(new Response('{}', { status: 400 })))
+          })
+        }
+        return json(200, detail(url))
+      })
       renderList()
       const dialog = selectFirstTwoAndOpenDialog()
-      submitPercent(dialog, '10')
+      await previewAndConfirm(dialog, '10')
       await waitFor(() => expect(releases).toHaveLength(2))
 
       fireEvent.keyDown(dialog, { key: 'Escape' })
@@ -532,18 +603,21 @@ describe('InventoryList bulk price change (AUT-886)', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('Fehlgeschlagen')
     })
 
-    // Review of 34925ea (Kompakte Texte): 100 failures with one reason are one line, not 100.
     it('WHEN 100 parts fail for the same reason THEN the dialog shows one grouped line with the first SKUs', async () => {
       const many = Array.from({ length: 100 }, (_, index) => ({ ...item, id: `item-${index}`, sku: `BRK-${index}` }))
       asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(many))
-      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) =>
-        init?.method === 'PATCH' ? json(403, { statusCode: 403, message: 'forbidden' }) : json(200, detail(url)),
-      )
+      fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+        if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+        if (init?.method === 'PATCH') return json(403, { statusCode: 403 })
+        const id = String(url).split('/').pop()
+        const idx = Number(id?.replace('item-', ''))
+        return json(200, { id, sku: `BRK-${idx}`, name: 'Pad', brand_id: null, cost_price: 60, price: 100, revision: 1 })
+      })
       renderList()
       fireEvent.click(screen.getByRole('checkbox', { name: /geladenen Zeilen auswählen/ }))
       fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: bulk.action }))
 
-      submitPercent(screen.getByRole('dialog'), '10')
+      await previewAndConfirm(screen.getByRole('dialog'), '10')
 
       const alert = await screen.findByRole('alert')
       expect(within(alert).getAllByRole('listitem')).toHaveLength(1)
@@ -551,7 +625,156 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     })
   })
 
-  it('WHEN the role may not edit prices THEN no bulk price action is offered, in the bar or in Cmd+K', () => {
+  // Scenario 3: lost response recovered via discovery
+  it('lost response recovered via discovery: WHEN the response is lost and the page reloads THEN discovery shows the operation as Pending or Unresolved, not as failed', async () => {
+    const recentAcceptedAt = new Date(Date.now() - 30_000).toISOString()
+    const staleAcceptedAt = new Date(Date.now() - 5 * 60_000).toISOString()
+    fetchWithAuth.mockImplementation((url: string) => {
+      if (String(url) === '/api/inventory/price-operations') {
+        return json(200, {
+          data: [
+            {
+              key: '01930000-0000-7000-8000-000000000001',
+              itemId: 'item-1',
+              sku: 'BRK-001',
+              state: 'ACCEPTED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 5,
+              retail_price: '54.89',
+              basis_retail_price: '49.90',
+              acceptedAt: recentAcceptedAt,
+              finalAt: null,
+              errorCode: null,
+            },
+            {
+              key: '01930000-0000-7000-8000-000000000002',
+              itemId: 'item-2',
+              sku: 'BRK-002',
+              state: 'ACCEPTED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 6,
+              retail_price: '60.00',
+              basis_retail_price: '50.00',
+              acceptedAt: staleAcceptedAt,
+              finalAt: null,
+              errorCode: null,
+            },
+          ],
+          meta: { limit: 50, hasNextPage: false, nextCursor: null },
+        })
+      }
+      return json(200, emptyDiscovery)
+    })
+
+    renderList()
+
+    const panel = await screen.findByRole('region', { name: bulk.discovery.panelHeading })
+    expect(panel).toHaveTextContent(bulk.states.pending)
+    expect(panel).toHaveTextContent(bulk.states.unresolved)
+    expect(panel).not.toHaveTextContent(bulk.reasonFailed)
+  })
+
+  // Scenario 4: user fence
+  it('user fence: WHEN the user marks an Unresolved item as not applied THEN the fence is called and the state becomes Not applied', async () => {
+    const staleAcceptedAt = new Date(Date.now() - 5 * 60_000).toISOString()
+    const opKey = '01930000-0000-7000-8000-000000000009'
+    let fenced = false
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url) === `/api/inventory/price-operations/${opKey}/fence` && init?.method === 'POST') {
+        fenced = true
+        return json(200, {
+          key: opKey,
+          itemId: 'item-2',
+          sku: 'BRK-002',
+          state: 'FENCED',
+          kind: 'RETAIL_PRICE',
+          expectedRevision: 6,
+          retail_price: '60.00',
+          basis_retail_price: '50.00',
+          acceptedAt: staleAcceptedAt,
+          finalAt: new Date().toISOString(),
+          errorCode: null,
+        })
+      }
+      if (String(url) === '/api/inventory/price-operations') {
+        return json(200, {
+          data: [
+            {
+              key: opKey,
+              itemId: 'item-2',
+              sku: 'BRK-002',
+              state: fenced ? 'FENCED' : 'ACCEPTED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 6,
+              retail_price: '60.00',
+              basis_retail_price: '50.00',
+              acceptedAt: staleAcceptedAt,
+              finalAt: fenced ? new Date().toISOString() : null,
+              errorCode: null,
+            },
+          ],
+          meta: { limit: 50, hasNextPage: false, nextCursor: null },
+        })
+      }
+      return json(200, emptyDiscovery)
+    })
+
+    renderList()
+
+    const fenceButton = await screen.findByRole('button', { name: bulk.markNotApplied })
+    fireEvent.click(fenceButton)
+
+    await waitFor(() => {
+      expect(fetchWithAuth).toHaveBeenCalledWith(
+        `/api/inventory/price-operations/${opKey}/fence`,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ itemId: 'item-2', retail_price: 60, expectedRevision: 6 }),
+        }),
+      )
+    })
+    expect(await screen.findByText(bulk.states.notApplied)).toBeInTheDocument()
+  })
+
+  it('WHEN the fence endpoint returns 404 THEN the panel shows Not found and removes the fence action', async () => {
+    const staleAcceptedAt = new Date(Date.now() - 5 * 60_000).toISOString()
+    const opKey = '01930000-0000-7000-8000-000000000010'
+    fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url) === `/api/inventory/price-operations/${opKey}/fence` && init?.method === 'POST') {
+        return json(404, { statusCode: 404 })
+      }
+      if (String(url) === '/api/inventory/price-operations') {
+        return json(200, {
+          data: [
+            {
+              key: opKey,
+              itemId: 'item-2',
+              sku: 'BRK-002',
+              state: 'ACCEPTED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 6,
+              retail_price: '60.00',
+              basis_retail_price: '50.00',
+              acceptedAt: staleAcceptedAt,
+              finalAt: null,
+              errorCode: null,
+            },
+          ],
+          meta: { limit: 50, hasNextPage: false, nextCursor: null },
+        })
+      }
+      return json(200, emptyDiscovery)
+    })
+
+    renderList()
+
+    fireEvent.click(await screen.findByRole('button', { name: bulk.markNotApplied }))
+
+    expect(await screen.findByText(bulk.states.notFound)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: bulk.markNotApplied })).not.toBeInTheDocument()
+  })
+
+  it('WHEN the role may not edit prices THEN no bulk price action or discovery is offered', () => {
     authRole.current = 'SALES'
     renderList()
 
@@ -559,6 +782,7 @@ describe('InventoryList bulk price change (AUT-886)', () => {
 
     expect(within(screen.getByRole('toolbar')).queryByRole('button', { name: bulk.action })).not.toBeInTheDocument()
     expect(getSelectionPaletteSection()).toBeNull()
+    expect(requests().filter((entry) => entry.includes('price-operations'))).toHaveLength(0)
   })
 
   it('WHEN rows are selected THEN the same registry action is published for Cmd+K and opens the dialog', () => {
@@ -573,7 +797,6 @@ describe('InventoryList bulk price change (AUT-886)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  // Large data: select-all-loaded can reach 2,000 rows, but one action must not fire 4,000 requests.
   it('WHEN more than 100 parts are selected THEN the bar shows the limit instead of the action, also in Cmd+K', () => {
     const many = Array.from({ length: 101 }, (_, index) => ({ ...item, id: `item-${index}`, sku: `BRK-${index}` }))
     asMock(inventoryApi.useInventoryCursorList).mockReturnValue(cursorListOf(many))

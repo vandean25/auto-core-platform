@@ -12,10 +12,11 @@ import { useLocations } from '@/api/locations'
 import type { InventoryItem } from '@/api/types'
 import { AddItemDialog } from '@/components/AddItemDialog'
 import { DataTable } from '@/components/data-table/DataTable'
-import { InventoryBulkActions } from '@/components/inventory/InventoryBulkActions'
+import { BulkPriceDialog, InventoryBulkActions } from '@/components/inventory/InventoryBulkActions'
+import { InventoryPriceOperationsPanel } from '@/components/inventory/InventoryPriceOperationsPanel'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
-import { canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
+import { canEditInventoryItems, canOpenBackOfficeDetail } from '@/features/actions/action-role-predicates'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
 import { scheduleDetailPrefetch } from '@/lib/intent-prefetch'
@@ -102,6 +103,9 @@ export default function InventoryList() {
         },
     ]
 
+    const [rePreviewItem, setRePreviewItem] = React.useState<Pick<InventoryItem, 'id' | 'sku' | 'name'> | null>(null)
+    const [rePreviewOpenings, setRePreviewOpenings] = React.useState(0)
+
     return (
         <>
             <div className={PAGE_HEADER_ROW}>
@@ -111,6 +115,27 @@ export default function InventoryList() {
                 </div>
                 <AddItemDialog onCreate={pending.submit} />
             </div>
+
+            <InventoryPriceOperationsPanel
+                enabled={canEditInventoryItems(role)}
+                onNewPreview={(target) => {
+                    setRePreviewItem(target)
+                    setRePreviewOpenings((count) => count + 1)
+                }}
+            />
+
+            {rePreviewItem ? (
+                <BulkPriceDialog
+                    key={`repreview-${rePreviewOpenings}`}
+                    items={[rePreviewItem]}
+                    open={Boolean(rePreviewItem)}
+                    onOpenChange={(open) => {
+                        if (!open) setRePreviewItem(null)
+                    }}
+                    onDone={() => setRePreviewItem(null)}
+                    onPartial={() => undefined}
+                />
+            ) : null}
 
             <div className="mb-4 flex items-center gap-2">
                 <Select value={locationFilterValue ?? '_all'} onValueChange={handleLocationFilter}>

@@ -95,9 +95,21 @@
       "description_other": "Gilt für {{count}} ausgewählte Teile.",
       "percentLabel": "Änderung in %",
       "percentHint": "Von -50 bis 100, zum Beispiel 5 für +5 %.",
+      "preview": "Vorschau prüfen",
+      "previewLoading": "Vorschau wird geladen…",
+      "previewHeading": "Vorschau der Preisänderung",
+      "previewSummary_one": "{{count}} Teil wird geändert.",
+      "previewSummary_other": "{{count}} Teile werden geändert.",
+      "previewReadFailed": "Vorschau konnte nicht geladen werden.",
+      "confirm": "Änderungen bestätigen",
       "submit": "Preise ändern",
       "retryFailed": "Fehlgeschlagene erneut versuchen",
       "submitting": "Wird geändert…",
+      "back": "Zurück",
+      "close": "Schließen",
+      "newPreview": "Neue Vorschau",
+      "markNotApplied": "Als nicht angewendet markieren",
+      "markingNotApplied": "Wird markiert…",
       "limit": "Höchstens {{max}} Teile pro Aktion.",
       "result": "{{updated}} von {{total}} geändert.",
       "forbiddenHint": "Preise ändern dürfen nur Inhaber und Administratoren.",
@@ -107,7 +119,29 @@
       "reasonForbidden": "Keine Berechtigung",
       "reasonFailed": "Fehlgeschlagen",
       "success_one": "{{count}} Preis geändert",
-      "success_other": "{{count}} Preise geändert"
+      "success_other": "{{count}} Preise geändert",
+      "states": {
+        "applied": "Angewendet",
+        "conflict": "Preis geändert",
+        "pending": "Ausstehend (< 2 Min.)",
+        "unresolved": "Ungeklärt",
+        "notApplied": "Nicht angewendet",
+        "outcomeUnavailable": "Ergebnis unbekannt – Preis prüfen",
+        "forbidden": "Keine Berechtigung",
+        "notFound": "Nicht gefunden",
+        "invalid": "Ungültige Anfrage"
+      },
+      "discovery": {
+        "bannerTitle_one": "{{count}} Preisänderung zu prüfen",
+        "bannerTitle_other": "{{count}} Preisänderungen zu prüfen",
+        "showDetails": "Details anzeigen",
+        "hideDetails": "Ausblenden",
+        "markSeen": "Als gesehen markieren",
+        "markAllSeen": "Abgeschlossene ausblenden",
+        "loadMore": "Weitere laden",
+        "panelHeading": "Letzte Preisänderungen",
+        "priceTransition": "{{basis}} → {{target}}"
+      }
     }
   },
   "addItemDialog": {
