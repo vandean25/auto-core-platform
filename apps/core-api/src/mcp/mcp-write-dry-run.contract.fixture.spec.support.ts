@@ -19,6 +19,8 @@ export const ACTION_TYPE_BY_WRITE_TOOL: Record<
   propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
   propose_customer_create: 'customer.create',
   propose_customer_update: 'customer.update',
+  propose_vehicle_create: 'vehicle.create',
+  propose_vehicle_update: 'vehicle.update',
   generate_weekly_report_pdf: 'report.generate_weekly_pdf',
 };
 
@@ -110,6 +112,18 @@ export const DRY_RUN_MINIMAL_INPUTS: Partial<
     changes: { email: 'neu@example.at' },
     reason: 'Dry run customer change',
     idempotency_key: 'aut613-dry-run-update',
+  },
+  propose_vehicle_create: {
+    make: 'VW',
+    model: 'Golf',
+    year: 2022,
+    idempotency_key: 'aut614-dry-run-create',
+  },
+  propose_vehicle_update: {
+    vehicle_id: '00000000-0000-4000-8000-000000000002',
+    changes: { mileage_km: 50000 },
+    reason: 'Dry run vehicle change',
+    idempotency_key: 'aut614-dry-run-update',
   },
   generate_weekly_report_pdf: { iso_week: '2026-W42' },
 };

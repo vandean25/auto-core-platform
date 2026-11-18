@@ -19,6 +19,8 @@ export const MCP_WRITE_TOOL_PENDING_ACTION_TYPES: Record<
   propose_mechanic_finding: 'workshop_order.propose_mechanic_finding',
   propose_customer_create: 'customer.create',
   propose_customer_update: 'customer.update',
+  propose_vehicle_create: 'vehicle.create',
+  propose_vehicle_update: 'vehicle.update',
   generate_weekly_report_pdf: 'report.generate_weekly_pdf',
 };
 

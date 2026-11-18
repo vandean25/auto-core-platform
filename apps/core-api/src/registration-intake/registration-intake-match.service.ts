@@ -74,7 +74,7 @@ async function findCustomers(
 }
 
 // The VIN wins over the plate, even when the VIN finds no vehicle.
-async function findVehicleRows(
+export async function findVehicleMatchRows(
   prisma: PrismaService,
   tenantId: string,
   vin: string | null,
@@ -99,6 +99,8 @@ async function findVehicleRows(
   }
   return [];
 }
+
+const findVehicleRows = findVehicleMatchRows;
 
 type MatchFields = Record<string, RegistrationFieldEvidence>;
 type MatchedCustomers = RegistrationMatchSnapshot['customers'];

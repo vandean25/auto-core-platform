@@ -183,6 +183,7 @@
       "WorkshopTask": "Workshop task",
       "WorkshopTaskLineItem": "Workshop line item",
       "Customer": "Customer",
+      "Vehicle": "Vehicle",
       "SalesOrder": "Sales order"
     },
     "fields": {
@@ -197,7 +198,20 @@
       "address.street": "Street",
       "address.zip": "Postcode",
       "address.city": "City",
-      "address.country": "Country"
+      "address.country": "Country",
+      "owner_customer_id": "Owner (customer)",
+      "vin": "VIN",
+      "plate": "License plate",
+      "make": "Make",
+      "model": "Model",
+      "year": "Year",
+      "first_registration_date": "First registration",
+      "mileage_km": "Mileage (km)",
+      "fuel_type": "Fuel type",
+      "national_code": "National code"
+    },
+    "warnings": {
+      "mileage_decrease": "Mileage decreased compared to current recorded value"
     }
   }
 }

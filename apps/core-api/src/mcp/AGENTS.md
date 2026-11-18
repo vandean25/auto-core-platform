@@ -76,6 +76,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `propose_mechanic_finding` | Propose an additional mechanic finding with photos for internal advisor review; never sends customer messages | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_customer_create` | Propose a new customer master-data record for human approval; checks the tenant for a duplicate e-mail, phone, UID, or name and postcode first, and refuses an exact e-mail or UID hit with `DUPLICATE_CUSTOMER` | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_customer_update` | Propose a change to the master data of an existing customer for human approval; stores only the changed fields and re-checks customer, e-mail uniqueness, and the proposed values on apply | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_vehicle_create` | Propose a new vehicle master-data record for human approval; validates VIN/plate and checks for duplicate VIN (`DUPLICATE_VEHICLE`), normalized plate, or owner make/model/first registration | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_vehicle_update` | Propose a change to the master data of an existing vehicle for human approval; requires `reason` for mileage decrease and re-validates VIN uniqueness and unchanged state on apply | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
 ## Compliance read tools
 
@@ -96,7 +98,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_check_in` | Vehicle check-in summary for a workshop order (checklist counts, damage zones, media ids; no signature image) | Read | AUTO |
 | `get_staff_availability` | Staff presence and scheduled hours for a day (OWNER/ADMIN; same access as HR attendance view) | Read | AUTO |
 
-Write tools start Off (`enabled: false`) in the platform policy. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, `propose_mechanic_finding`, `propose_customer_create`, and `propose_customer_update` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, `propose_purchase_order`, `propose_workshop_order_completion`, `propose_invoice_draft_from_order`, `propose_estimate_send`, `propose_mechanic_finding`, `propose_customer_create`, `propose_customer_update`, `propose_vehicle_create`, and `propose_vehicle_update` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 
@@ -258,6 +260,7 @@ Policy refusals return an MCP tool error with the code `not_permitted`, and a fr
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
 | `NOT_A_CATALOG_LINE`   | `reserve_part` on a workshop PART line with no catalog item (free text). Nothing was reserved. Choose a catalog-backed part line; do not retry this line. |
 | `DUPLICATE_CUSTOMER`    | `propose_customer_create` found a customer with the same e-mail or UID in the tenant. Nothing was proposed. Propose `propose_customer_update` for that customer instead. |
+| `DUPLICATE_VEHICLE`     | `propose_vehicle_create` or `propose_vehicle_update` found a vehicle with the same VIN in the tenant. Nothing was proposed or applied. Propose `propose_vehicle_update` for that vehicle instead. |
 
 For pending action persistence, `needs_approval` responses, and apply semantics, see [implementation details](../../../../docs/internal/02-Feature-Specs/Platform/pending-actions.md).
 

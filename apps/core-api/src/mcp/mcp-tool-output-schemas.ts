@@ -592,6 +592,22 @@ const customerDuplicateCandidate = z.object({
   display_name_initials: z.string(),
 });
 
+const vehicleProposalDiffItem = z.object({
+  field: nonEmptyString,
+  before: z.string().nullable(),
+  after: z.string().nullable(),
+  warning: z.string().optional(),
+});
+
+const vehicleDuplicateCandidate = z.object({
+  vehicle_id: idString,
+  match_reasons: z.array(nonEmptyString),
+  vin_last4: z.string().nullable(),
+  plate: z.string().nullable(),
+  make: z.string().nullable(),
+  model: z.string().nullable(),
+});
+
 /**
  * A write result. `executed` ran and carries the committed row. `needs_approval` stored a
  * pending proposal and ran nothing. A refused call is a thrown error, not a result.
@@ -1607,6 +1623,20 @@ export const mcpToolOutputSchemas = {
     writeResultOf('propose_customer_update', {
       diff: z.array(customerProposalDiffItem),
       duplicate_candidates: z.array(customerDuplicateCandidate),
+    }),
+  ),
+  propose_vehicle_create: publishedWriteToolOutput(
+    'propose_vehicle_create',
+    writeResultOf('propose_vehicle_create', {
+      diff: z.array(vehicleProposalDiffItem),
+      duplicate_candidates: z.array(vehicleDuplicateCandidate),
+    }),
+  ),
+  propose_vehicle_update: publishedWriteToolOutput(
+    'propose_vehicle_update',
+    writeResultOf('propose_vehicle_update', {
+      diff: z.array(vehicleProposalDiffItem),
+      duplicate_candidates: z.array(vehicleDuplicateCandidate),
     }),
   ),
   generate_weekly_report_pdf: publishedWriteToolOutput(

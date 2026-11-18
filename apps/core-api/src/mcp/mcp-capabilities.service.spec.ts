@@ -18,8 +18,8 @@ import {
   TENANT_B,
 } from './mcp-capabilities.service.spec.support.js';
 
-// Visible tools: every read tool plus 14 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 14;
+// Visible tools: every read tool plus 16 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 16;
 
 function byTool(data: McpCapability[]): Map<string, McpCapability> {
   return new Map(data.map((entry) => [entry.tool, entry]));
@@ -167,6 +167,8 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_mechanic_finding',
       'propose_customer_create',
       'propose_customer_update',
+      'propose_vehicle_create',
+      'propose_vehicle_update',
       'generate_weekly_report_pdf',
     ]);
     expect(page.meta).toEqual({

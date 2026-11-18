@@ -41,7 +41,8 @@ const CONTRACT_CUSTOMER = {
   contact_email_ok: true,
 };
 
-export type PipelineDryRunFixture = {  service: McpWritePipelineService;
+export type PipelineDryRunFixture = {
+  service: McpWritePipelineService;
   executors: PendingActionExecutorService;
   mockAgentPolicy: Pick<jest.Mocked<AgentPolicyService>, 'evaluateAction'>;
   mockAgentActionLog: { record: jest.Mock; recordInTransaction: jest.Mock };
@@ -65,8 +66,12 @@ export type PipelineDryRunFixture = {  service: McpWritePipelineService;
   >;
   mockContext: { agentId: string; onBehalfOfUserId: string };
   executorPrisma: Record<string, unknown>;
-  realAdapterSpies: import('./mcp-write-dry-run.contract.adapters.spec.support.js').AdapterLowLevelSpies | null;
-  realWorkshopEstimateSendPropose: import('../workshop/workshop-estimate-send-propose.service.js').WorkshopEstimateSendProposeService | null;
+  realAdapterSpies:
+    | import('./mcp-write-dry-run.contract.adapters.spec.support.js').AdapterLowLevelSpies
+    | null;
+  realWorkshopEstimateSendPropose:
+    | import('../workshop/workshop-estimate-send-propose.service.js').WorkshopEstimateSendProposeService
+    | null;
 };
 
 export async function createPipelineDryRunFixture(options?: {
@@ -91,9 +96,9 @@ export async function createPipelineDryRunFixture(options?: {
   };
   const mockPrisma = {
     client: {
-      $transaction: jest.fn().mockImplementation(async (callback) =>
-        callback(mockTx),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (callback) => callback(mockTx)),
     },
     $transaction: jest.fn(),
     mcpWriteCommandReceipt: { create: jest.fn() },
@@ -224,6 +229,40 @@ export async function createPipelineDryRunFixture(options?: {
         return CONTRACT_CUSTOMER;
       }),
     },
+    vehicle: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue({
+        id: '00000000-0000-4000-8000-000000000002',
+        tenant_id: 'tenant-1',
+        customer_id: CONTRACT_CUSTOMER.id,
+        make: 'VW',
+        model: 'Golf',
+        year: 2022,
+        vin: null,
+        plate: 'W12345A',
+        plate_normalized: 'W12345A',
+        first_registration_date: null,
+        mileage: 40000,
+        fuel_type: null,
+        national_code: null,
+      }),
+      create: jest.fn().mockImplementation(async () => {
+        expect(DryRunStorage.isDryRun()).toBe(true);
+        return {
+          id: '00000000-0000-4000-8000-000000000002',
+          tenant_id: 'tenant-1',
+          make: 'VW',
+          model: 'Golf',
+        };
+      }),
+      updateMany: jest.fn().mockImplementation(async () => {
+        expect(DryRunStorage.isDryRun()).toBe(true);
+        return { count: 1 };
+      }),
+    },
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (callback) => callback(executorPrisma)),
     agentProposal: {
       findFirst: jest.fn().mockResolvedValue(null),
     },
@@ -240,7 +279,9 @@ export async function createPipelineDryRunFixture(options?: {
           expect(DryRunStorage.isDryRun()).toBe(true);
           return { id: 'order-1' };
         }),
-        buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
+        buildExecutionContext: jest
+          .fn()
+          .mockResolvedValue({ site_id: 'site-1' }),
         enrichInput: jest.fn(async (input: unknown) => input),
       } as never);
 
@@ -259,7 +300,9 @@ export async function createPipelineDryRunFixture(options?: {
           expect(DryRunStorage.isDryRun()).toBe(true);
           return { id: 'ver-1' };
         }),
-        buildExecutionContext: jest.fn().mockResolvedValue({ site_id: 'site-1' }),
+        buildExecutionContext: jest
+          .fn()
+          .mockResolvedValue({ site_id: 'site-1' }),
         buildPolicyContext: jest.fn().mockResolvedValue({ amount_eur: 60 }),
         enrichInput: jest.fn(async (input: unknown) => input),
       } as never);
@@ -303,10 +346,12 @@ export async function createPipelineDryRunFixture(options?: {
       enrichInput: jest.fn(async (input: unknown) => input),
     } as never,
     {
-      applyProposedPurchaseOrderDraft: jest.fn().mockImplementation(async () => {
-        expect(DryRunStorage.isDryRun()).toBe(true);
-        return { id: 'po-1' };
-      }),
+      applyProposedPurchaseOrderDraft: jest
+        .fn()
+        .mockImplementation(async () => {
+          expect(DryRunStorage.isDryRun()).toBe(true);
+          return { id: 'po-1' };
+        }),
       buildProposedPurchaseOrderExecutionContext: jest
         .fn()
         .mockResolvedValue({ site_id: 'site-1' }),

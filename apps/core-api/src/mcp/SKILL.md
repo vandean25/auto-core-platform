@@ -20,3 +20,8 @@ Example customer master-data questions:
 - “Ändere die E-Mail-Adresse von Kunde X.” → `propose_customer_update` with the `customer_id`, the changed fields in `changes`, and a `reason`. Only the changed fields are stored, and a person approves the change.
 
 Both tools are PROPOSE-only: they store a pending proposal and change nothing until a person applies it. Consent fields are not writable and are rejected by the schema.
+
+Example vehicle master-data questions:
+
+- “Lege ein neues Fahrzeug an.” → `propose_vehicle_create` with make, model, and optional VIN/plate/owner. Exact VIN duplicates are refused with `DUPLICATE_VEHICLE`; normalized plate or same owner make/model/first-registration matches return warnings and `duplicate_candidates`.
+- “Korrigiere den Kilometerstand von Fahrzeug X.” → `propose_vehicle_update` with `vehicle_id`, `changes`, and `reason` (required when decreasing mileage). Stock, sales, listing, valuation, and inspection fields are rejected by the schema.

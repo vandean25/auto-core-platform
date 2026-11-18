@@ -203,6 +203,12 @@ export const MCP_TOOL_TABLE: McpToolTable = {
   propose_customer_update: mcpTool('customer.update', BACK_OFFICE, 'tenant', [
     'agent_policy',
   ]),
+  propose_vehicle_create: mcpTool('vehicle.create', BACK_OFFICE, 'tenant', [
+    'agent_policy',
+  ]),
+  propose_vehicle_update: mcpTool('vehicle.update', BACK_OFFICE, 'tenant', [
+    'agent_policy',
+  ]),
   generate_weekly_report_pdf: mcpTool(
     'report.weekly_pdf.generate',
     BACK_OFFICE,

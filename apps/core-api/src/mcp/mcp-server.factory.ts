@@ -85,6 +85,10 @@ export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
     schemas.mcpWriteToolInputSchemas.propose_customer_create,
   propose_customer_update:
     schemas.mcpWriteToolInputSchemas.propose_customer_update,
+  propose_vehicle_create:
+    schemas.mcpWriteToolInputSchemas.propose_vehicle_create,
+  propose_vehicle_update:
+    schemas.mcpWriteToolInputSchemas.propose_vehicle_update,
   generate_weekly_report_pdf:
     schemas.mcpWriteToolInputSchemas.generate_weekly_report_pdf,
 };

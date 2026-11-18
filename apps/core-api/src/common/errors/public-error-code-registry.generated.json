@@ -407,6 +407,10 @@
       "public": false,
       "params": []
     },
+    "DUPLICATE_VEHICLE": {
+      "public": false,
+      "params": []
+    },
     "DURATION_REQUIRED": {
       "public": true,
       "params": []
@@ -1954,6 +1958,10 @@
       "public": true,
       "params": []
     },
+    "VEHICLE_INVALID_VIN": {
+      "public": false,
+      "params": []
+    },
     "VEHICLE_LISTING_CHANNEL_NOT_FOUND": {
       "public": true,
       "params": []
@@ -1990,7 +1998,15 @@
       "public": true,
       "params": []
     },
+    "VEHICLE_MILEAGE_DECREASE_REQUIRES_REASON": {
+      "public": false,
+      "params": []
+    },
     "VEHICLE_NOVA_CLASS_INVALID": {
+      "public": false,
+      "params": []
+    },
+    "VEHICLE_NO_CHANGES": {
       "public": false,
       "params": []
     },
@@ -2032,6 +2048,10 @@
     },
     "VEHICLE_PHOTO_TYPE_UNSUPPORTED": {
       "public": true,
+      "params": []
+    },
+    "VEHICLE_STALE_PROPOSAL": {
+      "public": false,
       "params": []
     },
     "VEHICLE_STOCK_PURCHASE_REQUIRED": {

@@ -204,6 +204,8 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'propose_mechanic_finding',
   'propose_customer_create',
   'propose_customer_update',
+  'propose_vehicle_create',
+  'propose_vehicle_update',
   'generate_weekly_report_pdf',
 ]);
 

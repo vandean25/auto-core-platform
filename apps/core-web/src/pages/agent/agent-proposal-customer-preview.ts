@@ -7,11 +7,14 @@ import {
 
 const NS = 'agent'
 
-/** A changed customer field of a proposal, with the masked values around it. */
+/** A changed customer or vehicle field of a proposal, with masked or plain values around it. */
 export type CustomerProposalFieldChange = {
   field: string
   before_masked: string | null
   after_masked: string | null
+  before?: string | null
+  after?: string | null
+  warning?: string | null
 }
 
 /** A customer change of a proposal, with the fields the proposal touches. */
@@ -21,6 +24,11 @@ export type CustomerSupervisionChange = ProposalWouldChange & {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const WARNING_I18N_KEYS: Record<string, string> = {
+  'Mileage decreased compared to current recorded value':
+    'changePreview.warnings.mileage_decrease',
+}
 
 /**
  * The masked field diff of a customer proposal (AUT-613). A stored proposal
@@ -39,9 +47,29 @@ function customerDiffOf(previewJson: unknown): unknown {
   return null
 }
 
+function optionalString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+
+function parseDiffEntry(entry: unknown): CustomerProposalFieldChange | null {
+  if (!isRecord(entry) || typeof entry.field !== 'string' || !entry.field) {
+    return null
+  }
+  const parsed: CustomerProposalFieldChange = {
+    field: entry.field,
+    before_masked: optionalString(entry.before_masked),
+    after_masked: optionalString(entry.after_masked),
+  }
+  if ('before' in entry) parsed.before = optionalString(entry.before)
+  if ('after' in entry) parsed.after = optionalString(entry.after)
+  const warning = optionalString(entry.warning)
+  if (warning) parsed.warning = warning
+  return parsed
+}
+
 /**
- * The masked field diff of a customer proposal (AUT-613). The proposal preview
- * carries it, so the approver can see which customer fields change.
+ * The masked field diff of a customer proposal (AUT-613) or plain field diff
+ * of a vehicle proposal (AUT-614).
  */
 export function parseCustomerProposalDiff(
   previewJson: unknown,
@@ -50,21 +78,9 @@ export function parseCustomerProposalDiff(
   if (!Array.isArray(raw)) {
     return []
   }
-
-  const changes: CustomerProposalFieldChange[] = []
-  for (const entry of raw) {
-    if (!isRecord(entry)) continue
-    const field = typeof entry.field === 'string' ? entry.field : null
-    if (!field) continue
-    changes.push({
-      field,
-      before_masked:
-        typeof entry.before_masked === 'string' ? entry.before_masked : null,
-      after_masked:
-        typeof entry.after_masked === 'string' ? entry.after_masked : null,
-    })
-  }
-  return changes
+  return raw
+    .map(parseDiffEntry)
+    .filter((entry): entry is CustomerProposalFieldChange => entry !== null)
 }
 
 /**
@@ -79,6 +95,15 @@ export function parseCustomerSupervisionChanges(
     .map((change) => ({ ...change, fields }))
 }
 
+export function parseVehicleSupervisionChanges(
+  previewJson: unknown,
+): CustomerSupervisionChange[] {
+  const fields = parseCustomerProposalDiff(previewJson)
+  return parseWouldChangeFromPreview(previewJson)
+    .filter((change) => change.entity === 'Vehicle')
+    .map((change) => ({ ...change, fields }))
+}
+
 export function formatCustomerProposalFieldName(field: string): string {
   const key = `changePreview.fields.${field}`
   if (i18n.exists(key, { ns: NS })) {
@@ -87,12 +112,40 @@ export function formatCustomerProposalFieldName(field: string): string {
   return field
 }
 
+export function formatProposalFieldWarning(warning: string): string {
+  const key = WARNING_I18N_KEYS[warning]
+  if (key && i18n.exists(key, { ns: NS })) {
+    return String(i18n.t(key as never, { ns: NS }))
+  }
+  return warning
+}
+
+function formatPlainDiffValues(
+  before: string | null,
+  after: string | null,
+): string | null {
+  if (before !== null && after !== null) return `${before} → ${after}`
+  if (after !== null) return after
+  if (before !== null) return `${before} → —`
+  return null
+}
+
+function formatFieldChangeItem(change: CustomerProposalFieldChange): string {
+  const name = formatCustomerProposalFieldName(change.field)
+  const hasPlainValues = 'before' in change || 'after' in change
+  const transition = hasPlainValues
+    ? formatPlainDiffValues(change.before ?? null, change.after ?? null)
+    : null
+  const text = transition ? `${name}: ${transition}` : name
+  return change.warning
+    ? `${text} — ${formatProposalFieldWarning(change.warning)}`
+    : text
+}
+
 export function formatCustomerProposalFieldSummary(
   changes: CustomerProposalFieldChange[],
 ): string {
-  return changes
-    .map((change) => formatCustomerProposalFieldName(change.field))
-    .join(', ')
+  return changes.map(formatFieldChangeItem).join(', ')
 }
 
 /**

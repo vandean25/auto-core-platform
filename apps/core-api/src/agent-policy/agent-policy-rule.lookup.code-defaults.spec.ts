@@ -31,6 +31,8 @@ describe('agent-policy-rule.load loadEffectiveRules', () => {
       ['b.action', 'tenant', 'tenant-b'],
       ['customer.create', 'platform', 'code-default:customer.create'],
       ['customer.update', 'platform', 'code-default:customer.update'],
+      ['vehicle.create', 'platform', 'code-default:vehicle.create'],
+      ['vehicle.update', 'platform', 'code-default:vehicle.update'],
     ]);
   });
 });

@@ -7,6 +7,7 @@ import {
   formatCustomerSupervisionChangeLabel,
   parseCustomerProposalDiff,
   parseCustomerSupervisionChanges,
+  parseVehicleSupervisionChanges,
 } from './agent-proposal-customer-preview'
 
 describe('agent-proposal-customer-preview', () => {
@@ -95,5 +96,51 @@ describe('agent-proposal-customer-preview', () => {
     )
 
     expect(summary).toBe('E-Mail-Adresse, PLZ')
+  })
+
+  it('lists the mileage change and its decrease warning on a vehicle.update approval preview', () => {
+    const vehicleUpdatePreview = {
+      would_change: [
+        {
+          entity: 'Vehicle',
+          id: 'vehicle-1',
+          op: 'update',
+          provisional: false,
+        },
+      ],
+      preview: {
+        id: 'vehicle-1',
+        vehicle_id: 'vehicle-1',
+        entity: 'Vehicle',
+        op: 'update',
+        diff: [
+          {
+            field: 'mileage_km',
+            before: '50000',
+            after: '42000',
+            warning: 'Mileage decreased compared to current recorded value',
+          },
+        ],
+      },
+    }
+
+    const changes = parseVehicleSupervisionChanges(vehicleUpdatePreview)
+    expect(changes).toHaveLength(1)
+    expect(changes[0]?.fields).toEqual([
+      {
+        field: 'mileage_km',
+        before_masked: null,
+        after_masked: null,
+        before: '50000',
+        after: '42000',
+        warning: 'Mileage decreased compared to current recorded value',
+      },
+    ])
+
+    const label = formatCustomerSupervisionChangeLabel(changes[0]!)
+    expect(label).toContain('Kilometerstand: 50000 → 42000')
+    expect(label).toContain(
+      'Kilometerstand ist niedriger als der aktuell erfasste Wert',
+    )
   })
 })
