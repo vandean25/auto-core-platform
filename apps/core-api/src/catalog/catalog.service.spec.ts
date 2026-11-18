@@ -209,7 +209,6 @@ describe('CatalogService Search (Mocked)', () => {
         supplier_part_number: 'TEST-UNIV-001',
         description: 'Universal Oil Filter',
         brand: 'OEM',
-        local_inventory: null,
       },
     ]);
     mockPrisma.catalogItem.findMany.mockResolvedValue([]);

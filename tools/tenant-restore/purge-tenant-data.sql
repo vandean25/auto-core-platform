@@ -402,7 +402,8 @@ VALUES
   ('labor_entries', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('labor_entries', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_entries', 'workshop_tasks', 'tenant_id,workshop_task_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
-  ('labor_fitments', 'labor_operations', 'labor_operation_id', 'id', 'CASCADE', 'CASCADE'),
+  ('labor_fitments', 'labor_operations', 'tenant_id,labor_operation_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('labor_fitments', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_operations', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('labor_operations', 'labor_categories', 'category_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_operations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1044,8 +1045,8 @@ DELETE FROM public."purchase_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."labor_fitments" AS child
-WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
+DELETE FROM public."labor_fitments"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspector_evidence_revisions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_support_events"

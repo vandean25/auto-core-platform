@@ -343,6 +343,28 @@ test('live prisma schema restore order places every parent before its child', ()
   assertRestoreInsertOrderRespectsForeignKeys(manifest);
 });
 
+test('retains local_inventories FK in live manifest while migration history still creates the table', () => {
+  const manifest = buildTenantRestoreManifestFromFiles(
+    schemaPath,
+    migrationsDirectory,
+  );
+  assert.deepEqual(
+    manifest.foreignKeys.find(
+      (fk) =>
+        fk.childTable === 'local_inventories' &&
+        fk.parentTable === 'master_parts',
+    ),
+    {
+      childTable: 'local_inventories',
+      parentTable: 'master_parts',
+      childColumns: ['master_part_id'],
+      parentColumns: ['id'],
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+  );
+});
+
 test('uses migration FK actions when Prisma defaults are not the live contract', () => {
   const actions = parseMigrationForeignKeyActions(`
     ALTER TABLE "invoices"
