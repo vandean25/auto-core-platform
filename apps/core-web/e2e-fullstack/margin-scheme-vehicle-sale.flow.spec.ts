@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
 import { DE_FULLSTACK_CUSTOMERS, DE_FULLSTACK_VEHICLE_STOCK } from './de-copy.ts'
@@ -20,6 +21,7 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
     const authHeaders = { Authorization: `Bearer ${fixture.authToken}` }
 
     await gotoWithReadySession(page, '/vehicle-stock/purchases/new')
+    await scanA11y(page, 'vehicle-purchase-new')
 
     await page
       .getByLabel(DE_FULLSTACK_VEHICLE_STOCK.purchase.vin)
@@ -44,6 +46,7 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
 
     await page.getByRole('button', { name: DE_FULLSTACK_VEHICLE_STOCK.purchase.receive }).click()
     await expect(page.getByText(DE_FULLSTACK_VEHICLE_STOCK.purchase.receivedSuccess)).toBeVisible()
+    await scanA11y(page, 'vehicle-stock-detail')
 
     await page.getByRole('button', { name: DE_FULLSTACK_VEHICLE_STOCK.stockDetail.sell }).click()
     await expect(page).toHaveURL(/\/vehicle-stock\/sales\/new\?vehicleId=/)
@@ -64,6 +67,7 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
       .getByRole('combobox')
       .filter({ hasText: DE_FULLSTACK_CUSTOMERS.selectCustomer })
     await expect(buyerCombobox).toBeVisible()
+    await scanA11y(page, 'vehicle-sale-new')
 
     const saleResponse = await request.post(`${apiBase}/vehicle-sales`, {
       headers: authHeaders,
@@ -83,9 +87,11 @@ test.describe('Full-stack margin-scheme vehicle sale flow', () => {
     await expect(
       page.getByRole('button', { name: DE_FULLSTACK_VEHICLE_STOCK.sale.finalizeInvoice }),
     ).toBeEnabled()
+    await scanA11y(page, 'vehicle-sale-detail')
     await page.getByRole('button', { name: DE_FULLSTACK_VEHICLE_STOCK.sale.finalizeInvoice }).click()
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+$/)
 
     await expect(page.getByText(/Differenzbesteuerung/i)).toBeVisible()
+    await scanA11y(page, 'margin-scheme-invoice-detail')
   })
 })

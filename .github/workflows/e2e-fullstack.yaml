@@ -69,6 +69,17 @@ jobs:
       - name: Verify full-stack PR gate contract
         run: node --test apps/core-web/e2e-fullstack/gate.contract.test.mjs
 
+      - name: Verify full-stack a11y baseline ratchet
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git config --global --add safe.directory "$PWD"
+            git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+            export A11Y_BASELINE_BASE_REF="origin/${BASE_REF}"
+          fi
+          node --test apps/core-web/e2e-fullstack/a11y-baseline.ratchet.test.mjs
+
       - name: Run full-stack Playwright harness
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test

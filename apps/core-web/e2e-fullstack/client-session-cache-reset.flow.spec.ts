@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { E2E_TEST_SIGN_IN_EVENT } from '../src/auth/e2e-test-token-user.ts'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
 import { createMockCustomer, createMockListResponse } from '../e2e/utils/mock-factories.ts'
@@ -192,6 +193,7 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await expect(
       page.locator('[data-table-row="true"]').filter({ hasText: fixture.customerLabel }),
     ).toBeVisible()
+    await scanA11y(page, 'customers-list')
 
     await page.getByRole('button', { name: new RegExp(session.activeTenant.name) }).click()
     await page.getByRole('menuitem', { name: `Zu ${TENANT_B.name} wechseln` }).click()
@@ -304,6 +306,7 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await expect(page.getByText('Anmeldung ist für diese Umgebung nicht konfiguriert.')).toBeVisible()
     await expect(page.getByText(fixture.customerLabel)).toHaveCount(0)
     await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toHaveCount(0)
+    await scanA11y(page, 'login-screen')
 
     // User B signs in on the same tab; the harness has no Firebase, so this uses the test-token sign-in seam.
     state.switched = true

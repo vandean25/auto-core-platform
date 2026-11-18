@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { apiGetStatus } from './api-request.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
@@ -7,6 +8,7 @@ test.describe('Full-stack auth journey', () => {
   test('unauthenticatedOrWrongRoleRejected', async ({ page }) => {
     const fixture = loadE2eFullstackFixture()
     await gotoWithReadySession(page, '/')
+    await scanA11y(page, 'auth-home')
 
     const unauthenticated = await apiGetStatus(page, '/api/customers?pageSize=1')
     expect(unauthenticated.status()).toBe(401)

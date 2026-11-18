@@ -42,7 +42,7 @@ function isAllowlisted(
  * the scan can report a contrast failure that is gone once the page settles (seen: #7b8697 on #fcfdfe, 3.61,
  * on a card fading in). Wait for finite animations to finish. Infinite ones (spinners) never finish, so skip them.
  */
-async function waitForFiniteAnimations(page: Page) {
+export async function waitForFiniteAnimations(page: Page) {
   await page.waitForFunction(
     () =>
       document.getAnimations().every((animation) => {
@@ -52,6 +52,17 @@ async function waitForFiniteAnimations(page: Page) {
     undefined,
     { timeout: 10_000 },
   );
+}
+
+/**
+ * Freezes CSS animations and waits for loaders and finite Web Animations, so scans read the settled page.
+ */
+export async function settleA11yPage(page: Page) {
+  await page.addStyleTag({
+    content: '*, *::before, *::after { animation: none !important; transition: none !important; }',
+  });
+  await expect(page.locator('.animate-spin')).toHaveCount(0);
+  await waitForFiniteAnimations(page);
 }
 
 export async function expectNoCriticalA11yViolations(page: Page) {

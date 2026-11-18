@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { DE_FULLSTACK_FINANCE, DE_FULLSTACK_SALES } from './de-copy.ts'
 import { gotoWithReadySession } from './harness.ts'
 import { E2E_FULLSTACK_API_PORT } from '../../core-api/test/e2e-fullstack/constants.ts'
@@ -55,6 +56,7 @@ export async function finalizeSalesInvoiceFromOrder(
   expect(detailResponse.ok()).toBeTruthy()
   await expect(page.getByText(DE_FULLSTACK_SALES.orderNotFound)).not.toBeVisible()
   await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+  await scanA11y(page, 'sales-order-detail')
 
   await page.getByRole('button', { name: DE_FULLSTACK_SALES.createInvoice }).click()
   const createInvoiceDialog = page.getByRole('alertdialog')
@@ -90,6 +92,7 @@ export async function finalizeSalesInvoiceFromOrder(
   const finalizeButton = page.getByRole('button', { name: DE_FULLSTACK_SALES.finalize, exact: true })
   await expect(finalizeButton).toBeVisible({ timeout: 60_000 })
   await expect(finalizeButton).toBeEnabled({ timeout: 120_000 })
+  await scanA11y(page, 'sales-invoice-draft-edit')
   await finalizeButton.scrollIntoViewIfNeeded()
   await finalizeButton.click()
   await page
@@ -100,6 +103,7 @@ export async function finalizeSalesInvoiceFromOrder(
   await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+$/)
   const invoiceHeading = page.getByRole('heading', { name: /^RE-/ })
   await expect(invoiceHeading).toBeVisible()
+  await scanA11y(page, 'sales-invoice-detail')
   const invoiceNumber = (await invoiceHeading.textContent())?.trim() ?? ''
   const invoiceId = page.url().split('/').pop() ?? ''
   expect(invoiceNumber.length).toBeGreaterThan(0)
@@ -154,4 +158,5 @@ export async function createAndFinalizeCreditNote(
 
   await expect(page.getByText(DE_FULLSTACK_FINANCE.finalizedToast)).toBeVisible()
   await expect(page.getByRole('button', { name: DE_FULLSTACK_FINANCE.print })).toBeVisible()
+  await scanA11y(page, 'credit-note-detail')
 }

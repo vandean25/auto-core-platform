@@ -8,6 +8,7 @@ import { auditRawQuery } from '../../core-api/src/prisma/audit-raw-query.mjs'
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)))
 const fullstackDir = resolve(repoRoot, 'apps/core-web/e2e-fullstack')
 const workflowPath = resolve(repoRoot, '.github/workflows/e2e-fullstack.yaml')
+const buildWorkflowPath = resolve(repoRoot, '.github/workflows/build.yaml')
 const playwrightConfigPath = resolve(repoRoot, 'apps/core-web/playwright.fullstack.config.ts')
 
 const REQUIRED_FLOW_FILES = [
@@ -34,19 +35,29 @@ test('prJobRunsAllFullstackFlows', () => {
   const playwrightConfig = readFileSync(playwrightConfigPath, 'utf8')
   assert.doesNotMatch(
     playwrightConfig,
-    /testMatch|grep:\s*\/\*\.flow\.spec\.ts/,
-    'playwright config must not limit full-stack runs to *.flow.spec.ts only',
+    /testMatch|testIgnore|grep(?:Invert)?:\s*|grep:\s*\/\*\.flow\.spec\.ts/,
+    'playwright config must not limit full-stack runs or skip specs',
   )
 
   const workflow = readFileSync(workflowPath, 'utf8')
   assert.match(workflow, /pull_request:/)
   assert.match(workflow, /test:e2e:fullstack/)
+  assert.match(workflow, /a11y-baseline\.ratchet\.test\.mjs/)
+  assert.doesNotMatch(workflow, /--grep\b/, 'e2e-fullstack workflow must not filter specs with --grep')
   for (const file of REQUIRED_FLOW_FILES) {
     assert.ok(
       readdirSync(fullstackDir).includes(file),
       `missing full-stack flow spec ${file}`,
     )
   }
+
+  const buildWorkflow = readFileSync(buildWorkflowPath, 'utf8')
+  assert.match(buildWorkflow, /run-ui-smoke\.sh/, 'build.yaml must keep running the mocked UI smoke suite')
+  assert.doesNotMatch(
+    buildWorkflow,
+    /run-ui-smoke\.sh.*--grep/,
+    'build.yaml must not filter mocked UI smoke specs with --grep',
+  )
 })
 
 test('noFailureHidingRetry', () => {
