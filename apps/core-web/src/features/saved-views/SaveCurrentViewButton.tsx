@@ -72,7 +72,7 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
   return (
     <div className="flex items-center gap-2">
       {isOfflineError ? (
-        <span role="status" className="text-xs text-destructive">
+        <span role="status" className="sr-only">
           {t('savedViews.offlineError')}
         </span>
       ) : null}
