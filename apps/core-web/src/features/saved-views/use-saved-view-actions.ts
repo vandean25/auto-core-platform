@@ -32,38 +32,66 @@ export function useSavedViewActions(beforeRun?: () => void) {
       navigate(view.href)
     },
     rename: (view) => {
+      if (store?.isOfflineError) {
+        toast.error(t('savedViews.offlineError'))
+        return
+      }
       beforeRun?.()
       store?.requestRename(view)
     },
     remove: (view) => {
       if (!store) return
+      if (store.isOfflineError) {
+        toast.error(t('savedViews.offlineError'))
+        return
+      }
       void store.removeSavedView(view.id).then((result) => {
         if (result.ok) {
           toast.message(t('savedViews.removed'))
+        } else if (result.reason === 'offline') {
+          toast.error(t('savedViews.offlineError'))
         }
       })
     },
     share: (view) => {
       if (!store) return
+      if (store.isOfflineError) {
+        toast.error(t('savedViews.offlineError'))
+        return
+      }
       void store.shareSavedView(view.id, 'TENANT').then((result) => {
         if (result.ok) {
           toast.success(t('savedViews.shared'))
+        } else if (result.reason === 'offline') {
+          toast.error(t('savedViews.offlineError'))
         }
       })
     },
     unshare: (view) => {
       if (!store) return
+      if (store.isOfflineError) {
+        toast.error(t('savedViews.offlineError'))
+        return
+      }
       void store.shareSavedView(view.id, 'PERSONAL').then((result) => {
         if (result.ok) {
           toast.message(t('savedViews.unshared'))
+        } else if (result.reason === 'offline') {
+          toast.error(t('savedViews.offlineError'))
         }
       })
     },
     copy: (view) => {
       if (!store) return
+      if (store.isOfflineError) {
+        toast.error(t('savedViews.offlineError'))
+        return
+      }
       void store.copySavedView(view.id).then((result) => {
         if (result.ok) {
           toast.success(t('savedViews.copied'))
+        } else if (result.reason === 'offline') {
+          toast.error(t('savedViews.offlineError'))
         }
       })
     },

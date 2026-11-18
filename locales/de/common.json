@@ -224,10 +224,9 @@
     "copyAria": "Ansicht {{name}} als eigene Ansicht speichern",
     "copied": "Als eigene Ansicht gespeichert.",
     "copyFailed": "Die Ansicht konnte nicht kopiert werden.",
-    "conflictError": "Die Ansicht wurde zwischenzeitlich geändert. Die Liste wurde aktualisiert.",
-    "offlineError": "Ansichten konnten nicht geladen werden. Speichern ist derzeit deaktiviert.",
-    "limitReached": "Maximale Anzahl an Ansichten für diese Liste erreicht.",
-    "moreActionsAria": "Weitere Ansichtsaktionen für {{title}}"
+    "conflictError": "Ansicht wurde geändert. Liste aktualisiert.",
+    "offlineError": "Ansichten nicht geladen. Speichern deaktiviert.",
+    "limitReached": "Maximale Anzahl an Ansichten für diese Liste erreicht."
   },
   "onboarding": {
     "title": "Werkstatt einrichten",

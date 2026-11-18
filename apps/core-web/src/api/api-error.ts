@@ -217,12 +217,15 @@ export async function fetchJsonWithAuth<T>(
     ? fetchWithAuth(input)
     : fetchWithAuth(input, init));
   if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      { message?: string } | undefined;
-    const message = payload?.message || fallbackMessage;
-    const err = new Error(message) as Error & { status: number };
-    err.status = response.status;
-    throw err;
+    const data = (await response.json().catch(() => undefined)) as ApiErrorBody | undefined
+    const rawMessage = data?.message
+    const message =
+      typeof rawMessage === 'string' && rawMessage
+        ? rawMessage
+        : Array.isArray(rawMessage) && rawMessage.length > 0
+          ? rawMessage.join(', ')
+          : fallbackMessage
+    throw Object.assign(new Error(message), { status: response.status, data })
   }
   return response.json() as Promise<T>;
 }

@@ -224,10 +224,9 @@
     "copyAria": "Save view {{name}} as personal view",
     "copied": "Saved as personal view.",
     "copyFailed": "Unable to copy this view.",
-    "conflictError": "This view was changed in the meantime. The list has been reloaded.",
-    "offlineError": "Unable to load views. Saving is currently disabled.",
-    "limitReached": "Maximum number of views for this list reached.",
-    "moreActionsAria": "More view actions for {{title}}"
+    "conflictError": "View changed. List reloaded.",
+    "offlineError": "Views unavailable. Saving disabled.",
+    "limitReached": "Maximum number of views for this list reached."
   },
   "onboarding": {
     "title": "Get your workshop set up",

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 import { fetchWithAuth } from '@/api/client'
 import {
   getQueryKeysToInvalidateForEntityType,
@@ -26,7 +27,8 @@ function createJsonResponse(body: unknown, status = 200): Response {
 }
 
 function ProviderProbe() {
-  const { savedViews, renameSavedView, isOfflineError } = useSavedViews()
+  const { savedViews, renameSavedView, shareSavedView, copySavedView, isOfflineError } =
+    useSavedViews()
   return (
     <div>
       <span data-testid="offline-flag">{String(isOfflineError)}</span>
@@ -36,6 +38,12 @@ function ProviderProbe() {
             <span>{view.name}</span>
             <button type="button" onClick={() => void renameSavedView(view.id, 'Neuer Name')}>
               {`Rename ${view.id}`}
+            </button>
+            <button type="button" onClick={() => void shareSavedView(view.id, 'TENANT')}>
+              {`Share ${view.id}`}
+            </button>
+            <button type="button" onClick={() => void copySavedView(view.id)}>
+              {`Copy ${view.id}`}
             </button>
           </li>
         ))}
@@ -164,9 +172,109 @@ describe('SavedViewsProvider (AUT-940)', () => {
     })
     expect(saveButton).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Ansichten konnten nicht geladen werden. Speichern ist derzeit deaktiviert.',
+      'Ansichten nicht geladen. Speichern deaktiviert.',
     )
     expect(window.localStorage.length).toBe(0)
+  })
+
+  it('maps 422 SAVED_VIEW_LIMIT and 409 SAVED_VIEW_DUPLICATE through fetchJsonWithAuth on share and copy', async () => {
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '')
+    const toastMessage = vi.spyOn(toast, 'message').mockImplementation(() => '')
+
+    const views = [
+      {
+        id: 'v1',
+        listPath: '/workshop/orders',
+        name: 'Gruber in Arbeit',
+        href: '/workshop/orders?search=Gruber',
+        visibility: 'PERSONAL',
+        ownerUserId: 'user-1',
+        version: 1,
+        createdAt: '2026-11-01T08:00:00.000Z',
+        updatedAt: '2026-11-01T08:00:00.000Z',
+      },
+      {
+        id: 'v2',
+        listPath: '/workshop/orders',
+        name: 'Team Ansicht',
+        href: '/workshop/orders?filter_status=IN_PROGRESS',
+        visibility: 'TENANT',
+        ownerUserId: 'admin-1',
+        version: 1,
+        createdAt: '2026-11-01T08:00:00.000Z',
+        updatedAt: '2026-11-01T08:00:00.000Z',
+      },
+    ]
+
+    let shareCall = 0
+    let copyCall = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+        return createJsonResponse({ data: views })
+      }
+      if (url === '/api/saved-views/v1' && init?.method === 'PATCH') {
+        shareCall += 1
+        if (shareCall === 1) {
+          return createJsonResponse(
+            { statusCode: 422, code: 'SAVED_VIEW_LIMIT', message: 'Limit reached' },
+            422,
+          )
+        }
+        return createJsonResponse(
+          { statusCode: 409, code: 'SAVED_VIEW_DUPLICATE', message: 'Duplicate name' },
+          409,
+        )
+      }
+      if (url === '/api/saved-views/v2/copy' && init?.method === 'POST') {
+        copyCall += 1
+        if (copyCall === 1) {
+          return createJsonResponse(
+            { statusCode: 422, code: 'SAVED_VIEW_LIMIT', message: 'Limit reached' },
+            422,
+          )
+        }
+        return createJsonResponse(
+          { statusCode: 409, code: 'SAVED_VIEW_DUPLICATE', message: 'Duplicate name' },
+          409,
+        )
+      }
+      throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`)
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    renderWithProvider(queryClient)
+
+    expect(await screen.findByText('Gruber in Arbeit')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share v1' }))
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Maximale Anzahl an Ansichten für diese Liste erreicht.',
+      ),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share v1' }))
+    await waitFor(() =>
+      expect(toastMessage).toHaveBeenCalledWith('Diese Ansicht ist bereits in den Favoriten.'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy v2' }))
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Maximale Anzahl an Ansichten für diese Liste erreicht.',
+      ),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy v2' }))
+    await waitFor(() =>
+      expect(toastMessage).toHaveBeenCalledWith('Diese Ansicht ist bereits in den Favoriten.'),
+    )
+
+    toastError.mockRestore()
+    toastMessage.mockRestore()
   })
 
   it('recognizes slim SAVED_VIEW realtime events and targets saved-views queries for refetch', () => {

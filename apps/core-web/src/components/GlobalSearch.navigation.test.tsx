@@ -334,5 +334,60 @@ describe('GlobalSearch navigation targets', () => {
       expect(screen.queryByText('Rename view Open estimates')).not.toBeInTheDocument()
       expect(screen.queryByText('Remove view Open estimates')).not.toBeInTheDocument()
     })
+
+    it('keeps Open view from cache and omits write actions in Cmd+K when offline', async () => {
+      let failFetch = false
+      vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+        const url = String(input)
+        if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+          if (failFetch) throw new TypeError('Failed to fetch')
+          return jsonResponse({
+            data: [
+              {
+                id: 'v1',
+                listPath: '/workshop/orders',
+                name: 'Gruber in progress',
+                href: '/workshop/orders?search=Gruber',
+                visibility: 'PERSONAL',
+                ownerUserId: 'u',
+                version: 1,
+                createdAt: '2026-11-01T08:00:00.000Z',
+                updatedAt: '2026-11-01T08:00:00.000Z',
+              },
+            ],
+          })
+        }
+        return jsonResponse({ data: [] })
+      })
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <SavedViewsProvider userKey="u" tenantId="t">
+              <GlobalSearch open={true} onOpenChange={vi.fn()} />
+              <SavedViewRenameHost />
+              <EntityActionConfirmHost />
+            </SavedViewsProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+      type('Gruber')
+      expect(await screen.findByText('Open view Gruber in progress')).toBeInTheDocument()
+      expect(screen.getByText('Rename view Gruber in progress')).toBeInTheDocument()
+
+      failFetch = true
+      await queryClient.refetchQueries()
+
+      await waitFor(() =>
+        expect(screen.queryByText('Rename view Gruber in progress')).not.toBeInTheDocument(),
+      )
+      expect(screen.queryByText('Remove view Gruber in progress')).not.toBeInTheDocument()
+      expect(screen.queryByText('Share view Gruber in progress with team')).not.toBeInTheDocument()
+      expect(screen.getByText('Open view Gruber in progress')).toBeInTheDocument()
+    })
   })
 })

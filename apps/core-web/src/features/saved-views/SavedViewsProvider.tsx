@@ -169,7 +169,13 @@ function SavedViewsStore({
   )
 
   const handleMutationError = React.useCallback(
-    (error: unknown, fallbackKey?: 'common:savedViews.failed' | 'common:savedViews.shareFailed'): SavedViewResult['reason'] => {
+    (
+      error: unknown,
+      fallbackKey?:
+        | 'common:savedViews.failed'
+        | 'common:savedViews.shareFailed'
+        | 'common:savedViews.copyFailed',
+    ): SavedViewResult['reason'] => {
       const reason = mapMutationErrorReason(error)
       if (reason === 'conflict') {
         toast.error(i18n.t('common:savedViews.conflictError'))
@@ -257,16 +263,10 @@ function SavedViewsStore({
         await copyMutation.mutateAsync({ id })
         return { ok: true }
       } catch (error) {
-        const reason = mapMutationErrorReason(error)
-        if (reason === 'limit') {
-          toast.error(i18n.t('common:savedViews.limitReached'))
-        } else {
-          toast.error(i18n.t('common:savedViews.copyFailed'))
-        }
-        return { ok: false, reason }
+        return { ok: false, reason: handleMutationError(error, 'common:savedViews.copyFailed') }
       }
     },
-    [copyMutation],
+    [copyMutation, handleMutationError],
   )
 
   const requestRename = React.useCallback((view: SavedView) => setRenamingId(view.id), [])

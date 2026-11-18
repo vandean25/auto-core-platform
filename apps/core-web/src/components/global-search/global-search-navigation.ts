@@ -110,8 +110,9 @@ export function getSavedViewManageSection(
   query: string,
   savedViews: readonly SavedView[],
   run: SavedViewPaletteRun,
+  isOfflineError = false,
 ): PaletteContextActionSection | null {
-  if (!query || !canOfferPaletteSections(context, query)) return null
+  if (isOfflineError || !query || !canOfferPaletteSections(context, query)) return null
 
   const lower = query.toLowerCase()
   const canShare = canManageSharedSavedViews(context.activeRole)
