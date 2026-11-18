@@ -434,7 +434,11 @@ test.describe('Synthetic tyre reports', () => {
           expect(metrics.scrollWidth, `${locale} ${item.code}`).toBeLessThanOrEqual(metrics.clientWidth + 1)
           await assertNoOverflow(card)
           if (item.code === 'AT_WINTER_RULE_NOTICE') {
-            await card.getByRole('button', { name: localeReport.reasonInfoAria, exact: true }).click()
+            const infoButton = card.getByRole('button', { name: localeReport.reasonInfoAria, exact: true })
+            const box = await infoButton.boundingBox()
+            expect(box?.width, `${locale} info button width`).toBeGreaterThanOrEqual(44)
+            expect(box?.height, `${locale} info button height`).toBeGreaterThanOrEqual(44)
+            await infoButton.click()
             await expect(page.getByText(localeReport.reasonDetails.AT_WINTER_RULE_NOTICE, { exact: true })).toBeVisible()
           }
         }

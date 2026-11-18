@@ -147,7 +147,7 @@ function TyreWheelCard({ wheel, photoUrl }: { wheel: Wheel; photoUrl?: string })
                 <button
                   type="button"
                   aria-label={t('tyreReport.reasonInfoAria')}
-                  className="inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Info className="h-4 w-4" aria-hidden="true" />
                 </button>
