@@ -42,6 +42,9 @@
   "sales-invoice-detail": {
     "region": 2
   },
+  "credit-note-detail": {
+    "region": 2
+  },
   "workshop-checkout-panel": {
     "region": 2
   },

@@ -44,14 +44,18 @@ test.describe('Full-stack workshop mechanic queue flow', () => {
     await page.getByRole('link', { name: fixture.workshopTaskTitle }).click()
     await expect(page).toHaveURL(`/mechanic/tasks/${fixture.workshopTaskId}`)
 
-    await page
-      .getByRole('button', { name: DE_FULLSTACK_WORKSHOP.mechanicTask.start, exact: true })
-      .click()
+    const startButton = page.getByRole('button', {
+      name: DE_FULLSTACK_WORKSHOP.mechanicTask.start,
+      exact: true,
+    })
+    await expect(startButton).toBeVisible()
+    await scanA11y(page, 'mechanic-task-detail')
+
+    await startButton.click()
     await page
       .getByRole('button', { name: DE_FULLSTACK_WORKSHOP.mechanicTask.complete, exact: true })
       .click()
 
     await expect(page.getByText(DE_FULLSTACK_STATUS.DONE).first()).toBeVisible()
-    await scanA11y(page, 'mechanic-task-detail')
   })
 })
