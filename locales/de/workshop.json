@@ -133,14 +133,18 @@
     },
     "reasons": {
       "TREAD_BELOW_LEGAL_MINIMUM": "Unter {{value}} mm: gesetzliches Minimum",
-      "AT_WINTER_TREAD_INSUFFICIENT": "Unter {{value}} mm: kein Winterreifen mehr",
+      "AT_WINTER_TREAD_INSUFFICIENT": "Unter {{value}} mm: kein Winterreifen",
       "TREAD_REPLACEMENT_RECOMMENDED": "Empfehlung: Austausch (Profil)",
-      "DE_ALPINE_MISSING": "Kein Winterreifen (Alpine-Symbol fehlt)",
-      "AT_WINTER_RULE_NOTICE": "Hinweis: Winterreifen in AT unter 4 mm",
+      "DE_ALPINE_MISSING": "Kein Winterreifen (Alpine fehlt)",
+      "AT_WINTER_RULE_NOTICE": "AT-Winterreifenregel (< 4 mm)",
       "DOT_CONDITION_CHECK_RECOMMENDED": "Empfehlung: Alter prüfen (DOT)",
       "DOT_REPLACEMENT_RECOMMENDED": "Empfehlung: Austausch (Alter)",
-      "DOT_LEGACY_OVER_20_YEARS": "Empfehlung: Austausch (Reifen vor 2000)",
+      "DOT_LEGACY_OVER_20_YEARS": "Empfehlung: Austausch (vor 2000)",
       "UNSUPPORTED_COUNTRY": "Keine Bewertung verfügbar"
+    },
+    "reasonInfoAria": "Hinweis zur Winterreifenpflicht in AT",
+    "reasonDetails": {
+      "AT_WINTER_RULE_NOTICE": "Höhere Mindestwerte je nach Gewicht und Bauart."
     }
   },
   "board": {
@@ -1373,15 +1377,15 @@
   },
   "tyreMeasurement": {
     "reasons": {
-      "TREAD_BELOW_LEGAL_MINIMUM": "Die gemessene Profiltiefe liegt unter der allgemeinen gesetzlichen Mindestprofiltiefe.",
-      "AT_WINTER_TREAD_INSUFFICIENT": "Die gemessene Profiltiefe reicht in Österreich nicht für die Anerkennung als Winterreifen aus.",
-      "TREAD_REPLACEMENT_RECOMMENDED": "Empfehlung: Reifenwechsel einplanen. Die gemessene Profiltiefe liegt unter dem empfohlenen Grenzwert.",
-      "DE_ALPINE_MISSING": "Die reine M+S-Kennzeichnung ohne Alpine-Symbol genügt in Deutschland bei winterlichen Fahrbahnverhältnissen nicht.",
-      "AT_WINTER_RULE_NOTICE": "Hinweis für Fahrten nach Österreich: Unter 4 mm Profiltiefe wird der Reifen dort nicht als Winterreifen anerkannt; je nach Fahrzeuggewicht und Reifenbauart gelten höhere Mindestwerte.",
-      "DOT_CONDITION_CHECK_RECOMMENDED": "Empfehlung: Reifenzustand ab einem Alter von sechs Jahren regelmäßig prüfen lassen.",
-      "DOT_REPLACEMENT_RECOMMENDED": "Empfehlung: Reifen altersbedingt ersetzen – Winter- und Ganzjahresreifen ab acht Jahren, Sommerreifen ab zehn Jahren.",
-      "DOT_LEGACY_OVER_20_YEARS": "Die dreistellige DOT-Datumsangabe stammt aus der Zeit vor 2000. Der Reifen ist mindestens 20 Jahre alt; das genaue Herstellungsjahr ist nicht bestimmbar.",
-      "UNSUPPORTED_COUNTRY": "Für dieses Land ist keine automatische Reifenbewertung verfügbar. Die Messwerte bleiben dokumentiert."
+      "TREAD_BELOW_LEGAL_MINIMUM": "Unter gesetzlicher Mindestprofiltiefe",
+      "AT_WINTER_TREAD_INSUFFICIENT": "In AT nicht als Winterreifen anerkannt",
+      "TREAD_REPLACEMENT_RECOMMENDED": "Empfehlung: Reifenwechsel (Profiltiefe)",
+      "DE_ALPINE_MISSING": "Kein Winterreifen in DE (Alpine-Symbol fehlt)",
+      "AT_WINTER_RULE_NOTICE": "Hinweis AT: unter 4 mm kein Winterreifen",
+      "DOT_CONDITION_CHECK_RECOMMENDED": "Empfehlung: Zustand prüfen (ab 6 Jahren)",
+      "DOT_REPLACEMENT_RECOMMENDED": "Empfehlung: Austausch (Reifenalter)",
+      "DOT_LEGACY_OVER_20_YEARS": "Reifen über 20 Jahre alt (DOT vor 2000)",
+      "UNSUPPORTED_COUNTRY": "Keine automatische Bewertung für dieses Land"
     }
   },
   "registrationReview": {
