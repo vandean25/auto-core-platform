@@ -258,6 +258,7 @@ function BulkPercentStep({ percent, isValid, isLoading, onPercentChange, onSubmi
         <Input
           id="bulk-price-percent"
           inputMode="decimal"
+          className="min-h-11 md:min-h-9"
           value={percent}
           onChange={(event) => onPercentChange(event.target.value)}
           aria-describedby="bulk-price-percent-hint"
@@ -281,11 +282,30 @@ function fenceResultToStatus(result: Awaited<ReturnType<ReturnType<typeof useFen
   return 'UNRESOLVED' as const
 }
 
+function mergeFrozenIntents(
+  existing: FrozenGuardedPriceIntent[],
+  incoming: FrozenGuardedPriceIntent[],
+): FrozenGuardedPriceIntent[] {
+  if (existing.length === 0) return incoming
+  const byItemId = new Map(incoming.map((intent) => [intent.itemId, intent]))
+  return [...existing.filter((intent) => !byItemId.has(intent.itemId)), ...incoming]
+}
+
+function mergeOutcomesByItem(
+  existing: GuardedPriceItemOutcome[],
+  incoming: GuardedPriceItemOutcome[],
+): GuardedPriceItemOutcome[] {
+  if (existing.length === 0) return incoming
+  const byItemId = new Map(incoming.map((entry) => [entry.itemId, entry]))
+  return existing.map((entry) => byItemId.get(entry.itemId) ?? entry)
+}
+
 type DialogBodyProps = {
   step: 'percent' | 'preview' | 'result'
   percent: string
   value: number | null
   preview: PreviewPriceResult | null
+  previewFailuresCount: number
   outcomes: GuardedPriceItemOutcome[]
   fencingKey: string | null
   isPreviewPending: boolean
@@ -325,7 +345,7 @@ function BulkPriceDialogBody(props: DialogBodyProps) {
   return (
     <BulkResultStep
       outcomes={props.outcomes}
-      previewFailuresCount={props.preview?.failed.length ?? 0}
+      previewFailuresCount={props.previewFailuresCount}
       isRetrying={props.isExecutePending}
       fencingKey={props.fencingKey}
       onRetryDefinite={props.onRetryDefinite}
@@ -354,18 +374,29 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
   const [percent, setPercent] = useState('')
   const [step, setStep] = useState<'percent' | 'preview' | 'result'>('percent')
   const [preview, setPreview] = useState<PreviewPriceResult | null>(null)
+  const [previewFailuresCount, setPreviewFailuresCount] = useState(0)
   const [frozenIntents, setFrozenIntents] = useState<FrozenGuardedPriceIntent[]>([])
   const [outcomes, setOutcomes] = useState<GuardedPriceItemOutcome[]>([])
   const [fencingKey, setFencingKey] = useState<string | null>(null)
   const value = parsePercent(percent)
 
-  const runPreview = async (targetItems: Pick<InventoryItem, 'id' | 'sku' | 'name'>[], targetPercent: number) => {
-    setPreview(await previewMutation.mutateAsync({ items: targetItems, percent: targetPercent }))
+  const runPreview = async (
+    targetItems: Pick<InventoryItem, 'id' | 'sku' | 'name'>[],
+    targetPercent: number,
+    resetBatch: boolean,
+  ) => {
+    const nextPreview = await previewMutation.mutateAsync({ items: targetItems, percent: targetPercent })
+    setPreview(nextPreview)
+    if (resetBatch) {
+      setPreviewFailuresCount(nextPreview.failed.length)
+      setFrozenIntents([])
+      setOutcomes([])
+    }
     setStep('preview')
   }
 
-  const finalizeIfAllApplied = (nextOutcomes: GuardedPriceItemOutcome[], previewFailuresCount: number) => {
-    const allApplied = previewFailuresCount === 0 && nextOutcomes.every((entry) => entry.status === 'APPLIED')
+  const finalizeIfAllApplied = (nextOutcomes: GuardedPriceItemOutcome[], failedReadsCount: number) => {
+    const allApplied = failedReadsCount === 0 && nextOutcomes.every((entry) => entry.status === 'APPLIED')
     if (!allApplied) {
       onPartial(nextOutcomes.filter((entry) => entry.status !== 'APPLIED').map((entry) => entry.itemId))
       return false
@@ -382,9 +413,10 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
   const confirmAndExecute = async () => {
     if (!preview || preview.ready.length === 0) return
     const frozen = freezePriceIntents(preview.ready)
-    setFrozenIntents(frozen)
-    const nextOutcomes = await executeMutation.mutateAsync(frozen)
-    if (finalizeIfAllApplied(nextOutcomes, preview.failed.length)) return
+    setFrozenIntents((prev) => mergeFrozenIntents(prev, frozen))
+    const batchOutcomes = await executeMutation.mutateAsync(frozen)
+    const nextOutcomes = mergeOutcomesByItem(outcomes, batchOutcomes)
+    if (finalizeIfAllApplied(nextOutcomes, previewFailuresCount)) return
     setOutcomes(nextOutcomes)
     setStep('result')
   }
@@ -395,7 +427,7 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
     if (intentsToRetry.length === 0) return
     const retriedByKey = new Map((await executeMutation.mutateAsync(intentsToRetry)).map((entry) => [entry.key, entry]))
     const merged = outcomes.map((entry) => retriedByKey.get(entry.key) ?? entry)
-    if (finalizeIfAllApplied(merged, preview?.failed.length ?? 0)) return
+    if (finalizeIfAllApplied(merged, previewFailuresCount)) return
     setOutcomes(merged)
   }
 
@@ -434,6 +466,7 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
           percent={percent}
           value={value}
           preview={preview}
+          previewFailuresCount={previewFailuresCount}
           outcomes={outcomes}
           fencingKey={fencingKey}
           isPreviewPending={previewMutation.isPending}
@@ -441,13 +474,13 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
           onPercentChange={setPercent}
           onSubmitPercent={(event) => {
             event.preventDefault()
-            if (value !== null) void runPreview(items, value)
+            if (value !== null) void runPreview(items, value, true)
           }}
           onBack={() => setStep('percent')}
           onConfirm={confirmAndExecute}
           onRetryDefinite={retryDefiniteFailures}
           onNewPreviewConflict={(entry) => {
-            if (value !== null) void runPreview([{ id: entry.itemId, sku: entry.sku, name: entry.name }], value)
+            if (value !== null) void runPreview([{ id: entry.itemId, sku: entry.sku, name: entry.name }], value, false)
             else setStep('percent')
           }}
           onFence={handleFence}

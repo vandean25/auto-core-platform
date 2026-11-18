@@ -488,7 +488,7 @@ describe('InventoryList bulk price change (AUT-886 / AUT-936)', () => {
     })
 
     // Scenario 2: retry only definite failures
-    it('retry only definite failures: WHEN one item returns INVENTORY_REVISION_CONFLICT and another returns 403 THEN retry resends only the definite failure and conflict offers a new preview', async () => {
+    it('retry only definite failures: WHEN one item returns INVENTORY_REVISION_CONFLICT and another returns 403 THEN retry resends only the definite failure and conflict new preview keeps definite failure selected and listed', async () => {
       const responses: Record<string, { status: number; body?: unknown }> = {
         'item-1': { status: 409, body: { code: 'INVENTORY_REVISION_CONFLICT' } },
         'item-2': { status: 403, body: { statusCode: 403 } },
@@ -503,12 +503,58 @@ describe('InventoryList bulk price change (AUT-886 / AUT-936)', () => {
       expect(alert).toHaveTextContent('Keine Berechtigung: 1 Teil (BRK-002)')
       expect(within(dialog).getByRole('button', { name: bulk.newPreview })).toBeInTheDocument()
 
-      responses['item-2'] = { status: 200, body: {} }
       fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
-
       await waitFor(() => expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2))
       expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
+
+      responses['item-1'] = { status: 200, body: {} }
+      fireEvent.click(within(dialog).getByRole('button', { name: bulk.newPreview }))
+      fireEvent.click(await within(dialog).findByRole('button', { name: bulk.confirm }))
+
+      const updatedAlert = await screen.findByRole('alert')
+      expect(updatedAlert).toHaveTextContent('1 von 2 geändert.')
+      expect(updatedAlert).toHaveTextContent('Keine Berechtigung: 1 Teil (BRK-002)')
+      expect(screen.getByRole('toolbar', { hidden: true })).toHaveTextContent('1 ausgewählt')
+
+      responses['item-2'] = { status: 200, body: {} }
+      fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     })
+
+    it.each([
+      {
+        label: '409 OPERATION_UNRESOLVED',
+        patchItem1: () => json(409, { code: 'OPERATION_UNRESOLVED' }),
+      },
+      {
+        label: 'PATCH throws and follow-up GET is 404',
+        patchItem1: () => Promise.reject(new Error('network lost')),
+      },
+    ])(
+      'WHEN $label and journal row is 404 THEN row shows Outcome unavailable with no retry of that key',
+      async ({ patchItem1 }) => {
+        fetchWithAuth.mockImplementation((url: string, init?: RequestInit) => {
+          if (String(url).startsWith('/api/inventory/price-operations/')) return json(404, { statusCode: 404 })
+          if (String(url).startsWith('/api/inventory/price-operations')) return json(200, emptyDiscovery)
+          if (init?.method === 'PATCH') {
+            return String(url).endsWith('item-1') ? patchItem1() : json(403, { statusCode: 403 })
+          }
+          return json(200, detail(url))
+        })
+        renderList()
+        const dialog = selectFirstTwoAndOpenDialog()
+        await previewAndConfirm(dialog, '10')
+
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(bulk.states.outcomeUnavailable)
+        expect(alert).not.toHaveTextContent(bulk.states.pending)
+        expect(alert).not.toHaveTextContent(bulk.states.unresolved)
+
+        fireEvent.click(within(dialog).getByRole('button', { name: bulk.retryFailed }))
+        await waitFor(() => expect(patched().filter((entry) => entry.endsWith('item-2'))).toHaveLength(2))
+        expect(patched().filter((entry) => entry.endsWith('item-1'))).toHaveLength(1)
+      },
+    )
 
     it('WHEN the dialog is closed after a failure and opened again THEN it starts empty and narrows selection', async () => {
       const responses: Record<string, { status: number; body?: unknown }> = { 'item-2': { status: 404 } }

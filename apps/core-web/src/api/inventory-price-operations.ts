@@ -225,8 +225,7 @@ async function resolveUnknownPatchOutcome(intent: FrozenGuardedPriceIntent): Pro
   if (op) {
     return outcomeFor(intent, mapOperationDtoToStatus(op), op.acceptedAt)
   }
-  const fallbackAcceptedAt = new Date(intent.createdAt).toISOString()
-  return outcomeFor(intent, classifyAcceptedOperation(fallbackAcceptedAt), fallbackAcceptedAt)
+  return outcomeFor(intent, 'OUTCOME_UNAVAILABLE')
 }
 
 async function parseErrorCode(response: Response): Promise<string | null> {

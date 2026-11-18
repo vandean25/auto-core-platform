@@ -481,7 +481,9 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
       await actionBtn.click();
 
       const dialog = page.getByRole('dialog');
-      await dialog.getByLabel(bulk.percentLabel).fill('10');
+      const percentInput = dialog.getByLabel(bulk.percentLabel);
+      expect((await percentInput.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await percentInput.fill('10');
       const previewBtn = dialog.getByRole('button', { name: bulk.preview });
       expect((await previewBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
       await previewBtn.click();
