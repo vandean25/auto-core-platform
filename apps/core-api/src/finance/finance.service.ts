@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,14 @@ import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
+import {
+  calendarYearInTimeZone,
+  DEFAULT_INVOICE_PREFIX,
+  DEFAULT_INVOICE_TIME_ZONE,
+  DEFAULT_NEXT_INVOICE_NUMBER,
+  resolveSiteTimeZone,
+} from '../sales/helpers/invoice-number.helpers.js';
+import { lockFinanceSettings } from './fiscal-lock.helpers.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
@@ -47,6 +56,49 @@ export type GetRevenueReportParams = {
   enforce_report_role?: boolean;
 };
 
+async function advanceInvoiceSequence(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  sequenceYear: number,
+  nextInvoiceNumber: number,
+): Promise<void> {
+  const existing = await tx.invoiceSequence.findFirst({
+    where: { tenant_id: tenantId, year: sequenceYear },
+    select: { current: true },
+  });
+
+  if (!existing) {
+    await tx.invoiceSequence.create({
+      data: {
+        tenant_id: tenantId,
+        year: sequenceYear,
+        current: nextInvoiceNumber - 1,
+      },
+    });
+    return;
+  }
+
+  if (nextInvoiceNumber <= existing.current) {
+    throw new ConflictException(
+      `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number (${existing.current}) for ${sequenceYear}.`,
+    );
+  }
+
+  const updated = await tx.invoiceSequence.updateMany({
+    where: {
+      tenant_id: tenantId,
+      year: sequenceYear,
+      current: { lt: nextInvoiceNumber },
+    },
+    data: { current: nextInvoiceNumber - 1 },
+  });
+  if (updated.count === 0) {
+    throw new ConflictException(
+      `next_invoice_number (${nextInvoiceNumber}) must be greater than the highest issued invoice number for ${sequenceYear}.`,
+    );
+  }
+}
+
 @Injectable()
 export class FinanceService {
   constructor(
@@ -57,7 +109,10 @@ export class FinanceService {
 
   async getSettings() {
     const tenantId = await this.tenantContext.getTenantId();
-    const currentYear = new Date().getFullYear();
+    const currentYear = calendarYearInTimeZone(
+      new Date(),
+      DEFAULT_INVOICE_TIME_ZONE,
+    );
     return this.prisma.financeSettings.upsert({
       where: { tenant_id: tenantId },
       update: {},
@@ -65,8 +120,8 @@ export class FinanceService {
         tenant_id: tenantId,
         fiscal_year_start_month: 1,
         lock_date: null,
-        next_invoice_number: 1001,
-        invoice_prefix: `RE-${currentYear}-`,
+        next_invoice_number: DEFAULT_NEXT_INVOICE_NUMBER,
+        invoice_prefix: DEFAULT_INVOICE_PREFIX,
         next_sales_order_number: 1001,
         sales_order_prefix: `SO-${currentYear}-`,
         next_workshop_order_number: 1,
@@ -85,9 +140,48 @@ export class FinanceService {
         lock_date: lock_date === null ? null : new Date(lock_date),
       }),
     };
-    return this.prisma.financeSettings.update({
-      where: { tenant_id: tenantId },
-      data: updateData,
+
+    if (data.next_invoice_number === undefined) {
+      return this.prisma.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: updateData,
+      });
+    }
+
+    const nextInvoiceNumber = data.next_invoice_number;
+    const activeSite = (await this.siteContext.tryGetSite?.()) ?? null;
+    return this.prisma.$transaction(async (tx) => {
+      await lockFinanceSettings(tx, tenantId);
+
+      const currentSettings = await tx.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: { invoice_prefix: true },
+      });
+      const effectivePrefix =
+        data.invoice_prefix ??
+        currentSettings?.invoice_prefix ??
+        DEFAULT_INVOICE_PREFIX;
+
+      const timeZone = await resolveSiteTimeZone(
+        tx,
+        tenantId,
+        activeSite?.id ?? null,
+      );
+      const sequenceYear = effectivePrefix.includes('{YYYY}')
+        ? calendarYearInTimeZone(new Date(), timeZone)
+        : 0;
+
+      await advanceInvoiceSequence(
+        tx,
+        tenantId,
+        sequenceYear,
+        nextInvoiceNumber,
+      );
+
+      return tx.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: updateData,
+      });
     });
   }
 

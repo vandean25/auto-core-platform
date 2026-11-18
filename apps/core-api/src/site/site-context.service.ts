@@ -5,7 +5,7 @@ import {
   UnprocessableEntityException,
   forwardRef,
 } from '@nestjs/common';
-import type { Site } from '@prisma/client';
+import type { Prisma, Site } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -130,7 +130,10 @@ export class SiteContextService {
    * **active** `SiteMembership` joined to an **active** `TenantMember` in the
    * current tenant (ruling 12). Never derived from a caller-provided list.
    */
-  async listAuthorizedSiteIds(): Promise<string[]> {
+  async listAuthorizedSiteIds(
+    db?: Pick<Prisma.TransactionClient, 'user' | 'siteMembership'>,
+  ): Promise<string[]> {
+    const client = db ?? this.prisma;
     const authUser = this.tenantContext.getAuthenticatedUser();
     if (!authUser?.userId) {
       throw new InternalServerErrorException(
@@ -139,7 +142,7 @@ export class SiteContextService {
     }
     const tenantId = this.tenantContext.getRequiredTenantId();
 
-    const user = await this.prisma.user.findFirst({
+    const user = await client.user.findFirst({
       where: { firebaseUid: authUser.userId },
       select: { id: true },
     });
@@ -147,7 +150,7 @@ export class SiteContextService {
       return [];
     }
 
-    const memberships = await this.prisma.siteMembership.findMany({
+    const memberships = await client.siteMembership.findMany({
       where: {
         tenant_id: tenantId,
         user_id: user.id,

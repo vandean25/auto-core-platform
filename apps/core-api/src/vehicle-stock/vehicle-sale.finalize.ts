@@ -7,6 +7,7 @@ import {
   type VehiclePurchase,
 } from '@prisma/client';
 import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
+import { generateInvoiceNumber } from '../sales/helpers/invoice-number.helpers.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
@@ -118,28 +119,14 @@ export async function loadFinalizableTradeIn(
   return assertFinalizableTradeIn(sale, tradeInPurchase, persistedSiteId);
 }
 
-/** Next RE-<year>-NNNN number for the tenant, taken from the per-year invoice sequence. */
-export async function generateInvoiceNumber(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-) {
-  const year = new Date().getFullYear();
-  const prefix = `RE-${year}-`;
-  const sequence = await tx.invoiceSequence.upsert({
-    where: { tenant_id_year: { tenant_id: tenantId, year } },
-    update: { current: { increment: 1 } },
-    create: { tenant_id: tenantId, year, current: 1 },
-  });
-  return `${prefix}${sequence.current.toString().padStart(4, '0')}`;
-}
-
 /** Numbers a finalized invoice once; a second number on the same invoice is a concurrency conflict. */
 export async function assignInvoiceNumber(
   tx: Prisma.TransactionClient,
   tenantId: string,
   invoiceId: string,
+  siteId?: string | null,
 ): Promise<string> {
-  const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
+  const invoiceNumber = await generateInvoiceNumber(tx, tenantId, { siteId });
   const invoiceNumberUpdate = await tx.invoice.updateMany({
     where: {
       id: invoiceId,

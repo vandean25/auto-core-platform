@@ -263,7 +263,12 @@ export class VehicleSaleFinalizeService {
       lockInvoiceRow: false,
       inKindCredit: tradeIn?.purchase_price,
     });
-    const invoiceNumber = await assignInvoiceNumber(tx, tenantId, invoice.id);
+    const invoiceNumber = await assignInvoiceNumber(
+      tx,
+      tenantId,
+      invoice.id,
+      persistedSiteId,
+    );
     await this.snapshotCommit.persistV2Snapshot(
       tx,
       tenantId,

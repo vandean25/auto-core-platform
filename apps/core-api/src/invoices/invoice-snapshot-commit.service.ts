@@ -105,7 +105,7 @@ export class InvoiceSnapshotCommitService {
   ): Promise<InvoiceCommitmentContext> {
     assertBrandingWriterEnabled();
 
-    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds(tx);
     const sourceOwnership = await resolveInvoiceOwnershipFromSource(
       tx,
       tenantId,

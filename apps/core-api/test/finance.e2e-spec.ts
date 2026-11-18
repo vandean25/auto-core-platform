@@ -11,9 +11,14 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
   runWithTenantContext,
   seedTestTenantMember,
 } from './tenant-test-utils.js';
+import {
+  seedInvoiceReadyCustomer,
+  seedReadySellerAndAccountingProfile,
+} from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('FinanceModule (e2e)', () => {
@@ -102,6 +107,11 @@ describe('FinanceModule (e2e)', () => {
     await prisma.inventoryStock.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();
+    await prisma.vehicleLedgerEntry.deleteMany();
+    await prisma.vehicleSale.deleteMany();
+    await prisma.vehicleParty.deleteMany();
+    await prisma.vehicle.deleteMany();
+    await prisma.storageLocation.deleteMany();
     await prisma.salesOrderItem.deleteMany();
     await prisma.salesOrder.deleteMany();
     await prisma.customer.deleteMany();
@@ -398,5 +408,213 @@ describe('FinanceModule (e2e)', () => {
     expect(
       (auditEntry?.after as { lock_date?: string | null } | null)?.lock_date,
     ).toBeNull();
+  });
+
+  // AUT-1008 Scenarios 2, 3, 4, 6 & Anti-criterion 2
+  describe('Invoice numbering (AUT-1008)', () => {
+    const originalWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;
+    let invoiceCustomerId: string;
+    let catalogItemId: string;
+    let siteId: string;
+    let locationId: string;
+    let firstInvoiceId: string;
+    let firstInvoiceNumber: string;
+
+    beforeAll(async () => {
+      process.env.INVOICE_BRANDING_WRITER_ENABLED = 'true';
+      await seedReadySellerAndAccountingProfile(prisma, tenantId, {
+        includeVehicleMargin: true,
+      });
+      const customer = await seedInvoiceReadyCustomer(prisma, tenantId);
+      invoiceCustomerId = customer.id;
+      siteId = await resolveTestMainSiteId(prisma, tenantId);
+      await request(app.getHttpServer())
+        .patch('/me/active-site')
+        .set('Authorization', authHeader)
+        .send({ siteId })
+        .expect(200);
+
+      const catalogItem = await prisma.catalogItem.create({
+        data: {
+          tenant_id: tenantId,
+          sku: `FIN-INV-${Date.now()}`,
+          name: 'Finance Invoice Item',
+          cost_price: 10,
+          retail_price: 20,
+        },
+      });
+      catalogItemId = catalogItem.id;
+
+      const location = await prisma.storageLocation.create({
+        data: {
+          tenant_id: tenantId,
+          code: `FIN-LOC-${Date.now()}`,
+          name: 'Finance Test Location',
+          type: 'warehouse',
+          site_id: siteId,
+        },
+      });
+      locationId = location.id;
+      await prisma.inventoryStock.create({
+        data: {
+          tenant_id: tenantId,
+          catalog_item_id: catalogItemId,
+          site_id: siteId,
+          location_id: location.id,
+          quantity_on_hand: 50,
+        },
+      });
+    });
+
+    afterAll(() => {
+      if (originalWriterFlag === undefined) {
+        delete process.env.INVOICE_BRANDING_WRITER_ENABLED;
+      } else {
+        process.env.INVOICE_BRANDING_WRITER_ENABLED = originalWriterFlag;
+      }
+    });
+
+    async function createAndFinalizeSalesInvoice() {
+      const orderRes = await request(app.getHttpServer())
+        .post('/sales-orders')
+        .set('Authorization', authHeader)
+        .send({
+          customer_id: invoiceCustomerId,
+          items: [
+            {
+              catalog_item_id: catalogItemId,
+              description: 'Numbering test item',
+              quantity: 1,
+              unit_price: 20,
+              tax_rate: 20,
+            },
+          ],
+        })
+        .expect(201);
+
+      await prisma.salesOrder.updateMany({
+        where: { id: orderRes.body.id },
+        data: { status: 'CONFIRMED' },
+      });
+
+      const draftRes = await request(app.getHttpServer())
+        .post(`/sales-orders/${orderRes.body.id}/create-invoice`)
+        .set('Authorization', authHeader)
+        .expect(201);
+
+      const finalizeRes = await request(app.getHttpServer())
+        .put(`/sales/invoices/${draftRes.body.id}/finalize`)
+        .set('Authorization', authHeader)
+        .expect(200);
+
+      return finalizeRes.body as { id: string; invoice_number: string };
+    }
+
+    // Scenario 2: WHEN OWNER sets next_invoice_number to 4513 THEN the next invoice ends in 4513
+    it('uses next_invoice_number set by OWNER (4513) for the next finalized invoice', async () => {
+      await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders.OWNER!)
+        .send({ next_invoice_number: 4513 })
+        .expect(200);
+
+      const finalized = await createAndFinalizeSalesInvoice();
+      expect(finalized.invoice_number).toMatch(/4513$/);
+      firstInvoiceId = finalized.id;
+      firstInvoiceNumber = finalized.invoice_number;
+
+      const settingsRes = await request(app.getHttpServer())
+        .get('/finance/settings')
+        .set('Authorization', roleHeaders.OWNER!)
+        .expect(200);
+      expect(settingsRes.body.next_invoice_number).toBe(4514);
+    });
+
+    // Scenario 3: WHEN OWNER sets it below or equal to the highest issued number THEN 409 and nothing changes
+    it.each([4513, 4512])(
+      'returns 409 and leaves settings and sequence unchanged when OWNER sets next_invoice_number to %i',
+      async (invalidNext) => {
+        const settingsBefore = await prisma.financeSettings.findFirst({
+          where: { tenant_id: tenantId },
+        });
+        const sequenceBefore = await prisma.invoiceSequence.findFirst({
+          where: { tenant_id: tenantId },
+          orderBy: { year: 'desc' },
+        });
+
+        await request(app.getHttpServer())
+          .patch('/finance/settings')
+          .set('Authorization', roleHeaders.OWNER!)
+          .send({ next_invoice_number: invalidNext })
+          .expect(409);
+
+        const settingsAfter = await prisma.financeSettings.findFirst({
+          where: { tenant_id: tenantId },
+        });
+        const sequenceAfter = await prisma.invoiceSequence.findFirst({
+          where: { tenant_id: tenantId },
+          orderBy: { year: 'desc' },
+        });
+        expect(settingsAfter).toEqual(settingsBefore);
+        expect(sequenceAfter).toEqual(sequenceBefore);
+      },
+    );
+
+    // Scenario 4 & Anti-criterion 2: WHEN prefix changes THEN only new invoices use it; existing invoices are never renumbered
+    it('applies a changed invoice_prefix only to newly numbered invoices without renumbering existing ones', async () => {
+      await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders.OWNER!)
+        .send({ invoice_prefix: 'INV-{YYYY}-' })
+        .expect(200);
+
+      const previousInvoice = await prisma.invoice.findFirst({
+        where: { id: firstInvoiceId, tenant_id: tenantId },
+        select: { invoice_number: true },
+      });
+      expect(previousInvoice?.invoice_number).toBe(firstInvoiceNumber);
+
+      const nextFinalized = await createAndFinalizeSalesInvoice();
+      expect(nextFinalized.invoice_number).toMatch(/^INV-\d{4}-4514$/);
+    });
+
+    // Scenario 6: WHEN a vehicle sale and a sales invoice finalize THEN both use the same sequence
+    it('shares the same invoice sequence and prefix between sales invoices and vehicle sales', async () => {
+      const salesInvoice = await createAndFinalizeSalesInvoice();
+      const salesSeq = Number(salesInvoice.invoice_number.split('-').at(-1));
+
+      const vehicle = await prisma.vehicle.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          location_id: locationId,
+          make: 'VW',
+          model: 'Golf',
+          year: 2022,
+          vin: `WVWZZZ1KZPW${Date.now().toString().slice(-6)}`,
+          stock_status: 'IN_STOCK',
+          inventory_role: 'USED',
+        },
+      });
+
+      const saleRes = await request(app.getHttpServer())
+        .post('/vehicle-sales')
+        .set('Authorization', authHeader)
+        .send({
+          vehicle_id: vehicle.id,
+          customer_id: invoiceCustomerId,
+          sale_price: 15000,
+        })
+        .expect(201);
+
+      const vehicleFinalized = await request(app.getHttpServer())
+        .post(`/vehicle-sales/${saleRes.body.id}/finalize`)
+        .set('Authorization', authHeader)
+        .expect(201);
+
+      const vehicleInvoiceNumber = vehicleFinalized.body.invoice
+        .invoice_number as string;
+      expect(vehicleInvoiceNumber).toBe(`INV-${salesInvoice.invoice_number.split('-')[1]}-${String(salesSeq + 1).padStart(4, '0')}`);
+    });
   });
 });
