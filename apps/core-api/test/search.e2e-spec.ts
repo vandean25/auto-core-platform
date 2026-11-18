@@ -2,11 +2,13 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import {
   SEARCH_PROVIDERS,
   type SearchProvider,
   type SearchResultType,
 } from '../src/search/search.types.js';
+import { grantDemoSignIn } from './helpers/demo-sign-in-grant.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import {
   cleanupTestTenantGraph,
@@ -38,7 +40,9 @@ const PLATE_NORMALIZED = 'W7777SX';
 describe('Global search (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let authService: AuthService;
+  let cleanupDemoGrant: (() => Promise<void>) | undefined;
   let tenantA: TestTenantResult;
   let tenantB: TestTenantResult;
   let prismaA: PrismaService;
@@ -171,6 +175,7 @@ describe('Global search (e2e)', () => {
   beforeAll(async () => {
     app = await createE2eApp();
     basePrisma = app.get<PrismaService>(PrismaService);
+    systemPrisma = app.get<SystemPrismaService>(SystemPrismaService);
     authService = app.get<AuthService>(AuthService);
     providers = app.get<SearchProvider[]>(SEARCH_PROVIDERS);
 
@@ -195,6 +200,11 @@ describe('Global search (e2e)', () => {
       firstName: 'Demo',
       lastName: `Müller${SUFFIX}`,
     });
+    cleanupDemoGrant = await grantDemoSignIn(
+      systemPrisma,
+      basePrisma,
+      `e2e-search-demo-${SUFFIX}`,
+    );
     demoToken = demoMember.token;
     umlautIds.user = demoMember.memberId;
 
@@ -380,7 +390,7 @@ describe('Global search (e2e)', () => {
       data: {
         tenant_id: tenantA.tenantId,
         sku: `SRCH-PAD-${SUFFIX}`,
-        name: `Searchable Brake Pad ${SUFFIX}`,
+        name: `Searchable${SUFFIX} Brake Pad`,
         retail_price: 10,
       },
     });
@@ -672,6 +682,7 @@ describe('Global search (e2e)', () => {
   afterAll(async () => {
     if (!app) return;
     try {
+      await cleanupDemoGrant?.();
       await cleanupTestTenantGraph(basePrisma, tenantA.tenantId);
       await cleanupTestTenantGraph(basePrisma, tenantB.tenantId);
     } finally {
