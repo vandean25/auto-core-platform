@@ -86,10 +86,14 @@ describe('Global search (e2e)', () => {
           ...(name ?? {}),
         },
       });
-      const member = await seedTestTenantMember(basePrisma, {
+      await seedTestTenantMember(basePrisma, {
         tenantId: tenantA.tenantId,
         userId: user.id,
         role,
+      });
+      const member = await basePrisma.tenantMember.findFirstOrThrow({
+        where: { tenant_id: tenantA.tenantId, user_id: user.id },
+        select: { id: true },
       });
       await basePrisma.siteMembership.create({
         data: {
