@@ -182,7 +182,7 @@ function SavedViewsStore({
         reloadViews()
       } else if (fallbackKey) {
         if (reason === 'duplicate') {
-          toast.message(i18n.t('common:savedViews.duplicate'))
+          toast.message(i18n.t('common:savedViews.renameDuplicate'))
         } else if (reason === 'limit') {
           toast.error(i18n.t('common:savedViews.limitReached'))
         } else {

@@ -4,6 +4,7 @@ import axe from 'axe-core'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
+import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
@@ -19,7 +20,7 @@ vi.mock('@/api/client', async (importOriginal) => ({
 const capabilities = vi.hoisted(() => ({ pickerl57a: true }))
 vi.mock('@/api/auth-session', async (original) => ({
   ...await original<typeof import('@/api/auth-session')>(),
-  useAuthSession: () => ({ data: { effectiveCapabilities: capabilities } }),
+  useAuthSession: () => ({ data: { effectiveCapabilities: capabilities, activeRole: 'ADMIN' } }),
 }))
 
 registerGermanUiForTests()
@@ -64,6 +65,7 @@ function renderSidebar(path = '/dashboard', tenantId: string | null = null) {
           <SidebarProvider>
             <AppSidebar {...sidebarProps} />
           </SidebarProvider>
+          <EntityActionConfirmHost />
         </MemoryRouter>
       </SavedViewsProvider>
     </QueryClientProvider>,
@@ -97,11 +99,71 @@ describe('AppSidebar navigation', () => {
             createdAt: '2026-01-01',
             updatedAt: '2026-01-01',
           },
+          {
+            id: 'w',
+            listPath: '/workshop/orders',
+            name: 'Saved Workshop view',
+            href: '/workshop/orders?status=OPEN',
+            visibility: 'PERSONAL',
+            ownerUserId: 'test-user',
+            version: 1,
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
         ],
       }),
     } as Response)
     renderSidebar('/dashboard', 'tenant-a')
+    expect(await screen.findByRole('link', { name: 'Saved Workshop view' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Saved Pickerl view' })).not.toBeInTheDocument()
+  })
+
+  it('requires confirmation before deleting a team view from the sidebar favorites X button', async () => {
+    const deleteCalls: string[] = []
+    vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              {
+                id: 'team-1',
+                listPath: '/workshop/orders',
+                name: 'Team Aufträge',
+                href: '/workshop/orders?status=OPEN',
+                visibility: 'TENANT',
+                ownerUserId: 'admin-1',
+                version: 1,
+                createdAt: '2026-01-01',
+                updatedAt: '2026-01-01',
+              },
+            ],
+          }),
+        } as Response
+      }
+      if (url === '/api/saved-views/team-1?version=1' && init?.method === 'DELETE') {
+        deleteCalls.push(url)
+        return new Response(null, { status: 204 })
+      }
+      throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`)
+    })
+
+    renderSidebar('/dashboard', 'tenant-a')
+
+    expect(await screen.findByRole('link', { name: /Team Aufträge/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gespeicherte Ansicht Team Aufträge entfernen' }))
+
+    expect(deleteCalls).toEqual([])
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('Ansicht entfernen?')).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ansicht entfernen' }))
+
+    await vi.waitFor(() => expect(deleteCalls).toEqual(['/api/saved-views/team-1?version=1']))
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
   it('groups the entries under labelled sections that start open', () => {
     renderSidebar()

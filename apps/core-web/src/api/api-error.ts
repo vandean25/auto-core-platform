@@ -227,6 +227,17 @@ export async function fetchJsonWithAuth<T>(
           : fallbackMessage
     throw Object.assign(new Error(message), { status: response.status, data })
   }
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T
+  }
+  if (response.headers?.get('content-length') === '0') {
+    return undefined as T
+  }
+  if (typeof response.text === 'function') {
+    const text = await response.text()
+    if (!text) return undefined as T
+    return JSON.parse(text) as T
+  }
   return response.json() as Promise<T>;
 }
 

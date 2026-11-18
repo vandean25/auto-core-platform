@@ -4,7 +4,8 @@ import { Star, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { SidebarMenu, SidebarMenuAction } from '@/components/ui/sidebar'
 import { canEditSavedView } from '@/features/actions/saved-view-actions'
-import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { executeEntityAction } from '@/features/actions/entity-action'
+import { useSavedViewActions } from '@/features/saved-views/use-saved-view-actions'
 import { prefetchMainListRoute } from '@/app/route-chunk-prefetch'
 import type { NavAccessContext } from './nav-config'
 import { NavGroupShell, SidebarNavItem } from './NavGroupMenu'
@@ -20,7 +21,7 @@ export function AppSidebarFavorites({
 }) {
   const { t } = useTranslation(['nav', 'common'])
   const location = useLocation()
-  const { savedViews: allSavedViews, removeSavedView, isOfflineError } = useSavedViews()
+  const { savedViews: allSavedViews, isOfflineError, actions, context } = useSavedViewActions()
   const savedViews = allSavedViews.filter(
     (view) => showPickerl || !view.href.startsWith('/vehicles/pickerl-due'),
   )
@@ -62,8 +63,9 @@ export function AppSidebarFavorites({
                   canRemove ? (
                     <SidebarMenuAction
                       showOnHover
+                      data-action-id={actions.remove.id}
                       aria-label={t('nav:favorites.removeAria', { name: view.name })}
-                      onClick={() => void removeSavedView(view.id)}
+                      onClick={() => executeEntityAction(actions.remove, view, context)}
                     >
                       <X aria-hidden="true" />
                     </SidebarMenuAction>

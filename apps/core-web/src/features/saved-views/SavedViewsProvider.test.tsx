@@ -27,8 +27,14 @@ function createJsonResponse(body: unknown, status = 200): Response {
 }
 
 function ProviderProbe() {
-  const { savedViews, renameSavedView, shareSavedView, copySavedView, isOfflineError } =
-    useSavedViews()
+  const {
+    savedViews,
+    renameSavedView,
+    removeSavedView,
+    shareSavedView,
+    copySavedView,
+    isOfflineError,
+  } = useSavedViews()
   return (
     <div>
       <span data-testid="offline-flag">{String(isOfflineError)}</span>
@@ -38,6 +44,9 @@ function ProviderProbe() {
             <span>{view.name}</span>
             <button type="button" onClick={() => void renameSavedView(view.id, 'Neuer Name')}>
               {`Rename ${view.id}`}
+            </button>
+            <button type="button" onClick={() => void removeSavedView(view.id)}>
+              {`Remove ${view.id}`}
             </button>
             <button type="button" onClick={() => void shareSavedView(view.id, 'TENANT')}>
               {`Share ${view.id}`}
@@ -258,7 +267,9 @@ describe('SavedViewsProvider (AUT-940)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Share v1' }))
     await waitFor(() =>
-      expect(toastMessage).toHaveBeenCalledWith('Diese Ansicht ist bereits in den Favoriten.'),
+      expect(toastMessage).toHaveBeenCalledWith(
+        'Eine Ansicht mit diesem Namen gibt es hier schon.',
+      ),
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy v2' }))
@@ -270,11 +281,55 @@ describe('SavedViewsProvider (AUT-940)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy v2' }))
     await waitFor(() =>
-      expect(toastMessage).toHaveBeenCalledWith('Diese Ansicht ist bereits in den Favoriten.'),
+      expect(toastMessage).toHaveBeenCalledWith(
+        'Eine Ansicht mit diesem Namen gibt es hier schon.',
+      ),
     )
 
     toastError.mockRestore()
     toastMessage.mockRestore()
+  })
+
+  it('removes a saved view when DELETE returns 204 with an empty Response body', async () => {
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '')
+    let serverViews = [
+      {
+        id: 'v1',
+        listPath: '/workshop/orders',
+        name: 'Gruber in Arbeit',
+        href: '/workshop/orders?search=Gruber',
+        visibility: 'PERSONAL',
+        ownerUserId: 'user-1',
+        version: 1,
+        createdAt: '2026-11-01T08:00:00.000Z',
+        updatedAt: '2026-11-01T08:00:00.000Z',
+      },
+    ]
+
+    vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+        return createJsonResponse({ data: serverViews })
+      }
+      if (url === '/api/saved-views/v1?version=1' && init?.method === 'DELETE') {
+        serverViews = serverViews.filter((view) => view.id !== 'v1')
+        return new Response(null, { status: 204 })
+      }
+      throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`)
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    renderWithProvider(queryClient)
+
+    expect(await screen.findByText('Gruber in Arbeit')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove v1' }))
+
+    await waitFor(() => expect(screen.queryByText('Gruber in Arbeit')).not.toBeInTheDocument())
+    expect(toastError).not.toHaveBeenCalled()
+    toastError.mockRestore()
   })
 
   it('recognizes slim SAVED_VIEW realtime events and targets saved-views queries for refetch', () => {
