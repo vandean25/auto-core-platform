@@ -41785,8 +41785,21 @@
               "vehicle",
               "stock_vehicle",
               "workshop_order",
+              "appointment",
+              "estimate",
+              "sales_order",
+              "vehicle_sale",
               "invoice",
-              "part"
+              "credit_note",
+              "part",
+              "labor_operation",
+              "vendor",
+              "purchase_order",
+              "purchase_invoice",
+              "employee",
+              "user",
+              "legal_entity",
+              "site"
             ]
           },
           "id": {
@@ -41835,8 +41848,21 @@
               "vehicle",
               "stock_vehicle",
               "workshop_order",
+              "appointment",
+              "estimate",
+              "sales_order",
+              "vehicle_sale",
               "invoice",
-              "part"
+              "credit_note",
+              "part",
+              "labor_operation",
+              "vendor",
+              "purchase_order",
+              "purchase_invoice",
+              "employee",
+              "user",
+              "legal_entity",
+              "site"
             ]
           },
           "results": {

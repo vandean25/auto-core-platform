@@ -1,4 +1,24 @@
-import { Car, FileText, Package, Store, UserRound, Wrench } from 'lucide-react'
+import {
+  Building2,
+  Calendar,
+  Car,
+  CarFront,
+  ClipboardList,
+  Clock,
+  FileSignature,
+  FileText,
+  MapPin,
+  Package,
+  ReceiptEuro,
+  ReceiptText,
+  ShoppingCart,
+  Store,
+  Truck,
+  UserCheck,
+  UserRound,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { SearchResultType } from '@/api/search'
 import type nav from '../../../../../locales/de/nav.json'
@@ -18,8 +38,21 @@ export const SEARCH_TYPE_REGISTRY: Record<SearchResultType, SearchTypeEntry> = {
   vehicle: { icon: Car, labelKey: 'nav:globalSearch.groups.vehicle', prefix: 'fz' },
   stock_vehicle: { icon: Store, labelKey: 'nav:globalSearch.groups.stockVehicle', prefix: 'fz' },
   workshop_order: { icon: Wrench, labelKey: 'nav:globalSearch.groups.workshopOrder', prefix: 'a' },
+  appointment: { icon: Calendar, labelKey: 'nav:globalSearch.groups.appointment', prefix: 'tm' },
+  estimate: { icon: FileSignature, labelKey: 'nav:globalSearch.groups.estimate', prefix: 'kv' },
+  sales_order: { icon: ClipboardList, labelKey: 'nav:globalSearch.groups.salesOrder', prefix: 'ka' },
+  vehicle_sale: { icon: CarFront, labelKey: 'nav:globalSearch.groups.vehicleSale', prefix: 'vk' },
   invoice: { icon: FileText, labelKey: 'nav:globalSearch.groups.invoice', prefix: 'r' },
+  credit_note: { icon: ReceiptEuro, labelKey: 'nav:globalSearch.groups.creditNote', prefix: 'g' },
   part: { icon: Package, labelKey: 'nav:globalSearch.groups.part', prefix: 't' },
+  labor_operation: { icon: Clock, labelKey: 'nav:globalSearch.groups.laborOperation', prefix: 'aw' },
+  vendor: { icon: Truck, labelKey: 'nav:globalSearch.groups.vendor', prefix: 'l' },
+  purchase_order: { icon: ShoppingCart, labelKey: 'nav:globalSearch.groups.purchaseOrder', prefix: 'b' },
+  purchase_invoice: { icon: ReceiptText, labelKey: 'nav:globalSearch.groups.purchaseInvoice', prefix: 'er' },
+  employee: { icon: Users, labelKey: 'nav:globalSearch.groups.employee', prefix: 'm' },
+  user: { icon: UserCheck, labelKey: 'nav:globalSearch.groups.user', prefix: 'u' },
+  legal_entity: { icon: Building2, labelKey: 'nav:globalSearch.groups.legalEntity', prefix: 'f' },
+  site: { icon: MapPin, labelKey: 'nav:globalSearch.groups.site', prefix: 's' },
 }
 
 const SEARCH_TYPES = Object.keys(SEARCH_TYPE_REGISTRY) as SearchResultType[]

@@ -1,11 +1,16 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import { collectMatches, type ScoredRow } from '../search-ranking.js';
+import {
+  collectMatches,
+  type MatchTier,
+  type ScoredRow,
+} from '../search-ranking.js';
 import type {
   SearchContext,
   SearchProvider,
   SearchResult,
 } from '../search.types.js';
+import { findMatchingExternalEntityIds } from './external-id-match.js';
 import { joinParts } from './search-format.js';
 import { vehicleMatchWhere } from './vehicle-match.js';
 
@@ -58,21 +63,32 @@ export class VehicleSearchProvider implements SearchProvider {
   async search(ctx: SearchContext): Promise<SearchResult[]> {
     const rows = await collectMatches<
       VehicleSearchRow,
-      Prisma.VehicleWhereInput
+      { tier: MatchTier; match: Prisma.VehicleWhereInput | null }
     >(
       ctx,
-      (tier) => vehicleMatchWhere(ctx.query, tier),
-      (match) =>
-        this.prisma.vehicle.findMany({
+      (tier) => ({ tier, match: vehicleMatchWhere(ctx.query, tier) }),
+      async ({ tier, match }) => {
+        const externalIds = await findMatchingExternalEntityIds(
+          this.prisma,
+          ctx,
+          'VEHICLE',
+          tier,
+        );
+        const clauses: Prisma.VehicleWhereInput[] = [];
+        if (match) clauses.push(match);
+        if (externalIds.length > 0) clauses.push({ id: { in: externalIds } });
+        if (clauses.length === 0) return [];
+        return this.prisma.vehicle.findMany({
           where: {
-            ...match,
+            ...(clauses.length === 1 ? clauses[0] : { OR: clauses }),
             tenant_id: ctx.tenantId,
             inventory_role: 'CUSTOMER',
           },
           select: VEHICLE_SEARCH_SELECT,
           orderBy: VEHICLE_SEARCH_ORDER_BY,
           take: ctx.limit,
-        }),
+        });
+      },
     );
     return rows.map(toResult);
   }

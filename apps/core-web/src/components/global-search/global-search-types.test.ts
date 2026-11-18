@@ -44,7 +44,26 @@ describe('isSearchableQuery', () => {
 
 describe('search type registry', () => {
   it('lists one help entry per prefix in registry order', () => {
-    expect(getSearchPrefixes().map((entry) => entry.prefix)).toEqual(['k', 'fz', 'a', 'r', 't'])
+    expect(getSearchPrefixes().map((entry) => entry.prefix)).toEqual([
+      'k',
+      'fz',
+      'a',
+      'tm',
+      'kv',
+      'ka',
+      'vk',
+      'r',
+      'g',
+      't',
+      'aw',
+      'l',
+      'b',
+      'er',
+      'm',
+      'u',
+      'f',
+      's',
+    ])
   })
 
   it('has an icon and a label for every type', () => {

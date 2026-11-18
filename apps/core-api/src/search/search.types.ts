@@ -3,8 +3,21 @@ export const SEARCH_RESULT_TYPES = [
   'vehicle',
   'stock_vehicle',
   'workshop_order',
+  'appointment',
+  'estimate',
+  'sales_order',
+  'vehicle_sale',
   'invoice',
+  'credit_note',
   'part',
+  'labor_operation',
+  'vendor',
+  'purchase_order',
+  'purchase_invoice',
+  'employee',
+  'user',
+  'legal_entity',
+  'site',
 ] as const;
 
 export type SearchResultType = (typeof SEARCH_RESULT_TYPES)[number];

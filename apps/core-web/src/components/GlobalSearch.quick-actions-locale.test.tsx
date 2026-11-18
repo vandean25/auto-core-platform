@@ -73,7 +73,7 @@ describe('GlobalSearch locale', () => {
     )
 
     expect(screen.getByText('Anlegen')).toBeInTheDocument()
-    expect(screen.getByText('Kundenaufträge')).toBeInTheDocument()
+    expect(screen.getAllByText('Kundenaufträge').length).toBeGreaterThan(0)
 
     rerender(
       <MemoryRouter>
@@ -88,7 +88,7 @@ describe('GlobalSearch locale', () => {
     )
 
     expect(screen.getByText('Create')).toBeInTheDocument()
-    expect(screen.getByText('Sales Orders')).toBeInTheDocument()
+    expect(screen.getAllByText('Sales Orders').length).toBeGreaterThan(0)
     expect(screen.queryByText('Kundenaufträge')).not.toBeInTheDocument()
 
     await changeUiLanguage('de')

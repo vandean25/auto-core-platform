@@ -1,20 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { SearchService } from './search.service.js';
-import type {
-  SearchContext,
-  SearchProvider,
-  SearchResult,
-  SearchResultType,
+import {
+  SEARCH_RESULT_TYPES,
+  type SearchContext,
+  type SearchProvider,
+  type SearchResult,
+  type SearchResultType,
 } from './search.types.js';
 
-const ALL_TYPES: SearchResultType[] = [
-  'customer',
-  'vehicle',
-  'stock_vehicle',
-  'workshop_order',
-  'invoice',
-  'part',
-];
+const ALL_TYPES: SearchResultType[] = [...SEARCH_RESULT_TYPES];
 
 function hit(
   type: SearchResultType,

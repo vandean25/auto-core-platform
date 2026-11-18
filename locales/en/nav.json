@@ -131,8 +131,21 @@
       "vehicle": "Vehicles",
       "stockVehicle": "Vehicle stock",
       "workshopOrder": "Workshop orders",
+      "appointment": "Appointments",
+      "estimate": "Estimates",
+      "salesOrder": "Sales orders",
+      "vehicleSale": "Vehicle sales",
       "invoice": "Invoices",
-      "part": "Parts"
+      "creditNote": "Credit notes",
+      "part": "Parts",
+      "laborOperation": "Labor operations",
+      "vendor": "Vendors",
+      "purchaseOrder": "Purchase orders",
+      "purchaseInvoice": "Purchase bills",
+      "employee": "Employees",
+      "user": "Users",
+      "legalEntity": "Legal entities",
+      "site": "Sites"
     },
     "contextActions": {
       "heading": "Current record",

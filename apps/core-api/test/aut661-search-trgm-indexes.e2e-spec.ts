@@ -31,9 +31,19 @@ const EXPECTED_TRGM_INDEXES = [
   'catalog_items_name_trgm_idx',
   'catalog_items_sku_trgm_idx',
   'vendors_name_trgm_idx',
+  'vendors_email_trgm_idx',
+  'vendors_account_number_trgm_idx',
   'employees_name_trgm_idx',
+  'users_email_trgm_idx',
+  'users_first_name_trgm_idx',
+  'users_last_name_trgm_idx',
   'legal_entities_name_trgm_idx',
+  'legal_entities_tax_number_trgm_idx',
+  'legal_entities_registration_number_trgm_idx',
   'sites_name_trgm_idx',
+  'labor_operations_code_trgm_idx',
+  'labor_operations_description_trgm_idx',
+  'external_id_mappings_external_id_trgm_idx',
 ] as const;
 
 type TrgmExplainProbe = {
