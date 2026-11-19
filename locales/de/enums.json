@@ -105,7 +105,20 @@
     "ABORTED": "Abgebrochen",
     "UNDONE": "Rückgängig gemacht",
     "PARTIALLY_UNDONE": "Teilweise rückgängig gemacht",
-    "MOVED": "Umgelagert"
+    "MOVED": "Umgelagert",
+    "ESTIMATE_EXPIRED": "Kostenvoranschlag abgelaufen",
+    "GOOD": "Gut",
+    "RECOMMENDED": "Empfehlung",
+    "URGENT": "Dringend",
+    "UNDOING": "Wird rückgängig gemacht",
+    "CONFLICT": "Preis geändert",
+    "ACCEPTED": "Akzeptiert",
+    "UNRESOLVED": "Ungeklärt",
+    "FENCED": "Nicht angewendet",
+    "OUTCOME_UNAVAILABLE": "Ergebnis unbekannt",
+    "FORBIDDEN": "Keine Berechtigung",
+    "NOT_FOUND": "Nicht gefunden",
+    "INVALID": "Ungültig"
   },
   "tyreSetStatus": {
     "NEW": "Nicht eingelagert"

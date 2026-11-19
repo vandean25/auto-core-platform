@@ -228,6 +228,7 @@ Paste this into the PR body and tick every line.
 - [ ] **Rules grep:** no new `slate-`, `gray-` or `amber-` classes, no `text-[Npx]`, no raw `<table>`, no `@radix-ui/react-icons` import, no `toLocaleString` or `Intl` outside `src/lib/format/`.
 - [ ] **Keyboard:** a keyboard-only pass over the change, with a visible focus ring on every control.
 - [ ] **Interaction rules:** the change follows [Frontend interaction rules](../../../agents.md#frontend-interaction-rules) (mutation key and inventory, intent prefetch, shortcut keys, motion tokens), the interaction guards pass and no guard baseline grew.
+- [ ] **StatusBadge:** status styling goes only through `StatusBadge` + `statusClassMap`, new status values have `de` and `en` labels under `enums:status.*`, and `status-badge.test.ts` passes without growing `status-badge.baseline.json`.
 - [ ] **Playwright:** the CI jobs "Frontend Lint, Build and Unit Tests" and "Frontend UI Smoke" are green. Read the smoke job log, not only the check mark. The axe spec is `apps/core-web/e2e/a11y-smoke.spec.ts`.
 - [ ] **i18n:** every new string exists in `locales/de` and `locales/en`. `npm run i18n:check` and `npm run lint --workspace=core-web` pass. Rules: `.agents/skills/acp-i18n/SKILL.md`.
 - [ ] **Code health:** the CI check "Code Health (Fallow)" is green. Rules: `.agents/skills/acp-code-health/SKILL.md`.

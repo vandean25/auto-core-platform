@@ -17,6 +17,7 @@ export const INTERACTION_BASELINES = [
   { file: `${CORE_WEB_SRC}/interaction/guards/mutation-classification.baseline.json`, identities: violationsOf },
   { file: `${CORE_WEB_SRC}/interaction/guards/intent-prefetch.baseline.json`, identities: violationsOf },
   { file: `${CORE_WEB_SRC}/interaction/guards/transition-duration.baseline.json`, identities: violationsOf },
+  { file: `${CORE_WEB_SRC}/interaction/guards/status-badge.baseline.json`, identities: violationsOf },
   {
     file: `${CORE_WEB_SRC}/interaction/mutation-key.baseline.json`,
     identities: (document) => document.missingMutationKey ?? [],
