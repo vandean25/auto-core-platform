@@ -232,7 +232,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByTestId('board-column-emp-mech-001')).not.toBeVisible()
   })
 
-  test('Cards show parts status badge (READY and NO_PARTS)', async ({ page }) => {
+  test('Cards show parts status badge when actionable (READY) and omit NO_PARTS', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
 
     await setupBoardRoutes(page)
@@ -247,9 +247,9 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByText('WO-2026-0001')).toBeVisible()
     await expect(page.getByText(DE_STATUS.READY).first()).toBeVisible()
 
-    // Second card has NO_PARTS
+    // Second card has NO_PARTS (omitted per AUT-952)
     await expect(page.getByText('WO-2026-0002')).toBeVisible()
-    await expect(page.getByText(DE_STATUS.NO_PARTS).first()).toBeVisible()
+    await expect(page.getByText(DE_STATUS.NO_PARTS)).toHaveCount(0)
   })
 
   test('Empty state card renders when no mechanic resources exist', async ({ page }) => {
