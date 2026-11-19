@@ -588,6 +588,13 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
   it.each(['create', 'approve', 'ship', 'receive'] as const)(
     'AUT-861 S1: transfer %s sends the same number of SQL statements for 2 and 10 lines',
     async (action) => {
+      if (action === 'create') {
+        await postTransfer({
+          fromSiteId: mainSiteId,
+          toSiteId: grzSiteId,
+          lines: [{ catalogItemId, requestedQty: 1 }],
+        }).expect(201);
+      }
       const twoLines = await statementsForAction(action, 2);
       const tenLines = await statementsForAction(action, 10);
 

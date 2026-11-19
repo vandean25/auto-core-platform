@@ -47,6 +47,11 @@ function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
 
   return (first, ...rest) => {
     if (typeof first !== 'function') {
+      if (Array.isArray(first)) {
+        return PrismaTransactionContext.runInBatch(() =>
+          runTransaction(first, ...rest),
+        );
+      }
       return runTransaction(first, ...rest);
     }
     const callback = first as PrismaTransactionCallback;
@@ -127,8 +132,8 @@ export class PrismaService
     this.pool = pool;
     this.client = this.$extends(createTenantIsolationExtension())
       .$extends(createVehicleMediaPurgeExtension())
-      .$extends(createAuditExtension())
       .$extends(createDashboardRealtimeExtension(dashboardRealtime))
+      .$extends(createAuditExtension())
       .$extends(
         createVehicleMediaPurgeTransactionExtension(),
       ) as unknown as PrismaClient;

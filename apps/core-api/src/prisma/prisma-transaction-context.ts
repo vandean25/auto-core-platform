@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client';
 export class PrismaTransactionContext {
   private static readonly storage =
     new AsyncLocalStorage<Prisma.TransactionClient>();
+  private static readonly batchStorage = new AsyncLocalStorage<boolean>();
 
   static run<T>(client: Prisma.TransactionClient, callback: () => T): T {
     return this.storage.run(client, callback);
@@ -16,5 +17,13 @@ export class PrismaTransactionContext {
 
   static getClient(): Prisma.TransactionClient | undefined {
     return this.storage.getStore();
+  }
+
+  static runInBatch<T>(callback: () => T): T {
+    return this.batchStorage.run(true, callback);
+  }
+
+  static isInBatch(): boolean {
+    return Boolean(this.batchStorage.getStore());
   }
 }

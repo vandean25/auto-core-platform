@@ -13,9 +13,10 @@ import {
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
-import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { runWithDeferredVehicleMediaPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
+import { runWithDeferredDashboardRealtimeEmits } from './prisma-dashboard-realtime.extension.js';
 
 const logger = new Logger('PrismaAuditExtension');
 
@@ -50,7 +51,7 @@ export interface AuditActorContext {
 interface AuditRecordPayload {
   model: string;
   entityId: string;
-  action: 'UPDATE' | 'DELETE';
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
   before: unknown;
   after: unknown;
   diff: unknown;
@@ -472,13 +473,13 @@ function buildAuditLogData(
 
 const BOOKKEEPING_FIELDS = new Set(['updatedAt']);
 
-/** Skip only when the write itself touches nothing but updatedAt. */
-function isUpdatedAtOnlyWrite(data: unknown): boolean {
+/** Skip when the write itself is empty ({}) or touches nothing but updatedAt. */
+function isNoOpUpdateData(data: unknown): boolean {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return false;
   }
   const keys = Object.keys(data);
-  return keys.length > 0 && keys.every((key) => BOOKKEEPING_FIELDS.has(key));
+  return keys.length === 0 || keys.every((key) => BOOKKEEPING_FIELDS.has(key));
 }
 
 /**
@@ -500,7 +501,12 @@ function isMeaningfulAuditRecord(payload: AuditRecordPayload): boolean {
 function recordDryRunChange(payload: AuditRecordPayload): void {
   const collector = DryRunStorage.getCollector();
   if (collector && payload.entityId) {
-    const op = payload.action === 'DELETE' ? 'delete' : 'update';
+    const op =
+      payload.action === 'DELETE'
+        ? 'delete'
+        : payload.action === 'CREATE'
+          ? 'create'
+          : 'update';
     collector.recordChange({
       entity: payload.model,
       id: payload.entityId,
@@ -560,11 +566,11 @@ async function writeAuditLogBatch(
     return;
   }
 
-  const chunks: Record<string, unknown>[][] = [];
   for (let i = 0; i < entries.length; i += AUDIT_LOG_INSERT_CHUNK_SIZE) {
-    chunks.push(entries.slice(i, i + AUDIT_LOG_INSERT_CHUNK_SIZE));
+    await createMany({
+      data: entries.slice(i, i + AUDIT_LOG_INSERT_CHUNK_SIZE),
+    });
   }
-  await chunkedPromiseAll(chunks, (chunk) => createMany({ data: chunk }));
 }
 
 function createUpdateRecord(
@@ -677,15 +683,113 @@ async function createDeleteManyAuditRecords(
   await writeAuditLogBatch(batchCtx.auditLogDelegate, batchCtx.actor, payloads);
 }
 
-async function prepareSingleOperation(
-  interceptorCtx: AuditInterceptorContext,
-): Promise<PreparedSingleContext | { earlyResult: unknown }> {
-  if (shouldSkipAuditing(interceptorCtx.model)) {
-    const earlyResult = await interceptorCtx.query(interceptorCtx.args);
-    return { earlyResult };
+function createCreateRecord(
+  model: string,
+  entityId: string,
+  afterRaw: unknown,
+): AuditRecordPayload {
+  const normalizedAfter = normalizeAuditValue(afterRaw);
+  const redactedAfter = redactAuditSecrets(normalizedAfter);
+  return {
+    model,
+    entityId,
+    action: 'CREATE',
+    before: null,
+    after: redactedAfter.value,
+    diff: null,
+    changedFields: [],
+    redactedFields: redactedAfter.redactedPaths,
+  };
+}
+
+type AuditWriteOperation =
+  'update' | 'delete' | 'updateMany' | 'deleteMany' | 'upsert';
+
+type AuditTransactionRunner = <T>(
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+) => Promise<T>;
+
+function hasActiveTransaction(): boolean {
+  return Boolean(
+    PrismaTransactionContext.getClient() ??
+    DryRunStorage.getTransactionClient() ??
+    (PrismaTransactionContext.isInBatch() ? true : undefined),
+  );
+}
+
+function resolveTransactionRunner(
+  ctx: AuditInterceptorContext,
+): AuditTransactionRunner | undefined {
+  for (const candidate of [ctx.queryContext, ctx.extensionContext]) {
+    const record = asRecord(candidate);
+    if (typeof record?.$transaction === 'function') {
+      return (record.$transaction as AuditTransactionRunner).bind(record);
+    }
+  }
+  return undefined;
+}
+
+function createTxWriteExecutor(
+  tx: Prisma.TransactionClient,
+  model: string,
+  operation: AuditWriteOperation,
+  fallbackQuery: PrismaQueryFn,
+): PrismaQueryFn {
+  const txRecord = asRecord(tx);
+  const txModelDelegate = txRecord
+    ? resolvePrismaModelDelegate(txRecord, model)
+    : undefined;
+  const delegateMethod = asRecord(txModelDelegate)?.[operation];
+  if (typeof delegateMethod === 'function') {
+    return (args) =>
+      (delegateMethod as PrismaQueryFn).call(txModelDelegate, args);
+  }
+  return fallbackQuery;
+}
+
+async function withAuditTransaction(
+  ctx: AuditInterceptorContext,
+  operation: AuditWriteOperation,
+  work: (
+    actor: AuditActorContext,
+    executeWrite: PrismaQueryFn,
+  ) => Promise<unknown>,
+): Promise<unknown> {
+  if (shouldSkipAuditing(ctx.model)) {
+    return ctx.query(ctx.args);
   }
 
   const actor = getRequiredTenantContext();
+  if (hasActiveTransaction() || DryRunStorage.isDryRun()) {
+    return work(actor, ctx.query);
+  }
+
+  const txRunner = resolveTransactionRunner(ctx);
+  if (!txRunner) {
+    return work(actor, ctx.query);
+  }
+
+  return runWithDeferredVehicleMediaPurges(() =>
+    runWithDeferredDashboardRealtimeEmits(() =>
+      txRunner((tx) =>
+        PrismaTransactionContext.run(tx, () => {
+          const executeWrite = createTxWriteExecutor(
+            tx,
+            ctx.model,
+            operation,
+            ctx.query,
+          );
+          return work(actor, executeWrite);
+        }),
+      ),
+    ),
+  );
+}
+
+async function prepareSingleOperation(
+  interceptorCtx: AuditInterceptorContext,
+  actor: AuditActorContext,
+): Promise<PreparedSingleContext> {
   const { modelDelegate, auditLogDelegate } = resolveDelegates(
     interceptorCtx.queryContext,
     interceptorCtx.extensionContext,
@@ -703,13 +807,9 @@ async function prepareSingleOperation(
 
 async function prepareBatchOperation(
   interceptorCtx: AuditInterceptorContext,
+  actor: AuditActorContext,
+  executeWrite: PrismaQueryFn,
 ): Promise<PreparedBatchContext | { earlyResult: unknown }> {
-  if (shouldSkipAuditing(interceptorCtx.model)) {
-    const earlyResult = await interceptorCtx.query(interceptorCtx.args);
-    return { earlyResult };
-  }
-
-  const actor = getRequiredTenantContext();
   const { modelDelegate, auditLogDelegate } = resolveDelegates(
     interceptorCtx.queryContext,
     interceptorCtx.extensionContext,
@@ -720,7 +820,7 @@ async function prepareBatchOperation(
     modelDelegate,
     interceptorCtx.args?.where,
   );
-  const result = (await interceptorCtx.query(interceptorCtx.args)) as {
+  const result = (await executeWrite(interceptorCtx.args)) as {
     count: number;
   };
 
@@ -746,25 +846,23 @@ export async function applyAuditUpdate(
   ...rest: unknown[]
 ): Promise<unknown> {
   const ctx = normalizeInterceptorContext(this, ctxOrOptions, rest);
-  const prepared = await prepareSingleOperation(ctx);
-  if ('earlyResult' in prepared) {
-    return prepared.earlyResult;
-  }
+  return withAuditTransaction(ctx, 'update', async (actor, executeWrite) => {
+    const prepared = await prepareSingleOperation(ctx, actor);
+    const afterRaw = await executeWrite(ctx.args);
+    if (isNoOpUpdateData(ctx.args.data)) {
+      return afterRaw;
+    }
+    const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
+    const payload = createUpdateRecord(
+      ctx.model,
+      entityId,
+      prepared.beforeRaw,
+      afterRaw,
+    );
 
-  const afterRaw = await ctx.query(ctx.args);
-  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
+    await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
     return afterRaw;
-  }
-  const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
-  const payload = createUpdateRecord(
-    ctx.model,
-    entityId,
-    prepared.beforeRaw,
-    afterRaw,
-  );
-
-  await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
-  return afterRaw;
+  });
 }
 
 export async function applyAuditDelete(
@@ -773,21 +871,50 @@ export async function applyAuditDelete(
   ...rest: unknown[]
 ): Promise<unknown> {
   const ctx = normalizeInterceptorContext(this, ctxOrOptions, rest);
-  const prepared = await prepareSingleOperation(ctx);
-  if ('earlyResult' in prepared) {
-    return prepared.earlyResult;
-  }
+  return withAuditTransaction(ctx, 'delete', async (actor, executeWrite) => {
+    const prepared = await prepareSingleOperation(ctx, actor);
+    const deletedRaw = await executeWrite(ctx.args);
+    const entityId = resolveEntityId(prepared.beforeRaw, deletedRaw, ctx.args);
+    const payload = createDeleteRecord(
+      ctx.model,
+      entityId,
+      prepared.beforeRaw ?? deletedRaw,
+    );
 
-  const deletedRaw = await ctx.query(ctx.args);
-  const entityId = resolveEntityId(prepared.beforeRaw, deletedRaw, ctx.args);
-  const payload = createDeleteRecord(
-    ctx.model,
-    entityId,
-    prepared.beforeRaw ?? deletedRaw,
-  );
+    await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
+    return deletedRaw;
+  });
+}
 
-  await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
-  return deletedRaw;
+export async function applyAuditUpsert(
+  this: unknown,
+  ctxOrOptions: unknown,
+  ...rest: unknown[]
+): Promise<unknown> {
+  const ctx = normalizeInterceptorContext(this, ctxOrOptions, rest);
+  return withAuditTransaction(ctx, 'upsert', async (actor, executeWrite) => {
+    const prepared = await prepareSingleOperation(ctx, actor);
+    const afterRaw = await executeWrite(ctx.args);
+    const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
+
+    if (prepared.beforeRaw === null) {
+      const payload = createCreateRecord(ctx.model, entityId, afterRaw);
+      await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
+      return afterRaw;
+    }
+
+    if (isNoOpUpdateData(ctx.args.update)) {
+      return afterRaw;
+    }
+    const payload = createUpdateRecord(
+      ctx.model,
+      entityId,
+      prepared.beforeRaw ?? {},
+      afterRaw,
+    );
+    await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
+    return afterRaw;
+  });
 }
 
 export async function applyAuditUpdateMany(
@@ -796,25 +923,34 @@ export async function applyAuditUpdateMany(
   ...rest: unknown[]
 ): Promise<unknown> {
   const ctx = normalizeInterceptorContext(this, ctxOrOptions, rest);
-  const prepared = await prepareBatchOperation(ctx);
-  if ('earlyResult' in prepared) {
-    return prepared.earlyResult;
-  }
+  return withAuditTransaction(
+    ctx,
+    'updateMany',
+    async (actor, executeWrite) => {
+      const prepared = await prepareBatchOperation(ctx, actor, executeWrite);
+      if ('earlyResult' in prepared) {
+        return prepared.earlyResult;
+      }
 
-  if (isUpdatedAtOnlyWrite(ctx.args.data)) {
-    return prepared.result;
-  }
+      if (isNoOpUpdateData(ctx.args.data)) {
+        return prepared.result;
+      }
 
-  const affectedIds = extractAffectedIds(prepared.beforeRows);
-  const afterMap = await fetchAfterRowsMap(prepared.modelDelegate, affectedIds);
+      const affectedIds = extractAffectedIds(prepared.beforeRows);
+      const afterMap = await fetchAfterRowsMap(
+        prepared.modelDelegate,
+        affectedIds,
+      );
 
-  await createUpdateManyAuditRecords(
-    prepared.batchCtx,
-    prepared.beforeRows,
-    afterMap,
+      await createUpdateManyAuditRecords(
+        prepared.batchCtx,
+        prepared.beforeRows,
+        afterMap,
+      );
+
+      return prepared.result;
+    },
   );
-
-  return prepared.result;
 }
 
 export async function applyAuditDeleteMany(
@@ -823,20 +959,29 @@ export async function applyAuditDeleteMany(
   ...rest: unknown[]
 ): Promise<unknown> {
   const ctx = normalizeInterceptorContext(this, ctxOrOptions, rest);
-  const prepared = await prepareBatchOperation(ctx);
-  if ('earlyResult' in prepared) {
-    return prepared.earlyResult;
-  }
+  return withAuditTransaction(
+    ctx,
+    'deleteMany',
+    async (actor, executeWrite) => {
+      const prepared = await prepareBatchOperation(ctx, actor, executeWrite);
+      if ('earlyResult' in prepared) {
+        return prepared.earlyResult;
+      }
 
-  await createDeleteManyAuditRecords(prepared.batchCtx, prepared.beforeRows);
+      await createDeleteManyAuditRecords(
+        prepared.batchCtx,
+        prepared.beforeRows,
+      );
 
-  return prepared.result;
+      return prepared.result;
+    },
+  );
 }
 
 /**
  * Creates a Prisma Client Extension that automatically creates `AuditLog` records
- * for single-row and batch `update`, `delete`, `updateMany`, and `deleteMany` operations
- * on audited tenant business models.
+ * for single-row and batch `update`, `delete`, `upsert`, `updateMany`, and `deleteMany`
+ * operations on audited tenant business models, atomically within a transaction.
  */
 export function createAuditExtension() {
   return Prisma.defineExtension((client) => {
@@ -849,6 +994,9 @@ export function createAuditExtension() {
           },
           delete({ model, args, query }) {
             return applyAuditDelete.call(this, client, model, args, query);
+          },
+          upsert({ model, args, query }) {
+            return applyAuditUpsert.call(this, client, model, args, query);
           },
           updateMany({ model, args, query }) {
             return applyAuditUpdateMany.call(this, client, model, args, query);

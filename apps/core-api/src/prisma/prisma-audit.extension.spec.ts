@@ -1,4 +1,7 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   applyAuditDelete,
   applyAuditDeleteMany,
@@ -13,6 +16,13 @@ import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
+import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension.js';
+import { scheduleVehicleMediaPrefixPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
+import {
+  getVehicleMediaPurgeStorage,
+  registerVehicleMediaPurgeStorage,
+} from '../vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
+import type { VehicleMediaStorage } from '../vehicle-stock/vehicle-media/vehicle-media.storage.js';
 
 const TENANT_ID = 'tenant-audit-123';
 
@@ -1396,10 +1406,790 @@ describe('Prisma Audit Extension', () => {
     });
   });
 
+  type AuditHookParams = {
+    model: string;
+    args: Record<string, unknown>;
+    query: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+
+  function createAuditTestClient(baseClient: Record<string, unknown>) {
+    let allModelsHooks: Record<
+      string,
+      ((params: AuditHookParams) => Promise<unknown>) | undefined
+    > = {};
+    const proxyClient: Record<string, unknown> = {
+      ...baseClient,
+      $extends: (def: {
+        query: {
+          $allModels: Record<
+            string,
+            ((params: AuditHookParams) => Promise<unknown>) | undefined
+          >;
+        };
+      }) => {
+        allModelsHooks = def.query.$allModels;
+        return proxyClient;
+      },
+    };
+    const extFactory = createAuditExtension() as unknown as (
+      client: Record<string, unknown>,
+    ) => unknown;
+    extFactory(proxyClient);
+
+    const invokeOp = (
+      model: string,
+      operation: 'update' | 'delete' | 'upsert' | 'updateMany' | 'deleteMany',
+      args: Record<string, unknown>,
+      baseQuery: (a: Record<string, unknown>) => Promise<unknown>,
+    ): Promise<unknown> => {
+      const hook = allModelsHooks[operation];
+      if (typeof hook === 'function') {
+        return hook.call(proxyClient, { model, args, query: baseQuery });
+      }
+      return baseQuery(args);
+    };
+
+    return { invokeOp };
+  }
+
+  describe('upsert auditing via createAuditExtension', () => {
+    it('AUT-1009 scenario 1: writes one UPDATE audit entry with diff when FinanceSettings is upserted with a change', async () => {
+      const beforeRow = {
+        id: 'fs-1',
+        tenant_id: TENANT_ID,
+        lock_date: null,
+        invoice_prefix: 'RE-2026-',
+      };
+      const afterRow = {
+        id: 'fs-1',
+        tenant_id: TENANT_ID,
+        lock_date: '2026-10-31T00:00:00.000Z',
+        invoice_prefix: 'RE-2026-',
+      };
+      const financeFindFirst = jest.fn().mockResolvedValue(beforeRow);
+      const contextWithFinance = {
+        ...mockContext,
+        financeSettings: { findFirst: financeFindFirst },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithFinance);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'FinanceSettings',
+          'upsert',
+          {
+            where: { tenant_id: TENANT_ID },
+            update: { lock_date: new Date('2026-10-31T00:00:00.000Z') },
+            create: { tenant_id: TENANT_ID, invoice_prefix: 'RE-2026-' },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(afterRow);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          entity_type: 'FinanceSettings',
+          entity_id: 'fs-1',
+          action: 'UPDATE',
+          before: beforeRow,
+          after: afterRow,
+          diff: {
+            lock_date: {
+              before: null,
+              after: '2026-10-31T00:00:00.000Z',
+            },
+          },
+          changed_fields: ['lock_date'],
+        }),
+      });
+    });
+
+    it('AUT-1009 scenario 2: writes no audit entry when FinanceSettings.getSettings upserts with update: {} on an existing row', async () => {
+      const existingRow = {
+        id: 'fs-1',
+        tenant_id: TENANT_ID,
+        invoice_prefix: 'RE-2026-',
+      };
+      const contextWithFinance = {
+        ...mockContext,
+        financeSettings: {
+          findFirst: jest.fn().mockResolvedValue(existingRow),
+        },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithFinance);
+      const queryFn = jest.fn().mockResolvedValue(existingRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'FinanceSettings',
+          'upsert',
+          {
+            where: { tenant_id: TENANT_ID },
+            update: {},
+            create: { tenant_id: TENANT_ID, invoice_prefix: 'RE-2026-' },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(existingRow);
+      expect(queryFn).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('AUT-1009 scenario 3: writes one CREATE audit entry when upsert creates a new row', async () => {
+      const createdRow = {
+        id: 'brand-1',
+        tenant_id: TENANT_ID,
+        name: 'Audi',
+      };
+      const contextWithBrand = {
+        ...mockContext,
+        brand: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
+      const queryFn = jest.fn().mockResolvedValue(createdRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Brand',
+          'upsert',
+          {
+            where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'Audi' } },
+            update: {},
+            create: { tenant_id: TENANT_ID, name: 'Audi' },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(createdRow);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          entity_type: 'Brand',
+          entity_id: 'brand-1',
+          action: 'CREATE',
+          before: null,
+          after: createdRow,
+          diff: null,
+          changed_fields: [],
+          redacted_fields: [],
+        }),
+      });
+    });
+
+    it('writes an UPDATE entry with empty before image when upsert pre-image findFirst throws (beforeRaw is undefined)', async () => {
+      const afterRow = {
+        id: 'brand-2',
+        tenant_id: TENANT_ID,
+        name: 'BMW',
+      };
+      const contextWithBrand = {
+        ...mockContext,
+        brand: {
+          findFirst: jest.fn().mockRejectedValue(new Error('Unknown argument')),
+        },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Brand',
+          'upsert',
+          {
+            where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'BMW' } },
+            update: { name: 'BMW' },
+            create: { tenant_id: TENANT_ID, name: 'BMW' },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(afterRow);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          entity_type: 'Brand',
+          entity_id: 'brand-2',
+          action: 'UPDATE',
+          before: {},
+          after: afterRow,
+        }),
+      });
+    });
+
+    it('records create in dry-run collector when upsert creates a new row', async () => {
+      const createdRow = { id: 'brand-dry-1', tenant_id: TENANT_ID, name: 'BMW' };
+      const collector = new DryRunChangeCollector();
+      const contextWithBrand = {
+        ...mockContext,
+        brand: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
+
+      await DryRunStorage.run({ isDryRun: true, collector }, () =>
+        runWithContext(undefined, undefined, () =>
+          invokeOp(
+            'Brand',
+            'upsert',
+            {
+              where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'BMW' } },
+              update: {},
+              create: { tenant_id: TENANT_ID, name: 'BMW' },
+            },
+            async () => createdRow,
+          ),
+        ),
+      );
+
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+      expect(collector.getChanges()).toEqual([
+        { entity: 'Brand', id: 'brand-dry-1', op: 'create', provisional: true },
+      ]);
+    });
+
+    it('bypasses non-audited models on upsert without writing AuditLog', async () => {
+      const { invokeOp } = createAuditTestClient(mockContext);
+      const queryFn = jest.fn().mockResolvedValue({ id: 'tenant-1' });
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Tenant',
+          'upsert',
+          { where: { id: 'tenant-1' }, update: {}, create: { name: 'T' } },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual({ id: 'tenant-1' });
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+
+    it('throws InternalServerErrorException when tenant context is missing on upsert', async () => {
+      const { invokeOp } = createAuditTestClient(mockContext);
+      const queryFn = jest.fn();
+
+      await expect(
+        invokeOp(
+          'Brand',
+          'upsert',
+          { where: { id: 'brand-1' }, update: {}, create: { name: 'Audi' } },
+          queryFn,
+        ),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(queryFn).not.toHaveBeenCalled();
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('atomicity and transaction wrapping (AUT-1009)', () => {
+    it.each([
+      ['update', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['delete', { where: { id: 'cust-1' } }],
+      ['upsert', { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
+      ['updateMany', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['deleteMany', { where: { id: 'cust-1' } }],
+    ] as const)(
+      'scenario 4 (%s): wraps write + audit insert in $transaction outside a transaction and rolls back when audit insert fails',
+      async (operation, args) => {
+        const beforeRow = { id: 'cust-1', name: 'Before' };
+        const afterRow = { id: 'cust-1', name: 'After' };
+        const committedWrites: string[] = [];
+        const txStagedWrites: string[] = [];
+
+        const txCustomerDelegate = {
+          findFirst: jest.fn().mockResolvedValue(beforeRow),
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce([beforeRow])
+            .mockResolvedValueOnce([afterRow]),
+          update: jest.fn().mockImplementation(async () => {
+            txStagedWrites.push('update');
+            return afterRow;
+          }),
+          delete: jest.fn().mockImplementation(async () => {
+            txStagedWrites.push('delete');
+            return beforeRow;
+          }),
+          upsert: jest.fn().mockImplementation(async () => {
+            txStagedWrites.push('upsert');
+            return afterRow;
+          }),
+          updateMany: jest.fn().mockImplementation(async () => {
+            txStagedWrites.push('updateMany');
+            return { count: 1 };
+          }),
+          deleteMany: jest.fn().mockImplementation(async () => {
+            txStagedWrites.push('deleteMany');
+            return { count: 1 };
+          }),
+        };
+
+        const txClient = {
+          customer: txCustomerDelegate,
+          auditLog: {
+            create: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+            createMany: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+          },
+        };
+
+        const txFn = jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) => {
+          try {
+            const res = await cb(txClient);
+            committedWrites.push(...txStagedWrites);
+            return res;
+          } catch (err) {
+            txStagedWrites.length = 0;
+            throw err;
+          }
+        });
+
+        const outerCtx = {
+          ...mockContext,
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(beforeRow),
+            findMany: jest
+              .fn()
+              .mockResolvedValueOnce([beforeRow])
+              .mockResolvedValueOnce([afterRow]),
+          },
+          auditLog: {
+            create: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+            createMany: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+          },
+          $transaction: txFn,
+        };
+        const { invokeOp } = createAuditTestClient(outerCtx);
+        const outerQueryFn = jest.fn().mockImplementation(async () => {
+          committedWrites.push('outer-non-tx');
+          return operation === 'updateMany' || operation === 'deleteMany'
+            ? { count: 1 }
+            : afterRow;
+        });
+
+        await expect(
+          runWithContext(undefined, undefined, () =>
+            invokeOp('Customer', operation, args, outerQueryFn),
+          ),
+        ).rejects.toThrow('audit insert failed');
+
+        expect(committedWrites).toEqual([]);
+        expect(txFn).toHaveBeenCalledTimes(1);
+        expect(outerQueryFn).not.toHaveBeenCalled();
+        expect(txCustomerDelegate[operation]).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each([
+      ['update', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['delete', { where: { id: 'cust-1' } }],
+      ['upsert', { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
+      ['updateMany', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['deleteMany', { where: { id: 'cust-1' } }],
+    ] as const)(
+      'scenario 5 (%s): does not open a nested transaction when already inside PrismaTransactionContext',
+      async (operation, args) => {
+        const beforeRow = { id: 'cust-1', name: 'Before' };
+        const afterRow = { id: 'cust-1', name: 'After' };
+        const txAuditCreate = jest.fn().mockResolvedValue({ id: 'audit-1' });
+        const txAuditCreateMany = jest.fn().mockResolvedValue({ count: 1 });
+        const txClient = {
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(beforeRow),
+            findMany: jest
+              .fn()
+              .mockResolvedValueOnce([beforeRow])
+              .mockResolvedValueOnce([afterRow]),
+          },
+          auditLog: {
+            create: txAuditCreate,
+            createMany: txAuditCreateMany,
+          },
+        };
+        const outerTxFn = jest.fn();
+        const outerCtx = {
+          ...mockContext,
+          $transaction: outerTxFn,
+        };
+        const { invokeOp } = createAuditTestClient(outerCtx);
+        const queryFn = jest
+          .fn()
+          .mockResolvedValue(
+            operation === 'updateMany' || operation === 'deleteMany'
+              ? { count: 1 }
+              : afterRow,
+          );
+
+        await runWithContext(undefined, undefined, () =>
+          PrismaTransactionContext.run(txClient as never, () =>
+            invokeOp('Customer', operation, args, queryFn),
+          ),
+        );
+
+        expect(outerTxFn).not.toHaveBeenCalled();
+        expect(queryFn).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('awaits auditLog.createMany chunks sequentially inside a batch transaction (> 500 rows)', async () => {
+      const totalRows = 505;
+      const beforeRows = Array.from({ length: totalRows }, (_, i) => ({
+        id: `cust-${i}`,
+        name: `Before-${i}`,
+      }));
+      const afterRows = Array.from({ length: totalRows }, (_, i) => ({
+        id: `cust-${i}`,
+        name: `After-${i}`,
+      }));
+
+      let inFlightCreateMany = 0;
+      let maxConcurrentCreateMany = 0;
+      const chunkSizes: number[] = [];
+
+      const txClient = {
+        customer: {
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce(beforeRows)
+            .mockResolvedValueOnce(afterRows),
+          updateMany: jest.fn().mockResolvedValue({ count: totalRows }),
+        },
+        auditLog: {
+          createMany: jest.fn().mockImplementation(async (args: { data: unknown[] }) => {
+            inFlightCreateMany += 1;
+            maxConcurrentCreateMany = Math.max(
+              maxConcurrentCreateMany,
+              inFlightCreateMany,
+            );
+            chunkSizes.push(args.data.length);
+            await Promise.resolve();
+            inFlightCreateMany -= 1;
+            return { count: args.data.length };
+          }),
+        },
+      };
+
+      const outerCtx = {
+        ...mockContext,
+        $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+          cb(txClient),
+        ),
+      };
+      const { invokeOp } = createAuditTestClient(outerCtx);
+
+      await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Customer',
+          'updateMany',
+          { where: { tenant_id: TENANT_ID }, data: { name: 'After' } },
+          jest.fn(),
+        ),
+      );
+
+      expect(chunkSizes).toEqual([500, 5]);
+      expect(maxConcurrentCreateMany).toBe(1);
+    });
+
+    it('does not open a nested transaction when inside PrismaTransactionContext.runInBatch', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const outerTxFn = jest.fn();
+      const outerCtx = {
+        ...mockContext,
+        $transaction: outerTxFn,
+      };
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      await runWithContext(undefined, undefined, () =>
+        PrismaTransactionContext.runInBatch(() =>
+          applyAuditUpdate.call(
+            outerCtx,
+            outerCtx,
+            'Customer',
+            { where: { id: 'cust-1' }, data: { name: 'After' } },
+            queryFn,
+          ),
+        ),
+      );
+
+      expect(outerTxFn).not.toHaveBeenCalled();
+      expect(queryFn).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it('defers dashboard realtime emits until the audit transaction commits and suppresses them on rollback', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      const emitEntityUpdated = jest.fn();
+      let emittedBeforeAuditInsert = false;
+
+      const makeClient = (shouldFailAudit: boolean) => {
+        const txClient = {
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(beforeRow),
+            update: jest.fn().mockImplementation(async () => {
+              emitRealtimeForOperation(
+                { emitEntityUpdated },
+                'Customer',
+                'update',
+                afterRow,
+              );
+              return afterRow;
+            }),
+          },
+          auditLog: {
+            create: jest.fn().mockImplementation(async () => {
+              emittedBeforeAuditInsert = emitEntityUpdated.mock.calls.length > 0;
+              if (shouldFailAudit) {
+                throw new Error('audit insert failed');
+              }
+              return { id: 'audit-1' };
+            }),
+          },
+        };
+
+        return {
+          ...mockContext,
+          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+            cb(txClient),
+          ),
+        };
+      };
+
+      await expect(
+        runWithContext(undefined, undefined, () =>
+          applyAuditUpdate.call(
+            makeClient(true),
+            makeClient(true),
+            'Customer',
+            { where: { id: 'cust-1' }, data: { name: 'After' } },
+            jest.fn(),
+          ),
+        ),
+      ).rejects.toThrow('audit insert failed');
+      expect(emitEntityUpdated).not.toHaveBeenCalled();
+
+      const commitClient = makeClient(false);
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          commitClient,
+          commitClient,
+          'Customer',
+          { where: { id: 'cust-1' }, data: { name: 'After' } },
+          jest.fn(),
+        ),
+      );
+      expect(emittedBeforeAuditInsert).toBe(false);
+      expect(emitEntityUpdated).toHaveBeenCalledTimes(1);
+      expect(emitEntityUpdated).toHaveBeenCalledWith(TENANT_ID, {
+        type: 'CUSTOMER',
+        action: 'UPDATED',
+        entityId: 'cust-1',
+      });
+    });
+
+    it('schedules vehicle media purge on vehicle delete and flushes only after audit transaction commits', async () => {
+      const deleteVehicleMediaPrefix = jest.fn().mockResolvedValue(undefined);
+      const storage: VehicleMediaStorage = {
+        resolveBucket: () => 'b',
+        objectPrefix: () => 'p/',
+        readObject: jest.fn(),
+        storeProcessedObject: async () => 'k',
+        deleteObjects: async () => undefined,
+        deleteVehicleMediaPrefix,
+        deleteTenantVehicleMediaPrefix: jest.fn(),
+      };
+      const previousStorage = getVehicleMediaPurgeStorage();
+      registerVehicleMediaPurgeStorage(storage);
+
+      try {
+        const beforeVehicle = { id: 'veh-1', tenant_id: TENANT_ID, vin: 'VIN123' };
+        let purgedBeforeAuditInsert = false;
+
+        const makeClient = (shouldFailAudit: boolean) => {
+          const txClient = {
+            vehicle: {
+              findFirst: jest.fn().mockResolvedValue(beforeVehicle),
+              delete: jest.fn().mockImplementation(async () => {
+                await scheduleVehicleMediaPrefixPurges([
+                  { id: 'veh-1', tenant_id: TENANT_ID },
+                ]);
+                return beforeVehicle;
+              }),
+            },
+            auditLog: {
+              create: jest.fn().mockImplementation(async () => {
+                purgedBeforeAuditInsert =
+                  deleteVehicleMediaPrefix.mock.calls.length > 0;
+                if (shouldFailAudit) {
+                  throw new Error('audit insert failed');
+                }
+                return { id: 'audit-1' };
+              }),
+            },
+          };
+
+          return {
+            ...mockContext,
+            $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+              cb(txClient),
+            ),
+          };
+        };
+
+        await expect(
+          runWithContext(undefined, undefined, () =>
+            applyAuditDelete.call(
+              makeClient(true),
+              makeClient(true),
+              'Vehicle',
+              { where: { id: 'veh-1' } },
+              jest.fn(),
+            ),
+          ),
+        ).rejects.toThrow('audit insert failed');
+        expect(deleteVehicleMediaPrefix).not.toHaveBeenCalled();
+
+        const commitClient = makeClient(false);
+        await runWithContext(undefined, undefined, () =>
+          applyAuditDelete.call(
+            commitClient,
+            commitClient,
+            'Vehicle',
+            { where: { id: 'veh-1' } },
+            jest.fn(),
+          ),
+        );
+        expect(purgedBeforeAuditInsert).toBe(false);
+        expect(deleteVehicleMediaPrefix).toHaveBeenCalledTimes(1);
+        expect(deleteVehicleMediaPrefix).toHaveBeenCalledWith({
+          tenantId: TENANT_ID,
+          vehicleId: 'veh-1',
+        });
+      } finally {
+        registerVehicleMediaPurgeStorage(previousStorage as VehicleMediaStorage);
+      }
+    });
+
+    it.each([
+      [
+        'update',
+        applyAuditUpdate,
+        { where: { id: 'other-tenant-cust' }, data: { name: 'Hacked' } },
+      ],
+      [
+        'updateMany',
+        applyAuditUpdateMany,
+        { where: { id: 'other-tenant-cust' }, data: { tenant_id: 'other-tenant' } },
+      ],
+    ] as const)(
+      'propagates cross-tenant %s rejection from the extended tx client without writing an audit log',
+      async (operation, handler, args) => {
+        const txAuditCreate = jest.fn();
+        const txAuditCreateMany = jest.fn();
+        const txClient = {
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
+            [operation]: jest
+              .fn()
+              .mockRejectedValue(
+                new NotFoundException(
+                  '[TenantIsolation] Customer record not found for current tenant.',
+                ),
+              ),
+          },
+          auditLog: {
+            create: txAuditCreate,
+            createMany: txAuditCreateMany,
+          },
+        };
+
+        const extendedClient = {
+          ...mockContext,
+          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+            cb(txClient),
+          ),
+        };
+
+        await expect(
+          runWithContext(undefined, undefined, () =>
+            handler.call(extendedClient, extendedClient, 'Customer', args, jest.fn()),
+          ),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(txAuditCreate).not.toHaveBeenCalled();
+        expect(txAuditCreateMany).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+
   describe('createAuditExtension', () => {
     it('defines prisma extension', () => {
       const ext = createAuditExtension();
       expect(ext).toBeDefined();
+    });
+
+    it('opens $transaction on the extended client passed to createAuditExtension', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      const txCustomerUpdate = jest.fn().mockResolvedValue(afterRow);
+      const txAuditCreate = jest.fn().mockResolvedValue({ id: 'audit-1' });
+      const txClient = {
+        customer: {
+          findFirst: jest.fn().mockResolvedValue(beforeRow),
+          update: txCustomerUpdate,
+        },
+        auditLog: { create: txAuditCreate },
+      };
+
+      const capturedHooks: Record<string, Record<string, (p: any) => Promise<unknown>>> = {};
+      interface FakeExtendedClient {
+        $transaction: jest.Mock;
+        $extends: jest.Mock<FakeExtendedClient, [ { query: { $allModels: Record<string, (p: any) => Promise<unknown>> } } ]>;
+      }
+      const fakeExtendedClient: FakeExtendedClient = {
+        $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+          cb(txClient),
+        ),
+        $extends: jest.fn((def: { query: { $allModels: Record<string, (p: any) => Promise<unknown>> } }): FakeExtendedClient => {
+          capturedHooks.$allModels = def.query.$allModels;
+          return fakeExtendedClient;
+        }),
+      };
+
+      const extFactory = createAuditExtension() as unknown as (
+        client: typeof fakeExtendedClient,
+      ) => unknown;
+      extFactory(fakeExtendedClient);
+
+      await runWithContext(undefined, undefined, () =>
+        capturedHooks.$allModels.update.call(
+          fakeExtendedClient,
+          {
+            model: 'Customer',
+            args: { where: { id: 'cust-1' }, data: { name: 'After' } },
+            query: jest.fn(),
+          },
+        ),
+      );
+
+      expect(fakeExtendedClient.$transaction).toHaveBeenCalledTimes(1);
+      expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+      expect(txAuditCreate).toHaveBeenCalledTimes(1);
     });
   });
 
