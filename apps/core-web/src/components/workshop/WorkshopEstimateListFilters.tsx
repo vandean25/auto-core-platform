@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -10,6 +12,7 @@ import {
   hasInvalidSentRange,
   type EstimateListView,
 } from '@/features/workshop/workshop-estimate-list-filters'
+import { cn } from '@/lib/utils'
 import { EstimateCustomerPicker } from './EstimateCustomerPicker'
 
 type WorkshopEstimateListFiltersProps = {
@@ -20,11 +23,14 @@ type WorkshopEstimateListFiltersProps = {
 /** Status chips, customer, sent range and the older-versions switch of the estimates list. */
 export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimateListFiltersProps) {
   const { t } = useTranslation('workshop')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const chips = ['ALL', ...ESTIMATE_STATUS_CHIPS] as const
+  const activeFilterCount =
+    Number(Boolean(view.customerId)) + Number(Boolean(view.sentFrom || view.sentTo)) + Number(view.showOlder)
 
   return (
     <div className="space-y-3" data-testid="estimate-list-filters">
-      <div role="group" aria-label={t('estimateList.filters.statusAria')} className="flex flex-wrap gap-2">
+      <div role="group" aria-label={t('estimateList.filters.statusAria')} className="flex flex-wrap gap-1.5 sm:gap-2">
         {chips.map((chip) => (
           <Button
             key={chip}
@@ -33,13 +39,34 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
             disabled={view.showOlder}
             aria-pressed={!view.showOlder && view.status === chip}
             data-testid={`estimate-status-chip-${chip}`}
+            className="max-sm:min-h-11"
             onClick={() => onChange({ status: chip })}
           >
             {chip === 'ALL' ? t('estimateList.filters.all') : estimateVersionStatusLabel(chip)}
           </Button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+      <Button
+        type="button"
+        variant="outline"
+        aria-expanded={filtersOpen}
+        aria-controls="estimate-secondary-filters"
+        data-testid="estimate-filters-toggle"
+        className="min-h-11 w-full justify-between sm:hidden"
+        onClick={() => setFiltersOpen((open) => !open)}
+      >
+        <span className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4" />
+          {activeFilterCount > 0
+            ? t('estimateList.filters.moreFiltersCount', { count: activeFilterCount })
+            : t('estimateList.filters.moreFilters')}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 transition-transform', filtersOpen && 'rotate-180')} />
+      </Button>
+      <div
+        id="estimate-secondary-filters"
+        className={cn('grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end', !filtersOpen && 'max-sm:hidden')}
+      >
         <div className="col-span-2 flex min-w-0 flex-col gap-1">
           <Label>{t('estimateList.filters.customer')}</Label>
           <EstimateCustomerPicker

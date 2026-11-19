@@ -13,13 +13,8 @@ import { InventoryItemInfoCard } from '@/components/inventory/InventoryItemInfoC
 import { canManageInventoryItems } from '@/features/inventory/inventory-management-permissions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatDateTime } from '@/lib/format'
-import { formatCurrency } from '@/lib/utils'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
-import { formatInventoryTransactionType } from '@/lib/i18n/enum-labels'
-
-const formatLedgerDate = (dateString: string) => formatDateTime(dateString)
+import { InventoryLedgerCard } from './InventoryLedgerCard'
 
 export default function InventoryLedgerPage() {
   const { t } = useTranslation('inventory')
@@ -42,31 +37,31 @@ export default function InventoryLedgerPage() {
 
   const { data: transactions, isLoading: isLedgerLoading, error: ledgerError } = useInventoryHistory(itemId)
   const isItemLoading = isDetailLoading || isListItemLoading
-  const emDash = t('shared.emDash')
 
   return (
     <div className="space-y-6">
       <motion.div
-        className="flex items-center justify-between gap-4"
+        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0, transition: { duration: 0.25 } }}
       >
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" className="self-start max-sm:min-h-11" asChild>
           <Link to="/inventory">
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('ledger.backToInventory')}
           </Link>
         </Button>
         {canManage && item ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setReceiveOpen(true)}>
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+            <Button variant="outline" size="sm" className="max-sm:min-h-11 max-sm:px-2" onClick={() => setReceiveOpen(true)}>
               {t('actions.receive')}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setAdjustOpen(true)}>
+            <Button variant="outline" size="sm" className="max-sm:min-h-11 max-sm:px-2" onClick={() => setAdjustOpen(true)}>
               {t('actions.adjust')}
             </Button>
             <Button
               size="sm"
+              className="max-sm:min-h-11 max-sm:px-2"
               disabled={!detailItem || isDetailLoading}
               onClick={() => setEditOpen(true)}
             >
@@ -105,70 +100,7 @@ export default function InventoryLedgerPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.3, delay: 0.35 } }}
           >
-            <Card className="h-full flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">{t('ledger.stockLedgerTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 p-0 overflow-x-auto">
-                <Table className="min-w-[720px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('ledger.columns.date')}</TableHead>
-                      <TableHead>{t('ledger.columns.type')}</TableHead>
-                      <TableHead>{t('ledger.columns.reference')}</TableHead>
-                      <TableHead>{t('ledger.columns.location')}</TableHead>
-                      <TableHead className="text-right">{t('ledger.columns.qty')}</TableHead>
-                      <TableHead className="text-right">{t('ledger.columns.cost')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLedgerLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          {t('ledger.loadingLedger')}
-                        </TableCell>
-                      </TableRow>
-                    ) : ledgerError ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          {t('ledger.loadLedgerFailed')}
-                        </TableCell>
-                      </TableRow>
-                    ) : !transactions || transactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                          {t('ledger.noLedgerActivity')}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      transactions.map((transaction) => {
-                        const quantity = Number(transaction.quantity)
-                        const costValue =
-                          transaction.cost_basis === null || transaction.cost_basis === undefined
-                            ? null
-                            : Number(transaction.cost_basis)
-                        const transactionTypeLabel = formatInventoryTransactionType(transaction.type)
-                        return (
-                          <TableRow key={transaction.id}>
-                            <TableCell>{formatLedgerDate(transaction.createdAt)}</TableCell>
-                            <TableCell>{transactionTypeLabel}</TableCell>
-                            <TableCell>{transaction.reference_id ?? emDash}</TableCell>
-                            <TableCell>{transaction.location?.name ?? emDash}</TableCell>
-                            <TableCell className="text-right">
-                              {quantity > 0 ? '+' : ''}
-                              {quantity}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {costValue === null ? emDash : formatCurrency(costValue)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <InventoryLedgerCard transactions={transactions} isLoading={isLedgerLoading} error={ledgerError} />
           </motion.div>
         </div>
       </div>

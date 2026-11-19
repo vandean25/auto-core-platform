@@ -131,7 +131,7 @@ export function AvailabilityField({ item, editable }: Pick<ItemFieldProps, 'item
   return (
     <div className="space-y-1">
       <FieldLabel>{t('itemInfoCard.availability')}</FieldLabel>
-      <div className="flex items-center gap-2 mt-1">
+      <div className="mt-1 flex flex-nowrap items-center gap-2 whitespace-nowrap">
         <StatusBadge status={item.status} />
         <span className="text-sm font-medium">({t('shared.units', { count: item.quantity_available })})</span>
       </div>

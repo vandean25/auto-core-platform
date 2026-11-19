@@ -63,7 +63,7 @@ export function InventoryItemInfoCard({
 
         <NameField item={item} editable={editable} onChange={onChange} />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <PriceField item={item} editable={editable} onChange={onChange} />
           <AvailabilityField item={item} editable={editable} />
         </div>
