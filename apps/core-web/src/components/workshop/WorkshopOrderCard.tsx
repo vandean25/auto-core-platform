@@ -150,6 +150,7 @@ export function WorkshopOrderCardContent({
                 <DropdownMenuItem
                   key={`${target.kind}-${target.id}`}
                   data-testid={`assign-${target.kind}-${target.id}`}
+                  className="max-md:min-h-11"
                   onSelect={() => onQuickAssign?.(target)}
                 >
                   {target.label}

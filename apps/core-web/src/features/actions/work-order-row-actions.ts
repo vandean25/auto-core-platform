@@ -13,6 +13,7 @@ import type { WorkshopOrder, WorkshopTask, WorkshopTaskStatus } from '@/api/type
 import { getErrorMessage, getPermissionAwareErrorMessage } from '@/lib/error-utils'
 import { formatLocalDateInZone } from '@/lib/format'
 import { DEFAULT_TIME_ZONE, i18n } from '@/lib/i18n'
+import { toastSuccessWithUndo } from '@/lib/toast-actions'
 import {
   canRescheduleWorkshopOrder,
   shiftScheduleToLocalDate,
@@ -85,6 +86,7 @@ export type WorkshopOrderRowActionContext = {
     orderId: string,
     taskId: string,
     status: WorkshopTaskStatus,
+    previousStatus?: WorkshopTaskStatus,
   ) => void | Promise<void>
   reschedule?: (request: WorkshopOrderRescheduleRequest) => void | Promise<void>
   undoNotes?: (orderId: string) => void | Promise<void>
@@ -158,9 +160,29 @@ export async function runUpdateWorkshopOrderTaskStatus(
     status: WorkshopTaskStatus
   }) => Promise<unknown>,
   t: TFunction<'workshop'>,
+  previousStatus?: WorkshopTaskStatus,
 ) {
   try {
     await mutateTask({ orderId, taskId, status })
+    if (previousStatus && previousStatus !== status) {
+      toastSuccessWithUndo(
+        t('orderDetail.toast.taskStatusUpdated'),
+        t('orderDetail.undoNotes.action'),
+        () => {
+          void mutateTask({ orderId, taskId, status: previousStatus })
+            .then(() => {
+              toast.success(t('orderDetail.toast.taskStatusUndone'))
+            })
+            .catch((error: unknown) => {
+              toast.error(
+                getPermissionAwareErrorMessage(error, t('orderDetail.toast.taskStatusUpdateFailed')),
+              )
+            })
+        },
+      )
+    } else {
+      toast.success(t('orderDetail.toast.taskStatusUpdated'))
+    }
     return true
   } catch (error: unknown) {
     toast.error(getErrorMessage(error, t('orderDetail.toast.taskStatusUpdateFailed')))
@@ -218,7 +240,7 @@ function buildTaskStateLeafItems(
     isEnabled: (record: WorkshopOrderListRow) =>
       !isWorkshopOrderLockedStatus(record.status) && task.status !== status,
     run: async (record: WorkshopOrderListRow, ctx: WorkshopOrderRowActionContext) => {
-      await ctx.updateTaskStatus?.(record.id, task.id, status)
+      await ctx.updateTaskStatus?.(record.id, task.id, status, task.status)
     },
   }))
 }

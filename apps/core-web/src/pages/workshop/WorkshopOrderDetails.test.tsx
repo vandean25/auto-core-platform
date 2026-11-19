@@ -2360,6 +2360,61 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         expect(screen.getByTestId("assigned-tech-select")).not.toBeDisabled();
       });
+
+      // AUT-949 Scenario 3: unassigning in the detail picker shows pending state and settles immediately from /board/assign without a ~3s stale gap.
+      it("updates the picker to unassigned immediately when /board/assign confirms and shows a success toast", async () => {
+        let resolveAssign: (() => void) | undefined;
+        vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+          if (
+            String(input) === "/api/workshop/board/assign" &&
+            init?.method === "PATCH"
+          ) {
+            return new Promise<Response>((resolve) => {
+              resolveAssign = () =>
+                resolve({
+                  ok: true,
+                  status: 200,
+                  json: async () => ({
+                    id: "order-1",
+                    orderNumber: "WO-2026-0001",
+                    status: "INTAKE",
+                    mechanicId: null,
+                    bayId: null,
+                    stagingLocationId: null,
+                    updatedAt: "2026-04-27T00:00:01.000Z",
+                  }),
+                } as Response);
+            });
+          }
+          // Keep detail refetch unresolved to prove the picker updates from the PATCH response without waiting for refetch.
+          return new Promise<Response>(() => {});
+        });
+        const assignedOrder = { ...baseOrder, mechanicId: "mech-1", mechanic_id: "mech-1" };
+        queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), assignedOrder);
+        setupDefaultMocks(assignedOrder);
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        // Re-apply actual useAssignBoard since setupDefaultMocks resets it.
+        const actual = await vi.importActual<typeof import("@/api/workshop")>("@/api/workshop");
+        vi.mocked(workshopApi.useAssignBoard).mockImplementation(actual.useAssignBoard);
+
+        renderComponent();
+
+        fireEvent.click(screen.getByTestId("assigned-tech-select"));
+        fireEvent.click(screen.getByRole("option", { name: deWorkshop.orderHeader.unassigned }));
+
+        await waitFor(() => expect(screen.getByTestId("assigned-tech-select")).toBeDisabled());
+        expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent("Alex Tech");
+        expect(toast.success).not.toHaveBeenCalled();
+
+        await act(async () => resolveAssign?.());
+
+        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
+        expect(
+          queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
+            workshopApi.workshopKeys.detail("order-1"),
+          )?.mechanicId,
+        ).toBeNull();
+      });
     });
 
     describe("check-in link", () => {

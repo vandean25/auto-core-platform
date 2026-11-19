@@ -202,7 +202,7 @@ describe('work order row actions', () => {
     expect(task1Leaves.find((leaf) => leaf.id.endsWith('DONE'))?.isEnabled?.(row)).toBe(true)
 
     await task1Leaves.find((leaf) => leaf.id.endsWith('WAITING_PARTS'))?.run?.(row, context)
-    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS')
+    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS', 'IN_PROGRESS')
 
     const task2Leaves =
       resolveEntityActionChildren(taskChildren[1]?.children, row, context) ?? []
@@ -210,7 +210,7 @@ describe('work order row actions', () => {
     expect(task2Leaves.find((leaf) => leaf.id.endsWith('IN_PROGRESS'))?.isEnabled?.(row)).toBe(true)
 
     await task2Leaves.find((leaf) => leaf.id.endsWith('IN_PROGRESS'))?.run?.(row, context)
-    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-2', 'IN_PROGRESS')
+    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-2', 'IN_PROGRESS', 'DONE')
   })
 
   it('offers reschedule only when the order can be moved, and runs the shared request', async () => {
@@ -266,5 +266,39 @@ describe('work order row actions', () => {
       taskId: 'task-1',
       status: 'DONE',
     })
+  })
+
+  // AUT-949 Scenario 6: task status change shows a success toast with Undo that restores the previous status.
+  it('shows a success toast with Undo for task status changes and restores previous status on Undo', async () => {
+    const { toast } = await import('sonner')
+    const successSpy = vi.spyOn(toast, 'success').mockImplementation(() => 'toast-1')
+    const mutateTask = vi.fn().mockResolvedValue({})
+
+    await runUpdateWorkshopOrderTaskStatus('order-1', 'task-1', 'IN_PROGRESS', mutateTask, t, 'NOT_STARTED')
+
+    expect(successSpy).toHaveBeenCalledWith(
+      'orderDetail.toast.taskStatusUpdated',
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: 'orderDetail.undoNotes.action',
+          onClick: expect.any(Function),
+        }),
+      }),
+    )
+
+    const toastOptions = successSpy.mock.calls.at(-1)?.[1] as { action?: { onClick?: () => void } } | undefined
+    toastOptions?.action?.onClick?.()
+
+    await vi.waitFor(() => {
+      expect(mutateTask).toHaveBeenLastCalledWith({
+        orderId: 'order-1',
+        taskId: 'task-1',
+        status: 'NOT_STARTED',
+      })
+    })
+    await vi.waitFor(() => {
+      expect(successSpy).toHaveBeenCalledWith('orderDetail.toast.taskStatusUndone')
+    })
+    successSpy.mockRestore()
   })
 })

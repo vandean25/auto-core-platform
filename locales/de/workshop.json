@@ -166,6 +166,8 @@
       "goToSettings": "Zu den Einstellungen"
     },
     "assignError": "Zuweisung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "bayAssigned": "Hebebühne zugewiesen",
+    "bayUnassigned": "Hebebühnenzuweisung entfernt",
     "a11y": {
       "orderFallback": "Werkstattauftrag",
       "unknownColumn": "eine unbekannte Spalte",
@@ -655,6 +657,8 @@
       "reportedIssueSaveFailed": "Gemeldetes Problem konnte nicht gespeichert werden",
       "taskCreated": "Aufgabe erstellt",
       "taskCreateFailed": "Aufgabe konnte nicht erstellt werden",
+      "taskStatusUpdated": "Aufgabenstatus aktualisiert",
+      "taskStatusUndone": "Aufgabenstatus zurückgesetzt",
       "taskStatusUpdateFailed": "Aufgabenstatus konnte nicht aktualisiert werden",
       "mechanicNotesUpdateFailed": "Mechanikernotizen konnten nicht aktualisiert werden",
       "taskDeleted": "Aufgabe gelöscht",
