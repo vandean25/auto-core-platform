@@ -1,6 +1,7 @@
-/** Suites that must run alone so Jest env hooks can target a single MCP stack. */
+/** Suites that must run alone in their own Jest worker batch. */
 export const isolatedE2eSuiteSuffixes = [
   'mcp-compliance-reads.aut605.e2e-spec.ts',
+  'stock-transfer.e2e-spec.ts',
 ];
 
 /**
