@@ -263,6 +263,36 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
       // AUT-979: tenant B's only site is active after the switch, as the API now does.
       activeSiteId: SITE_B.id,
     }))
+    await page.route('**/api/saved-views*', async (route) => {
+      if (
+        new URL(route.request().url()).pathname !== '/api/saved-views' ||
+        route.request().method() !== 'GET'
+      ) {
+        await route.continue()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: state.switched
+            ? []
+            : [
+                {
+                  id: 'saved-view-a',
+                  listPath: '/customers',
+                  name: SAVED_VIEW_A,
+                  href: '/customers',
+                  visibility: 'PERSONAL',
+                  ownerUserId: 'e2e-fullstack-user',
+                  version: 1,
+                  createdAt: '2026-10-30T10:00:00.000Z',
+                  updatedAt: '2026-10-30T10:00:00.000Z',
+                },
+              ],
+        }),
+      })
+    })
     await routeCustomerListAfterSwitch(page, state, customersGate.promise)
 
     await gotoWithReadySession(page, '/customers')
@@ -270,15 +300,8 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
       page.locator('[data-table-row="true"]').filter({ hasText: fixture.customerLabel }),
     ).toBeVisible()
 
-    // Per-user views and the dashboard layout of the previous user on this shared browser. Saved views are keyed per
-    // user and tenant (AUT-880): `acp:saved-views:<user>:<tenant>`, here with user A's tenant from the session.
-    const tenantAId = (state.lastSession?.activeTenant as { id: string }).id
-    const savedViewsKeyA = `acp:saved-views:e2e-fullstack-user:${tenantAId}`
-    const savedViewsKeyB = `acp:saved-views:e2e-fullstack-user-b:${TENANT_B.id}`
-    await page.evaluate((key) => {
-      localStorage.setItem(key, JSON.stringify([
-        { id: 'saved-view-a', name: 'A gespeicherte Ansicht', href: '/customers', createdAt: '2026-10-30T10:00:00.000Z' },
-      ]))
+    // Per-user dashboard layout of the previous user on this shared browser.
+    await page.evaluate(() => {
       localStorage.setItem('acp:dashboard-widgets:e2e-fullstack-user', JSON.stringify([
         {
           id: 'widget-a',
@@ -290,7 +313,7 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
           createdAt: '2026-10-30T10:00:00.000Z',
         },
       ]))
-    }, savedViewsKeyA)
+    })
     await page.reload()
     await expect(page.getByRole('link', { name: SAVED_VIEW_A })).toBeVisible()
     await expect(
@@ -331,17 +354,9 @@ test.describe('Full-stack client session reset (AUT-819)', () => {
     await expect(page.getByText(/Noch keine Widgets/)).toBeVisible()
     await expect(page.getByText(DASHBOARD_WIDGET_A)).toHaveCount(0)
 
-    // A's per-user data survives for A on this browser, but is not read under B's key.
-    const stored = await page.evaluate(
-      ({ keyA, keyB }) => ({
-        previousUserViews: localStorage.getItem(keyA),
-        nextUserViews: localStorage.getItem(keyB),
-        nextUserWidgets: localStorage.getItem('acp:dashboard-widgets:e2e-fullstack-user-b'),
-      }),
-      { keyA: savedViewsKeyA, keyB: savedViewsKeyB },
+    const nextUserWidgets = await page.evaluate(() =>
+      localStorage.getItem('acp:dashboard-widgets:e2e-fullstack-user-b'),
     )
-    expect(stored.previousUserViews).toContain(SAVED_VIEW_A)
-    expect(stored.nextUserViews ?? '').not.toContain(SAVED_VIEW_A)
-    expect(stored.nextUserWidgets ?? '').not.toContain(DASHBOARD_WIDGET_A)
+    expect(nextUserWidgets ?? '').not.toContain(DASHBOARD_WIDGET_A)
   })
 })

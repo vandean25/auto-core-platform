@@ -161,7 +161,10 @@
       "manageHeading": "Manage views",
       "open": "Open view {{name}}",
       "rename": "Rename view {{name}}",
-      "remove": "Remove view {{name}}"
+      "remove": "Remove view {{name}}",
+      "share": "Share view with team: {{name}}",
+      "unshare": "Unshare view: {{name}}",
+      "copy": "Save as personal view: {{name}}"
     },
     "quickActions": {
       "navigate": "Navigate",

@@ -6,7 +6,7 @@ import { fetchWithAuth } from '@/api/client'
 import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import type { Invoice } from '@/api/types'
 import InvoiceListPage from '@/pages/sales/InvoiceListPage'
-import { SavedViewsProvider, savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
+import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { SaveCurrentViewButton } from './SaveCurrentViewButton'
 import { SavedViewRenameHost } from './SavedViewRenameHost'
@@ -21,15 +21,88 @@ vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ claims: { role: 'ADMIN
 const TRIGGER_NAME = 'Als Seitenleisten-Ansicht für Customers speichern'
 const TOOLTIP = 'Speichert diese Filter als Shortcut in den Favoriten'
 
+type ServerView = {
+  id: string
+  listPath: string
+  name: string
+  href: string
+  visibility: 'PERSONAL' | 'TENANT'
+  ownerUserId: string
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+let viewsByScope: Record<string, ServerView[]> = {}
+const scopeKey = (userKey: string, tenantId: string | null) => `${userKey}:${tenantId ?? 'none'}`
+
+const okJson = (body: unknown, status = 200) =>
+  ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
+
+function installSavedViewApiMock(userKey = 'test-user', tenantId: string | null = 'tenant-a') {
+  const key = scopeKey(userKey, tenantId)
+  vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+    const url = String(input)
+    if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+      return okJson({ data: viewsByScope[key] ?? [] })
+    }
+    if (url === '/api/saved-views' && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body ?? '{}')) as {
+        listPath: string
+        name: string
+        href: string
+        visibility?: 'PERSONAL' | 'TENANT'
+      }
+      const created: ServerView = {
+        id: `view-${(viewsByScope[key]?.length ?? 0) + 1}`,
+        listPath: body.listPath,
+        name: body.name,
+        href: body.href,
+        visibility: body.visibility ?? 'PERSONAL',
+        ownerUserId: userKey,
+        version: 1,
+        createdAt: '2026-11-01T08:00:00.000Z',
+        updatedAt: '2026-11-01T08:00:00.000Z',
+      }
+      viewsByScope[key] = [created, ...(viewsByScope[key] ?? [])]
+      return okJson(created, 201)
+    }
+    if (url.startsWith('/api/saved-views/') && init?.method === 'PATCH') {
+      const id = url.split('/')[3].split('?')[0]
+      const body = JSON.parse(String(init.body ?? '{}')) as { name?: string }
+      viewsByScope[key] = (viewsByScope[key] ?? []).map((v) =>
+        v.id === id ? { ...v, name: body.name ?? v.name, version: v.version + 1 } : v,
+      )
+      return okJson(viewsByScope[key].find((v) => v.id === id))
+    }
+    if (url.startsWith('/api/saved-views/') && init?.method === 'DELETE') {
+      const id = url.split('/')[3].split('?')[0]
+      viewsByScope[key] = (viewsByScope[key] ?? []).filter((v) => v.id !== id)
+      return okJson(undefined, 204)
+    }
+    throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`)
+  })
+}
+
 function renderSaveButton() {
+  installSavedViewApiMock('test-user', 'tenant-a')
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   return render(
-    <MemoryRouter initialEntries={['/customers?search=klaus']}>
-      <SavedViewsProvider userKey="test-user">
-        <SaveCurrentViewButton title="Customers" />
-      </SavedViewsProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/customers?search=klaus']}>
+        <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+          <SaveCurrentViewButton title="Customers" />
+        </SavedViewsProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
+
+beforeEach(() => {
+  viewsByScope = {}
+})
 
 afterEach(() => {
   cleanup()
@@ -82,11 +155,11 @@ describe('SaveCurrentViewButton', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Speichern' }))
 
     await waitFor(() => {
-      const stored = JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', null)) ?? '[]')
-      expect(stored).toEqual([
+      expect(viewsByScope[scopeKey('test-user', 'tenant-a')]).toEqual([
         expect.objectContaining({ name: 'Customers Ansicht', href: '/customers?search=klaus' }),
       ])
     })
+    expect(window.localStorage.length).toBe(0)
   })
 })
 
@@ -101,28 +174,40 @@ function LocationProbe() {
 
 function toolbar(options: { userKey?: string; tenantId?: string | null; initial?: string } = {}) {
   const { userKey = 'test-user', tenantId = 'tenant-a', initial = WORK_ORDERS_URL } = options
+  installSavedViewApiMock(userKey, tenantId)
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   return (
-    <MemoryRouter initialEntries={[initial]}>
-      <SavedViewsProvider userKey={userKey} tenantId={tenantId}>
-        <SaveCurrentViewButton title="Arbeitsaufträge" />
-        <SavedViewsMenu title="Arbeitsaufträge" />
-        <SavedViewRenameHost />
-        <EntityActionConfirmHost />
-        <LocationProbe />
-      </SavedViewsProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initial]}>
+        <SavedViewsProvider userKey={userKey} tenantId={tenantId}>
+          <SaveCurrentViewButton title="Arbeitsaufträge" />
+          <SavedViewsMenu title="Arbeitsaufträge" />
+          <SavedViewRenameHost />
+          <EntityActionConfirmHost />
+          <LocationProbe />
+        </SavedViewsProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 
 function seedViews(userKey: string, tenantId: string, views: Array<{ id: string; name: string; href: string }>) {
-  window.localStorage.setItem(
-    savedViewsStorageKey(userKey, tenantId),
-    JSON.stringify(views.map((view) => ({ ...view, createdAt: '2026-11-01T08:00:00.000Z' }))),
-  )
+  viewsByScope[scopeKey(userKey, tenantId)] = views.map((view) => ({
+    ...view,
+    listPath: view.href.split('?')[0],
+    visibility: 'PERSONAL',
+    ownerUserId: userKey,
+    version: 1,
+    createdAt: '2026-11-01T08:00:00.000Z',
+    updatedAt: '2026-11-01T08:00:00.000Z',
+  }))
 }
 
 async function openMenu() {
-  fireEvent.click(screen.getByRole('button', { name: MENU_NAME }))
+  const trigger = await screen.findByRole('button', { name: MENU_NAME })
+  fireEvent.click(trigger)
   return screen.findByRole('dialog', { name: /Ansichten/ })
 }
 
@@ -130,12 +215,17 @@ describe('SaveCurrentViewButton visibility (AUT-880)', () => {
   it.each(['?peek=order-1', '?action=create', '?peek=order-1&page=2&sortField=date'])(
     'offers no save button for %s: peek, action and table position are not part of a saved view',
     (search) => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
       render(
-        <MemoryRouter initialEntries={[`/workshop/orders${search}`]}>
-          <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
-            <SaveCurrentViewButton title="Arbeitsaufträge" />
-          </SavedViewsProvider>
-        </MemoryRouter>,
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[`/workshop/orders${search}`]}>
+            <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
+              <SaveCurrentViewButton title="Arbeitsaufträge" />
+            </SavedViewsProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
 
       expect(screen.queryByRole('button', { name: /speichern/ })).not.toBeInTheDocument()
@@ -156,7 +246,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     const menu = await openMenu()
     expect(within(menu).getByRole('button', { name: 'Gruber in Arbeit' })).toBeInTheDocument()
     // Filter, search and sort are kept; the page number is not (a saved view starts on page 1).
-    expect(JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')).toEqual([
+    expect(viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []).toEqual([
       expect.objectContaining({
         name: 'Gruber in Arbeit',
         href: '/workshop/orders?filter_status=IN_PROGRESS&search=Gruber&sortDirection=desc&sortField=orderNo',
@@ -188,7 +278,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     fireEvent.click(within(renameDialog).getByRole('button', { name: 'Speichern' }))
 
     await waitFor(() =>
-      expect(JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')).toEqual([
+      expect(viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []).toEqual([
         expect.objectContaining({ id: 'v1', name: 'Gruber heute', href: '/workshop/orders?search=Gruber' }),
       ]),
     )
@@ -211,8 +301,8 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     fireEvent.click(within(renameDialog).getByRole('button', { name: 'Speichern' }))
 
     expect(await screen.findByText('Eine Ansicht mit diesem Namen gibt es hier schon.')).toBeInTheDocument()
-    const stored = JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')
-    expect(stored.map((view: { name: string }) => view.name)).toEqual(['Gruber', 'Huber'])
+    const stored = viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []
+    expect(stored.map((view) => view.name)).toEqual(['Gruber', 'Huber'])
   })
 
   it('removes a view from the menu and from storage', async () => {
@@ -227,7 +317,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     // Same confirmation as every destructive registry action.
     const confirm = await screen.findByRole('alertdialog')
     expect(confirm).toHaveTextContent('Die Ansicht „Gruber in Arbeit“ wird entfernt.')
-    expect(JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')).toHaveLength(2)
+    expect(viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []).toHaveLength(2)
     fireEvent.click(within(confirm).getByRole('button', { name: 'Ansicht entfernen' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
@@ -235,7 +325,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     const reopened = await openMenu()
     expect(within(reopened).queryByRole('button', { name: 'Gruber in Arbeit' })).not.toBeInTheDocument()
     expect(within(reopened).getByRole('button', { name: 'Huber' })).toBeInTheDocument()
-    expect(JSON.parse(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a')) ?? '[]')).toEqual([
+    expect(viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []).toEqual([
       expect.objectContaining({ id: 'v2' }),
     ])
   })
@@ -246,7 +336,7 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
 
     // The menu has nothing to list for user B, so it stays out of the toolbar instead of opening empty.
     expect(screen.queryByRole('button', { name: MENU_NAME })).not.toBeInTheDocument()
-    expect(window.localStorage.getItem(savedViewsStorageKey('user-b', 'tenant-a'))).not.toContain('Nur für A')
+    expect(viewsByScope[scopeKey('user-b', 'tenant-a')] ?? []).toEqual([])
   })
 
   it('WHEN the tenant is switched THEN the views of the previous tenant are not shown', async () => {
@@ -264,19 +354,19 @@ describe('saved views for work orders and invoices (AUT-880)', () => {
     expect(within(menu).getByRole('button', { name: 'Huber in Arbeit' })).toBeInTheDocument()
     expect(within(menu).queryByRole('button', { name: 'Gruber in Arbeit' })).not.toBeInTheDocument()
     // Tenant A's views are still stored for A, untouched by the switch.
-    expect(window.localStorage.getItem(savedViewsStorageKey('test-user', 'tenant-a'))).toContain('Gruber in Arbeit')
+    expect((viewsByScope[scopeKey('test-user', 'tenant-a')] ?? []).map((v) => v.name)).toContain('Gruber in Arbeit')
   })
 
   it('opens a view of the same list in place, without remounting the toolbar', async () => {
     seedViews('test-user', 'tenant-a', [{ id: 'v1', name: 'Huber', href: '/workshop/orders?search=Huber&sortField=orderNo&sortDirection=asc' }])
     render(toolbar())
-    const trigger = screen.getByRole('button', { name: MENU_NAME })
+    const trigger = await screen.findByRole('button', { name: MENU_NAME })
 
     fireEvent.click(within(await openMenu()).getByRole('button', { name: 'Huber' }))
 
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
-        '/workshop/orders?search=Huber&sortDirection=asc&sortField=orderNo',
+        '/workshop/orders?search=Huber&sortField=orderNo&sortDirection=asc',
       ),
     )
     expect(screen.getByRole('button', { name: MENU_NAME })).toBe(trigger)
@@ -313,6 +403,9 @@ describe('saved invoice views (AUT-880)', () => {
     restoreLayout = mockListLayout()
     // The API of this test answers a cursor request with the rows that match its search, in the requested date order.
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      if (String(url).startsWith('/api/saved-views')) {
+        return jsonResponse({ data: viewsByScope[scopeKey('test-user', 'tenant-a')] ?? [] })
+      }
       const params = new URL(String(url), 'http://acp.test').searchParams
       if (String(url).includes('capped-count')) return jsonResponse({ count: invoices.length, isCapped: false })
       const search = params.get('search')?.toLowerCase()
@@ -375,7 +468,7 @@ describe('saved invoice views (AUT-880)', () => {
     // The list stayed mounted while the view opened: it is the same search input, not a remounted one.
     expect(screen.getByPlaceholderText('Rechnungen durchsuchen…')).toBe(searchInput)
     await waitFor(() =>
-      expect(screen.getByTestId('location')).toHaveTextContent('/sales/invoices?search=Lovelace&sortDirection=asc&sortField=date'),
+      expect(screen.getByTestId('location')).toHaveTextContent('/sales/invoices?search=Lovelace&sortField=date&sortDirection=asc'),
     )
   })
 })

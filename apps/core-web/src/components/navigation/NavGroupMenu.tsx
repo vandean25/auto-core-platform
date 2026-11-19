@@ -73,6 +73,7 @@ export function NavGroupShell({ groupId, label, hasActiveItem, children }: NavGr
 type SidebarNavItemProps = {
   to: string
   label: string
+  badge?: ReactNode
   active: boolean
   icon: ReactNode
   /** Sits beside the link, for example a remove button. */
@@ -81,7 +82,7 @@ type SidebarNavItemProps = {
 }
 
 /** A link in the sidebar. It marks the current page and closes the mobile sheet after a click. */
-export function SidebarNavItem({ to, label, active, icon, action, onPrefetch }: SidebarNavItemProps) {
+export function SidebarNavItem({ to, label, badge, active, icon, action, onPrefetch }: SidebarNavItemProps) {
   const { setOpenMobile } = useSidebar()
 
   return (
@@ -95,6 +96,7 @@ export function SidebarNavItem({ to, label, active, icon, action, onPrefetch }: 
         >
           {icon}
           <span>{label}</span>
+          {badge}
         </Link>
       </SidebarMenuButton>
       {action}

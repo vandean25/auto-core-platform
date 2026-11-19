@@ -15,6 +15,7 @@ import { vendorKeys } from "@/api/vendors";
 import { workshopKeys } from "@/api/workshop";
 import { authSessionKeys } from "@/api/auth-session";
 import { siteKeys } from "@/api/sites";
+import { savedViewKeys } from "@/api/saved-views";
 import { dashboardWidgetKeys } from "@/features/dashboard-widgets/dashboard-widget-keys";
 import type {
   EntityUpdatedPayload,
@@ -130,6 +131,10 @@ const entityInvalidationMap: Record<
   FISCAL_RECEIPT: {
     dashboardSourceKeys: ["invoices"],
     domainQueryKeys: [invoiceKeys.all],
+  },
+  SAVED_VIEW: {
+    dashboardSourceKeys: [],
+    domainQueryKeys: [savedViewKeys.all],
   },
 };
 
