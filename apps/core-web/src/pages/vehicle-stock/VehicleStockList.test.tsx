@@ -110,4 +110,25 @@ describe('VehicleStockList paging mode', () => {
       true,
     )
   })
+
+  // AUT-952: Kompakte Texte — no repeated "Auf Lager" badge on IN_STOCK rows; year remains visible on mobile.
+  it('WHEN in-stock and reserved rows are rendered THEN IN_STOCK omits Auf Lager badge and year keeps mobile subtitle slot', () => {
+    asMock(vehicleStockApi.useVehicleStock).mockReturnValue({
+      data: {
+        data: [
+          row,
+          { ...row, id: 'veh-2', make: 'BMW', model: '320d', year: 2021, stock_status: 'RESERVED' },
+        ],
+        meta: { total: 2, page: 1, limit: 10, pageCount: 1 },
+      },
+      isLoading: false,
+    })
+
+    renderAt('/vehicle-stock')
+
+    expect(screen.queryByText('Auf Lager')).not.toBeInTheDocument()
+    expect(screen.getByText('Reserviert')).toBeInTheDocument()
+    expect(screen.getByText('2020')).toBeInTheDocument()
+  })
 })
+

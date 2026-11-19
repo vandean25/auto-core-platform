@@ -10,7 +10,7 @@ export function NotificationsSettingsTab() {
   const { t } = useTranslation('settings')
   return (
     <div className="space-y-6">
-      <SettingsSectionHeading title={t('notifications.title')} description={t('notifications.description')} />
+      <SettingsSectionHeading title={t('notifications.title')} />
       <PushDeviceCard />
       <PushPreferencesCard />
       <PushTestAndDevicesCard />

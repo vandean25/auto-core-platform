@@ -670,10 +670,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         </p>
       )}
 
-      <p className="text-xs text-muted-foreground" role="note">
-        {t('checkIn.offline.storageEvictionHint')}
-      </p>
-
       {offline.draftExpiryWarning && (
         <p
           className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"

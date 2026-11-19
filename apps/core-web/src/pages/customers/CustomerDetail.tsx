@@ -71,7 +71,6 @@ export default function CustomerDetail() {
               </Button>
               <CustomerStartService customerId={customer.id} vehicles={customer.vehicles ?? []} />
             </div>
-            <p className='text-xs text-muted-foreground'>{t('detail.invoiceHint')}</p>
           </div>
         }
       />

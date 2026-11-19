@@ -40,7 +40,7 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
                   {site.legal_entity?.name ?? '—'} · {t('sites.columns.members')}: {site._count?.memberships ?? 0}
                 </span>
               </span>
-              <StatusBadge status={site.is_active ? 'ACTIVE' : 'INACTIVE'} />
+              {!site.is_active ? <StatusBadge status="INACTIVE" /> : null}
             </button>
           </li>
         ))}
@@ -72,7 +72,7 @@ export function SitesTable({ sites, selectedSiteId, onSelect }: SitesTableProps)
               <TableCell className="font-medium">{site.name}</TableCell>
               <TableCell>{site.legal_entity?.name ?? '—'}</TableCell>
               <TableCell>
-                <StatusBadge status={site.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                {!site.is_active ? <StatusBadge status="INACTIVE" /> : null}
               </TableCell>
               <TableCell>{site._count?.memberships ?? 0}</TableCell>
             </TableRow>

@@ -7,7 +7,7 @@ import type { PendingCreateRow } from '@/features/interaction/use-list-pending-c
 import { formatCurrency } from '@/lib/format'
 
 export function InventoryStatusCell({ item }: { item: InventoryItem }) {
-  if (isDataTablePendingRow(item)) return null
+  if (isDataTablePendingRow(item) || item.status === 'IN_STOCK') return null
   return <StatusBadge status={item.status} />
 }
 

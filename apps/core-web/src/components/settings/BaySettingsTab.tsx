@@ -8,6 +8,7 @@ import { type Bay, useBays, useCreateBay, useDeleteBay, useUpdateBay } from '@/a
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -211,22 +212,8 @@ export function BaySettingsTab() {
       {
         accessorKey: 'isActive',
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('bays.columns.active')} />,
-        cell: ({ row }) => (
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => {
-              void runUpdate(
-                row.original.id,
-                { isActive: !row.original.isActive },
-                row.original.isActive ? t('bays.toast.deactivated') : t('bays.toast.activated'),
-                t('bays.toast.updateStatusFailed'),
-              )
-            }}
-          >
-            {row.original.isActive ? t('bays.active') : t('bays.inactive')}
-          </Button>
-        ),
+        cell: ({ row }) =>
+          !row.original.isActive ? <StatusBadge status="INACTIVE" /> : null,
       },
       {
         accessorKey: 'sortOrder',
@@ -274,6 +261,17 @@ export function BaySettingsTab() {
         setPagination={setPagination}
         rowBehaviour={{
           getRowContextActions: (row) => [
+            {
+              label: row.isActive ? t('legalEntities.table.deactivate') : t('legalEntities.table.reactivate'),
+              onClick: () => {
+                void runUpdate(
+                  row.id,
+                  { isActive: !row.isActive },
+                  row.isActive ? t('bays.toast.deactivated') : t('bays.toast.activated'),
+                  t('bays.toast.updateStatusFailed'),
+                )
+              },
+            },
             {
               label: t('bays.delete'),
               destructive: true,

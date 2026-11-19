@@ -420,4 +420,40 @@ describe('WorkshopBoard', () => {
       i18n.t('board.a11y.cancelled', { ns: 'workshop', order: orderNo }),
     )
   })
+
+  // AUT-952: Kompakte Texte — cards with NO_PARTS do not show a repeated "Keine Teile" chip.
+  it('WHEN a board card has partsStatus NO_PARTS THEN no Keine Teile chip is rendered', () => {
+    const queryClient = createQueryClient()
+    ;(workshopApi.useBoardActive as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      data: {
+        data: [
+          {
+            id: 'order-no-parts',
+            orderNumber: 'WO-2026-0099',
+            status: 'INTAKE',
+            customer: null,
+            vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-999AA' },
+            mechanicId: null,
+            bayId: null,
+            stagingLocationId: null,
+            partsStatus: 'NO_PARTS',
+            tasks: [],
+            createdAt: '2026-04-27T00:00:00.000Z',
+            updatedAt: '2026-04-27T00:00:00.000Z',
+          },
+        ],
+      },
+      isLoading: false,
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkshopBoard />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('WO-2026-0099')).toBeInTheDocument()
+    expect(screen.queryByText('Keine Teile')).not.toBeInTheDocument()
+  })
 })
+

@@ -43,7 +43,6 @@ export default function WorkshopCapacityPage() {
       <PageHeader
         className="mb-0"
         title={t('capacity.page.title')}
-        description={t('capacity.page.description')}
         actions={
           siteList.length > 1 ? (
             <Select

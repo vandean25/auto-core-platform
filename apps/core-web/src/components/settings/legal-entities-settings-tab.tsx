@@ -1201,10 +1201,10 @@ export function LegalEntitiesSettingsTab() {
                 <TableCell className="font-medium">{entity.name}</TableCell>
                 <TableCell>{entity.country_iso}</TableCell>
                 <TableCell>
-                  <StatusBadge status={entity.seller_readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
+                  {!entity.seller_readiness.is_ready ? <StatusBadge status="INACTIVE" /> : null}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={entity.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                  {!entity.is_active ? <StatusBadge status="INACTIVE" /> : null}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button

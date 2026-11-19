@@ -411,3 +411,44 @@ test.describe('Credentials placeholder fits the phone width (AUT-902)', () => {
     }
   })
 })
+
+test.describe('Settings repeated OK-state badges (AUT-952)', () => {
+  test.use({ viewport: { width: PHONE_WIDTHS[0], height: 812 } })
+
+  // Scenario 3
+  test('WHEN settings labor, team, legal-entities, sites and bays are opened THEN no Aktiv badge repeats on active rows', async ({ page }) => {
+    await mockCommonSettingsApi(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      await route.fulfill(json([createMockLegalEntity({ is_active: true, seller_readiness: { is_ready: true, missing_fields: [] } })]))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sites'), async (route) => {
+      await route.fulfill(json([{ id: 'site-1', code: 'WIE', name: 'Wien', is_active: true, legal_entity: { name: 'Example GmbH' }, _count: { memberships: 1 } }]))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/bays'), async (route) => {
+      await route.fulfill(json({ data: [{ id: 'bay-1', name: 'Bühne 1', isActive: true, sortOrder: 1 }], meta: { total: 1, page: 1, limit: 100, totalPages: 1 } }))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), async (route) => {
+      await route.fulfill(json({
+        data: [{ id: 'cat-1', name: 'Wartung', description: null, is_active: true, default_hourly_rate: 120, sort_order: 1, parent_id: null, children: [] }],
+      }))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), async (route) => {
+      await route.fulfill(json({ data: [{ id: 'tm-1', name: 'Max Muster', email: 'max@example.com', role: 'ADMIN', isActive: true }], meta: { total: 1, page: 1, limit: 20, pageCount: 1 } }))
+    })
+
+    for (const tab of ['legal-entities', 'sites', 'bays', 'labor', 'team'] as const) {
+      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+      if (tab === 'labor') {
+        const wartungRow = page.getByRole('button', { name: 'Wartung', exact: true }).locator('xpath=..')
+        await expect(wartungRow).toBeVisible()
+        await expect(wartungRow.getByText('Aktiv', { exact: true })).toHaveCount(0)
+        continue
+      }
+      const scope = tab === 'bays' || tab === 'legal-entities'
+        ? page.locator('tbody')
+        : page.getByRole('tabpanel')
+      await expect(scope.getByText('Aktiv', { exact: true })).toHaveCount(0)
+    }
+  })
+})
+

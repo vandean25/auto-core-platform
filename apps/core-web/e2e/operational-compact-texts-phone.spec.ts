@@ -1,9 +1,27 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { mockCursorList } from './utils/cursor-list-mock'
 import { DE_COMMON } from './helpers/de-common'
 import { DE_AGENT } from './helpers/de-agent'
 import { DE_FINANCE } from './helpers/de-finance'
 import { DE_VEHICLES } from './helpers/de-vehicles'
+import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
+import deVehicleStock from '../../../locales/de/vehicleStock.json' with { type: 'json' }
+import enVehicleStock from '../../../locales/en/vehicleStock.json' with { type: 'json' }
+import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
+import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
+import deSales from '../../../locales/de/sales.json' with { type: 'json' }
+import enSales from '../../../locales/en/sales.json' with { type: 'json' }
+import deFinance from '../../../locales/de/finance.json' with { type: 'json' }
+import enFinance from '../../../locales/en/finance.json' with { type: 'json' }
+import deVehicles from '../../../locales/de/vehicles.json' with { type: 'json' }
+import enVehicles from '../../../locales/en/vehicles.json' with { type: 'json' }
+import deCustomers from '../../../locales/de/customers.json' with { type: 'json' }
+import enCustomers from '../../../locales/en/customers.json' with { type: 'json' }
+import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
+import enSettings from '../../../locales/en/settings.json' with { type: 'json' }
+import deInventory from '../../../locales/de/inventory.json' with { type: 'json' }
+import enInventory from '../../../locales/en/inventory.json' with { type: 'json' }
 
 const json = (body: unknown) => ({
   status: 200,
@@ -280,3 +298,227 @@ test.describe('AUT-844: Operational compact texts on phone (375px)', () => {
     })
   })
 })
+
+async function ensureUiLanguage(page: Page, language: 'de' | 'en') {
+  const current = await page.evaluate((key) => window.localStorage.getItem(key), UI_LANGUAGE_STORAGE_KEY)
+  if (current === language) return
+  await page.evaluate(
+    ({ key, language }) => window.localStorage.setItem(key, language),
+    { key: UI_LANGUAGE_STORAGE_KEY, language },
+  )
+  await page.reload({ waitUntil: 'networkidle' })
+}
+
+test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory subtitles', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
+      route.fulfill(
+        json({
+          userId: 'user-1',
+          email: 'admin@example.com',
+          activeTenant: { id: 'tenant-1', name: 'Test Workshop', slug: 'test-workshop' },
+          activeRole: 'ADMIN',
+          activeSiteId: 'site-1',
+          memberships: [],
+          locale: 'de',
+          effectiveLocale: 'de',
+          defaultLocale: 'de',
+          formatLocale: 'de-AT',
+          effectiveCapabilities: null,
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) =>
+      route.fulfill(json([{ id: 'site-1', name: 'Wien', code: 'WIE' }])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), (route) =>
+      route.fulfill(json({ mechanics: [], bays: [] })),
+    )
+  })
+
+  // Scenario 1
+  test('WHEN an ADMIN opens /vehicle-stock at 375px in DE with in-stock rows THEN no row shows Auf Lager and year stays visible', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await mockCursorList(page, {
+      path: '/api/vehicle-stock',
+      rows: [
+        { id: 'vs-1', make: 'Audi', model: 'A4', year: 2021, vin: 'WAUZZZ8K9BA000001', plate: 'W-101AA', color: 'Blau', stock_status: 'IN_STOCK' },
+      ],
+    })
+
+    await page.goto('/vehicle-stock')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText('Audi A4')).toBeVisible()
+    await expect(page.getByText('2021')).toBeVisible()
+    await expect(page.getByText(deVehicleStock.reports.stockStatus.IN_STOCK)).toHaveCount(0)
+  })
+
+  // Scenario 2
+  test('WHEN /vehicle-stock is opened in EN THEN no per-row OK-state status text is shown', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await mockCursorList(page, {
+      path: '/api/vehicle-stock',
+      rows: [
+        { id: 'vs-1', make: 'Audi', model: 'A4', year: 2021, vin: 'WAUZZZ8K9BA000001', plate: 'W-101AA', color: 'Blue', stock_status: 'IN_STOCK' },
+      ],
+    })
+
+    await page.goto('/vehicle-stock')
+    await page.waitForLoadState('networkidle')
+    await ensureUiLanguage(page, 'en')
+
+    await expect(page.getByText('Audi A4')).toBeVisible()
+    await expect(page.getByText('2021')).toBeVisible()
+    await expect(page.getByText(enVehicleStock.reports.stockStatus.IN_STOCK)).toHaveCount(0)
+  })
+
+  // Scenario 4
+  test('WHEN /workshop/board is opened at 390px THEN cards do not carry a repeated Keine Teile chip', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/active'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'wo-1',
+              orderNumber: 'WO-2026-0101',
+              status: 'INTAKE',
+              customer: null,
+              vehicle: { id: 'v-1', make: 'VW', model: 'Golf', year: 2020, plate: 'W-202BB' },
+              mechanicId: null,
+              bayId: null,
+              stagingLocationId: null,
+              partsStatus: 'NO_PARTS',
+              tasks: [],
+              createdAt: '2026-04-27T00:00:00.000Z',
+              updatedAt: '2026-04-27T00:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    )
+
+    await page.goto('/workshop/board')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByText('WO-2026-0101')).toBeVisible()
+    await expect(page.getByText('Keine Teile')).toHaveCount(0)
+  })
+
+  // Scenario 5
+  test('WHEN KVA, capacity, vehicles, transfers, invoices, export-ready and vehicle-data are opened at 375px in DE and EN THEN no explanatory subtitle is shown', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
+      route.fulfill(json({ data: [], meta: { page_size: 25, next_cursor: null } })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/capacity'), (route) =>
+      route.fulfill(json({ weekStart: '2026-11-16', timezone: 'Europe/Vienna', days: [], bays: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), (route) =>
+      route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 10, pageCount: 1 } })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/stock-transfers'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), (route) =>
+      route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 10, pageCount: 1 } })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-data/settings'), (route) =>
+      route.fulfill(json({
+        defaultIdentityAdapterId: null,
+        defaultPartsAftermarketAdapterId: null,
+        defaultLaborAftermarketAdapterId: null,
+        defaultLaborCategoryId: null,
+        awMinutes: 6,
+        hasIdentityCredential: false,
+        hasPartsAftermarketCredential: false,
+        hasLaborAftermarketCredential: false,
+        oemConcerns: [],
+      })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), (route) =>
+      route.fulfill(json([])),
+    )
+
+    const checks: Array<{ path: string; de: string; en: string }> = [
+      { path: '/workshop/estimates', de: deWorkshop.estimateList.description, en: enWorkshop.estimateList.description },
+      { path: '/workshop/capacity', de: deWorkshop.capacity.page.description, en: enWorkshop.capacity.page.description },
+      { path: '/vehicles', de: deVehicles.list.description, en: enVehicles.list.description },
+      { path: '/stock-transfers', de: deInventory.stockTransfers.list.description, en: enInventory.stockTransfers.list.description },
+      { path: '/sales/invoices', de: deSales.invoices.list.description, en: enSales.invoices.list.description },
+      { path: '/finance/accounting-export-readiness', de: deFinance.accountingExportReadiness.subtitle, en: enFinance.accountingExportReadiness.subtitle },
+      { path: '/settings?tab=vehicle-data', de: deSettings.vehicleData.catalog.awMinutesHint, en: enSettings.vehicleData.catalog.awMinutesHint },
+    ]
+
+    for (const language of ['de', 'en'] as const) {
+      for (const item of checks) {
+        await page.goto(item.path)
+        await page.waitForLoadState('networkidle')
+        await ensureUiLanguage(page, language)
+        await expect(page.getByText(language === 'de' ? item.de : item.en)).toHaveCount(0)
+      }
+    }
+  })
+
+  // Scenario 6
+  test('WHEN check-in, customer detail, vehicle detail, estimates and inventory list are opened at 375px in DE and EN THEN helper texts and inventory OK badge are absent', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1'), (route) =>
+      route.fulfill(json({ id: 'wo-1', order_number: 'WO-2026-0001', status: 'INTAKE', customer: { id: 'c-1', first_name: 'Max', last_name: 'Muster' }, vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' }, tasks: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/customers/cust-1'), (route) =>
+      route.fulfill(json({ id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Muster', vehicles: [], sales_orders: [], workshop_orders: [], invoices: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/veh-1'), (route) =>
+      route.fulfill(json({ id: 'veh-1', vin: 'WAUZZZ8V1GA000001', make: 'Audi', model: 'A3', year: 2018, license_plate: 'W-12345X', status: 'ACTIVE', pickerl_due: { due_date: '2027-03-31', due_month: '2027-03', status: 'OK', warnings: [] }, sales: [], sales_orders: [], workshop_orders: [], invoices: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/veh-1/parties'), (route) =>
+      route.fulfill(json({ data: [], suggested_bill_to: null })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/veh-1/inspection-records'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/veh-1/pickerl-open-order'), (route) =>
+      route.fulfill(json(null)),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inspection-source-connections'), (route) =>
+      route.fulfill(json({ data: [] })),
+    )
+    await mockCursorList(page, {
+      path: '/api/inventory',
+      rows: [{ id: 'part-1', sku: 'BRK-001', name: 'Brake Pad', brand: 'Bosch', price: 49.9, status: 'IN_STOCK', quantity_available: 4, warehouse_location: 'A-1', revision: 0 }],
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/locations'), (route) =>
+      route.fulfill(json([])),
+    )
+
+    for (const language of ['de', 'en'] as const) {
+      const w = language === 'de' ? deWorkshop : enWorkshop
+      const c = language === 'de' ? deCustomers : enCustomers
+      const v = language === 'de' ? deVehicles : enVehicles
+
+      await page.goto('/workshop/orders/wo-1/check-in')
+      await page.waitForLoadState('networkidle')
+      await ensureUiLanguage(page, language)
+      await expect(page.getByText(w.checkIn.offline.storageEvictionHint)).toHaveCount(0)
+
+      await page.goto('/customers/cust-1')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByText(c.detail.invoiceHint)).toHaveCount(0)
+
+      await page.goto('/vehicles/veh-1')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByText(v.pickerlSection.subtitle)).toHaveCount(0)
+
+      await page.goto('/inventory')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByText('BRK-001')).toBeVisible()
+      await expect(page.getByText(language === 'de' ? 'Auf Lager' : 'In Stock')).toHaveCount(0)
+    }
+  })
+})
+

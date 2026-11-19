@@ -36,7 +36,6 @@ export default function AccountingExportReadinessPage() {
           <h1 className="text-2xl font-semibold tracking-tight">
             {t('accountingExportReadiness.title')}
           </h1>
-          <p className="text-muted-foreground">{t('accountingExportReadiness.subtitle')}</p>
         </div>
         <Button
           variant="outline"

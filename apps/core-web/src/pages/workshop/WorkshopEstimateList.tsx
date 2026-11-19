@@ -38,7 +38,7 @@ export default function WorkshopEstimateList() {
 
   return (
     <>
-      <PageHeader title={t('estimateList.title')} description={t('estimateList.description')} />
+      <PageHeader title={t('estimateList.title')} />
       <div className="space-y-4">
         <WorkshopEstimateListFilters view={view} onChange={updateView} />
         {query.isError ? <EstimateListLoadError error={query.error} /> : null}

@@ -85,6 +85,7 @@ export default function VehicleStockList() {
       },
       {
         accessorKey: 'make',
+        meta: { mobile: 'title' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockList.columns.make')} />
         ),
@@ -96,6 +97,7 @@ export default function VehicleStockList() {
       },
       {
         accessorKey: 'year',
+        meta: { mobile: 'subtitle' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('stockList.columns.year')} />
         ),
@@ -128,11 +130,9 @@ export default function VehicleStockList() {
           <DataTableColumnHeader column={column} title={t('stockList.columns.status')} />
         ),
         cell: ({ row }) =>
-          row.original.stock_status ? (
+          row.original.stock_status && row.original.stock_status !== 'IN_STOCK' ? (
             <StatusBadge status={row.original.stock_status} />
-          ) : (
-            emDash
-          ),
+          ) : null,
       },
     ],
     [emDash, na, t],
