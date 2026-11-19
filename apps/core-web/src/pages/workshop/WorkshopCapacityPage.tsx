@@ -1,13 +1,14 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopCapacityWeek } from '@/api/workshop'
 import { useMySites, useSetActiveSite } from '@/api/sites'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -18,6 +19,29 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { CapacityWeekGrid } from '@/components/workshop/capacity/CapacityWeekGrid'
 import { addLocalDays, formatDateLabel } from '@/features/workshop/planner/planner-time'
+
+function CapacityOverbookedInfoPopover() {
+  const { t } = useTranslation('workshop')
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="min-h-11 min-w-11 text-muted-foreground"
+          aria-label={t('capacity.page.overbookedHint')}
+          data-testid="capacity-overbooked-info"
+        >
+          <Info className="h-4 w-4" aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 text-sm text-muted-foreground" align="end">
+        {t('capacity.page.overbookedHint')}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export default function WorkshopCapacityPage() {
   const { t } = useTranslation('workshop')
@@ -97,7 +121,7 @@ export default function WorkshopCapacityPage() {
             </p>
           ) : null}
         </div>
-        <p className="text-xs text-muted-foreground">{t('capacity.page.overbookedHint')}</p>
+        <CapacityOverbookedInfoPopover />
       </div>
 
       {capacity.isError && !week ? (

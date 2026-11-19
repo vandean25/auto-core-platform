@@ -465,6 +465,16 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
         await ensureUiLanguage(page, language)
         await expect(page.getByText(language === 'de' ? item.titleDe : item.titleEn).first()).toBeVisible()
         await expect(page.getByText(language === 'de' ? item.de : item.en)).toHaveCount(0)
+        if (item.slug === 'capacity') {
+          const overbookedHint = language === 'de' ? deWorkshop.capacity.page.overbookedHint : enWorkshop.capacity.page.overbookedHint
+          await expect(page.getByText(overbookedHint)).toHaveCount(0)
+          await captureDocScreenshot(page, `aut-952-${item.slug}-${language}-375.png`, { fullPage: true })
+          const infoButton = page.getByTestId('capacity-overbooked-info')
+          await expect(infoButton).toBeVisible()
+          await infoButton.click()
+          await expect(page.getByText(overbookedHint)).toBeVisible()
+          continue
+        }
         await captureDocScreenshot(page, `aut-952-${item.slug}-${language}-375.png`, { fullPage: true })
       }
     }
