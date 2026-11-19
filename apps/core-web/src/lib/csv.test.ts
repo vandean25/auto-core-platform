@@ -115,4 +115,8 @@ describe('csvBlob and downloadCsv', () => {
 
     expect(triggerBlobDownload).toHaveBeenCalledWith(expect.any(Blob), 'export.csv')
   })
+
+  it('temp AUT-1021 scenario verification', () => {
+    expect(escapeCsvField('plain')).toBe('plain')
+  })
 })
