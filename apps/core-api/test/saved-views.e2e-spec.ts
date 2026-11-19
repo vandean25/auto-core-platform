@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
 import {
@@ -16,10 +17,12 @@ import {
 describe('Saved Views (AUT-938)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let authService: AuthService;
 
   const tenantIds: string[] = [];
   const userIds: string[] = [];
+  const demoAccessRequestIds: string[] = [];
 
   async function createMember(
     tenantId: string,
@@ -67,12 +70,18 @@ describe('Saved Views (AUT-938)', () => {
     stubFirebaseAdminAuthForCustomClaimsE2e();
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get(AuthService);
   });
 
   afterAll(async () => {
     for (const tenantId of tenantIds) {
       await cleanupTestTenantGraph(prisma, tenantId);
+    }
+    if (demoAccessRequestIds.length > 0) {
+      await systemPrisma.landingDemoAccessRequest.deleteMany({
+        where: { id: { in: demoAccessRequestIds } },
+      });
     }
     if (userIds.length > 0) {
       await prisma.user.deleteMany({
@@ -628,6 +637,62 @@ describe('Saved Views (AUT-938)', () => {
       expect.arrayContaining(['Existing View', 'Valid Imported']),
     );
     expect(names).toHaveLength(2);
+  });
+
+  it('rejects POST /api/saved-views/import for DEMO with 403 and leaves import status unimported', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-imp-demo');
+    tenantIds.push(tenant.tenantId);
+
+    const demo = await createMember(tenant.tenantId, 'DEMO', 'sv-id-demo');
+    const accessRequest = await systemPrisma.landingDemoAccessRequest.create({
+      data: {
+        email: demo.user.email,
+        name: 'Saved Views Demo Viewer',
+        betrieb: 'E2E',
+        consent_recorded_at: new Date(),
+      },
+      select: { id: true },
+    });
+    demoAccessRequestIds.push(accessRequest.id);
+    await systemPrisma.landingDemoSignInGrant.create({
+      data: {
+        access_request_id: accessRequest.id,
+        user_id: demo.user.id,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/saved-views/import')
+      .set('Authorization', `Bearer ${demo.token}`)
+      .send({
+        views: [
+          {
+            listPath: '/customers',
+            name: 'Demo View',
+            href: '/customers?search=demo',
+          },
+        ],
+      })
+      .expect(403);
+
+    const importRow = await runWithTenantContext(tenant.tenantId, () =>
+      prisma.savedViewImport.findUnique({
+        where: {
+          tenant_id_user_id: {
+            tenant_id: tenant.tenantId,
+            user_id: demo.user.id,
+          },
+        },
+      }),
+    );
+    expect(importRow).toBeNull();
+
+    const statusRes = await request(app.getHttpServer())
+      .get('/api/saved-views/import-status')
+      .set('Authorization', `Bearer ${demo.token}`)
+      .expect(200);
+    expect(statusRes.body).toEqual({ imported: false });
   });
 });
 
