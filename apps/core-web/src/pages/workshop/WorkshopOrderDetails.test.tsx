@@ -2393,9 +2393,10 @@ describe("WorkshopOrderDetails Characterization", () => {
         queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), assignedOrder);
         setupDefaultMocks(assignedOrder);
         asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
-        // Re-apply actual useAssignBoard since setupDefaultMocks resets it.
+        // Re-apply actual useAssignBoard and useWorkshopOrder since setupDefaultMocks resets them.
         const actual = await vi.importActual<typeof import("@/api/workshop")>("@/api/workshop");
         vi.mocked(workshopApi.useAssignBoard).mockImplementation(actual.useAssignBoard);
+        vi.mocked(workshopApi.useWorkshopOrder).mockImplementation(actual.useWorkshopOrder);
 
         renderComponent();
 
@@ -2409,6 +2410,11 @@ describe("WorkshopOrderDetails Characterization", () => {
         await act(async () => resolveAssign?.());
 
         expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
+        await waitFor(() =>
+          expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent(
+            deWorkshop.orderHeader.unassigned,
+          ),
+        );
         expect(
           queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
             workshopApi.workshopKeys.detail("order-1"),

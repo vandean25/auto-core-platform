@@ -120,7 +120,7 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       assignLabel: enWorkshop.orderCard.assign,
     },
   ] as const) {
-    test(`detail unassign and board assign work at 375px in ${localeCase.lang}`, async ({ page }) => {
+    test(`detail unassign and board assign work at 375px in ${localeCase.lang}`, async ({ page }, testInfo) => {
       const mechanic = createMockEmployee({ id: 'mech-1', name: 'Alex Example' })
       const bay = createMockBay({ id: 'bay-1', name: 'Bay 01' })
       let currentOrder = { ...order, mechanicId: 'mech-1', mechanic_id: 'mech-1' }
@@ -182,10 +182,14 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await expect(unassignedOption).toBeVisible()
       const optionBox = await unassignedOption.boundingBox()
       expect(optionBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await page.screenshot({ path: testInfo.outputPath(`detail-picker-${localeCase.lang}-375.png`) })
 
       await unassignedOption.click()
       await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
-      await expect(page.getByText(localeCase.unassignedToast)).toBeVisible()
+      const unassignToast = page.locator('[data-sonner-toast]').filter({ hasText: localeCase.unassignedToast })
+      await expect(unassignToast).toBeVisible()
+      await expect(unassignToast).toHaveCSS('opacity', '1')
+      await page.screenshot({ path: testInfo.outputPath(`detail-unassign-toast-${localeCase.lang}-375.png`) })
 
       await new AutoCorePage(page, 'Board').navigate('/workshop/board')
       const assignBtn = page.getByRole('button', { name: new RegExp(localeCase.assignLabel, 'i') }).first()
@@ -198,9 +202,13 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await expect(menuItem).toBeVisible()
       const menuItemBox = await menuItem.boundingBox()
       expect(menuItemBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await page.screenshot({ path: testInfo.outputPath(`board-assign-menu-${localeCase.lang}-375.png`) })
 
       await menuItem.click()
-      await expect(page.getByText(localeCase.assignedToast)).toBeVisible()
+      const assignToast = page.locator('[data-sonner-toast]').filter({ hasText: localeCase.assignedToast })
+      await expect(assignToast).toBeVisible()
+      await expect(assignToast).toHaveCSS('opacity', '1')
+      await page.screenshot({ path: testInfo.outputPath(`board-assign-toast-${localeCase.lang}-375.png`) })
     })
   }
 })
