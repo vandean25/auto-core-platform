@@ -226,7 +226,9 @@
     "copyFailed": "Unable to copy this view.",
     "conflictError": "View changed. List reloaded.",
     "offlineError": "Views unavailable. Saving disabled.",
-    "limitReached": "Maximum number of views for this list reached."
+    "limitReached": "Maximum number of views for this list reached.",
+    "importedCount_one": "{{count}} view imported",
+    "importedCount_other": "{{count}} views imported"
   },
   "onboarding": {
     "title": "Get your workshop set up",

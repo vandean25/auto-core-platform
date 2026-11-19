@@ -5498,6 +5498,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/saved-views/import-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SavedViewsController_importStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/saved-views/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["SavedViewsController_importViews"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/saved-views/{id}": {
         parameters: {
             query?: never;
@@ -12586,6 +12618,24 @@ export interface components {
         };
         SavedViewsListResponseDto: {
             data: components["schemas"]["SavedViewDto"][];
+        };
+        SavedViewImportStatusDto: {
+            imported: boolean;
+        };
+        ImportSavedViewItemDto: {
+            /** @example /sales/invoices */
+            listPath?: string;
+            /** @example Offene Rechnungen */
+            name: string;
+            /** @example /sales/invoices?filter_status=ISSUED */
+            href: string;
+        };
+        ImportSavedViewsDto: {
+            views: components["schemas"]["ImportSavedViewItemDto"][];
+        };
+        ImportSavedViewsResponseDto: {
+            imported: number;
+            skipped: number;
         };
         CreateSavedViewDto: {
             /** @example /sales/invoices */
@@ -24101,6 +24151,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SavedViewDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_importStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewImportStatusDto"];
+                };
+            };
+        };
+    };
+    SavedViewsController_importViews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportSavedViewsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSavedViewsResponseDto"];
                 };
             };
         };

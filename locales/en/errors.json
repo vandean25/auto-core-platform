@@ -10,6 +10,7 @@
     "AGENT_POLICY_VERSION_CONFLICT": "Agent policy version conflict.",
     "AIR_CONDITIONING": "Air conditioning.",
     "ALLOY_WHEELS": "Alloy wheels.",
+    "ALREADY_IMPORTED": "Saved views have already been imported for this user.",
     "ANNAHME_CHECK": "Annahme check.",
     "API_KEYS_NOT_CONFIGURED": "API keys are not configured for this environment.",
     "AT_RECIPIENT_UID_REQUIRED": "At recipient uid required.",

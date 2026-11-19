@@ -6,16 +6,20 @@ import {
   savedViewKeys,
   useCopySavedView,
   useCreateSavedView,
+  useImportSavedViews,
   useRemoveSavedView,
   useRenameSavedView,
+  useSavedViewImportStatusQuery,
   useSavedViewsQuery,
   useShareSavedView,
+  type ImportSavedViewItemDto,
   type SavedViewDto,
   type SavedViewVisibility,
 } from '@/api/saved-views'
 import { i18n } from '@/lib/i18n'
 
 const STORAGE_PREFIX = 'acp:saved-views:'
+const MAX_IMPORT_VIEWS = 30
 /** Table state that describes a position in the result, not a way of looking at it: a saved view starts on page 1. */
 const TRANSIENT_PARAMS = ['page', 'peek', 'action'] as const
 
@@ -91,6 +95,30 @@ function mapMutationErrorReason(error: unknown): SavedViewMutationFailureReason 
   return 'failed'
 }
 
+function parseLocalSavedViewEntry(entry: unknown): ImportSavedViewItemDto | null {
+  if (!entry || typeof entry !== 'object') return null
+  const candidate = entry as { name?: unknown; href?: unknown }
+  if (typeof candidate.name !== 'string' || typeof candidate.href !== 'string') return null
+  const href = normalizeHref(candidate.href)
+  return { listPath: savedViewPath(href), name: candidate.name, href }
+}
+
+function readLocalSavedViews(storageKey: string): ImportSavedViewItemDto[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+
+    return parsed
+      .map(parseLocalSavedViewEntry)
+      .filter((item): item is ImportSavedViewItemDto => item !== null)
+      .slice(0, MAX_IMPORT_VIEWS)
+  } catch {
+    return []
+  }
+}
+
 type SavedViewsProviderProps = {
   userKey: string
   /** Null for a session without an active tenant (a platform admin outside any tenant). */
@@ -109,6 +137,16 @@ function SavedViewsStore({
 }) {
   const queryClient = useQueryClient()
   const viewsQuery = useSavedViewsQuery({ tenantId, userKey })
+  const localViews = React.useMemo(
+    () => (tenantId && userKey ? readLocalSavedViews(savedViewsStorageKey(userKey, tenantId)) : []),
+    [tenantId, userKey],
+  )
+  const importStatusQuery = useSavedViewImportStatusQuery({
+    tenantId,
+    userKey,
+    enabled: Boolean(tenantId) && localViews.length > 0,
+  })
+  const importMutation = useImportSavedViews(tenantId, userKey)
   const createMutation = useCreateSavedView(tenantId, userKey)
   const renameMutation = useRenameSavedView(tenantId, userKey)
   const removeMutation = useRemoveSavedView(tenantId, userKey)
@@ -116,6 +154,7 @@ function SavedViewsStore({
   const copyMutation = useCopySavedView(tenantId, userKey)
 
   const [renamingId, setRenamingId] = React.useState<string | null>(null)
+  const importAttemptedRef = React.useRef(false)
 
   const savedViews = React.useMemo(() => viewsQuery.data?.data ?? [], [viewsQuery.data])
   const savedViewsRef = React.useRef<SavedView[]>(savedViews)
@@ -130,6 +169,30 @@ function SavedViewsStore({
   const reloadViews = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: savedViewKeys.list(tenantId, userKey) })
   }, [queryClient, tenantId, userKey])
+
+  React.useEffect(() => {
+    if (!tenantId || localViews.length === 0) return
+    if (importStatusQuery.data?.imported !== false) return
+    if (importAttemptedRef.current) return
+    importAttemptedRef.current = true
+
+    void importMutation
+      .mutateAsync({ views: localViews })
+      .then((result) => {
+        if (result.imported > 0) {
+          toast.success(i18n.t('common:savedViews.importedCount', { count: result.imported }))
+        }
+      })
+      .catch((error) => {
+        const normalized = normalizeApiError(error)
+        if (normalized?.code === 'ALREADY_IMPORTED') {
+          queryClient.setQueryData(savedViewKeys.importStatus(tenantId, userKey), {
+            imported: true,
+          })
+          reloadViews()
+        }
+      })
+  }, [importMutation, importStatusQuery.data?.imported, localViews, queryClient, reloadViews, tenantId, userKey])
 
   const addSavedView = React.useCallback(
     async ({ name, href, visibility }: CreateSavedViewInput): Promise<CreateSavedViewResult> => {

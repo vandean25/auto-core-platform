@@ -226,7 +226,9 @@
     "copyFailed": "Die Ansicht konnte nicht kopiert werden.",
     "conflictError": "Ansicht wurde geändert. Liste aktualisiert.",
     "offlineError": "Ansichten nicht geladen. Speichern deaktiviert.",
-    "limitReached": "Maximale Anzahl an Ansichten für diese Liste erreicht."
+    "limitReached": "Maximale Anzahl an Ansichten für diese Liste erreicht.",
+    "importedCount_one": "{{count}} Ansicht übernommen",
+    "importedCount_other": "{{count}} Ansichten übernommen"
   },
   "onboarding": {
     "title": "Werkstatt einrichten",

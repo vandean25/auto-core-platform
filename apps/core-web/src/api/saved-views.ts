@@ -9,6 +9,10 @@ export type SavedViewsListResponseDto = components['schemas']['SavedViewsListRes
 export type CreateSavedViewDto = components['schemas']['CreateSavedViewDto']
 export type UpdateSavedViewDto = components['schemas']['UpdateSavedViewDto']
 export type CopySavedViewDto = components['schemas']['CopySavedViewDto']
+export type SavedViewImportStatusDto = components['schemas']['SavedViewImportStatusDto']
+export type ImportSavedViewItemDto = components['schemas']['ImportSavedViewItemDto']
+export type ImportSavedViewsDto = components['schemas']['ImportSavedViewsDto']
+export type ImportSavedViewsResponseDto = components['schemas']['ImportSavedViewsResponseDto']
 
 export const savedViewKeys = {
   all: ['saved-views'] as const,
@@ -16,6 +20,8 @@ export const savedViewKeys = {
     listPath !== undefined
       ? ([...savedViewKeys.all, 'list', tenantId ?? 'none', userKey ?? 'anon', listPath] as const)
       : ([...savedViewKeys.all, 'list', tenantId ?? 'none', userKey ?? 'anon'] as const),
+  importStatus: (tenantId?: string | null, userKey?: string) =>
+    [...savedViewKeys.all, 'import-status', tenantId ?? 'none', userKey ?? 'anon'] as const,
 }
 
 export function useSavedViewsQuery(options: {
@@ -178,3 +184,43 @@ export function useCopySavedView(tenantId?: string | null, userKey?: string) {
     },
   })
 }
+
+export function useSavedViewImportStatusQuery(options: {
+  tenantId?: string | null
+  userKey?: string
+  enabled?: boolean
+}) {
+  const { tenantId, userKey, enabled } = options
+  return useQuery<SavedViewImportStatusDto>({
+    queryKey: savedViewKeys.importStatus(tenantId, userKey),
+    enabled: enabled ?? Boolean(tenantId),
+    queryFn: async () =>
+      fetchJsonWithAuth<SavedViewImportStatusDto>(
+        '/api/saved-views/import-status',
+        'Failed to load saved view import status',
+      ),
+  })
+}
+
+export function useImportSavedViews(tenantId?: string | null, userKey?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationKey: [...savedViewKeys.all, 'import'],
+    mutationFn: async (payload: ImportSavedViewsDto) =>
+      fetchJsonWithAuth<ImportSavedViewsResponseDto>(
+        '/api/saved-views/import',
+        'Failed to import saved views',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      ),
+    onSuccess: async () => {
+      queryClient.setQueryData(savedViewKeys.importStatus(tenantId, userKey), { imported: true })
+      await queryClient.invalidateQueries({ queryKey: savedViewKeys.list(tenantId, userKey) })
+    },
+  })
+}
+

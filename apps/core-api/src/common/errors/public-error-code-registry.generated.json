@@ -29,6 +29,10 @@
       "public": false,
       "params": []
     },
+    "ALREADY_IMPORTED": {
+      "public": true,
+      "params": []
+    },
     "ANNAHME_CHECK": {
       "public": false,
       "params": []

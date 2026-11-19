@@ -21,8 +21,11 @@ import {
   CopySavedViewDto,
   CreateSavedViewDto,
   DeleteSavedViewQueryDto,
+  ImportSavedViewsDto,
+  ImportSavedViewsResponseDto,
   ListSavedViewsQueryDto,
   SavedViewDto,
+  SavedViewImportStatusDto,
   SavedViewsListResponseDto,
   UpdateSavedViewDto,
 } from './dto/saved-views.dto.js';
@@ -40,6 +43,21 @@ export class SavedViewsController {
     @Query() query: ListSavedViewsQueryDto,
   ): Promise<SavedViewsListResponseDto> {
     return this.savedViewsService.list(query.listPath);
+  }
+
+  @Get('import-status')
+  @ApiOkResponse({ type: SavedViewImportStatusDto })
+  importStatus(): Promise<SavedViewImportStatusDto> {
+    return this.savedViewsService.getImportStatus();
+  }
+
+  @Post('import')
+  @HttpCode(200)
+  @ApiOkResponse({ type: ImportSavedViewsResponseDto })
+  importViews(
+    @Body() dto: ImportSavedViewsDto,
+  ): Promise<ImportSavedViewsResponseDto> {
+    return this.savedViewsService.importViews(dto);
   }
 
   @Post()
