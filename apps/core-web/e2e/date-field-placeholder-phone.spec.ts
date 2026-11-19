@@ -44,6 +44,10 @@ test.describe('Date filter placeholders on a phone (AUT-791)', () => {
       test(`${name} at ${width}px: every date placeholder fits`, async ({ page }) => {
         await page.setViewportSize({ width, height: 812 })
         await new AutoCorePage(page, '').navigate(path)
+        const filterToggle = page.getByTestId('estimate-filters-toggle')
+        if (await filterToggle.isVisible()) {
+          await filterToggle.click()
+        }
         await expect(page.locator(`input[placeholder="${PLACEHOLDER}"]`).first()).toBeVisible()
 
         // The canvas measures with the font the page has loaded by now, not a fallback.
