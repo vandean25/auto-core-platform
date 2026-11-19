@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Prisma } from '@prisma/client';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
@@ -16,6 +17,34 @@ import {
   recordDryRunCreates,
 } from './prisma-dashboard-realtime.dry-run.js';
 import { upsertTargetExists } from './prisma-dashboard-realtime.upsert.js';
+
+const pendingDashboardRealtimeEmits = new AsyncLocalStorage<
+  Array<() => void>
+>();
+
+export async function runWithDeferredDashboardRealtimeEmits<T>(
+  work: () => Promise<T>,
+): Promise<T> {
+  const parentPending = pendingDashboardRealtimeEmits.getStore();
+  if (parentPending) {
+    return work();
+  }
+  const pending: Array<() => void> = [];
+  return pendingDashboardRealtimeEmits.run(pending, async () => {
+    try {
+      const result = await work();
+      const callbacks = [...pending];
+      pending.length = 0;
+      for (const emit of callbacks) {
+        emit();
+      }
+      return result;
+    } catch (error) {
+      pending.length = 0;
+      throw error;
+    }
+  });
+}
 
 const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,
@@ -90,6 +119,11 @@ export function emitRealtimeForOperation(
     action,
     entityId,
   });
+  const pending = pendingDashboardRealtimeEmits.getStore();
+  if (pending) {
+    pending.push(() => dashboardRealtime.emitEntityUpdated(tenantId, enriched));
+    return;
+  }
   dashboardRealtime.emitEntityUpdated(tenantId, enriched);
 }
 

@@ -16,6 +16,8 @@ import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { runWithDeferredVehicleMediaPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
+import { runWithDeferredDashboardRealtimeEmits } from './prisma-dashboard-realtime.extension.js';
 
 const logger = new Logger('PrismaAuditExtension');
 
@@ -768,16 +770,20 @@ async function withAuditTransaction(
     return work(actor, ctx.query);
   }
 
-  return txRunner((tx) =>
-    PrismaTransactionContext.run(tx, () => {
-      const executeWrite = createTxWriteExecutor(
-        tx,
-        ctx.model,
-        operation,
-        ctx.query,
-      );
-      return work(actor, executeWrite);
-    }),
+  return runWithDeferredVehicleMediaPurges(() =>
+    runWithDeferredDashboardRealtimeEmits(() =>
+      txRunner((tx) =>
+        PrismaTransactionContext.run(tx, () => {
+          const executeWrite = createTxWriteExecutor(
+            tx,
+            ctx.model,
+            operation,
+            ctx.query,
+          );
+          return work(actor, executeWrite);
+        }),
+      ),
+    ),
   );
 }
 
@@ -973,48 +979,31 @@ export async function applyAuditDeleteMany(
   );
 }
 
-export interface AuditExtensionOptions {
-  transactionClient?: unknown;
-}
-
 /**
  * Creates a Prisma Client Extension that automatically creates `AuditLog` records
  * for single-row and batch `update`, `delete`, `upsert`, `updateMany`, and `deleteMany`
  * operations on audited tenant business models, atomically within a transaction.
  */
-export function createAuditExtension(options?: AuditExtensionOptions) {
+export function createAuditExtension() {
   return Prisma.defineExtension((client) => {
-    const txSource = options?.transactionClient ?? client;
     return client.$extends({
       name: 'prisma-audit',
       query: {
         $allModels: {
           update({ model, args, query }) {
-            return applyAuditUpdate.call(this, txSource, model, args, query);
+            return applyAuditUpdate.call(this, client, model, args, query);
           },
           delete({ model, args, query }) {
-            return applyAuditDelete.call(this, txSource, model, args, query);
+            return applyAuditDelete.call(this, client, model, args, query);
           },
           upsert({ model, args, query }) {
-            return applyAuditUpsert.call(this, txSource, model, args, query);
+            return applyAuditUpsert.call(this, client, model, args, query);
           },
           updateMany({ model, args, query }) {
-            return applyAuditUpdateMany.call(
-              this,
-              txSource,
-              model,
-              args,
-              query,
-            );
+            return applyAuditUpdateMany.call(this, client, model, args, query);
           },
           deleteMany({ model, args, query }) {
-            return applyAuditDeleteMany.call(
-              this,
-              txSource,
-              model,
-              args,
-              query,
-            );
+            return applyAuditDeleteMany.call(this, client, model, args, query);
           },
         },
       },

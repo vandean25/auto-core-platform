@@ -1,4 +1,7 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   applyAuditDelete,
   applyAuditDeleteMany,
@@ -14,6 +17,10 @@ import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
 import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
+import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension.js';
+import { scheduleVehicleMediaPrefixPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
+import { registerVehicleMediaPurgeStorage } from '../vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
+import type { VehicleMediaStorage } from '../vehicle-stock/vehicle-media/vehicle-media.storage.js';
 
 const TENANT_ID = 'tenant-audit-123';
 
@@ -1757,6 +1764,207 @@ describe('Prisma Audit Extension', () => {
       expect(queryFn).toHaveBeenCalledTimes(1);
       expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
     });
+
+    it('defers dashboard realtime emits until the audit transaction commits and suppresses them on rollback', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      const emitEntityUpdated = jest.fn();
+      let emittedBeforeAuditInsert = false;
+
+      const makeClient = (shouldFailAudit: boolean) => {
+        const txClient = {
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(beforeRow),
+            update: jest.fn().mockImplementation(async () => {
+              emitRealtimeForOperation(
+                { emitEntityUpdated },
+                'Customer',
+                'update',
+                afterRow,
+              );
+              return afterRow;
+            }),
+          },
+          auditLog: {
+            create: jest.fn().mockImplementation(async () => {
+              emittedBeforeAuditInsert = emitEntityUpdated.mock.calls.length > 0;
+              if (shouldFailAudit) {
+                throw new Error('audit insert failed');
+              }
+              return { id: 'audit-1' };
+            }),
+          },
+        };
+
+        return {
+          ...mockContext,
+          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+            cb(txClient),
+          ),
+        };
+      };
+
+      await expect(
+        runWithContext(undefined, undefined, () =>
+          applyAuditUpdate.call(
+            makeClient(true),
+            makeClient(true),
+            'Customer',
+            { where: { id: 'cust-1' }, data: { name: 'After' } },
+            jest.fn(),
+          ),
+        ),
+      ).rejects.toThrow('audit insert failed');
+      expect(emitEntityUpdated).not.toHaveBeenCalled();
+
+      const commitClient = makeClient(false);
+      await runWithContext(undefined, undefined, () =>
+        applyAuditUpdate.call(
+          commitClient,
+          commitClient,
+          'Customer',
+          { where: { id: 'cust-1' }, data: { name: 'After' } },
+          jest.fn(),
+        ),
+      );
+      expect(emittedBeforeAuditInsert).toBe(false);
+      expect(emitEntityUpdated).toHaveBeenCalledTimes(1);
+      expect(emitEntityUpdated).toHaveBeenCalledWith(TENANT_ID, {
+        type: 'CUSTOMER',
+        action: 'UPDATED',
+        entityId: 'cust-1',
+      });
+    });
+
+    it('schedules vehicle media purge on vehicle delete and flushes only after audit transaction commits', async () => {
+      const deleteVehicleMediaPrefix = jest.fn().mockResolvedValue(undefined);
+      const storage: VehicleMediaStorage = {
+        resolveBucket: () => 'b',
+        objectPrefix: () => 'p/',
+        readObject: jest.fn(),
+        storeProcessedObject: async () => 'k',
+        deleteObjects: async () => undefined,
+        deleteVehicleMediaPrefix,
+        deleteTenantVehicleMediaPrefix: jest.fn(),
+      };
+      registerVehicleMediaPurgeStorage(storage);
+
+      const beforeVehicle = { id: 'veh-1', tenant_id: TENANT_ID, vin: 'VIN123' };
+      let purgedBeforeAuditInsert = false;
+
+      const makeClient = (shouldFailAudit: boolean) => {
+        const txClient = {
+          vehicle: {
+            findFirst: jest.fn().mockResolvedValue(beforeVehicle),
+            delete: jest.fn().mockImplementation(async () => {
+              await scheduleVehicleMediaPrefixPurges([
+                { id: 'veh-1', tenant_id: TENANT_ID },
+              ]);
+              return beforeVehicle;
+            }),
+          },
+          auditLog: {
+            create: jest.fn().mockImplementation(async () => {
+              purgedBeforeAuditInsert =
+                deleteVehicleMediaPrefix.mock.calls.length > 0;
+              if (shouldFailAudit) {
+                throw new Error('audit insert failed');
+              }
+              return { id: 'audit-1' };
+            }),
+          },
+        };
+
+        return {
+          ...mockContext,
+          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+            cb(txClient),
+          ),
+        };
+      };
+
+      await expect(
+        runWithContext(undefined, undefined, () =>
+          applyAuditDelete.call(
+            makeClient(true),
+            makeClient(true),
+            'Vehicle',
+            { where: { id: 'veh-1' } },
+            jest.fn(),
+          ),
+        ),
+      ).rejects.toThrow('audit insert failed');
+      expect(deleteVehicleMediaPrefix).not.toHaveBeenCalled();
+
+      const commitClient = makeClient(false);
+      await runWithContext(undefined, undefined, () =>
+        applyAuditDelete.call(
+          commitClient,
+          commitClient,
+          'Vehicle',
+          { where: { id: 'veh-1' } },
+          jest.fn(),
+        ),
+      );
+      expect(purgedBeforeAuditInsert).toBe(false);
+      expect(deleteVehicleMediaPrefix).toHaveBeenCalledTimes(1);
+      expect(deleteVehicleMediaPrefix).toHaveBeenCalledWith({
+        tenantId: TENANT_ID,
+        vehicleId: 'veh-1',
+      });
+    });
+
+    it.each([
+      [
+        'update',
+        applyAuditUpdate,
+        { where: { id: 'other-tenant-cust' }, data: { name: 'Hacked' } },
+      ],
+      [
+        'updateMany',
+        applyAuditUpdateMany,
+        { where: { id: 'other-tenant-cust' }, data: { tenant_id: 'other-tenant' } },
+      ],
+    ] as const)(
+      'propagates cross-tenant %s rejection from the extended tx client without writing an audit log',
+      async (operation, handler, args) => {
+        const txAuditCreate = jest.fn();
+        const txAuditCreateMany = jest.fn();
+        const txClient = {
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            findMany: jest.fn().mockResolvedValue([]),
+            [operation]: jest
+              .fn()
+              .mockRejectedValue(
+                new NotFoundException(
+                  '[TenantIsolation] Customer record not found for current tenant.',
+                ),
+              ),
+          },
+          auditLog: {
+            create: txAuditCreate,
+            createMany: txAuditCreateMany,
+          },
+        };
+
+        const extendedClient = {
+          ...mockContext,
+          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+            cb(txClient),
+          ),
+        };
+
+        await expect(
+          runWithContext(undefined, undefined, () =>
+            handler.call(extendedClient, extendedClient, 'Customer', args, jest.fn()),
+          ),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(txAuditCreate).not.toHaveBeenCalled();
+        expect(txAuditCreateMany).not.toHaveBeenCalled();
+      },
+    );
   });
 
 
@@ -1764,6 +1972,55 @@ describe('Prisma Audit Extension', () => {
     it('defines prisma extension', () => {
       const ext = createAuditExtension();
       expect(ext).toBeDefined();
+    });
+
+    it('opens $transaction on the extended client passed to createAuditExtension', async () => {
+      const beforeRow = { id: 'cust-1', name: 'Before' };
+      const afterRow = { id: 'cust-1', name: 'After' };
+      const txCustomerUpdate = jest.fn().mockResolvedValue(afterRow);
+      const txAuditCreate = jest.fn().mockResolvedValue({ id: 'audit-1' });
+      const txClient = {
+        customer: {
+          findFirst: jest.fn().mockResolvedValue(beforeRow),
+          update: txCustomerUpdate,
+        },
+        auditLog: { create: txAuditCreate },
+      };
+
+      const capturedHooks: Record<string, Record<string, (p: any) => Promise<unknown>>> = {};
+      interface FakeExtendedClient {
+        $transaction: jest.Mock;
+        $extends: jest.Mock<FakeExtendedClient, [ { query: { $allModels: Record<string, (p: any) => Promise<unknown>> } } ]>;
+      }
+      const fakeExtendedClient: FakeExtendedClient = {
+        $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+          cb(txClient),
+        ),
+        $extends: jest.fn((def: { query: { $allModels: Record<string, (p: any) => Promise<unknown>> } }): FakeExtendedClient => {
+          capturedHooks.$allModels = def.query.$allModels;
+          return fakeExtendedClient;
+        }),
+      };
+
+      const extFactory = createAuditExtension() as unknown as (
+        client: typeof fakeExtendedClient,
+      ) => unknown;
+      extFactory(fakeExtendedClient);
+
+      await runWithContext(undefined, undefined, () =>
+        capturedHooks.$allModels.update.call(
+          fakeExtendedClient,
+          {
+            model: 'Customer',
+            args: { where: { id: 'cust-1' }, data: { name: 'After' } },
+            query: jest.fn(),
+          },
+        ),
+      );
+
+      expect(fakeExtendedClient.$transaction).toHaveBeenCalledTimes(1);
+      expect(txCustomerUpdate).toHaveBeenCalledTimes(1);
+      expect(txAuditCreate).toHaveBeenCalledTimes(1);
     });
   });
 
