@@ -337,15 +337,38 @@ function prePurgeMutations(models) {
     }));
 }
 
+const DEFERRED_DROP_FOREIGN_KEYS = [
+  {
+    childTable: 'local_inventories',
+    parentTable: 'master_parts',
+    childColumns: ['master_part_id'],
+    parentColumns: ['id'],
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  },
+];
+
+function tableExistsInMigrations(migrationSql, tableName) {
+  const escaped = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const createPattern = new RegExp(`CREATE TABLE\\s+"${escaped}"`, 'i');
+  const dropPattern = new RegExp(
+    `DROP TABLE\\s+(?:IF EXISTS\\s+)?"${escaped}"`,
+    'i',
+  );
+  return createPattern.test(migrationSql) && !dropPattern.test(migrationSql);
+}
+
 function foreignKeySignatures(
   relations,
   implicitJoins,
   migrationActions = new Map(),
+  extraForeignKeys = [],
 ) {
   return foreignKeySignaturesWithActions(
     relations,
     implicitJoins,
     migrationActions,
+    extraForeignKeys,
   );
 }
 
@@ -396,6 +419,7 @@ function foreignKeySignaturesWithActions(
   relations,
   implicitJoins,
   migrationActions = new Map(),
+  extraForeignKeys = [],
 ) {
   const explicit = relations
     .filter((relation) => relation.targetTable)
@@ -438,7 +462,45 @@ function foreignKeySignaturesWithActions(
     }),
   );
 
-  return [...explicit, ...implicit].sort((left, right) =>
+  const seenKeys = new Set(
+    [...explicit, ...implicit].map((fk) =>
+      foreignKeyKey(
+        fk.childTable,
+        fk.parentTable,
+        fk.childColumns,
+        fk.parentColumns,
+      ),
+    ),
+  );
+  const deferred = extraForeignKeys
+    .filter(
+      (fk) =>
+        !seenKeys.has(
+          foreignKeyKey(
+            fk.childTable,
+            fk.parentTable,
+            fk.childColumns,
+            fk.parentColumns,
+          ),
+        ),
+    )
+    .map((fk) => {
+      const action = migrationActions.get(
+        foreignKeyKey(
+          fk.childTable,
+          fk.parentTable,
+          fk.childColumns,
+          fk.parentColumns,
+        ),
+      );
+      return {
+        ...fk,
+        onDelete: action?.onDelete ?? fk.onDelete,
+        onUpdate: action?.onUpdate ?? fk.onUpdate,
+      };
+    });
+
+  return [...explicit, ...implicit, ...deferred].sort((left, right) =>
     [
       left.childTable,
       left.parentTable,
@@ -849,6 +911,7 @@ COMMIT;
 export function buildTenantRestoreManifest(
   schema,
   migrationActions = new Map(),
+  extraForeignKeys = [],
 ) {
   const models = parseModels(schema);
   const directModels = directTenantModels(models);
@@ -898,6 +961,7 @@ export function buildTenantRestoreManifest(
       relations,
       implicitJoins,
       migrationActions,
+      extraForeignKeys,
     ),
   };
 }
@@ -918,9 +982,14 @@ export function buildTenantRestoreManifestFromFiles(
     )
     .join('\n');
 
+  const deferredForeignKeys = DEFERRED_DROP_FOREIGN_KEYS.filter((fk) =>
+    tableExistsInMigrations(migrationSql, fk.childTable),
+  );
+
   return buildTenantRestoreManifest(
     fs.readFileSync(schemaPath, 'utf8'),
     parseMigrationForeignKeyActions(migrationSql),
+    deferredForeignKeys,
   );
 }
 

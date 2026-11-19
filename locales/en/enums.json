@@ -105,7 +105,20 @@
     "ABORTED": "Aborted",
     "UNDONE": "Undone",
     "PARTIALLY_UNDONE": "Partially undone",
-    "MOVED": "Moved"
+    "MOVED": "Moved",
+    "ESTIMATE_EXPIRED": "Estimate expired",
+    "GOOD": "Good",
+    "RECOMMENDED": "Recommendation",
+    "URGENT": "Urgent",
+    "UNDOING": "Undoing",
+    "CONFLICT": "Price changed",
+    "ACCEPTED": "Accepted",
+    "UNRESOLVED": "Unresolved",
+    "FENCED": "Not applied",
+    "OUTCOME_UNAVAILABLE": "Outcome unknown",
+    "FORBIDDEN": "Not permitted",
+    "NOT_FOUND": "Not found",
+    "INVALID": "Invalid"
   },
   "tyreSetStatus": {
     "NEW": "Not stored"

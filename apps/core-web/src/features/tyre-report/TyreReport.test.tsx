@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { components } from '@/api/generated/openapi'
 import { TyreReport } from './TyreReport'
@@ -144,5 +144,22 @@ describe('TyreReport', () => {
       expect(metadata).toHaveClass('min-w-0', 'break-words', '[&>div]:min-w-0')
     }
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: original })
+  })
+
+  it('shows the AT winter rule detail only behind the info icon for AT_WINTER_RULE_NOTICE', () => {
+    const atNoticeWheel = {
+      ...measurement.wheels[0],
+      evaluation: {
+        ...measurement.wheels[0].evaluation,
+        status: 'RECOMMENDED' as const,
+        reasonCodes: ['AT_WINTER_RULE_NOTICE'] as ReasonCode[],
+      },
+    }
+    render(<TyreReport measurement={{ ...measurement, wheels: [atNoticeWheel] }} />)
+    const wheel = screen.getByRole('article', { name: 'Vorne links' })
+    expect(within(wheel).getByText('AT-Winterreifenregel (< 4 mm)')).toBeVisible()
+    expect(screen.queryByText(/Höhere Mindestwerte/)).not.toBeInTheDocument()
+    fireEvent.click(within(wheel).getByRole('button', { name: 'Hinweis zur Winterreifenpflicht in AT' }))
+    expect(screen.getByText('Höhere Mindestwerte je nach Gewicht und Bauart.')).toBeVisible()
   })
 })

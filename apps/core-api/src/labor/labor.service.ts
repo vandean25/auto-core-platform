@@ -367,7 +367,7 @@ export class LaborService {
         }
 
         if (dto.fitments !== undefined) {
-          await this.syncLaborFitments(tx, id, dto.fitments);
+          await this.syncLaborFitments(tx, tenantId, id, dto.fitments);
         }
 
         const refreshed = await tx.laborOperation.findFirst({
@@ -469,16 +469,18 @@ export class LaborService {
 
   private async syncLaborFitments(
     tx: Prisma.TransactionClient,
+    tenantId: string,
     laborOperationId: string,
     fitments: NonNullable<UpdateLaborOperationDto['fitments']>,
   ) {
     await tx.laborFitment.deleteMany({
-      where: { labor_operation_id: laborOperationId },
+      where: { tenant_id: tenantId, labor_operation_id: laborOperationId },
     });
 
     if (fitments.length > 0) {
       await tx.laborFitment.createMany({
         data: fitments.map((fitment) => ({
+          tenant_id: tenantId,
           labor_operation_id: laborOperationId,
           make: fitment.make,
           model: fitment.model,

@@ -1,5 +1,7 @@
-import { Bookmark, Pencil, Trash2, Settings } from 'lucide-react'
+import { Bookmark, Copy, Pencil, Settings, Share2, Trash2, UserMinus } from 'lucide-react'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
+import { canManageSharedSavedViews } from '@/features/actions/action-role-predicates'
+import { canEditSavedView } from '@/features/actions/saved-view-actions'
 import { savedViewPath, type SavedView } from '@/features/saved-views/SavedViewsProvider'
 import type { PaletteContextActionSection } from './global-search-context-actions'
 import { i18n } from '@/lib/i18n'
@@ -87,46 +89,85 @@ export function getSavedViewsSection(savedViews: readonly SavedView[], navigatio
       href: view.href,
       icon: Bookmark,
       label: i18n.t('nav:globalSearch.savedViews.open', { name: view.name }),
-      description: list,
+      description:
+        view.visibility === 'TENANT'
+          ? `${list} · ${i18n.t('common:savedViews.teamBadge')}`
+          : list,
     })),
   }
 }
 
-export type SavedViewPaletteRun = (action: 'rename' | 'remove', view: SavedView) => void
+export type SavedViewPaletteRun = (
+  action: 'rename' | 'remove' | 'share' | 'unshare' | 'copy',
+  view: SavedView,
+) => void
 
 /**
- * "Rename view …" and "Remove view …" for the same views and with the same gating as the open entries. They run the
- * registry actions (`run`), so removing asks the same confirmation as the toolbar menu. Only offered once the user types.
+ * Manage actions for reachable saved views, gated by ownership and `views.shared.manage`.
  */
 export function getSavedViewManageSection(
   context: NavAccessContext | null,
   query: string,
   savedViews: readonly SavedView[],
   run: SavedViewPaletteRun,
+  isOfflineError = false,
 ): PaletteContextActionSection | null {
-  if (!query || !canOfferPaletteSections(context, query)) return null
+  if (isOfflineError || !query || !canOfferPaletteSections(context, query)) return null
 
   const lower = query.toLowerCase()
+  const canShare = canManageSharedSavedViews(context.activeRole)
   const items = reachableSavedViews(savedViews, getNavigationSection(context)).flatMap(({ view, list }) => {
     // Registry child segments are alphanumeric, so the view id loses its hyphens.
     const suffix = view.id.replace(/[^a-zA-Z0-9]/g, '')
-    return [
-      {
+    const editable = canEditSavedView(view, context.activeRole)
+    const actionsForView = []
+    if (editable) {
+      actionsForView.push({
         id: `${ENTITY_ACTION_IDS.savedViewRename}.${suffix}`,
         label: i18n.t('nav:globalSearch.savedViews.rename', { name: view.name }),
         icon: Pencil,
         description: list,
         onSelect: () => run('rename', view),
-      },
-      {
+      })
+      if (canShare) {
+        actionsForView.push(
+          view.visibility === 'PERSONAL'
+            ? {
+                id: `${ENTITY_ACTION_IDS.savedViewShare}.${suffix}`,
+                label: i18n.t('nav:globalSearch.savedViews.share', { name: view.name }),
+                icon: Share2,
+                description: list,
+                onSelect: () => run('share', view),
+              }
+            : {
+                id: `${ENTITY_ACTION_IDS.savedViewUnshare}.${suffix}`,
+                label: i18n.t('nav:globalSearch.savedViews.unshare', { name: view.name }),
+                icon: UserMinus,
+                description: list,
+                onSelect: () => run('unshare', view),
+              },
+        )
+      }
+      actionsForView.push({
         id: `${ENTITY_ACTION_IDS.savedViewDelete}.${suffix}`,
         label: i18n.t('nav:globalSearch.savedViews.remove', { name: view.name }),
         icon: Trash2,
         description: list,
         destructive: true,
         onSelect: () => run('remove', view),
-      },
-    ].filter((item) => [item.label, item.description].some((text) => text.toLowerCase().includes(lower)))
+      })
+    } else if (view.visibility === 'TENANT') {
+      actionsForView.push({
+        id: `${ENTITY_ACTION_IDS.savedViewCopy}.${suffix}`,
+        label: i18n.t('nav:globalSearch.savedViews.copy', { name: view.name }),
+        icon: Copy,
+        description: list,
+        onSelect: () => run('copy', view),
+      })
+    }
+    return actionsForView.filter((item) =>
+      [item.label, item.description].some((text) => text.toLowerCase().includes(lower)),
+    )
   })
   return items.length > 0 ? { heading: i18n.t('nav:globalSearch.savedViews.manageHeading'), items } : null
 }

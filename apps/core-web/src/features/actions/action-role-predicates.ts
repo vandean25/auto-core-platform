@@ -122,3 +122,8 @@ export function canManageImportJobs(role: string | null | undefined): boolean {
 export function canPrintCreditNote(role: string | null | undefined): boolean {
   return canReadCreditNotes(role)
 }
+
+/** Mirrors backend `views.shared.manage` permission (OWNER, ADMIN). */
+export function canManageSharedSavedViews(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN'
+}

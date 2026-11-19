@@ -42,6 +42,7 @@ ACP is localized with **i18next + react-i18next**. German (`de`, formatted as `d
 6. **Rich text** uses `<Trans>` with named components, not HTML inside strings.
 7. **Dynamic keys** (`t(\`enums:status.${value}\`)`): add the prefix to `tools/i18n-check-manifest.json` → `usedKeyPrefixes`, otherwise the check reports the keys as unused.
 8. In React use `useTranslation('<ns>')`. Outside components use `i18n.t` from `@/lib/i18n` (toasts in hooks or services, for example).
+9. **Status reasons** go under a `reasons` or `blockers` object in `locales/{de,en}/*.json` and are checked by `i18n:check` to max 60 visible characters (excluding `{{placeholders}}`).
 
 ## Terminology (de-AT)
 - Use the terms in `locales/de/glossary.json` (`pickerl`, `kva`, `vehicleCheckIn`, `workshopOrder`, `salesOrder` …) consistently. Do not invent synonyms. For example:

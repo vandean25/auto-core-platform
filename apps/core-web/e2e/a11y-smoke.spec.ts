@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
-import { expectNoCriticalA11yViolations } from './utils/a11y';
+import { expectNoCriticalA11yViolations, settleA11yPage } from './utils/a11y';
 import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-routes';
 
 /**
@@ -28,18 +28,7 @@ async function openRoute(page: Page, route: A11ySmokeRoute) {
   await new AutoCorePage(page, route.name).navigate(route.path);
   await route.open?.(page);
   await route.ready(page);
-  await settle(page);
-}
-
-/**
- * Freezes CSS animations and waits for loaders, so the scans read the settled page. A fade in
- * progress reads as a contrast failure that depends on timing.
- */
-async function settle(page: Page) {
-  await page.addStyleTag({
-    content: '*, *::before, *::after { animation: none !important; transition: none !important; }',
-  });
-  await expect(page.locator('.animate-spin')).toHaveCount(0);
+  await settleA11yPage(page);
 }
 
 async function measureOverflow(page: Page) {
@@ -117,7 +106,7 @@ test.describe('A11y smoke: reflow at 320px (WCAG 1.4.10)', () => {
       if (!route.open) {
         await route.ready(page);
       }
-      await settle(page);
+      await settleA11yPage(page);
 
       const overflow = await measureOverflow(page);
       await test.info().attach('reflow-320-overflow', {

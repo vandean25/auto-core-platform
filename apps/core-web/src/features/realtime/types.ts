@@ -28,7 +28,8 @@ export type RealtimeEntityType =
   | "INVOICE"
   | "CREDIT_NOTE"
   | "PAYMENT"
-  | "FISCAL_RECEIPT";
+  | "FISCAL_RECEIPT"
+  | "SAVED_VIEW";
 
 export type RealtimeEntityAction = "CREATED" | "UPDATED" | "DELETED";
 

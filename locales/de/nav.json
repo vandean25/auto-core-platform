@@ -161,7 +161,10 @@
       "manageHeading": "Ansichten verwalten",
       "open": "Ansicht öffnen: {{name}}",
       "rename": "Ansicht umbenennen: {{name}}",
-      "remove": "Ansicht entfernen: {{name}}"
+      "remove": "Ansicht entfernen: {{name}}",
+      "share": "Ansicht mit Team teilen: {{name}}",
+      "unshare": "Teilen aufheben: {{name}}",
+      "copy": "Als eigene Ansicht speichern: {{name}}"
     },
     "quickActions": {
       "navigate": "Navigation",

@@ -65,6 +65,29 @@ describe('baseline growth', () => {
 
     assert.deepEqual(layout.growth, ['pages/b.tsx::Button::archive'])
   })
+
+  it('rejects adding a new file to status-badge.baseline.json', () => {
+    const statusBadge = INTERACTION_BASELINES.find((entry) => entry.file.endsWith('status-badge.baseline.json'))
+    assert.ok(statusBadge)
+    const result = checkBaselineGrowth({
+      baselines: [statusBadge],
+      readBase: () =>
+        JSON.stringify({
+          schemaVersion: 1,
+          guard: 'status-badge',
+          violations: ['pages/Existing.tsx::tinted-tone'],
+        }),
+      readHead: () =>
+        JSON.stringify({
+          schemaVersion: 1,
+          guard: 'status-badge',
+          violations: ['pages/Existing.tsx::tinted-tone', 'pages/NewFeature.tsx::tinted-tone'],
+        }),
+    })[0]
+
+    assert.equal(result.status, 'grew')
+    assert.deepEqual(result.growth, ['pages/NewFeature.tsx::tinted-tone'])
+  })
 })
 
 describe('check-interaction-baselines CLI', () => {

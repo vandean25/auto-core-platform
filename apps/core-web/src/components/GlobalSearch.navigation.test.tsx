@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchWithAuth } from '@/api/client'
 import { changeUiLanguage, ensureNamespaceLoaded } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
 import * as authSession from '@/api/auth-session'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { SavedViewRenameHost } from '@/features/saved-views/SavedViewRenameHost'
-import { SavedViewsProvider, savedViewsStorageKey } from '@/features/saved-views/SavedViewsProvider'
+import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -16,6 +18,10 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('@/hooks/useGlobalSearch')
+vi.mock('@/api/client', async (original) => ({
+  ...(await original<typeof import('@/api/client')>()),
+  fetchWithAuth: vi.fn(),
+}))
 vi.mock('@/api/auth-session', async (original) => ({ ...await original<typeof import('@/api/auth-session')>(), useAuthSession: vi.fn() }))
 vi.mock('@/api/sites', () => ({ useMySites: () => ({ data: [] }) }))
 vi.mock('@/auth/AuthProvider', () => ({
@@ -107,28 +113,96 @@ describe('GlobalSearch navigation targets', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings?tab=revenue-groups')
   })
 
-  describe('saved views (AUT-880)', () => {
-    const seed = (userKey: string, tenantId: string, views: Array<{ id: string; name: string; href: string }>) =>
-      window.localStorage.setItem(
-        savedViewsStorageKey(userKey, tenantId),
-        JSON.stringify(views.map((view) => ({ ...view, createdAt: '2026-11-01T08:00:00.000Z' }))),
+  describe('saved views (AUT-880 / AUT-940)', () => {
+    type SeedView = {
+      id: string
+      name: string
+      href: string
+      visibility?: 'PERSONAL' | 'TENANT'
+    }
+    let serverViews: Array<{
+      id: string
+      listPath: string
+      name: string
+      href: string
+      visibility: 'PERSONAL' | 'TENANT'
+      ownerUserId: string
+      version: number
+      createdAt: string
+      updatedAt: string
+    }> = []
+
+    const jsonResponse = (body: unknown, status = 200) =>
+      ({
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => body,
+      }) as Response
+
+    const seed = (_userKey: string, tenantId: string, views: SeedView[]) => {
+      serverViews = views.map((view) => ({
+        id: view.id,
+        listPath: view.href.split('?')[0],
+        name: view.name,
+        href: view.href,
+        visibility: view.visibility ?? 'PERSONAL',
+        ownerUserId: 'u',
+        version: 1,
+        createdAt: '2026-11-01T08:00:00.000Z',
+        updatedAt: '2026-11-01T08:00:00.000Z',
+      }))
+      vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+        const url = String(input)
+        if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+          return jsonResponse({ data: tenantId === 't' ? serverViews : [] })
+        }
+        if (url.startsWith('/api/saved-views/') && init?.method === 'PATCH') {
+          const id = url.split('/')[3].split('?')[0]
+          const body = JSON.parse(String(init.body ?? '{}')) as { name?: string }
+          serverViews = serverViews.map((v) =>
+            v.id === id ? { ...v, name: body.name ?? v.name, version: v.version + 1 } : v,
+          )
+          return jsonResponse(serverViews.find((v) => v.id === id))
+        }
+        if (url.startsWith('/api/saved-views/') && init?.method === 'DELETE') {
+          const id = url.split('/')[3].split('?')[0]
+          serverViews = serverViews.filter((v) => v.id !== id)
+          return jsonResponse(undefined, 204)
+        }
+        return jsonResponse({ data: [] })
+      })
+    }
+
+    const renderPalette = (tenantId = 't', onOpenChange = vi.fn()) => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
+      return render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <SavedViewsProvider userKey="u" tenantId={tenantId}>
+              <GlobalSearch open={true} onOpenChange={onOpenChange} />
+              <SavedViewRenameHost />
+              <EntityActionConfirmHost />
+            </SavedViewsProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
-    const renderPalette = (tenantId = 't', onOpenChange = vi.fn()) =>
-      render(
-        <MemoryRouter>
-          <SavedViewsProvider userKey="u" tenantId={tenantId}>
-            <GlobalSearch open={true} onOpenChange={onOpenChange} />
-            <SavedViewRenameHost />
-            <EntityActionConfirmHost />
-          </SavedViewsProvider>
-        </MemoryRouter>,
-      )
+    }
+
     const type = (value: string) =>
-      fireEvent.change(screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…'), { target: { value } })
+      fireEvent.change(screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…'), {
+        target: { value },
+      })
+
+    beforeEach(() => {
+      serverViews = []
+      vi.mocked(fetchWithAuth).mockResolvedValue(jsonResponse({ data: [] }))
+    })
 
     afterEach(() => window.localStorage.clear())
 
-    it('WHEN the user types the view name in Cmd+K THEN the view is offered and opens the list with its saved state', () => {
+    it('WHEN the user types the view name in Cmd+K THEN the view is offered and opens the list with its saved state', async () => {
       seed('u', 't', [
         { id: 'v1', name: 'Gruber in progress', href: '/workshop/orders?filter_status=IN_PROGRESS&search=Gruber' },
         { id: 'v2', name: 'Unpaid invoices', href: '/sales/invoices?filter_status=OPEN&sortDirection=asc&sortField=date' },
@@ -137,6 +211,7 @@ describe('GlobalSearch navigation targets', () => {
       renderPalette('t', onOpenChange)
 
       type('Gruber')
+      expect(await screen.findByText('Open view Gruber in progress')).toBeInTheDocument()
       expect(screen.queryByText('Open view Unpaid invoices')).not.toBeInTheDocument()
       fireEvent.click(screen.getByText('Open view Gruber in progress'))
 
@@ -144,13 +219,36 @@ describe('GlobalSearch navigation targets', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
 
-    it('WHEN a saved view is picked with Cmd/Ctrl held THEN it opens in a new tab instead of navigating', () => {
+    it('open team view from Cmd+K', async () => {
+      seed('u', 't', [
+        {
+          id: 'tv1',
+          name: 'Overdue team invoices',
+          href: '/sales/invoices?filter_status=OVERDUE&sortField=date&sortDirection=asc',
+          visibility: 'TENANT',
+        },
+      ])
+      const onOpenChange = vi.fn()
+      renderPalette('t', onOpenChange)
+
+      type('Overdue')
+      const option = await screen.findByText('Open view Overdue team invoices')
+      expect(option.closest('[cmdk-item]')).toHaveTextContent('Team')
+      fireEvent.click(option)
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/sales/invoices?filter_status=OVERDUE&sortField=date&sortDirection=asc',
+      )
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('WHEN a saved view is picked with Cmd/Ctrl held THEN it opens in a new tab instead of navigating', async () => {
       seed('u', 't', [{ id: 'v1', name: 'Gruber in progress', href: '/workshop/orders?search=Gruber' }])
       const open = vi.spyOn(window, 'open').mockReturnValue(null)
       renderPalette()
 
       type('Gruber')
-      fireEvent.click(screen.getByText('Open view Gruber in progress'), { ctrlKey: true })
+      fireEvent.click(await screen.findByText('Open view Gruber in progress'), { ctrlKey: true })
 
       expect(open).toHaveBeenCalledWith('/workshop/orders?search=Gruber', '_blank', 'noopener,noreferrer')
       expect(mockNavigate).not.toHaveBeenCalled()
@@ -164,10 +262,7 @@ describe('GlobalSearch navigation targets', () => {
       expect(screen.queryByText(/Gruber in progress/)).not.toBeInTheDocument()
     })
 
-    const storedNames = () =>
-      (JSON.parse(window.localStorage.getItem(savedViewsStorageKey('u', 't')) ?? '[]') as Array<{ name: string }>).map(
-        (view) => view.name,
-      )
+    const storedNames = () => serverViews.map((view) => view.name)
 
     it('WHEN the user picks "Rename view …" in Cmd+K THEN the rename dialog opens and saves the new name', async () => {
       seed('u', 't', [{ id: 'v1', name: 'Gruber in progress', href: '/workshop/orders?search=Gruber' }])
@@ -175,7 +270,7 @@ describe('GlobalSearch navigation targets', () => {
       renderPalette('t', onOpenChange)
 
       type('Gruber')
-      fireEvent.click(screen.getByText('Rename view Gruber in progress'))
+      fireEvent.click(await screen.findByText('Rename view Gruber in progress'))
       expect(onOpenChange).toHaveBeenCalledWith(false)
       const dialog = await screen.findByRole('dialog', { name: 'Rename view' })
       fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Gruber today' } })
@@ -193,7 +288,7 @@ describe('GlobalSearch navigation targets', () => {
       renderPalette()
 
       type('Gruber')
-      fireEvent.click(screen.getByText('Remove view Gruber in progress'))
+      fireEvent.click(await screen.findByText('Remove view Gruber in progress'))
       const confirm = await screen.findByRole('alertdialog')
       expect(confirm).toHaveTextContent('The view “Gruber in progress” will be removed.')
       expect(storedNames()).toEqual(['Gruber in progress', 'Huber'])
@@ -202,13 +297,13 @@ describe('GlobalSearch navigation targets', () => {
       await waitFor(() => expect(storedNames()).toEqual(['Huber']))
     })
 
-    it('offers the saved view of an invoice list as "Open view …" with its list as description', () => {
+    it('offers the saved view of an invoice list as "Open view …" with its list as description', async () => {
       seed('u', 't', [{ id: 'v2', name: 'Unpaid invoices', href: '/sales/invoices?filter_status=OPEN' }])
       renderPalette()
 
       type('Open view')
 
-      const item = screen.getByText('Open view Unpaid invoices').closest('[cmdk-item]') as HTMLElement
+      const item = (await screen.findByText('Open view Unpaid invoices')).closest('[cmdk-item]') as HTMLElement
       expect(within(item).getByText('Invoices')).toBeInTheDocument()
     })
 
@@ -221,7 +316,7 @@ describe('GlobalSearch navigation targets', () => {
       expect(screen.queryByText('Open view Gruber in progress')).not.toBeInTheDocument()
     })
 
-    it('does not offer a saved view of a list the active role cannot open', () => {
+    it('does not offer a saved view of a list the active role cannot open', async () => {
       vi.mocked(authSession.useAuthSession).mockReturnValue({
         data: { userId: 'u', activeTenant: { id: 't' }, activeRole: 'DEMO', activeSiteId: null },
       } as unknown as ReturnType<typeof authSession.useAuthSession>)
@@ -233,11 +328,66 @@ describe('GlobalSearch navigation targets', () => {
 
       type('Open')
 
-      expect(screen.getByText('Open view Open orders')).toBeInTheDocument()
+      expect(await screen.findByText('Open view Open orders')).toBeInTheDocument()
       expect(screen.getByText('Rename view Open orders')).toBeInTheDocument()
       expect(screen.queryByText('Open view Open estimates')).not.toBeInTheDocument()
       expect(screen.queryByText('Rename view Open estimates')).not.toBeInTheDocument()
       expect(screen.queryByText('Remove view Open estimates')).not.toBeInTheDocument()
+    })
+
+    it('keeps Open view from cache and omits write actions in Cmd+K when offline', async () => {
+      let failFetch = false
+      vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
+        const url = String(input)
+        if (url.startsWith('/api/saved-views') && (!init?.method || init.method === 'GET')) {
+          if (failFetch) throw new TypeError('Failed to fetch')
+          return jsonResponse({
+            data: [
+              {
+                id: 'v1',
+                listPath: '/workshop/orders',
+                name: 'Gruber in progress',
+                href: '/workshop/orders?search=Gruber',
+                visibility: 'PERSONAL',
+                ownerUserId: 'u',
+                version: 1,
+                createdAt: '2026-11-01T08:00:00.000Z',
+                updatedAt: '2026-11-01T08:00:00.000Z',
+              },
+            ],
+          })
+        }
+        return jsonResponse({ data: [] })
+      })
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      })
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <SavedViewsProvider userKey="u" tenantId="t">
+              <GlobalSearch open={true} onOpenChange={vi.fn()} />
+              <SavedViewRenameHost />
+              <EntityActionConfirmHost />
+            </SavedViewsProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+      type('Gruber')
+      expect(await screen.findByText('Open view Gruber in progress')).toBeInTheDocument()
+      expect(screen.getByText('Rename view Gruber in progress')).toBeInTheDocument()
+
+      failFetch = true
+      await queryClient.refetchQueries()
+
+      await waitFor(() =>
+        expect(screen.queryByText('Rename view Gruber in progress')).not.toBeInTheDocument(),
+      )
+      expect(screen.queryByText('Remove view Gruber in progress')).not.toBeInTheDocument()
+      expect(screen.queryByText('Share view Gruber in progress with team')).not.toBeInTheDocument()
+      expect(screen.getByText('Open view Gruber in progress')).toBeInTheDocument()
     })
   })
 })

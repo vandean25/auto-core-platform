@@ -133,14 +133,18 @@
     },
     "reasons": {
       "TREAD_BELOW_LEGAL_MINIMUM": "Below {{value}} mm: legal minimum",
-      "AT_WINTER_TREAD_INSUFFICIENT": "Below {{value}} mm: no longer a winter tyre",
+      "AT_WINTER_TREAD_INSUFFICIENT": "Below {{value}} mm: not a winter tyre",
       "TREAD_REPLACEMENT_RECOMMENDED": "Recommendation: Replace (tread)",
-      "DE_ALPINE_MISSING": "Not a winter tyre (missing Alpine symbol)",
-      "AT_WINTER_RULE_NOTICE": "Notice: Winter tyre in AT below 4 mm",
+      "DE_ALPINE_MISSING": "Not a winter tyre (no Alpine)",
+      "AT_WINTER_RULE_NOTICE": "AT winter rule (< 4 mm)",
       "DOT_CONDITION_CHECK_RECOMMENDED": "Recommendation: Check age (DOT)",
       "DOT_REPLACEMENT_RECOMMENDED": "Recommendation: Replace (age)",
       "DOT_LEGACY_OVER_20_YEARS": "Recommendation: Replace (pre-2000)",
       "UNSUPPORTED_COUNTRY": "No evaluation available"
+    },
+    "reasonInfoAria": "Austria winter tyre rule details",
+    "reasonDetails": {
+      "AT_WINTER_RULE_NOTICE": "Higher minimums apply by vehicle weight and tyre type."
     }
   },
   "board": {
@@ -1373,15 +1377,15 @@
   },
   "tyreMeasurement": {
     "reasons": {
-      "TREAD_BELOW_LEGAL_MINIMUM": "The measured tread depth is below the general legal minimum.",
-      "AT_WINTER_TREAD_INSUFFICIENT": "The measured tread depth is insufficient for recognition as a winter tire in Austria.",
-      "TREAD_REPLACEMENT_RECOMMENDED": "Recommendation: Plan a tire replacement. The measured tread depth is below the recommended threshold.",
-      "DE_ALPINE_MISSING": "An M+S marking alone, without the Alpine symbol, is not sufficient in Germany in winter road conditions.",
-      "AT_WINTER_RULE_NOTICE": "Notice for travel to Austria: Below 4 mm tread depth, the tire is not recognized there as a winter tire; higher minimums apply depending on vehicle weight and tire construction.",
-      "DOT_CONDITION_CHECK_RECOMMENDED": "Recommendation: Have the tire condition checked regularly from six years of age.",
-      "DOT_REPLACEMENT_RECOMMENDED": "Recommendation: Replace tires due to age – winter and all-season tires from eight years, summer tires from ten years.",
-      "DOT_LEGACY_OVER_20_YEARS": "The three-digit DOT date marking predates 2000. The tire is at least 20 years old; the exact production year cannot be determined.",
-      "UNSUPPORTED_COUNTRY": "Automatic tire evaluation is not available for this country. The measurements remain recorded."
+      "TREAD_BELOW_LEGAL_MINIMUM": "Below legal minimum tread depth",
+      "AT_WINTER_TREAD_INSUFFICIENT": "Insufficient tread for AT winter tyre",
+      "TREAD_REPLACEMENT_RECOMMENDED": "Recommendation: Replace tyre (tread)",
+      "DE_ALPINE_MISSING": "Not a DE winter tyre (missing Alpine symbol)",
+      "AT_WINTER_RULE_NOTICE": "AT notice: below 4 mm not a winter tyre",
+      "DOT_CONDITION_CHECK_RECOMMENDED": "Recommendation: Check condition (6+ years)",
+      "DOT_REPLACEMENT_RECOMMENDED": "Recommendation: Replace tyre (age)",
+      "DOT_LEGACY_OVER_20_YEARS": "Tyre over 20 years old (pre-2000 DOT)",
+      "UNSUPPORTED_COUNTRY": "No automatic evaluation for this country"
     }
   },
   "registrationReview": {

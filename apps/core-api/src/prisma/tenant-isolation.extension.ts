@@ -63,17 +63,73 @@ export const OPERATION_CLASSIFICATIONS: Record<
 
 /**
  * Models that do NOT carry a tenant_id column and must bypass tenant isolation.
- * These are currently global/shared reference tables.
+ * Every entry requires a written reason explaining why it is global.
  */
-const GLOBAL_MODELS = new Set([
-  'Tenant',
-  'User',
-  'PlatformAdmin',
-  'MasterPart',
-  'PartFitment',
-  'LocalInventory',
-  'LaborFitment',
-]);
+export const GLOBAL_MODEL_REASONS: Record<string, string> = {
+  Tenant: 'Root tenant registry table; defines tenants themselves.',
+  User: 'Global user identity table; users can belong to multiple tenants.',
+  PlatformAdmin: 'Platform-level super-admin allowlist across all tenants.',
+  MasterPart: 'Shared global automotive parts catalog across all tenants.',
+  PartFitment: 'Vehicle fitment rows for global MasterPart catalog.',
+};
+
+export const GLOBAL_MODELS = new Set(Object.keys(GLOBAL_MODEL_REASONS));
+
+/**
+ * Temporary exception allowlist for models that carry a tenant_id column
+ * but must bypass tenant isolation. Must stay empty unless explicitly approved
+ * with a written reason.
+ */
+export const TENANT_SCOPED_EXCEPTIONS: Record<string, string> = {};
+
+export interface DmmfModelLike {
+  name: string;
+  fields: ReadonlyArray<{ name: string }>;
+}
+
+export function validateModelScopeInvariants(input: {
+  models: ReadonlyArray<DmmfModelLike>;
+  globalModelReasons: Readonly<Record<string, string>>;
+  exceptions: Readonly<Record<string, string>>;
+}): void {
+  const modelMap = new Map(input.models.map((m) => [m.name, m]));
+
+  for (const [modelName, reason] of Object.entries(input.globalModelReasons)) {
+    if (!reason.trim()) {
+      throw new Error(
+        `[TenantIsolation] GLOBAL_MODELS entry '${modelName}' must have a written reason.`,
+      );
+    }
+    const model = modelMap.get(modelName);
+    if (!model) {
+      throw new Error(
+        `[TenantIsolation] GLOBAL_MODELS entry '${modelName}' does not exist in Prisma schema.`,
+      );
+    }
+    if (model.fields.some((f) => f.name === 'tenant_id')) {
+      throw new Error(
+        `[TenantIsolation] GLOBAL_MODELS entry '${modelName}' has a tenant_id column and must be tenant-scoped.`,
+      );
+    }
+  }
+
+  for (const [modelName, reason] of Object.entries(input.exceptions)) {
+    if (!reason.trim()) {
+      throw new Error(
+        `[TenantIsolation] Exception allowlist entry '${modelName}' must have a written reason.`,
+      );
+    }
+  }
+
+  for (const model of input.models) {
+    const hasTenantId = model.fields.some((f) => f.name === 'tenant_id');
+    if (hasTenantId && Object.hasOwn(input.globalModelReasons, model.name)) {
+      throw new Error(
+        `[TenantIsolation] Model '${model.name}' has tenant_id and cannot be in GLOBAL_MODELS.`,
+      );
+    }
+  }
+}
 
 /**
  * Operations where tenant_id is injected into args.where.
@@ -120,7 +176,7 @@ if (Prisma.dmmf?.datamodel?.models) {
 /**
  * Nested relations allowlist categorized by isolation mechanism:
  *
- * 1. COMPOSITE_KEY_NESTED_RELATIONS (13 entries):
+ * 1. COMPOSITE_KEY_NESTED_RELATIONS (14 entries):
  *    Child table carries a composite foreign key [tenant_id, <parent_id>] references
  *    [tenant_id, id] of the parent. Prisma populates tenant_id from parent automatically.
  *    Tenant isolation is enforced across all nested operations:
@@ -166,6 +222,7 @@ export const COMPOSITE_KEY_NESTED_RELATIONS = new Set<string>([
   'InspectionTemplate.items',
   'LegacyDocument.lines',
   'WarrantyClaim.lines',
+  'LaborOperation.fitments',
 ]);
 
 export const SINGLE_KEY_CHILD_TENANT_RELATIONS = new Set<string>([

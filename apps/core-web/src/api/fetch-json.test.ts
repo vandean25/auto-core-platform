@@ -84,4 +84,30 @@ describe("fetchJsonWithAuth", () => {
       fetchJsonWithAuth("/api/bays", "Fallback"),
     ).rejects.toBeInstanceOf(SyntaxError);
   });
+
+  it("returns undefined for 204 No Content with an empty Response body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 })),
+    );
+
+    await expect(
+      fetchJsonWithAuth("/api/saved-views/v1?version=1", "Delete failed", {
+        method: "DELETE",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("returns undefined for 200 OK with an empty Response body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 200 })),
+    );
+
+    await expect(
+      fetchJsonWithAuth("/api/saved-views/v1?version=1", "Delete failed", {
+        method: "DELETE",
+      }),
+    ).resolves.toBeUndefined();
+  });
 });

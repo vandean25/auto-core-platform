@@ -47,6 +47,9 @@ export const ENTITY_ACTION_IDS = {
   savedViewOpen: 'savedView.open',
   savedViewRename: 'savedView.rename',
   savedViewDelete: 'savedView.delete',
+  savedViewShare: 'savedView.share',
+  savedViewUnshare: 'savedView.unshare',
+  savedViewCopy: 'savedView.copy',
   inventoryItemBulkAdjustPrice: 'inventoryItem.bulkAdjustPrice',
   salesOrderDelete: 'salesOrder.delete',
 } as const

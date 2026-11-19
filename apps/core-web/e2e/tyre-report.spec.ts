@@ -5,6 +5,7 @@ import { waitForDeNamespace } from './helpers/wait-for-i18n'
 import { deErrorCode } from './helpers/de-errors'
 import { measurement } from '../src/features/tyre-report/tyre-report.test-fixtures'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
+import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
 import deInventory from '../../../locales/de/inventory.json' with { type: 'json' }
 
 const ORDER_ID = '80400000-0000-4000-8000-000000000001'
@@ -364,5 +365,86 @@ test.describe('Synthetic tyre reports', () => {
     expect(state.requestedPaths).toContain(`/api/workshop/orders/${ORDER_ID}/check-in`)
     expect(state.requestedPaths).toContain(`/api/workshop/orders/${ORDER_ID}/check-in/media`)
   })
+
+  for (const [locale, localeWorkshop] of [['de', deWorkshop], ['en', enWorkshop]] as const) {
+    test(`shows every reason code on one line without truncation at 375px (${locale})`, async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 1000 })
+      const localeReport = localeWorkshop.tyreReport
+      const reasonCases = [
+        { code: 'TREAD_BELOW_LEGAL_MINIMUM', status: 'URGENT', expected: localeReport.reasons.TREAD_BELOW_LEGAL_MINIMUM.replace('{{value}}', '1,6') },
+        { code: 'AT_WINTER_TREAD_INSUFFICIENT', status: 'URGENT', expected: localeReport.reasons.AT_WINTER_TREAD_INSUFFICIENT.replace('{{value}}', '4') },
+        { code: 'DE_ALPINE_MISSING', status: 'URGENT', expected: localeReport.reasons.DE_ALPINE_MISSING },
+        { code: 'TREAD_REPLACEMENT_RECOMMENDED', status: 'RECOMMENDED', expected: localeReport.reasons.TREAD_REPLACEMENT_RECOMMENDED },
+        { code: 'DOT_REPLACEMENT_RECOMMENDED', status: 'RECOMMENDED', expected: localeReport.reasons.DOT_REPLACEMENT_RECOMMENDED },
+        { code: 'DOT_LEGACY_OVER_20_YEARS', status: 'RECOMMENDED', expected: localeReport.reasons.DOT_LEGACY_OVER_20_YEARS },
+        { code: 'DOT_CONDITION_CHECK_RECOMMENDED', status: 'RECOMMENDED', expected: localeReport.reasons.DOT_CONDITION_CHECK_RECOMMENDED },
+        { code: 'AT_WINTER_RULE_NOTICE', status: 'RECOMMENDED', expected: localeReport.reasons.AT_WINTER_RULE_NOTICE },
+        { code: 'UNSUPPORTED_COUNTRY', status: 'RECOMMENDED', expected: localeReport.reasons.UNSUPPORTED_COUNTRY },
+      ] as const
+
+      const allPositions = ['FL', 'FR', 'RL', 'RR', 'SPARE'] as const
+      for (const batch of [reasonCases.slice(0, 5), reasonCases.slice(5)] as const) {
+        await mockTyreReport(page)
+        await page.addInitScript((lang) => {
+          localStorage.setItem('acp:ui-language', lang)
+        }, locale)
+        await page.route(ORDER_ENDPOINT, (route) => {
+          const batchMeasurement = {
+            ...measurement,
+            workshopOrderId: ORDER_ID,
+            checkInId: CHECK_IN_ID,
+            vehicleId: VEHICLE_ID,
+            wheels: batch.map((item, idx) => ({
+              ...measurement.wheels[idx % measurement.wheels.length],
+              id: `wheel-${item.code}`,
+              position: allPositions[idx],
+              evaluation: {
+                ...measurement.wheels[0].evaluation,
+                status: item.status,
+                reasonCodes: [item.code],
+                thresholds: { ordinaryMinimumMm: 1.6, legalMinimumMm: 4, recommendedBelowMm: 4 },
+              },
+            })),
+          }
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(createMockListResponse([batchMeasurement])),
+          })
+        })
+        await new AutoCorePage(page, localeReport.title).navigate(ORDER_PATH)
+        await expect(page.getByTestId('tyre-wheel-layout')).toBeVisible()
+        for (const [idx, item] of batch.entries()) {
+          const card = page.getByTestId('tyre-wheel-layout').getByRole('article', {
+            name: localeReport.positions[allPositions[idx]],
+            exact: true,
+          })
+          const reasonEl = card.getByText(item.expected, { exact: true })
+          await expect(reasonEl).toBeVisible()
+          const metrics = await reasonEl.evaluate((el) => {
+            const range = document.createRange()
+            range.selectNodeContents(el)
+            return {
+              lineCount: range.getClientRects().length,
+              scrollWidth: el.scrollWidth,
+              clientWidth: el.clientWidth,
+            }
+          })
+          expect(metrics.lineCount, `${locale} ${item.code}`).toBe(1)
+          expect(metrics.scrollWidth, `${locale} ${item.code}`).toBeLessThanOrEqual(metrics.clientWidth + 1)
+          await assertNoOverflow(card)
+          if (item.code === 'AT_WINTER_RULE_NOTICE') {
+            const infoButton = card.getByRole('button', { name: localeReport.reasonInfoAria, exact: true })
+            const box = await infoButton.boundingBox()
+            expect(box?.width, `${locale} info button width`).toBeGreaterThanOrEqual(44)
+            expect(box?.height, `${locale} info button height`).toBeGreaterThanOrEqual(44)
+            await infoButton.click()
+            await expect(page.getByText(localeReport.reasonDetails.AT_WINTER_RULE_NOTICE, { exact: true })).toBeVisible()
+          }
+        }
+      }
+    })
+  }
 })
+
 
