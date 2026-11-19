@@ -1,20 +1,28 @@
 import type { TFunction } from 'i18next'
-import { BookmarkCheck, Pencil, Trash2 } from 'lucide-react'
+import { BookmarkCheck, Copy, Pencil, Share2, Trash2, UserMinus } from 'lucide-react'
 
 import type { SavedView } from '@/features/saved-views/SavedViewsProvider'
+import { canManageSharedSavedViews } from './action-role-predicates'
 import { ENTITY_ACTION_IDS, type EntityActionDefinition } from './entity-action'
 
 export type SavedViewActionContext = {
+  role: string | null | undefined
+  isOfflineError: boolean
   open: (view: SavedView) => void
   rename: (view: SavedView) => void
   remove: (view: SavedView) => void
+  share: (view: SavedView) => void
+  unshare: (view: SavedView) => void
+  copy: (view: SavedView) => void
 }
 
-/**
- * The record actions of a saved view. A view belongs to the signed-in user (localStorage, per user and tenant), so no
- * role gate applies; the palette lists a view only for the lists the role can reach (see `getSavedViewsSection`).
- */
-export function createSavedViewActions(t: TFunction<'common'>): EntityActionDefinition<SavedView, SavedViewActionContext>[] {
+export function canEditSavedView(view: SavedView, role: string | null | undefined): boolean {
+  return view.visibility === 'PERSONAL' || canManageSharedSavedViews(role)
+}
+
+export function createSavedViewActions(
+  t: TFunction<'common'>,
+): EntityActionDefinition<SavedView, SavedViewActionContext>[] {
   return [
     {
       id: ENTITY_ACTION_IDS.savedViewOpen,
@@ -47,6 +55,33 @@ export function createSavedViewActions(t: TFunction<'common'>): EntityActionDefi
       isAllowedForRole: () => true,
       isEnabled: () => true,
       run: (view, context) => context.remove(view),
+    },
+    {
+      id: ENTITY_ACTION_IDS.savedViewShare,
+      label: t('savedViews.shareAction'),
+      kind: 'run',
+      icon: Share2,
+      isAllowedForRole: canManageSharedSavedViews,
+      isEnabled: (view) => view.visibility === 'PERSONAL',
+      run: (view, context) => context.share(view),
+    },
+    {
+      id: ENTITY_ACTION_IDS.savedViewUnshare,
+      label: t('savedViews.unshareAction'),
+      kind: 'run',
+      icon: UserMinus,
+      isAllowedForRole: canManageSharedSavedViews,
+      isEnabled: (view) => view.visibility === 'TENANT',
+      run: (view, context) => context.unshare(view),
+    },
+    {
+      id: ENTITY_ACTION_IDS.savedViewCopy,
+      label: t('savedViews.copyAction'),
+      kind: 'run',
+      icon: Copy,
+      isAllowedForRole: () => true,
+      isEnabled: (view) => view.visibility === 'TENANT',
+      run: (view, context) => context.copy(view),
     },
   ]
 }

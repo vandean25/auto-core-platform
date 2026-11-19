@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { scanA11y } from './a11y-checkpoint.ts'
 import { loadE2eFullstackFixture } from './fixture.ts'
 import { gotoWithReadySession } from './harness.ts'
 
@@ -73,6 +74,7 @@ test.describe('Full-stack Cmd+K workshop command flow', () => {
     await expect(preview.getByText(/150 Min\./)).toBeVisible()
     await expect(preview.getByText('reserviert')).toBeVisible()
     await expect(preview.getByText('Großes Service')).toBeVisible()
+    await scanA11y(page, 'workshop-command-preview')
 
     await page.getByRole('button', { name: 'Vorschlag übernehmen' }).click()
     await expect(page.getByRole('heading', { name: 'In der Freigabe-Queue' })).toBeVisible()
@@ -128,6 +130,7 @@ test.describe('Full-stack Cmd+K workshop command flow', () => {
     await page.getByRole('button', { name: 'Werkstattaufträge öffnen' }).click()
     await expect(page).toHaveURL(/\/workshop\/orders$/)
     await expect(page.getByText(order.order_number ?? order.id)).toBeVisible()
+    await scanA11y(page, 'workshop-orders-list')
 
     // The competing proposal now loses the bay: the UI reports the failure and keeps no success state.
     await competing.getByRole('button', { name: 'Jetzt anwenden' }).click()

@@ -398,6 +398,7 @@ function SearchPalette({
     query,
     savedViewActions.savedViews,
     (action, view) => executeEntityAction(savedViewActions.actions[action], view, savedViewActions.context),
+    savedViewActions.isOfflineError,
   )
   const commandEntryVisible =
     canUseWorkshopCommand(sessionMeta.roleInfo?.activeRole) &&

@@ -96,3 +96,10 @@ WCAG 4.1.3 (status messages), toasts:
 - [ ] With VoiceOver or NVDA running, save order notes on a sales order detail page. "Order notes saved" is announced once, politely, and focus does not move.
 - [ ] Trigger a save failure. The error toast is announced. Field-level errors still use an inline `role="alert"` or `aria-describedby` (see the form section above), so a toast is not the only signal.
 - [ ] A message shown in a toast is not announced a second time by an inline `role="alert"` for the same event.
+
+## Full-stack E2E baseline (AUT-1006)
+
+- `apps/core-web/e2e-fullstack/a11y-checkpoint.ts` (`scanA11y(page, checkpointId)`) runs axe with `A11Y_AXE_TAGS` (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, `best-practice`) and `settleA11yPage` from `e2e/utils/a11y.ts` at the main screens of every `e2e-fullstack` flow.
+- All impacts are tracked in `apps/core-web/e2e-fullstack/a11y-baseline.json` (`{checkpointId: {ruleId: nodeCount}}`). New rules or increased counts fail the flow, and fixed violations still listed in the baseline fail with `"remove from baseline"`.
+- `apps/core-web/e2e-fullstack/a11y-baseline.ratchet.test.mjs` runs in `.github/workflows/e2e-fullstack.yaml` and rejects any PR that adds a key or raises a count against the base branch, or introduces blanket rule disables / root exclusions / wildcard keys / `A11Y_ALLOWLIST` entries.
+

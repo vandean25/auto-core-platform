@@ -299,6 +299,7 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'catalog_provider_settings',
     clean: (p) => p.catalogProviderSettings.deleteMany(),
   },
+  { table: 'labor_fitments', clean: (p) => p.laborFitment.deleteMany() },
   { table: 'labor_operations', clean: (p) => p.laborOperation.deleteMany() },
   {
     table: 'labor_categories',

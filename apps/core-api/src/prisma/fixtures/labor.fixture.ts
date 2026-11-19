@@ -301,6 +301,7 @@ export async function seedLabor(
   ]);
 
   async function ensureLaborFitment(data: {
+    tenant_id: string;
     labor_operation_id: string;
     make: string;
     model: string;
@@ -309,6 +310,7 @@ export async function seedLabor(
   }) {
     const existing = await prisma.laborFitment.findFirst({
       where: {
+        tenant_id: data.tenant_id,
         labor_operation_id: data.labor_operation_id,
         make: data.make,
         model: data.model,
@@ -324,6 +326,7 @@ export async function seedLabor(
 
   if (opOilChange) {
     await ensureLaborFitment({
+      tenant_id: tenantId,
       labor_operation_id: opOilChange.id,
       make: 'Volkswagen',
       model: 'Golf VII',
@@ -334,6 +337,7 @@ export async function seedLabor(
 
   if (opBrakePad) {
     await ensureLaborFitment({
+      tenant_id: tenantId,
       labor_operation_id: opBrakePad.id,
       make: 'Audi',
       model: 'A4 B9',

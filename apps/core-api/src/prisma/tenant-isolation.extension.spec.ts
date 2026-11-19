@@ -8,8 +8,12 @@ import {
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   ALL_PRISMA_OPERATIONS,
+  GLOBAL_MODELS,
+  GLOBAL_MODEL_REASONS,
   OPERATION_CLASSIFICATIONS,
+  TENANT_SCOPED_EXCEPTIONS,
   applyTenantIsolation,
+  validateModelScopeInvariants,
 } from './tenant-isolation.extension.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
@@ -2583,6 +2587,72 @@ describe('applyTenantIsolation', () => {
 
         expect(query).toHaveBeenCalledWith(sampleArgs);
       });
+    });
+  });
+
+  describe('model-scope invariants (Prisma.dmmf)', () => {
+    it('ensures every model with tenant_id is tenant-scoped, every GLOBAL_MODELS entry has no tenant_id and a written reason, and exception allowlist is empty', () => {
+      expect(Object.keys(TENANT_SCOPED_EXCEPTIONS)).toEqual([]);
+      expect(GLOBAL_MODELS.has('LaborFitment')).toBe(false);
+      expect(GLOBAL_MODELS.has('LocalInventory')).toBe(false);
+      expect(
+        Prisma.dmmf.datamodel.models.some((m) => m.name === 'LocalInventory'),
+      ).toBe(false);
+
+      expect(() =>
+        validateModelScopeInvariants({
+          models: Prisma.dmmf.datamodel.models,
+          globalModelReasons: GLOBAL_MODEL_REASONS,
+          exceptions: TENANT_SCOPED_EXCEPTIONS,
+        }),
+      ).not.toThrow();
+    });
+
+    it('fails when a model with tenant_id is added to GLOBAL_MODELS (fixture list)', () => {
+      const fixtureModels = [
+        {
+          name: 'Tenant',
+          fields: [{ name: 'id' }],
+        },
+        {
+          name: 'LaborFitment',
+          fields: [{ name: 'id' }, { name: 'tenant_id' }],
+        },
+      ];
+
+      expect(() =>
+        validateModelScopeInvariants({
+          models: fixtureModels,
+          globalModelReasons: {
+            Tenant: 'Root tenant registry table.',
+            LaborFitment: 'Mistakenly listed as global.',
+          },
+          exceptions: {},
+        }),
+      ).toThrow(/LaborFitment.*tenant_id/i);
+    });
+
+    it('fails when a GLOBAL_MODELS entry or exception allowlist entry lacks a written reason', () => {
+      const fixtureModels = [
+        { name: 'Tenant', fields: [{ name: 'id' }] },
+        { name: 'Customer', fields: [{ name: 'id' }, { name: 'tenant_id' }] },
+      ];
+
+      expect(() =>
+        validateModelScopeInvariants({
+          models: fixtureModels,
+          globalModelReasons: { Tenant: '   ' },
+          exceptions: {},
+        }),
+      ).toThrow(/Tenant.*reason/i);
+
+      expect(() =>
+        validateModelScopeInvariants({
+          models: fixtureModels,
+          globalModelReasons: { Tenant: 'Root tenant table.' },
+          exceptions: { Customer: '' },
+        }),
+      ).toThrow(/Customer.*reason/i);
     });
   });
 });
