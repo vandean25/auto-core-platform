@@ -79,6 +79,9 @@ describe('Saved Views (AUT-938)', () => {
       await cleanupTestTenantGraph(prisma, tenantId);
     }
     if (demoAccessRequestIds.length > 0) {
+      await systemPrisma.landingDemoSignInGrant.deleteMany({
+        where: { access_request_id: { in: demoAccessRequestIds } },
+      });
       await systemPrisma.landingDemoAccessRequest.deleteMany({
         where: { id: { in: demoAccessRequestIds } },
       });
