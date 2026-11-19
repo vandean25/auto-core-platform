@@ -13,7 +13,6 @@ import {
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { resolvePrismaModelDelegate } from './prisma-delegate.js';
 import { PrismaTransactionContext } from './prisma-transaction-context.js';
-import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 import { runWithDeferredVehicleMediaPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
@@ -567,11 +566,11 @@ async function writeAuditLogBatch(
     return;
   }
 
-  const chunks: Record<string, unknown>[][] = [];
   for (let i = 0; i < entries.length; i += AUDIT_LOG_INSERT_CHUNK_SIZE) {
-    chunks.push(entries.slice(i, i + AUDIT_LOG_INSERT_CHUNK_SIZE));
+    await createMany({
+      data: entries.slice(i, i + AUDIT_LOG_INSERT_CHUNK_SIZE),
+    });
   }
-  await chunkedPromiseAll(chunks, (chunk) => createMany({ data: chunk }));
 }
 
 function createUpdateRecord(
@@ -898,21 +897,21 @@ export async function applyAuditUpsert(
     const afterRaw = await executeWrite(ctx.args);
     const entityId = resolveEntityId(afterRaw, prepared.beforeRaw, ctx.args);
 
-    if (prepared.beforeRaw != null) {
-      if (isNoOpUpdateData(ctx.args.update)) {
-        return afterRaw;
-      }
-      const payload = createUpdateRecord(
-        ctx.model,
-        entityId,
-        prepared.beforeRaw,
-        afterRaw,
-      );
+    if (prepared.beforeRaw === null) {
+      const payload = createCreateRecord(ctx.model, entityId, afterRaw);
       await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
       return afterRaw;
     }
 
-    const payload = createCreateRecord(ctx.model, entityId, afterRaw);
+    if (isNoOpUpdateData(ctx.args.update)) {
+      return afterRaw;
+    }
+    const payload = createUpdateRecord(
+      ctx.model,
+      entityId,
+      prepared.beforeRaw ?? {},
+      afterRaw,
+    );
     await writeAuditLog(prepared.auditLogDelegate, prepared.actor, payload);
     return afterRaw;
   });

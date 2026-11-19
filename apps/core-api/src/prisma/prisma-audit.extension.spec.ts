@@ -7,7 +7,6 @@ import {
   applyAuditDeleteMany,
   applyAuditUpdate,
   applyAuditUpdateMany,
-  applyAuditUpsert,
   AUDITED_MODELS,
   createAuditExtension,
 } from './prisma-audit.extension.js';
@@ -19,7 +18,10 @@ import { REDACTED_VALUE } from '../audit/audit-redaction.util.js';
 import { lockVehicleForPartyWrite } from '../vehicle/vehicle-party.writer.js';
 import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension.js';
 import { scheduleVehicleMediaPrefixPurges } from '../vehicle-stock/vehicle-media/vehicle-media-purge.extension.js';
-import { registerVehicleMediaPurgeStorage } from '../vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
+import {
+  getVehicleMediaPurgeStorage,
+  registerVehicleMediaPurgeStorage,
+} from '../vehicle-stock/vehicle-media/vehicle-media-purge.registry.js';
 import type { VehicleMediaStorage } from '../vehicle-stock/vehicle-media/vehicle-media.storage.js';
 
 const TENANT_ID = 'tenant-audit-123';
@@ -1404,7 +1406,53 @@ describe('Prisma Audit Extension', () => {
     });
   });
 
-  describe('applyAuditUpsert', () => {
+  type AuditHookParams = {
+    model: string;
+    args: Record<string, unknown>;
+    query: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+
+  function createAuditTestClient(baseClient: Record<string, unknown>) {
+    let allModelsHooks: Record<
+      string,
+      ((params: AuditHookParams) => Promise<unknown>) | undefined
+    > = {};
+    const proxyClient: Record<string, unknown> = {
+      ...baseClient,
+      $extends: (def: {
+        query: {
+          $allModels: Record<
+            string,
+            ((params: AuditHookParams) => Promise<unknown>) | undefined
+          >;
+        };
+      }) => {
+        allModelsHooks = def.query.$allModels;
+        return proxyClient;
+      },
+    };
+    const extFactory = createAuditExtension() as unknown as (
+      client: Record<string, unknown>,
+    ) => unknown;
+    extFactory(proxyClient);
+
+    const invokeOp = (
+      model: string,
+      operation: 'update' | 'delete' | 'upsert' | 'updateMany' | 'deleteMany',
+      args: Record<string, unknown>,
+      baseQuery: (a: Record<string, unknown>) => Promise<unknown>,
+    ): Promise<unknown> => {
+      const hook = allModelsHooks[operation];
+      if (typeof hook === 'function') {
+        return hook.call(proxyClient, { model, args, query: baseQuery });
+      }
+      return baseQuery(args);
+    };
+
+    return { invokeOp };
+  }
+
+  describe('upsert auditing via createAuditExtension', () => {
     it('AUT-1009 scenario 1: writes one UPDATE audit entry with diff when FinanceSettings is upserted with a change', async () => {
       const beforeRow = {
         id: 'fs-1',
@@ -1423,13 +1471,13 @@ describe('Prisma Audit Extension', () => {
         ...mockContext,
         financeSettings: { findFirst: financeFindFirst },
       };
+      const { invokeOp } = createAuditTestClient(contextWithFinance);
       const queryFn = jest.fn().mockResolvedValue(afterRow);
 
       const result = await runWithContext(undefined, undefined, () =>
-        applyAuditUpsert.call(
-          contextWithFinance,
-          contextWithFinance,
+        invokeOp(
           'FinanceSettings',
+          'upsert',
           {
             where: { tenant_id: TENANT_ID },
             update: { lock_date: new Date('2026-10-31T00:00:00.000Z') },
@@ -1472,13 +1520,13 @@ describe('Prisma Audit Extension', () => {
           findFirst: jest.fn().mockResolvedValue(existingRow),
         },
       };
+      const { invokeOp } = createAuditTestClient(contextWithFinance);
       const queryFn = jest.fn().mockResolvedValue(existingRow);
 
       const result = await runWithContext(undefined, undefined, () =>
-        applyAuditUpsert.call(
-          contextWithFinance,
-          contextWithFinance,
+        invokeOp(
           'FinanceSettings',
+          'upsert',
           {
             where: { tenant_id: TENANT_ID },
             update: {},
@@ -1505,13 +1553,13 @@ describe('Prisma Audit Extension', () => {
           findFirst: jest.fn().mockResolvedValue(null),
         },
       };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
       const queryFn = jest.fn().mockResolvedValue(createdRow);
 
       const result = await runWithContext(undefined, undefined, () =>
-        applyAuditUpsert.call(
-          contextWithBrand,
-          contextWithBrand,
+        invokeOp(
           'Brand',
+          'upsert',
           {
             where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'Audi' } },
             update: {},
@@ -1538,6 +1586,48 @@ describe('Prisma Audit Extension', () => {
       });
     });
 
+    it('writes an UPDATE entry with empty before image when upsert pre-image findFirst throws (beforeRaw is undefined)', async () => {
+      const afterRow = {
+        id: 'brand-2',
+        tenant_id: TENANT_ID,
+        name: 'BMW',
+      };
+      const contextWithBrand = {
+        ...mockContext,
+        brand: {
+          findFirst: jest.fn().mockRejectedValue(new Error('Unknown argument')),
+        },
+      };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      const result = await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Brand',
+          'upsert',
+          {
+            where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'BMW' } },
+            update: { name: 'BMW' },
+            create: { tenant_id: TENANT_ID, name: 'BMW' },
+          },
+          queryFn,
+        ),
+      );
+
+      expect(result).toEqual(afterRow);
+      expect(mockAuditLogCreate).toHaveBeenCalledTimes(1);
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          entity_type: 'Brand',
+          entity_id: 'brand-2',
+          action: 'UPDATE',
+          before: {},
+          after: afterRow,
+        }),
+      });
+    });
+
     it('records create in dry-run collector when upsert creates a new row', async () => {
       const createdRow = { id: 'brand-dry-1', tenant_id: TENANT_ID, name: 'BMW' };
       const collector = new DryRunChangeCollector();
@@ -1545,13 +1635,13 @@ describe('Prisma Audit Extension', () => {
         ...mockContext,
         brand: { findFirst: jest.fn().mockResolvedValue(null) },
       };
+      const { invokeOp } = createAuditTestClient(contextWithBrand);
 
       await DryRunStorage.run({ isDryRun: true, collector }, () =>
         runWithContext(undefined, undefined, () =>
-          applyAuditUpsert.call(
-            contextWithBrand,
-            contextWithBrand,
+          invokeOp(
             'Brand',
+            'upsert',
             {
               where: { tenant_id_name: { tenant_id: TENANT_ID, name: 'BMW' } },
               update: {},
@@ -1569,13 +1659,13 @@ describe('Prisma Audit Extension', () => {
     });
 
     it('bypasses non-audited models on upsert without writing AuditLog', async () => {
+      const { invokeOp } = createAuditTestClient(mockContext);
       const queryFn = jest.fn().mockResolvedValue({ id: 'tenant-1' });
 
       const result = await runWithContext(undefined, undefined, () =>
-        applyAuditUpsert.call(
-          mockContext,
-          mockContext,
+        invokeOp(
           'Tenant',
+          'upsert',
           { where: { id: 'tenant-1' }, update: {}, create: { name: 'T' } },
           queryFn,
         ),
@@ -1586,13 +1676,13 @@ describe('Prisma Audit Extension', () => {
     });
 
     it('throws InternalServerErrorException when tenant context is missing on upsert', async () => {
+      const { invokeOp } = createAuditTestClient(mockContext);
       const queryFn = jest.fn();
 
       await expect(
-        applyAuditUpsert.call(
-          mockContext,
-          mockContext,
+        invokeOp(
           'Brand',
+          'upsert',
           { where: { id: 'brand-1' }, update: {}, create: { name: 'Audi' } },
           queryFn,
         ),
@@ -1605,14 +1695,14 @@ describe('Prisma Audit Extension', () => {
 
   describe('atomicity and transaction wrapping (AUT-1009)', () => {
     it.each([
-      ['update', applyAuditUpdate, { where: { id: 'cust-1' }, data: { name: 'After' } }],
-      ['delete', applyAuditDelete, { where: { id: 'cust-1' } }],
-      ['upsert', applyAuditUpsert, { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
-      ['updateMany', applyAuditUpdateMany, { where: { id: 'cust-1' }, data: { name: 'After' } }],
-      ['deleteMany', applyAuditDeleteMany, { where: { id: 'cust-1' } }],
+      ['update', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['delete', { where: { id: 'cust-1' } }],
+      ['upsert', { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
+      ['updateMany', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['deleteMany', { where: { id: 'cust-1' } }],
     ] as const)(
       'scenario 4 (%s): wraps write + audit insert in $transaction outside a transaction and rolls back when audit insert fails',
-      async (operation, handler, args) => {
+      async (operation, args) => {
         const beforeRow = { id: 'cust-1', name: 'Before' };
         const afterRow = { id: 'cust-1', name: 'After' };
         const committedWrites: string[] = [];
@@ -1667,35 +1757,49 @@ describe('Prisma Audit Extension', () => {
 
         const outerCtx = {
           ...mockContext,
+          customer: {
+            findFirst: jest.fn().mockResolvedValue(beforeRow),
+            findMany: jest
+              .fn()
+              .mockResolvedValueOnce([beforeRow])
+              .mockResolvedValueOnce([afterRow]),
+          },
+          auditLog: {
+            create: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+            createMany: jest.fn().mockRejectedValue(new Error('audit insert failed')),
+          },
           $transaction: txFn,
         };
+        const { invokeOp } = createAuditTestClient(outerCtx);
         const outerQueryFn = jest.fn().mockImplementation(async () => {
           committedWrites.push('outer-non-tx');
-          return afterRow;
+          return operation === 'updateMany' || operation === 'deleteMany'
+            ? { count: 1 }
+            : afterRow;
         });
 
         await expect(
           runWithContext(undefined, undefined, () =>
-            handler.call(outerCtx, outerCtx, 'Customer', args, outerQueryFn),
+            invokeOp('Customer', operation, args, outerQueryFn),
           ),
         ).rejects.toThrow('audit insert failed');
 
-        expect(txFn).toHaveBeenCalledTimes(1);
         expect(committedWrites).toEqual([]);
+        expect(txFn).toHaveBeenCalledTimes(1);
         expect(outerQueryFn).not.toHaveBeenCalled();
         expect(txCustomerDelegate[operation]).toHaveBeenCalledTimes(1);
       },
     );
 
     it.each([
-      ['update', applyAuditUpdate, { where: { id: 'cust-1' }, data: { name: 'After' } }],
-      ['delete', applyAuditDelete, { where: { id: 'cust-1' } }],
-      ['upsert', applyAuditUpsert, { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
-      ['updateMany', applyAuditUpdateMany, { where: { id: 'cust-1' }, data: { name: 'After' } }],
-      ['deleteMany', applyAuditDeleteMany, { where: { id: 'cust-1' } }],
+      ['update', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['delete', { where: { id: 'cust-1' } }],
+      ['upsert', { where: { id: 'cust-1' }, update: { name: 'After' }, create: { name: 'After' } }],
+      ['updateMany', { where: { id: 'cust-1' }, data: { name: 'After' } }],
+      ['deleteMany', { where: { id: 'cust-1' } }],
     ] as const)(
       'scenario 5 (%s): does not open a nested transaction when already inside PrismaTransactionContext',
-      async (_operation, handler, args) => {
+      async (operation, args) => {
         const beforeRow = { id: 'cust-1', name: 'Before' };
         const afterRow = { id: 'cust-1', name: 'After' };
         const txAuditCreate = jest.fn().mockResolvedValue({ id: 'audit-1' });
@@ -1718,17 +1822,18 @@ describe('Prisma Audit Extension', () => {
           ...mockContext,
           $transaction: outerTxFn,
         };
+        const { invokeOp } = createAuditTestClient(outerCtx);
         const queryFn = jest
           .fn()
           .mockResolvedValue(
-            _operation === 'updateMany' || _operation === 'deleteMany'
+            operation === 'updateMany' || operation === 'deleteMany'
               ? { count: 1 }
               : afterRow,
           );
 
         await runWithContext(undefined, undefined, () =>
           PrismaTransactionContext.run(txClient as never, () =>
-            handler.call(outerCtx, outerCtx, 'Customer', args, queryFn),
+            invokeOp('Customer', operation, args, queryFn),
           ),
         );
 
@@ -1736,6 +1841,65 @@ describe('Prisma Audit Extension', () => {
         expect(queryFn).toHaveBeenCalledTimes(1);
       },
     );
+
+    it('awaits auditLog.createMany chunks sequentially inside a batch transaction (> 500 rows)', async () => {
+      const totalRows = 505;
+      const beforeRows = Array.from({ length: totalRows }, (_, i) => ({
+        id: `cust-${i}`,
+        name: `Before-${i}`,
+      }));
+      const afterRows = Array.from({ length: totalRows }, (_, i) => ({
+        id: `cust-${i}`,
+        name: `After-${i}`,
+      }));
+
+      let inFlightCreateMany = 0;
+      let maxConcurrentCreateMany = 0;
+      const chunkSizes: number[] = [];
+
+      const txClient = {
+        customer: {
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce(beforeRows)
+            .mockResolvedValueOnce(afterRows),
+          updateMany: jest.fn().mockResolvedValue({ count: totalRows }),
+        },
+        auditLog: {
+          createMany: jest.fn().mockImplementation(async (args: { data: unknown[] }) => {
+            inFlightCreateMany += 1;
+            maxConcurrentCreateMany = Math.max(
+              maxConcurrentCreateMany,
+              inFlightCreateMany,
+            );
+            chunkSizes.push(args.data.length);
+            await Promise.resolve();
+            inFlightCreateMany -= 1;
+            return { count: args.data.length };
+          }),
+        },
+      };
+
+      const outerCtx = {
+        ...mockContext,
+        $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+          cb(txClient),
+        ),
+      };
+      const { invokeOp } = createAuditTestClient(outerCtx);
+
+      await runWithContext(undefined, undefined, () =>
+        invokeOp(
+          'Customer',
+          'updateMany',
+          { where: { tenant_id: TENANT_ID }, data: { name: 'After' } },
+          jest.fn(),
+        ),
+      );
+
+      expect(chunkSizes).toEqual([500, 5]);
+      expect(maxConcurrentCreateMany).toBe(1);
+    });
 
     it('does not open a nested transaction when inside PrismaTransactionContext.runInBatch', async () => {
       const beforeRow = { id: 'cust-1', name: 'Before' };
@@ -1847,71 +2011,76 @@ describe('Prisma Audit Extension', () => {
         deleteVehicleMediaPrefix,
         deleteTenantVehicleMediaPrefix: jest.fn(),
       };
+      const previousStorage = getVehicleMediaPurgeStorage();
       registerVehicleMediaPurgeStorage(storage);
 
-      const beforeVehicle = { id: 'veh-1', tenant_id: TENANT_ID, vin: 'VIN123' };
-      let purgedBeforeAuditInsert = false;
+      try {
+        const beforeVehicle = { id: 'veh-1', tenant_id: TENANT_ID, vin: 'VIN123' };
+        let purgedBeforeAuditInsert = false;
 
-      const makeClient = (shouldFailAudit: boolean) => {
-        const txClient = {
-          vehicle: {
-            findFirst: jest.fn().mockResolvedValue(beforeVehicle),
-            delete: jest.fn().mockImplementation(async () => {
-              await scheduleVehicleMediaPrefixPurges([
-                { id: 'veh-1', tenant_id: TENANT_ID },
-              ]);
-              return beforeVehicle;
-            }),
-          },
-          auditLog: {
-            create: jest.fn().mockImplementation(async () => {
-              purgedBeforeAuditInsert =
-                deleteVehicleMediaPrefix.mock.calls.length > 0;
-              if (shouldFailAudit) {
-                throw new Error('audit insert failed');
-              }
-              return { id: 'audit-1' };
-            }),
-          },
+        const makeClient = (shouldFailAudit: boolean) => {
+          const txClient = {
+            vehicle: {
+              findFirst: jest.fn().mockResolvedValue(beforeVehicle),
+              delete: jest.fn().mockImplementation(async () => {
+                await scheduleVehicleMediaPrefixPurges([
+                  { id: 'veh-1', tenant_id: TENANT_ID },
+                ]);
+                return beforeVehicle;
+              }),
+            },
+            auditLog: {
+              create: jest.fn().mockImplementation(async () => {
+                purgedBeforeAuditInsert =
+                  deleteVehicleMediaPrefix.mock.calls.length > 0;
+                if (shouldFailAudit) {
+                  throw new Error('audit insert failed');
+                }
+                return { id: 'audit-1' };
+              }),
+            },
+          };
+
+          return {
+            ...mockContext,
+            $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
+              cb(txClient),
+            ),
+          };
         };
 
-        return {
-          ...mockContext,
-          $transaction: jest.fn(async (cb: (tx: typeof txClient) => Promise<unknown>) =>
-            cb(txClient),
+        await expect(
+          runWithContext(undefined, undefined, () =>
+            applyAuditDelete.call(
+              makeClient(true),
+              makeClient(true),
+              'Vehicle',
+              { where: { id: 'veh-1' } },
+              jest.fn(),
+            ),
           ),
-        };
-      };
+        ).rejects.toThrow('audit insert failed');
+        expect(deleteVehicleMediaPrefix).not.toHaveBeenCalled();
 
-      await expect(
-        runWithContext(undefined, undefined, () =>
+        const commitClient = makeClient(false);
+        await runWithContext(undefined, undefined, () =>
           applyAuditDelete.call(
-            makeClient(true),
-            makeClient(true),
+            commitClient,
+            commitClient,
             'Vehicle',
             { where: { id: 'veh-1' } },
             jest.fn(),
           ),
-        ),
-      ).rejects.toThrow('audit insert failed');
-      expect(deleteVehicleMediaPrefix).not.toHaveBeenCalled();
-
-      const commitClient = makeClient(false);
-      await runWithContext(undefined, undefined, () =>
-        applyAuditDelete.call(
-          commitClient,
-          commitClient,
-          'Vehicle',
-          { where: { id: 'veh-1' } },
-          jest.fn(),
-        ),
-      );
-      expect(purgedBeforeAuditInsert).toBe(false);
-      expect(deleteVehicleMediaPrefix).toHaveBeenCalledTimes(1);
-      expect(deleteVehicleMediaPrefix).toHaveBeenCalledWith({
-        tenantId: TENANT_ID,
-        vehicleId: 'veh-1',
-      });
+        );
+        expect(purgedBeforeAuditInsert).toBe(false);
+        expect(deleteVehicleMediaPrefix).toHaveBeenCalledTimes(1);
+        expect(deleteVehicleMediaPrefix).toHaveBeenCalledWith({
+          tenantId: TENANT_ID,
+          vehicleId: 'veh-1',
+        });
+      } finally {
+        registerVehicleMediaPurgeStorage(previousStorage as VehicleMediaStorage);
+      }
     });
 
     it.each([
