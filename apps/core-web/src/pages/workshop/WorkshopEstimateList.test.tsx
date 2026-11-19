@@ -173,4 +173,16 @@ describe('WorkshopEstimateList', () => {
       'true',
     )
   })
+
+  it('toggles secondary filters and displays active filter count on the mobile toggle', () => {
+    mockList([row({})])
+    renderList('/workshop/estimates?sentFrom=2026-10-01&older=1')
+
+    const toggle = screen.getByTestId('estimate-filters-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveTextContent('(2)')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  })
 })

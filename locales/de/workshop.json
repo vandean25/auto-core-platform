@@ -1691,6 +1691,8 @@
       "sentFrom": "Gesendet von",
       "sentTo": "Gesendet bis",
       "showOlder": "Ältere Versionen anzeigen",
+      "moreFilters": "Filter",
+      "moreFiltersCount": "Filter ({{count}})",
       "rangeHint": "Der Zeitraum gilt erst, wenn beide Tage gesetzt sind und „von“ nicht nach „bis“ liegt."
     },
     "actions": {

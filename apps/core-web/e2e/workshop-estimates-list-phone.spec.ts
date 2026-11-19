@@ -60,7 +60,7 @@ test.describe('Estimates list on a phone (AUT-795)', () => {
     await expectNoPageScroll(page)
   })
 
-  test('the filter bar stays inside the screen and a row opens the work order', async ({ page }) => {
+  test('the filter bar stays compact and inside the screen, and a row opens the work order', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
       route.fulfill(json({ data: [estimate(1, { version: 2 })], meta: { page_size: 25, next_cursor: null } })),
@@ -69,6 +69,13 @@ test.describe('Estimates list on a phone (AUT-795)', () => {
 
     const filters = page.getByTestId('estimate-list-filters')
     await expect(filters).toBeVisible()
+    const toggle = page.getByTestId('estimate-filters-toggle')
+    await expect(toggle).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByTestId('estimate-sent-from')).toBeHidden()
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
     for (const control of [
       page.getByRole('combobox', { name: 'Kunde' }),
       page.getByTestId('estimate-sent-from'),
@@ -83,5 +90,66 @@ test.describe('Estimates list on a phone (AUT-795)', () => {
 
     await page.locator('[data-table-row="true"]').first().click()
     await expect(page).toHaveURL(/\/workshop\/orders\/order-1#estimate-version-2$/)
+  })
+
+  test('Scenario 1: all status chips including Alle are fully visible, >=44px, and usable at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const requests: URL[] = []
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) => {
+      requests.push(new URL(route.request().url()))
+      return route.fulfill(json({ data: [estimate(1)], meta: { page_size: 25, next_cursor: null } }))
+    })
+    await new AutoCorePage(page, '').navigate('/workshop/estimates')
+
+    for (const chip of ['ALL', 'SENT', 'APPROVED', 'DECLINED', 'EXPIRED', 'DRAFT']) {
+      const button = page.getByTestId(`estimate-status-chip-${chip}`)
+      await expect(button).toBeVisible()
+      const box = (await button.boundingBox())!
+      expect(box.x, `${chip} left edge`).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width, `${chip} right edge`).toBeLessThanOrEqual(375)
+      expect(box.height, `${chip} touch target`).toBeGreaterThanOrEqual(44)
+    }
+
+    await page.getByTestId('estimate-status-chip-ALL').click()
+    await expect.poll(() => requests.at(-1)?.searchParams.get('status')).toBeNull()
+    await expectNoPageScroll(page)
+  })
+
+  for (const width of [375, 390]) {
+    test(`Scenario 2: toolbar stays compact without stacking all filters at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 812 })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
+        route.fulfill(json({ data: [estimate(1)], meta: { page_size: 25, next_cursor: null } })),
+      )
+      await new AutoCorePage(page, '').navigate('/workshop/estimates')
+
+      const toggle = page.getByTestId('estimate-filters-toggle')
+      await expect(toggle).toBeVisible()
+      expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+      await expect(page.getByTestId('estimate-sent-from')).toBeHidden()
+      // First estimate row stays reachable in the initial mobile viewport.
+      const firstRowBox = (await page.locator('[data-table-row="true"]').first().boundingBox())!
+      expect(firstRowBox.y + firstRowBox.height).toBeLessThanOrEqual(812)
+      await expectNoPageScroll(page)
+    })
+  }
+
+  test('Scenario 6: EN copy fits at 375px and desktop shows full filter bar', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'en'))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
+      route.fulfill(json({ data: [estimate(1)], meta: { page_size: 25, next_cursor: null } })),
+    )
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await new AutoCorePage(page, '').navigate('/workshop/estimates')
+    await expect(page.getByTestId('estimate-status-chip-ALL')).toHaveText('All')
+    await expect(page.getByTestId('estimate-filters-toggle')).toBeVisible()
+    await expectNoPageScroll(page)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect(page.getByTestId('estimate-filters-toggle')).toBeHidden()
+    await expect(page.getByTestId('estimate-sent-from')).toBeVisible()
+    await expect(page.getByTestId('estimate-sent-to')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Show older versions' })).toBeVisible()
   })
 })

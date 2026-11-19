@@ -1691,6 +1691,8 @@
       "sentFrom": "Sent from",
       "sentTo": "Sent to",
       "showOlder": "Show older versions",
+      "moreFilters": "Filters",
+      "moreFiltersCount": "Filters ({{count}})",
       "rangeHint": "The range applies once both days are set and “from” is not after “to”."
     },
     "actions": {

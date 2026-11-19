@@ -4,7 +4,7 @@ import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
 import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
-import { pageOverflow } from './utils/phone-layout';
+import { expectNoPageScroll, pageOverflow } from './utils/phone-layout';
 import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '../src/features/realtime/resync-interval';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
@@ -504,3 +504,117 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
     });
   });
 });
+
+test.describe('Inventory ledger on a phone (AUT-973)', () => {
+  const ledgerItem = createMockInventoryItem({
+    id: 'item-ledger-1',
+    sku: '06J-115-403-Q',
+    name: 'Ölfilter Einsatz',
+    brand: 'MANN-FILTER',
+    price: 18.9,
+    status: 'IN_STOCK',
+    quantity_available: 11,
+    warehouse_location: 'Hauptlager A-01',
+  });
+  const transactions = [
+    {
+      id: 'tx-1',
+      quantity: '12',
+      type: 'PURCHASE_RECEIPT',
+      reference_id: 'PO-2026-0042',
+      cost_basis: '7.5',
+      createdAt: '2026-10-10T09:15:00.000Z',
+      item: { sku: ledgerItem.sku, name: ledgerItem.name },
+      location: { name: 'Hauptlager Wien' },
+    },
+  ];
+
+  async function mockLedger(page: Page) {
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/inventory/${ledgerItem.id}`), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ledgerItem) }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/inventory/${ledgerItem.id}/history`), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(transactions) }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+  }
+
+  test('Scenario 3: header actions sit on one row and are >=44px at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await mockLedger(page);
+    await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}/ledger`);
+
+    const actionButtons = [
+      page.getByRole('button', { name: DE_INVENTORY.actions.receive }),
+      page.getByRole('button', { name: DE_INVENTORY.actions.adjust }),
+      page.getByRole('button', { name: DE_INVENTORY.actions.edit }),
+    ];
+    const boxes = [];
+    for (const button of actionButtons) {
+      await expect(button).toBeVisible();
+      const box = (await button.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(375);
+      boxes.push(box);
+    }
+    const rowTops = new Set(boxes.map((box) => Math.round(box.y)));
+    expect(rowTops.size, 'all three actions sit on one row').toBe(1);
+    await expectNoPageScroll(page);
+  });
+
+  test('Scenario 4: Auf Lager (11 Stk.) stays on one line at 375px', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await mockLedger(page);
+    await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}/ledger`);
+
+    const units = page.getByText('(11 Stk.)');
+    await expect(units).toBeVisible();
+    const unitsBox = (await units.boundingBox())!;
+    expect(unitsBox.height, 'unit count does not wrap onto two lines').toBeLessThanOrEqual(28);
+    expect(unitsBox.x + unitsBox.width).toBeLessThanOrEqual(375);
+    await expectNoPageScroll(page);
+  });
+
+  for (const width of [375, 390]) {
+    test(`Scenario 5: Bestandsbuch shows Referenz without clipped inner horizontal scroll at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 812 });
+      await mockLedger(page);
+      await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}/ledger`);
+
+      const mobileList = page.getByTestId('inventory-ledger-mobile-list');
+      await expect(mobileList).toBeVisible();
+      const refValue = mobileList.getByText('PO-2026-0042');
+      await expect(refValue).toBeVisible();
+      const refBox = (await refValue.boundingBox())!;
+      expect(refBox.x).toBeGreaterThanOrEqual(0);
+      expect(refBox.x + refBox.width).toBeLessThanOrEqual(width);
+      await expectNoPageScroll(page);
+    });
+  }
+
+  test('Scenario 6: EN copy fits at 375px and desktop renders the full ledger table', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'en'));
+    await mockLedger(page);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}/ledger`);
+    await expect(page.getByText('(11 units)')).toBeVisible();
+    expect((await page.getByText('(11 units)').boundingBox())!.height).toBeLessThanOrEqual(28);
+    await expect(page.getByTestId('inventory-ledger-mobile-list').getByText('PO-2026-0042')).toBeVisible();
+    await expectNoPageScroll(page);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const table = page.getByTestId('inventory-ledger-table');
+    await expect(table).toBeVisible();
+    const costHeader = table.getByRole('columnheader', { name: 'Cost' });
+    await expect(costHeader).toBeVisible();
+    const tableOverflow = await table.evaluate((el) => {
+      const region = el.parentElement!;
+      return region.scrollWidth - region.clientWidth;
+    });
+    expect(tableOverflow, 'desktop ledger table fits without clipping Cost').toBeLessThanOrEqual(0);
+  });
+});
+

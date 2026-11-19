@@ -45,7 +45,7 @@ export function EstimateCustomerPicker({ customerId, customerName, onChange }: E
             role="combobox"
             aria-expanded={open}
             aria-label={t('estimateList.filters.customer')}
-            className="min-w-0 flex-1 justify-between sm:w-56 sm:flex-none"
+            className="min-w-0 flex-1 justify-between max-sm:min-h-11 sm:w-56 sm:flex-none"
           >
             <span className="truncate">{customerId ? customerName : t('estimateList.filters.customerAll')}</span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

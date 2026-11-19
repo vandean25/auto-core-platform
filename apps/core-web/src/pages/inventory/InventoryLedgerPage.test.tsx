@@ -60,4 +60,10 @@ describe('InventoryLedgerPage', () => {
     expect(screen.getByRole('button', { name: deInventory.actions.adjust })).toBeVisible()
     expect(screen.getByRole('button', { name: deInventory.actions.edit })).toBeEnabled()
   })
+
+  it('renders ledger table without min-w-[720px] clipping', () => {
+    renderPage()
+    expect(screen.getByTestId('inventory-ledger-table')).not.toHaveClass('min-w-[720px]')
+    expect(screen.getAllByText(deInventory.ledger.noLedgerActivity).length).toBeGreaterThanOrEqual(1)
+  })
 })
