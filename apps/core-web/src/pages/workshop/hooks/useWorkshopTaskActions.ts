@@ -69,15 +69,16 @@ export function useWorkshopTaskActions({
 
   const changeTaskStatus = async (taskId: string, status: WorkshopTaskStatus) => {
     if (isLocked) return
+    const task = tasks.find((candidate) => candidate.id === taskId)
     const saved = await runUpdateWorkshopOrderTaskStatus(
       order.id,
       taskId,
       status,
       updateTask.mutateAsync,
       t,
+      task?.status,
     )
     if (!saved) return
-    const task = tasks.find((candidate) => candidate.id === taskId)
     if (status === 'DONE' && task?.title === PICKERL_TASK_TITLE && pickerl.canManagePickerl) {
       pickerl.offerRecording()
     }

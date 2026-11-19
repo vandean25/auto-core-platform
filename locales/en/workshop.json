@@ -166,6 +166,8 @@
       "goToSettings": "Go to Settings"
     },
     "assignError": "Failed to assign order. Please try again.",
+    "bayAssigned": "Bay assigned",
+    "bayUnassigned": "Bay unassigned",
     "a11y": {
       "orderFallback": "Workshop order",
       "unknownColumn": "an unknown column",
@@ -655,6 +657,8 @@
       "reportedIssueSaveFailed": "Failed to save reported issue",
       "taskCreated": "Task created",
       "taskCreateFailed": "Failed to create task",
+      "taskStatusUpdated": "Task status updated",
+      "taskStatusUndone": "Task status restored",
       "taskStatusUpdateFailed": "Failed to update task status",
       "mechanicNotesUpdateFailed": "Failed to update mechanic notes",
       "taskDeleted": "Task deleted",

@@ -2,6 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockBay, createMockCustomer, createMockEmployee, createMockWorkshopOrder } from './utils/mock-factories'
 import deCommon from '../../../locales/de/common.json' with { type: 'json' }
+import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
+import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
 
 const ORDER_ID = 'wo-picker-anchor'
 const SEARCH = deCommon.inlineEdit.search
@@ -98,4 +100,115 @@ test.describe('desktop inline pickers stay anchored', () => {
     await expectSearchAnchoredTo(page, statusTrigger)
     await page.screenshot({ path: testInfo.outputPath('status-picker.png') })
   })
+})
+test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toasts', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  for (const localeCase of [
+    {
+      lang: 'de',
+      unassigned: deWorkshop.orderHeader.unassigned,
+      unassignedToast: deWorkshop.orderDetail.toast.technicianUnassigned,
+      assignedToast: deWorkshop.orderDetail.toast.technicianAssigned,
+      assignLabel: deWorkshop.orderCard.assign,
+    },
+    {
+      lang: 'en',
+      unassigned: enWorkshop.orderHeader.unassigned,
+      unassignedToast: enWorkshop.orderDetail.toast.technicianUnassigned,
+      assignedToast: enWorkshop.orderDetail.toast.technicianAssigned,
+      assignLabel: enWorkshop.orderCard.assign,
+    },
+  ] as const) {
+    test(`detail unassign and board assign work at 375px in ${localeCase.lang}`, async ({ page }, testInfo) => {
+      const mechanic = createMockEmployee({ id: 'mech-1', name: 'Alex Example' })
+      const bay = createMockBay({ id: 'bay-1', name: 'Bay 01' })
+      let currentOrder = { ...order, mechanicId: 'mech-1', mechanic_id: 'mech-1' }
+
+      await page.addInitScript((lang) => {
+        window.localStorage.setItem('acp:ui-language', lang)
+      }, localeCase.lang)
+
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentOrder) })
+      })
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/estimates`), async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+      })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: [mechanic], bays: [bay] }),
+        })
+      })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+      })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/active'), async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [currentOrder] }),
+        })
+      })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'), async (route) => {
+        const body = route.request().postDataJSON() as { mechanicId?: string | null }
+        const nextMechanicId = body.mechanicId ?? null
+        currentOrder = { ...currentOrder, mechanicId: nextMechanicId, mechanic_id: nextMechanicId }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: ORDER_ID,
+            orderNumber: 'WO-2026-1212',
+            status: 'SCHEDULED',
+            mechanicId: nextMechanicId,
+            bayId: 'bay-1',
+            stagingLocationId: null,
+            updatedAt: '2026-08-21T06:00:00.000Z',
+          }),
+        })
+      })
+
+      await new AutoCorePage(page, 'Order').navigate(`/workshop/orders/${ORDER_ID}`)
+      const mechanicTrigger = page.getByTestId('assigned-tech-select')
+      await expect(mechanicTrigger).toBeVisible()
+      const triggerBox = await mechanicTrigger.boundingBox()
+      expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+
+      await mechanicTrigger.click()
+      const unassignedOption = page.getByRole('option', { name: localeCase.unassigned })
+      await expect(unassignedOption).toBeVisible()
+      const optionBox = await unassignedOption.boundingBox()
+      expect(optionBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await page.screenshot({ path: testInfo.outputPath(`detail-picker-${localeCase.lang}-375.png`) })
+
+      await unassignedOption.click()
+      await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
+      const unassignToast = page.locator('[data-sonner-toast]').filter({ hasText: localeCase.unassignedToast })
+      await expect(unassignToast).toBeVisible()
+      await expect(unassignToast).toHaveCSS('opacity', '1')
+      await page.screenshot({ path: testInfo.outputPath(`detail-unassign-toast-${localeCase.lang}-375.png`) })
+
+      await new AutoCorePage(page, 'Board').navigate('/workshop/board')
+      const assignBtn = page.getByRole('button', { name: new RegExp(localeCase.assignLabel, 'i') }).first()
+      await expect(assignBtn).toBeVisible()
+      const assignBtnBox = await assignBtn.boundingBox()
+      expect(assignBtnBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+
+      await assignBtn.click()
+      const menuItem = page.getByTestId('assign-mechanic-mech-1')
+      await expect(menuItem).toBeVisible()
+      const menuItemBox = await menuItem.boundingBox()
+      expect(menuItemBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await page.screenshot({ path: testInfo.outputPath(`board-assign-menu-${localeCase.lang}-375.png`) })
+
+      await menuItem.click()
+      const assignToast = page.locator('[data-sonner-toast]').filter({ hasText: localeCase.assignedToast })
+      await expect(assignToast).toBeVisible()
+      await expect(assignToast).toHaveCSS('opacity', '1')
+      await page.screenshot({ path: testInfo.outputPath(`board-assign-toast-${localeCase.lang}-375.png`) })
+    })
+  }
 })

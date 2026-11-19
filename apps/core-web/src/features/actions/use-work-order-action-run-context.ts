@@ -51,8 +51,20 @@ export function useWorkOrderActionRunContext(): WorkshopOrderRowActionContext {
   )
 
   const updateTaskStatus = useCallback(
-    async (orderId: string, taskId: string, status: WorkshopTaskStatus) => {
-      await runUpdateWorkshopOrderTaskStatus(orderId, taskId, status, updateTask.mutateAsync, t)
+    async (
+      orderId: string,
+      taskId: string,
+      status: WorkshopTaskStatus,
+      previousStatus?: WorkshopTaskStatus,
+    ) => {
+      await runUpdateWorkshopOrderTaskStatus(
+        orderId,
+        taskId,
+        status,
+        updateTask.mutateAsync,
+        t,
+        previousStatus,
+      )
     },
     [t, updateTask],
   )

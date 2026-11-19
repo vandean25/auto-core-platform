@@ -178,4 +178,27 @@ describe('WorkshopBoard integration', () => {
     expect(within(screen.getByTestId('board-column-unassigned')).getByTestId(card)).toBeInTheDocument()
     expect(toast.error).toHaveBeenCalledWith(errorsDe.codes.HTTP_403)
   })
+
+  // AUT-949 Scenario 1: board assign moves the card immediately on confirmation without waiting for refetch and shows a success toast.
+  it('moves the card immediately when /board/assign confirms and shows a success toast', async () => {
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopBoard />
+      </QueryClientProvider>,
+    )
+
+    const assignTrigger = await screen.findByRole('button', {
+      name: deWorkshop.orderCard.assignAria.replace('{{orderNumber}}', 'WO-2026-0001'),
+    })
+    boardGate = new Promise<Response>(() => {}) // keep board/active refetch pending to prove the response updates the cache
+    fireEvent.keyDown(assignTrigger, { key: 'Enter' })
+    fireEvent.click(await screen.findByTestId('assign-mechanic-mech-2'))
+
+    const card = 'workshop-order-card-order-1'
+    await waitFor(() => {
+      expect(within(screen.getByTestId('board-column-mech-2')).getByTestId(card)).toBeInTheDocument()
+    })
+    expect(within(screen.getByTestId('board-column-unassigned')).queryByTestId(card)).toBeNull()
+    expect(toast.success).toHaveBeenCalledWith(deWorkshop.orderDetail.toast.technicianAssigned)
+  })
 })

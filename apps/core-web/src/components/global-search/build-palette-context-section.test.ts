@@ -344,7 +344,7 @@ describe('work order reschedule and task status in Cmd+K', () => {
       false,
     )
     waiting?.onSelect()
-    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS')
+    expect(updateTaskStatus).toHaveBeenCalledWith('order-1', 'task-1', 'WAITING_PARTS', 'IN_PROGRESS')
 
     const move = section?.items.find((item) => item.id === ENTITY_ACTION_IDS.workOrderReschedule)
     expect(move?.children?.length).toBeGreaterThan(0)

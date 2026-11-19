@@ -1094,6 +1094,51 @@ export function useAssignBoard() {
       if (!response.ok) throw await parseErrorResponse(response, 'Failed to assign board')
       return response.json()
     },
+    onSuccess: (
+      updated: Partial<BoardOrder> & { id?: string; stagingLocationId?: string | null; updatedAt?: string },
+    ) => {
+      if (!updated?.id) return
+      queryClient.setQueryData<WorkshopOrder>(workshopKeys.detail(updated.id), (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          ...(updated.status !== undefined && { status: updated.status }),
+          ...(updated.mechanicId !== undefined && {
+            mechanicId: updated.mechanicId,
+            mechanic_id: updated.mechanicId,
+          }),
+          ...(updated.bayId !== undefined && {
+            bayId: updated.bayId,
+            bay_id: updated.bayId,
+          }),
+          ...(updated.stagingLocationId !== undefined && {
+            stagingLocationId: updated.stagingLocationId,
+            staging_location_id: updated.stagingLocationId,
+          }),
+          ...(updated.updatedAt !== undefined && { updatedAt: updated.updatedAt }),
+        }
+      })
+      queryClient.setQueryData<BoardActiveResponse>(boardKeys.active(), (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          data: current.data.map((order) =>
+            order.id === updated.id
+              ? {
+                  ...order,
+                  ...(updated.status !== undefined && { status: updated.status }),
+                  ...(updated.mechanicId !== undefined && { mechanicId: updated.mechanicId }),
+                  ...(updated.bayId !== undefined && { bayId: updated.bayId }),
+                  ...(updated.stagingLocationId !== undefined && {
+                    stagingLocationId: updated.stagingLocationId,
+                  }),
+                  ...(updated.updatedAt !== undefined && { updatedAt: updated.updatedAt }),
+                }
+              : order,
+          ),
+        }
+      })
+    },
     onSettled: (_response, _error, { orderId }) => {
       void queryClient.invalidateQueries({ queryKey: boardKeys.active() })
       void queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
