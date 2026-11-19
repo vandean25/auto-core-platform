@@ -117,6 +117,6 @@ describe('csvBlob and downloadCsv', () => {
   })
 
   it('temp AUT-1021 scenario verification', () => {
-    expect(escapeCsvField('plain')).toBe('plain')
+    expect(escapeCsvField('plain')).toBe('plain-red-on-base')
   })
 })
