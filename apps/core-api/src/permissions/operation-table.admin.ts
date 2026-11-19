@@ -15,6 +15,16 @@ export const ADMIN_OPERATIONS: OperationTable = {
     'List personal and permitted tenant saved views.',
     EVERY_ROLE,
   ),
+  'SavedViewsController.importStatus': classified(
+    'session',
+    'Check whether the current user has already imported local saved views for this tenant.',
+    EVERY_ROLE,
+  ),
+  'SavedViewsController.importViews': classified(
+    'session',
+    'Import local saved views once per (tenant, user) (service validates hrefs and limits).',
+    BACK_OFFICE_TECH,
+  ),
   'SavedViewsController.create': classified(
     'session',
     'Create a personal or shared saved view (service checks list read permission and views.shared.manage).',
