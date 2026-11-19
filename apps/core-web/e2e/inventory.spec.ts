@@ -572,6 +572,13 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
     const units = page.getByText('(11 Stk.)');
     await expect(units).toBeVisible();
     const unitsBox = (await units.boundingBox())!;
+    const badge = units.locator('..').getByText('Auf Lager');
+    await expect(badge).toBeVisible();
+    const badgeBox = (await badge.boundingBox())!;
+    const unitsCenterY = unitsBox.y + unitsBox.height / 2;
+    const badgeCenterY = badgeBox.y + badgeBox.height / 2;
+    expect(Math.abs(badgeCenterY - unitsCenterY), 'badge and unit count share one line').toBeLessThanOrEqual(4);
+    expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(unitsBox.x);
     expect(unitsBox.height, 'unit count does not wrap onto two lines').toBeLessThanOrEqual(28);
     expect(unitsBox.x + unitsBox.width).toBeLessThanOrEqual(375);
     await expectNoPageScroll(page);
