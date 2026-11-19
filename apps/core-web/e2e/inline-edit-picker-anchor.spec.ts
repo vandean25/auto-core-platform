@@ -188,7 +188,7 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await expect(page.getByText(localeCase.unassignedToast)).toBeVisible()
 
       await new AutoCorePage(page, 'Board').navigate('/workshop/board')
-      const assignBtn = page.getByRole('button', { name: new RegExp(localeCase.assignLabel) }).first()
+      const assignBtn = page.getByRole('button', { name: new RegExp(localeCase.assignLabel, 'i') }).first()
       await expect(assignBtn).toBeVisible()
       const assignBtnBox = await assignBtn.boundingBox()
       expect(assignBtnBox?.height ?? 0).toBeGreaterThanOrEqual(44)
