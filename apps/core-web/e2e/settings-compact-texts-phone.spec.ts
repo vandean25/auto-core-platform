@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { captureDocScreenshot } from './utils/doc-screenshot'
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 import { createMockAccountingProfile, createMockLegalEntity } from './utils/mock-factories'
 import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
@@ -433,21 +434,39 @@ test.describe('Settings repeated OK-state badges (AUT-952)', () => {
       }))
     })
     await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), async (route) => {
-      await route.fulfill(json({ data: [{ id: 'tm-1', name: 'Max Muster', email: 'max@example.com', role: 'ADMIN', isActive: true }], meta: { total: 1, page: 1, limit: 20, pageCount: 1 } }))
+      await route.fulfill(json({ data: [{ id: 'tm-1', firstName: 'Max', lastName: 'Muster', email: 'max@example.com', role: 'ADMIN', isActive: true }], meta: { total: 1, page: 1, limit: 20, pageCount: 1 } }))
     })
 
-    for (const tab of ['legal-entities', 'sites', 'bays', 'labor', 'team'] as const) {
-      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
-      if (tab === 'labor') {
-        const wartungRow = page.getByRole('button', { name: 'Wartung', exact: true }).locator('xpath=..')
-        await expect(wartungRow).toBeVisible()
-        await expect(wartungRow.getByText('Aktiv', { exact: true })).toHaveCount(0)
-        continue
+    const tabs: Array<{ tab: 'legal-entities' | 'sites' | 'bays' | 'labor' | 'team'; rowText: string }> = [
+      { tab: 'legal-entities', rowText: 'Example GmbH' },
+      { tab: 'sites', rowText: 'Wien' },
+      { tab: 'bays', rowText: 'Bühne 1' },
+      { tab: 'labor', rowText: 'Wartung' },
+      { tab: 'team', rowText: 'Max Muster' },
+    ]
+
+    for (const language of ['de', 'en'] as const) {
+      const okBadgeLabel = language === 'de' ? 'Aktiv' : 'Active'
+      for (const { tab, rowText } of tabs) {
+        await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+        await ensureUiLanguage(page, language)
+
+        if (tab === 'labor') {
+          const wartungRow = page.getByRole('button', { name: rowText, exact: true }).locator('xpath=..')
+          await expect(wartungRow).toBeVisible()
+          await expect(wartungRow.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
+        } else {
+          const scope = tab === 'legal-entities'
+            ? page.locator('tbody')
+            : page.getByRole('tabpanel')
+          await expect(scope.getByText(rowText).first()).toBeVisible()
+          await expect(scope.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
+        }
+
+        if (language === 'de') {
+          await captureDocScreenshot(page, `aut-952-settings-${tab}-de-375.png`, { fullPage: true })
+        }
       }
-      const scope = tab === 'bays' || tab === 'legal-entities'
-        ? page.locator('tbody')
-        : page.getByRole('tabpanel')
-      await expect(scope.getByText('Aktiv', { exact: true })).toHaveCount(0)
     }
   })
 })

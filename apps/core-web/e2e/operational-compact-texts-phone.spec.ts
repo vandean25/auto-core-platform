@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { captureDocScreenshot } from './utils/doc-screenshot'
 import { mockCursorList } from './utils/cursor-list-mock'
 import { DE_COMMON } from './helpers/de-common'
 import { DE_AGENT } from './helpers/de-agent'
@@ -352,6 +353,7 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
     await expect(page.getByText('Audi A4')).toBeVisible()
     await expect(page.getByText('2021')).toBeVisible()
     await expect(page.getByText(deVehicleStock.reports.stockStatus.IN_STOCK)).toHaveCount(0)
+    await captureDocScreenshot(page, 'aut-952-vehicle-stock-de-375.png', { fullPage: true })
   })
 
   // Scenario 2
@@ -371,6 +373,7 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
     await expect(page.getByText('Audi A4')).toBeVisible()
     await expect(page.getByText('2021')).toBeVisible()
     await expect(page.getByText(enVehicleStock.reports.stockStatus.IN_STOCK)).toHaveCount(0)
+    await captureDocScreenshot(page, 'aut-952-vehicle-stock-en-375.png', { fullPage: true })
   })
 
   // Scenario 4
@@ -404,6 +407,7 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
 
     await expect(page.getByText('WO-2026-0101')).toBeVisible()
     await expect(page.getByText('Keine Teile')).toHaveCount(0)
+    await captureDocScreenshot(page, 'aut-952-workshop-board-de-390.png', { fullPage: true })
   })
 
   // Scenario 5
@@ -427,7 +431,7 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
     await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), (route) =>
       route.fulfill(json([])),
     )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-data/settings'), (route) =>
+    await page.route(AutoCorePage.apiRouteMatcher('/api/settings/catalog-providers'), (route) =>
       route.fulfill(json({
         defaultIdentityAdapterId: null,
         defaultPartsAftermarketAdapterId: null,
@@ -441,17 +445,17 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
       })),
     )
     await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), (route) =>
-      route.fulfill(json([])),
+      route.fulfill(json({ data: [] })),
     )
 
-    const checks: Array<{ path: string; de: string; en: string }> = [
-      { path: '/workshop/estimates', de: deWorkshop.estimateList.description, en: enWorkshop.estimateList.description },
-      { path: '/workshop/capacity', de: deWorkshop.capacity.page.description, en: enWorkshop.capacity.page.description },
-      { path: '/vehicles', de: deVehicles.list.description, en: enVehicles.list.description },
-      { path: '/stock-transfers', de: deInventory.stockTransfers.list.description, en: enInventory.stockTransfers.list.description },
-      { path: '/sales/invoices', de: deSales.invoices.list.description, en: enSales.invoices.list.description },
-      { path: '/finance/accounting-export-readiness', de: deFinance.accountingExportReadiness.subtitle, en: enFinance.accountingExportReadiness.subtitle },
-      { path: '/settings?tab=vehicle-data', de: deSettings.vehicleData.catalog.awMinutesHint, en: enSettings.vehicleData.catalog.awMinutesHint },
+    const checks: Array<{ slug: string; path: string; titleDe: string; titleEn: string; de: string; en: string }> = [
+      { slug: 'estimates', path: '/workshop/estimates', titleDe: deWorkshop.estimateList.title, titleEn: enWorkshop.estimateList.title, de: deWorkshop.estimateList.description, en: enWorkshop.estimateList.description },
+      { slug: 'capacity', path: '/workshop/capacity', titleDe: deWorkshop.capacity.page.title, titleEn: enWorkshop.capacity.page.title, de: deWorkshop.capacity.page.description, en: enWorkshop.capacity.page.description },
+      { slug: 'vehicles', path: '/vehicles', titleDe: deVehicles.list.title, titleEn: enVehicles.list.title, de: deVehicles.list.description, en: enVehicles.list.description },
+      { slug: 'transfers', path: '/stock-transfers', titleDe: deInventory.stockTransfers.list.title, titleEn: enInventory.stockTransfers.list.title, de: deInventory.stockTransfers.list.description, en: enInventory.stockTransfers.list.description },
+      { slug: 'invoices', path: '/sales/invoices', titleDe: deSales.invoices.list.title, titleEn: enSales.invoices.list.title, de: deSales.invoices.list.description, en: enSales.invoices.list.description },
+      { slug: 'export-ready', path: '/finance/accounting-export-readiness', titleDe: deFinance.accountingExportReadiness.title, titleEn: enFinance.accountingExportReadiness.title, de: deFinance.accountingExportReadiness.subtitle, en: enFinance.accountingExportReadiness.subtitle },
+      { slug: 'vehicle-data', path: '/settings?tab=vehicle-data', titleDe: deSettings.vehicleData.catalog.title, titleEn: enSettings.vehicleData.catalog.title, de: deSettings.vehicleData.catalog.awMinutesHint, en: enSettings.vehicleData.catalog.awMinutesHint },
     ]
 
     for (const language of ['de', 'en'] as const) {
@@ -459,7 +463,9 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
         await page.goto(item.path)
         await page.waitForLoadState('networkidle')
         await ensureUiLanguage(page, language)
+        await expect(page.getByText(language === 'de' ? item.titleDe : item.titleEn).first()).toBeVisible()
         await expect(page.getByText(language === 'de' ? item.de : item.en)).toHaveCount(0)
+        await captureDocScreenshot(page, `aut-952-${item.slug}-${language}-375.png`, { fullPage: true })
       }
     }
   })
@@ -469,6 +475,32 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
     await page.setViewportSize({ width: 375, height: 667 })
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1'), (route) =>
       route.fulfill(json({ id: 'wo-1', order_number: 'WO-2026-0001', status: 'INTAKE', customer: { id: 'c-1', first_name: 'Max', last_name: 'Muster' }, vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' }, tasks: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in'), (route) =>
+      route.fulfill(json({
+        id: 'ci-1',
+        workshop_order_id: 'wo-1',
+        status: 'DRAFT',
+        revision: 1,
+        odometer: 10000,
+        fuel_level: 50,
+        items_left: null,
+        key_count: 2,
+        warning_lights: [],
+        damage_markers_json: [],
+        condition_json: { tyre_season: 'UNKNOWN', exterior_notes: '', interior_notes: '' },
+        customer_signature_media_id: null,
+        acknowledgement_version: null,
+        completed_at: null,
+        created_at: '2026-11-19T00:00:00.000Z',
+        updated_at: '2026-11-19T00:00:00.000Z',
+      })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in/media'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in/inspection'), (route) =>
+      route.fulfill(json(null)),
     )
     await page.route(AutoCorePage.apiRouteMatcher('/api/customers/cust-1'), (route) =>
       route.fulfill(json({ id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Muster', vehicles: [], sales_orders: [], workshop_orders: [], invoices: [] })),
@@ -505,6 +537,10 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
       await page.waitForLoadState('networkidle')
       await ensureUiLanguage(page, language)
       await expect(page.getByText(w.checkIn.offline.storageEvictionHint)).toHaveCount(0)
+      const infoButton = page.getByTestId('check-in-storage-eviction-info')
+      await expect(infoButton).toBeVisible()
+      await infoButton.click()
+      await expect(page.getByText(w.checkIn.offline.storageEvictionHint)).toBeVisible()
 
       await page.goto('/customers/cust-1')
       await page.waitForLoadState('networkidle')
