@@ -94,7 +94,8 @@ jobs:
         env:
           MERGE_BASE: ${{ needs.preflight.outputs.merge_base }}
         run: |
-          cp .github/scripts/bug-regression-at-base.mjs "${{ runner.temp }}/bug-regression-at-base.mjs"
+          cp .github/scripts/bug-regression-at-base.mjs "$RUNNER_TEMP/bug-regression-at-base.mjs"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git checkout --detach "$MERGE_BASE"
 
       - name: Setup Node
@@ -125,10 +126,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/auto_core_test
           INVOICE_BRANDING_WRITER_ENABLED: 'true'
-          DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR: ${{ runner.temp }}/document-branding-visual-fixtures
           NODE_OPTIONS: --max-old-space-size=8192
         run: |
-          node "${{ runner.temp }}/bug-regression-at-base.mjs" \
+          export DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR="$RUNNER_TEMP/document-branding-visual-fixtures"
+          node "$RUNNER_TEMP/bug-regression-at-base.mjs" \
             --mode run \
             --base "${{ needs.preflight.outputs.merge_base }}" \
             --head "${{ needs.preflight.outputs.head_sha }}"
