@@ -209,6 +209,14 @@ describe('DataTable list mode', () => {
     expect(details.parentElement).toHaveClass('w-full')
   })
 
+  // Regression (AUT-947): last:pr-3 left the primary tap target with 0 right padding whenever a details column followed it.
+  it('keeps right padding on the primary tap target when a details column follows it', () => {
+    render(<Harness columns={[...baseColumns, detailsColumn]} rowBehaviour={{ onRowClick: vi.fn() }} />)
+
+    const tap = screen.getAllByRole('button', { name: /Pilot Customer 1/ })[0]
+    expect(tap).toHaveClass('px-3')
+  })
+
   it('shows a skeleton table while loading', () => {
     vi.useFakeTimers()
     render(<Harness isLoading data={[]} hasUsableData={false} />)
