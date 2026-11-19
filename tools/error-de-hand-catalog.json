@@ -6,6 +6,7 @@
   "AGENT_POLICY_VERSION_CONFLICT": "Konflikt der Agenten-Richtlinien-Version.",
   "AIR_CONDITIONING": "Klimaanlage.",
   "ALLOY_WHEELS": "Leichtmetallfelgen.",
+  "ALREADY_IMPORTED": "Gespeicherte Ansichten wurden bereits übernommen.",
   "ANNAHME_CHECK": "Annahme-Check.",
   "API_KEYS_NOT_CONFIGURED": "API-Schlüssel sind für diese Umgebung nicht konfiguriert.",
   "AT_RECIPIENT_UID_REQUIRED": "Empfänger-UID ist erforderlich.",

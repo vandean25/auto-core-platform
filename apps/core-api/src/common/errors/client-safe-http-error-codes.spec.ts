@@ -107,12 +107,13 @@ describe('client-safe HTTP error codes', () => {
     expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_INVALID')).toBe(true);
   });
 
-  it('lists saved-view error codes (AUT-938) and publishes them to the web app', () => {
+  it('lists saved-view error codes (AUT-938 / AUT-942) and publishes them to the web app', () => {
     for (const code of [
       'SAVED_VIEW_LIMIT',
       'SAVED_VIEW_CHANGED',
       'SAVED_VIEW_DUPLICATE',
       'SAVED_VIEW_INVALID',
+      'ALREADY_IMPORTED',
     ]) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
       expect(readWebPublicErrorCodes().has(code)).toBe(true);

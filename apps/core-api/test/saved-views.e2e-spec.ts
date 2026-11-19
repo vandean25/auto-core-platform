@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SystemPrismaService } from '../src/prisma/system-prisma.service.js';
+import { grantDemoSignIn } from './helpers/demo-sign-in-grant.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
 import {
@@ -16,6 +18,7 @@ import {
 describe('Saved Views (AUT-938)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let systemPrisma: SystemPrismaService;
   let authService: AuthService;
 
   const tenantIds: string[] = [];
@@ -67,6 +70,7 @@ describe('Saved Views (AUT-938)', () => {
     stubFirebaseAdminAuthForCustomClaimsE2e();
     app = await createE2eApp(undefined, { productionErrorFilter: true });
     prisma = app.get(PrismaService);
+    systemPrisma = app.get(SystemPrismaService);
     authService = app.get(AuthService);
   });
 
@@ -493,4 +497,187 @@ describe('Saved Views (AUT-938)', () => {
     expect(salesRow).not.toBeNull();
     expect(techRow).not.toBeNull();
   });
+
+  // Scenario 2: WHEN two tabs import concurrently THEN exactly one import is stored and the other gets 409 ALREADY_IMPORTED
+  it('concurrent import idempotent', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-imp-conc');
+    tenantIds.push(tenant.tenantId);
+
+    const sales = await createMember(tenant.tenantId, 'SALES', 'sv-ic-sls');
+
+    const initialStatus = await request(app.getHttpServer())
+      .get('/api/saved-views/import-status')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .expect(200);
+    expect(initialStatus.body).toEqual({ imported: false });
+
+    const payload = {
+      views: [
+        {
+          listPath: '/customers',
+          name: 'Stammkunden',
+          href: '/customers?search=Stamm',
+        },
+        {
+          listPath: '/sales/invoices',
+          name: 'Offene Rechnungen',
+          href: '/sales/invoices?filter_status=ISSUED',
+        },
+      ],
+    };
+
+    const [resA, resB] = await Promise.all([
+      request(app.getHttpServer())
+        .post('/api/saved-views/import')
+        .set('Authorization', `Bearer ${sales.token}`)
+        .send(payload),
+      request(app.getHttpServer())
+        .post('/api/saved-views/import')
+        .set('Authorization', `Bearer ${sales.token}`)
+        .send(payload),
+    ]);
+
+    const sorted = [resA, resB].sort((a, b) => a.status - b.status);
+    expect(sorted[0].status).toBe(200);
+    expect(sorted[0].body).toEqual({ imported: 2, skipped: 0 });
+    expect(sorted[1].status).toBe(409);
+    expect(sorted[1].body.code).toBe('ALREADY_IMPORTED');
+
+    const afterStatus = await request(app.getHttpServer())
+      .get('/api/saved-views/import-status')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .expect(200);
+    expect(afterStatus.body).toEqual({ imported: true });
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/saved-views')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .expect(200);
+
+    const names = (
+      listRes.body.data as Array<{ name: string; visibility: string }>
+    ).map((v) => `${v.visibility}:${v.name}`);
+    expect(names).toHaveLength(2);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'PERSONAL:Stammkunden',
+        'PERSONAL:Offene Rechnungen',
+      ]),
+    );
+  });
+
+  // Scenario 3: WHEN a local view has an invalid href or a duplicate name THEN it is skipped and counted
+  it('import validates and skips', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-imp-skip');
+    tenantIds.push(tenant.tenantId);
+
+    const sales = await createMember(tenant.tenantId, 'SALES', 'sv-is-sls');
+
+    await request(app.getHttpServer())
+      .post('/api/saved-views')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .send({
+        listPath: '/customers',
+        name: 'Existing View',
+        href: '/customers?search=existing',
+        visibility: 'PERSONAL',
+      })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post('/api/saved-views/import')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .send({
+        views: [
+          {
+            listPath: '/customers',
+            name: 'Valid Imported',
+            href: '/customers?search=valid',
+          },
+          {
+            listPath: '/customers',
+            name: 'XSS',
+            href: 'javascript:alert(1)',
+          },
+          {
+            listPath: '/customers',
+            name: 'Path Mismatch',
+            href: '/sales/invoices?search=x',
+          },
+          {
+            listPath: '/customers',
+            name: 'existing view',
+            href: '/customers?search=dup-db',
+          },
+          {
+            listPath: '/customers',
+            name: 'Valid Imported',
+            href: '/customers?search=dup-batch',
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(res.body).toEqual({ imported: 1, skipped: 4 });
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/saved-views?listPath=/customers')
+      .set('Authorization', `Bearer ${sales.token}`)
+      .expect(200);
+
+    const names = (listRes.body.data as Array<{ name: string }>).map(
+      (v) => v.name,
+    );
+    expect(names).toEqual(
+      expect.arrayContaining(['Existing View', 'Valid Imported']),
+    );
+    expect(names).toHaveLength(2);
+  });
+
+  it('rejects POST /api/saved-views/import for DEMO with 403 and leaves import status unimported', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-imp-demo');
+    tenantIds.push(tenant.tenantId);
+
+    const demo = await createMember(tenant.tenantId, 'DEMO', 'sv-id-demo');
+    const cleanupDemoGrant = await grantDemoSignIn(
+      systemPrisma,
+      prisma,
+      demo.user.firebaseUid ?? '',
+    );
+
+    try {
+      await request(app.getHttpServer())
+        .post('/api/saved-views/import')
+        .set('Authorization', `Bearer ${demo.token}`)
+        .send({
+          views: [
+            {
+              listPath: '/customers',
+              name: 'Demo View',
+              href: '/customers?search=demo',
+            },
+          ],
+        })
+        .expect(403);
+
+      const importRow = await runWithTenantContext(tenant.tenantId, () =>
+        prisma.savedViewImport.findFirst({
+          where: {
+            tenant_id: tenant.tenantId,
+            user_id: demo.user.id,
+          },
+        }),
+      );
+      expect(importRow).toBeNull();
+
+      const statusRes = await request(app.getHttpServer())
+        .get('/api/saved-views/import-status')
+        .set('Authorization', `Bearer ${demo.token}`)
+        .expect(200);
+      expect(statusRes.body).toEqual({ imported: false });
+    } finally {
+      await cleanupDemoGrant();
+    }
+  });
 });
+

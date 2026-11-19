@@ -14,7 +14,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CopySavedViewDto,
   CreateSavedViewDto,
+  ImportSavedViewsDto,
+  ImportSavedViewsResponseDto,
   SavedViewDto,
+  SavedViewImportStatusDto,
   SavedViewsListResponseDto,
   UpdateSavedViewDto,
 } from './dto/saved-views.dto.js';
@@ -147,6 +150,141 @@ export class SavedViewsService {
         .filter((row) => canReadListPath(role, row.list_path))
         .map(mapSavedView),
     };
+  }
+
+  async getImportStatus(): Promise<SavedViewImportStatusDto> {
+    const { tenantId, userId } = await this.resolveCallerContext();
+    const existing = await this.prisma.savedViewImport.findFirst({
+      where: { tenant_id: tenantId, user_id: userId },
+      select: { imported_at: true },
+    });
+    return { imported: existing !== null };
+  }
+
+  private validateImportViews(
+    views: ImportSavedViewsDto['views'],
+    role: string,
+  ): {
+    validItems: Array<{ listPath: string; name: string; href: string }>;
+    skipped: number;
+  } {
+    const validItems: Array<{ listPath: string; name: string; href: string }> =
+      [];
+    let skipped = 0;
+
+    for (const item of views) {
+      const rawListPath = item.listPath ?? item.href.split('?')[0] ?? '';
+      try {
+        const validated = validateSavedViewInput({
+          listPath: rawListPath,
+          name: item.name,
+          href: item.href,
+        });
+        if (!canReadListPath(role, validated.listPath)) {
+          skipped += 1;
+          continue;
+        }
+        validItems.push(validated);
+      } catch {
+        skipped += 1;
+      }
+    }
+
+    return { validItems, skipped };
+  }
+
+  private async insertImportedViewsInTx(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    userId: string,
+    validItems: Array<{ listPath: string; name: string; href: string }>,
+  ): Promise<{ imported: number; skipped: number }> {
+    const listPaths = [...new Set(validItems.map((v) => v.listPath))].sort();
+    for (const listPath of listPaths) {
+      await acquireSavedViewLock(tx, tenantId, userId, listPath);
+    }
+
+    const existingRows = await tx.savedView.findMany({
+      where: {
+        tenant_id: tenantId,
+        owner_user_id: userId,
+        visibility: SavedViewVisibility.PERSONAL,
+        list_path: { in: listPaths },
+      },
+      select: { list_path: true, name: true },
+    });
+
+    const namesByListPath = new Map<string, Set<string>>();
+    const countsByListPath = new Map<string, number>();
+    for (const row of existingRows) {
+      const set = namesByListPath.get(row.list_path) ?? new Set<string>();
+      set.add(row.name.toLowerCase());
+      namesByListPath.set(row.list_path, set);
+      countsByListPath.set(
+        row.list_path,
+        (countsByListPath.get(row.list_path) ?? 0) + 1,
+      );
+    }
+
+    const toCreate: Prisma.SavedViewCreateManyInput[] = [];
+    let skipped = 0;
+    for (const item of validItems) {
+      const names = namesByListPath.get(item.listPath) ?? new Set<string>();
+      const count = countsByListPath.get(item.listPath) ?? 0;
+      const lowerName = item.name.toLowerCase();
+      if (names.has(lowerName) || count >= SAVED_VIEW_PER_LIST_LIMIT) {
+        skipped += 1;
+        continue;
+      }
+      names.add(lowerName);
+      namesByListPath.set(item.listPath, names);
+      countsByListPath.set(item.listPath, count + 1);
+      toCreate.push({
+        tenant_id: tenantId,
+        owner_user_id: userId,
+        list_path: item.listPath,
+        name: item.name,
+        href: item.href,
+        visibility: SavedViewVisibility.PERSONAL,
+      });
+    }
+
+    if (toCreate.length > 0) {
+      await tx.savedView.createMany({ data: toCreate });
+    }
+    return { imported: toCreate.length, skipped };
+  }
+
+  async importViews(
+    dto: ImportSavedViewsDto,
+  ): Promise<ImportSavedViewsResponseDto> {
+    const { tenantId, userId, role } = await this.resolveCallerContext();
+
+    return this.prisma.$transaction(async (tx) => {
+      try {
+        await tx.savedViewImport.create({
+          data: { tenant_id: tenantId, user_id: userId },
+        });
+      } catch (error) {
+        if (isPrismaUniqueError(error)) {
+          throw new ConflictException({
+            code: 'ALREADY_IMPORTED',
+            message: 'Saved views have already been imported for this user.',
+          });
+        }
+        throw error;
+      }
+
+      const { validItems, skipped: validationSkipped } =
+        this.validateImportViews(dto.views, role);
+      if (validItems.length === 0) {
+        return { imported: 0, skipped: validationSkipped };
+      }
+
+      const { imported, skipped: insertSkipped } =
+        await this.insertImportedViewsInTx(tx, tenantId, userId, validItems);
+      return { imported, skipped: validationSkipped + insertSkipped };
+    });
   }
 
   async create(dto: CreateSavedViewDto): Promise<SavedViewDto> {

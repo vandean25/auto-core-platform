@@ -476,6 +476,13 @@
       "sourceFile": "api/saved-views.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "Copying a team view into a personal view assigns a new server UUID and version and enforces personal view limits."
+    },
+    {
+      "operationId": "saved-view.import",
+      "owningHook": "useImportSavedViews",
+      "sourceFile": "api/saved-views.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "One-time import writes the server saved_view_imports marker, validates each view, enforces per-list limits, and returns imported/skipped counts."
     }
   ]
 }

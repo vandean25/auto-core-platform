@@ -384,11 +384,12 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   IMPORT_ERROR_CODES.INVALID_INTERNAL_COST,
   IMPORT_ERROR_CODES.DUPLICATE_CODE_IN_FILE,
   IMPORT_ERROR_CODES.LABOR_CODE_CONFLICT,
-  // Server-backed saved views (AUT-938).
+  // Server-backed saved views (AUT-938 / AUT-942).
   'SAVED_VIEW_LIMIT',
   'SAVED_VIEW_CHANGED',
   'SAVED_VIEW_DUPLICATE',
   'SAVED_VIEW_INVALID',
+  'ALREADY_IMPORTED',
 ]);
 
 export type ClientSafeHttpFieldIssue = {

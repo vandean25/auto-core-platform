@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
@@ -8,6 +10,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { SavedViewVisibility } from '@prisma/client';
 
@@ -130,4 +133,41 @@ export class SavedViewDto {
 export class SavedViewsListResponseDto {
   @ApiProperty({ type: [SavedViewDto] })
   data!: SavedViewDto[];
+}
+
+export class SavedViewImportStatusDto {
+  @ApiProperty()
+  imported!: boolean;
+}
+
+export class ImportSavedViewItemDto {
+  @ApiPropertyOptional({ example: '/sales/invoices' })
+  @IsOptional()
+  @IsString()
+  listPath?: string;
+
+  @ApiProperty({ example: 'Offene Rechnungen' })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ example: '/sales/invoices?filter_status=ISSUED' })
+  @IsString()
+  href!: string;
+}
+
+export class ImportSavedViewsDto {
+  @ApiProperty({ type: [ImportSavedViewItemDto], maxItems: 30 })
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ImportSavedViewItemDto)
+  views!: ImportSavedViewItemDto[];
+}
+
+export class ImportSavedViewsResponseDto {
+  @ApiProperty()
+  imported!: number;
+
+  @ApiProperty()
+  skipped!: number;
 }

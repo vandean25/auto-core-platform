@@ -17712,6 +17712,58 @@
         ]
       }
     },
+    "/api/saved-views/import-status": {
+      "get": {
+        "operationId": "SavedViewsController_importStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewImportStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      }
+    },
+    "/api/saved-views/import": {
+      "post": {
+        "operationId": "SavedViewsController_importViews",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSavedViewsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSavedViewsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "saved-views"
+        ]
+      }
+    },
     "/api/saved-views/{id}": {
       "patch": {
         "operationId": "SavedViewsController_update",
@@ -41967,6 +42019,68 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "SavedViewImportStatusDto": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "imported"
+        ]
+      },
+      "ImportSavedViewItemDto": {
+        "type": "object",
+        "properties": {
+          "listPath": {
+            "type": "string",
+            "example": "/sales/invoices"
+          },
+          "name": {
+            "type": "string",
+            "example": "Offene Rechnungen"
+          },
+          "href": {
+            "type": "string",
+            "example": "/sales/invoices?filter_status=ISSUED"
+          }
+        },
+        "required": [
+          "name",
+          "href"
+        ]
+      },
+      "ImportSavedViewsDto": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportSavedViewItemDto"
+            }
+          }
+        },
+        "required": [
+          "views"
+        ]
+      },
+      "ImportSavedViewsResponseDto": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "number"
+          },
+          "skipped": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "imported",
+          "skipped"
         ]
       },
       "CreateSavedViewDto": {
