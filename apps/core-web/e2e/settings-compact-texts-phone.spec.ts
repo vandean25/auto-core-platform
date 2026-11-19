@@ -456,9 +456,7 @@ test.describe('Settings repeated OK-state badges (AUT-952)', () => {
           await expect(wartungRow).toBeVisible()
           await expect(wartungRow.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
         } else {
-          const scope = tab === 'legal-entities'
-            ? page.locator('tbody')
-            : page.getByRole('tabpanel')
+          const scope = page.getByRole('tabpanel')
           await expect(scope.getByText(rowText).first()).toBeVisible()
           await expect(scope.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
         }
