@@ -123,14 +123,14 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
     test(`detail unassign and board assign work at 375px in ${localeCase.lang}`, async ({ page }) => {
       const mechanic = createMockEmployee({ id: 'mech-1', name: 'Alex Example' })
       const bay = createMockBay({ id: 'bay-1', name: 'Bay 01' })
-      const assignedOrder = { ...order, mechanicId: 'mech-1', mechanic_id: 'mech-1' }
+      let currentOrder = { ...order, mechanicId: 'mech-1', mechanic_id: 'mech-1' }
 
       await page.addInitScript((lang) => {
-        window.localStorage.setItem('i18nextLng', lang)
+        window.localStorage.setItem('acp:ui-language', lang)
       }, localeCase.lang)
 
       await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(assignedOrder) })
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentOrder) })
       })
       await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}/estimates`), async (route) => {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
@@ -149,11 +149,13 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ data: [order] }),
+          body: JSON.stringify({ data: [currentOrder] }),
         })
       })
       await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'), async (route) => {
         const body = route.request().postDataJSON() as { mechanicId?: string | null }
+        const nextMechanicId = body.mechanicId ?? null
+        currentOrder = { ...currentOrder, mechanicId: nextMechanicId, mechanic_id: nextMechanicId }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -161,7 +163,7 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
             id: ORDER_ID,
             orderNumber: 'WO-2026-1212',
             status: 'SCHEDULED',
-            mechanicId: body.mechanicId ?? null,
+            mechanicId: nextMechanicId,
             bayId: 'bay-1',
             stagingLocationId: null,
             updatedAt: '2026-08-21T06:00:00.000Z',
