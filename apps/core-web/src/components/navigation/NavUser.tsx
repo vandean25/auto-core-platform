@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { BookOpen, Check, ExternalLink, Keyboard, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
@@ -50,6 +51,7 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const { language, setLanguage, isSwitching, switchError, labels } = useUiLanguage()
   const { theme = 'system', setTheme } = useTheme()
   const singleKeyShortcuts = useSingleKeyShortcutsEnabled()
+  const shortcutsLabelId = useId()
   const initials = initialsFor(userEmail)
   const accountLabel = userEmail ?? tCommon('profile.menuLabel')
 
@@ -121,10 +123,11 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
               checked={singleKeyShortcuts}
               onCheckedChange={setSingleKeyShortcutsEnabled}
               onSelect={(event) => event.preventDefault()}
+              aria-labelledby={shortcutsLabelId}
               className="max-sm:min-h-11"
               data-testid="single-key-shortcuts-toggle"
             >
-              {t('user.singleKeyShortcuts')}
+              <span id={shortcutsLabelId}>{t('user.singleKeyShortcuts')}</span>
             </DropdownMenuCheckboxItem>
             <DropdownMenuItem onSelect={openShortcutHelp} className="max-sm:min-h-11">
               <Keyboard aria-hidden="true" />
