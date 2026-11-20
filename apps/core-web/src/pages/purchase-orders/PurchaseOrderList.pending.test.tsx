@@ -160,4 +160,36 @@ describe('PurchaseOrderList create behind a pending row (ADR-0036 R1)', () => {
     expect(posts).toHaveLength(1)
     queued.mockRestore()
   })
+
+  it('paints populated rows promptly and clears busy state after GET /api/purchase-orders resolves (AUT-1025 Scenario 4)', async () => {
+    let releaseList!: (value: Response) => void
+    vi.useFakeTimers()
+    try {
+      listGate = new Promise((done) => {
+        releaseList = done
+      })
+      renderList()
+
+      // Before skeletonDelayMs (200ms) elapses, resolving the API paints rows immediately without holding a skeleton.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80)
+      })
+      releaseList(
+        http(200, {
+          data: [confirmed],
+          meta: { total: 1, page: 1, pageSize: 10, pageCount: 1 },
+        }),
+      )
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(screen.getByRole('link', { name: 'PO-9' })).toBeInTheDocument()
+      expect(screen.getByText('Nordteile')).toBeInTheDocument()
+      expect(activatedSkeleton()).toBeNull()
+      expect(screen.getByRole('table')).not.toHaveAttribute('aria-busy', 'true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

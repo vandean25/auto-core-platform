@@ -32,6 +32,21 @@ async function preloadNamespaces(language: UiLanguage): Promise<void> {
   await Promise.all(PRELOAD_NAMESPACES.map((namespace) => loadBundle(language, namespace)))
 }
 
+let resolveI18nReady: (() => void) | null = null
+let i18nReadyPromise: Promise<void> | null = null
+
+export function whenI18nReady(): Promise<void> {
+  if (i18n.isInitialized) {
+    return Promise.resolve()
+  }
+  if (!i18nReadyPromise) {
+    i18nReadyPromise = new Promise<void>((resolve) => {
+      resolveI18nReady = resolve
+    })
+  }
+  return i18nReadyPromise
+}
+
 export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i18n> {
   const language = options.language ?? resolveInitialUiLanguage()
 
@@ -56,6 +71,10 @@ export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i1
   await preloadNamespaces(language)
   syncDocumentLang(language)
   applyZodLocale(language)
+
+  resolveI18nReady?.()
+  resolveI18nReady = null
+  i18nReadyPromise = null
 
   return i18n
 }

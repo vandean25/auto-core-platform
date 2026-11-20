@@ -5,7 +5,7 @@ import {
 } from '@/auth/client-session-reset'
 import { getVisibleNavGroups, type NavAccessContext } from '@/components/navigation/nav-config'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
-import { ensureNamespaceLoaded } from '@/lib/i18n'
+import { ensureNamespaceLoaded, whenI18nReady } from '@/lib/i18n'
 import type { LazyNamespace } from '@/lib/i18n/constants'
 import { isSaveDataEnabled } from '@/lib/intent-prefetch'
 import {
@@ -81,7 +81,8 @@ const INITIAL_URL_ROUTE_MAP = new Map<string, MainListRouteEntry>(
 
 const IDLE_FALLBACK_DELAY_MS = 200
 const IDLE_TIMEOUT_MS = 1500
-const requestedRoutes = new Set<string>()
+const requestedChunks = new Set<string>()
+const requestedNamespaces = new Set<LazyNamespace>()
 
 function normalizeRoutePath(href: string): string {
   const withoutHash = href.split('#', 1)[0] ?? ''
@@ -98,14 +99,30 @@ function isRoutePermitted(path: string, context: NavAccessContext): boolean {
   return visiblePaths.has(path)
 }
 
-function triggerRoutePrefetch(entry: MainListRouteEntry): void {
-  if (requestedRoutes.has(entry.path)) {
+function triggerChunkPrefetch(entry: MainListRouteEntry): void {
+  if (requestedChunks.has(entry.path)) {
     return
   }
-  requestedRoutes.add(entry.path)
+  requestedChunks.add(entry.path)
   void entry.loadChunk().catch(() => {})
+}
+
+function triggerNamespacePrefetch(namespace: LazyNamespace): void {
+  if (requestedNamespaces.has(namespace)) {
+    return
+  }
+  requestedNamespaces.add(namespace)
+  void whenI18nReady()
+    .then(() => ensureNamespaceLoaded(namespace))
+    .catch(() => {
+      requestedNamespaces.delete(namespace)
+    })
+}
+
+function triggerRoutePrefetch(entry: MainListRouteEntry): void {
+  triggerChunkPrefetch(entry)
   for (const namespace of entry.namespaces) {
-    void ensureNamespaceLoaded(namespace).catch(() => {})
+    triggerNamespacePrefetch(namespace)
   }
 }
 
@@ -180,5 +197,6 @@ export function useIdleMainListPrefetch(context: NavAccessContext): void {
 }
 
 export function resetRouteChunkPrefetchForTests(): void {
-  requestedRoutes.clear()
+  requestedChunks.clear()
+  requestedNamespaces.clear()
 }

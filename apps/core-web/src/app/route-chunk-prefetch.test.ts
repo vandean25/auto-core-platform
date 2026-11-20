@@ -74,11 +74,12 @@ describe('route-chunk-prefetch', () => {
     })
   })
 
-  it('requests WO list, vehicles, estimates and planner chunks once on idle after login', () => {
+  it('requests WO list, vehicles, estimates and planner chunks once on idle after login', async () => {
     const cancel = scheduleIdleMainListPrefetch(adminContext)
 
     expect(loaderMocks.workshopOrders).not.toHaveBeenCalled()
     vi.advanceTimersByTime(300)
+    await Promise.resolve()
 
     expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
     expect(loaderMocks.vehicles).toHaveBeenCalledTimes(1)
@@ -97,8 +98,9 @@ describe('route-chunk-prefetch', () => {
     cancel()
   })
 
-  it('prefetches a single main-list route on hover/focus before idle prefetch runs, including query links', () => {
+  it('prefetches a single main-list route on hover/focus before idle prefetch runs, including query links', async () => {
     prefetchMainListRoute(`${APP_ROUTE_PATHS.workshopOrders}?status=OPEN`, adminContext)
+    await Promise.resolve()
 
     expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
     expect(loaderMocks.vehicles).not.toHaveBeenCalled()
@@ -141,8 +143,9 @@ describe('route-chunk-prefetch', () => {
     { path: APP_ROUTE_PATHS.purchaseOrders, loaderKey: 'purchaseOrders' as const, namespaces: ['finance'] },
     { path: APP_ROUTE_PATHS.tyreStorage, loaderKey: 'tyreStorage' as const, namespaces: ['inventory'] },
     { path: APP_ROUTE_PATHS.customers, loaderKey: 'customers' as const, namespaces: ['customers'] },
-  ])('preloads initial URL route chunk and locale namespaces in parallel for $path', ({ path, loaderKey, namespaces }) => {
+  ])('preloads initial URL route chunk and locale namespaces in parallel for $path', async ({ path, loaderKey, namespaces }) => {
     preloadRouteForPathname(`${path}?page=1`)
+    await Promise.resolve()
 
     expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
     for (const ns of namespaces) {
@@ -152,5 +155,23 @@ describe('route-chunk-prefetch', () => {
     // Deduplicated on repeat call
     preloadRouteForPathname(path)
     expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a failed namespace load on a subsequent prefetch without re-requesting the chunk', async () => {
+    loaderMocks.ensureNamespaceLoaded.mockRejectedValueOnce(new Error('network error'))
+
+    preloadRouteForPathname(APP_ROUTE_PATHS.workshopOrders)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledTimes(1)
+
+    // Subsequent idle/hover prefetch retries the failed namespace without re-importing the chunk.
+    prefetchMainListRoute(APP_ROUTE_PATHS.workshopOrders, adminContext)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledTimes(2)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenLastCalledWith('workshop')
   })
 })
