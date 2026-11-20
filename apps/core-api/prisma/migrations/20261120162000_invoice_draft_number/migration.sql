@@ -5,4 +5,4 @@ ADD COLUMN "draft_number" TEXT NOT NULL DEFAULT ('RE-D-'::text || (nextval('invo
 
 ALTER SEQUENCE "invoice_draft_number_seq" OWNED BY "invoices"."draft_number";
 
-CREATE UNIQUE INDEX "invoices_draft_number_key" ON "invoices"("draft_number");
+CREATE UNIQUE INDEX "invoices_tenant_id_draft_number_key" ON "invoices"("tenant_id", "draft_number");
