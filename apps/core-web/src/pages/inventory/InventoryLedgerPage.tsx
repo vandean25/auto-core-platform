@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { InventoryLedgerCard } from './InventoryLedgerCard'
+import { NotFoundCard } from '@/pages/not-found/NotFoundCard'
+import { getErrorStatus } from '@/lib/error-utils'
 
 export default function InventoryLedgerPage() {
   const { t } = useTranslation('inventory')
@@ -31,12 +33,16 @@ export default function InventoryLedgerPage() {
   const [adjustOpen, setAdjustOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
 
-  const { data: detailItem, isLoading: isDetailLoading } = useInventoryItem(itemId)
+  const { data: detailItem, isLoading: isDetailLoading, error: detailError } = useInventoryItem(itemId)
   const { data: fetchedListItem, isLoading: isListItemLoading } = useInventoryItemBySku(sku, itemId)
   const item = detailItem ?? fetchedListItem ?? null
 
   const { data: transactions, isLoading: isLedgerLoading, error: ledgerError } = useInventoryHistory(itemId)
   const isItemLoading = isDetailLoading || isListItemLoading
+
+  if (!isItemLoading && getErrorStatus(detailError) === 404) {
+    return <NotFoundCard />
+  }
 
   return (
     <div className="space-y-6">
