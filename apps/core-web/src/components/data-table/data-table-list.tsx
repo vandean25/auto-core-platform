@@ -32,7 +32,7 @@ type DataTableListProps<TData extends object> = {
   infiniteView?: DataTableInfiniteView
 }
 
-const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 py-2 pl-3 text-left last:pr-3'
+const rowPrimaryClassName = 'flex min-h-14 min-w-40 flex-1 items-center gap-3 px-3 py-2 text-left'
 
 function TappableRow({ onActivate, children }: { onActivate: () => void; children: ReactNode }) {
   return (

@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
+import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON } from './helpers/de-common';
 import { DE_SALES } from './helpers/de-sales';
 import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
-import { pageOverflow } from './utils/phone-layout';
+import { contentClippedByAncestor, pageOverflow } from './utils/phone-layout';
 
 /**
  * Invoice list wave (AUT-891, ADR-0035): the number and date sorts scroll in blocks of 50 (cap 2,000); customer,
@@ -157,5 +158,102 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
         expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
       }).toPass();
     });
+  });
+
+  async function expectFramedCardsWithRightInset(page: Page, expectedStatusText: string) {
+    const list = page.locator('ul[data-table-list="true"]');
+    await expect(list).toBeVisible();
+    const cards = page.locator('li[data-table-row="true"]');
+    await expect(cards.first()).toBeVisible();
+
+    const frame = await list.evaluate((ul) => {
+      const style = getComputedStyle(ul);
+      const rect = ul.getBoundingClientRect();
+      return {
+        borderRightWidth: parseFloat(style.borderRightWidth),
+        borderLeftWidth: parseFloat(style.borderLeftWidth),
+        borderTopWidth: parseFloat(style.borderTopWidth),
+        borderBottomWidth: parseFloat(style.borderBottomWidth),
+        right: rect.right,
+        viewportWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(frame.borderRightWidth).toBeGreaterThanOrEqual(1);
+    expect(frame.borderLeftWidth).toBeGreaterThanOrEqual(1);
+    expect(frame.borderTopWidth).toBeGreaterThanOrEqual(1);
+    expect(frame.borderBottomWidth).toBeGreaterThanOrEqual(1);
+    expect(frame.right).toBeLessThanOrEqual(frame.viewportWidth);
+
+    const cardMetrics = await cards.evaluateAll((nodes, statusText) =>
+      nodes.map((node) => {
+        const cardRect = node.getBoundingClientRect();
+        const badge = [...node.querySelectorAll('span')].find((el) => el.textContent?.trim() === statusText);
+        const amount = [...node.querySelectorAll('div')].find((el) => el.children.length === 0 && el.textContent?.includes('120'));
+        return {
+          cardRight: cardRect.right,
+          badgeRight: badge?.getBoundingClientRect().right ?? null,
+          amountRight: amount?.getBoundingClientRect().right ?? null,
+        };
+      }),
+    expectedStatusText);
+
+    expect(cardMetrics.length).toBeGreaterThan(0);
+    for (const metric of cardMetrics) {
+      expect(metric.cardRight).toBeLessThanOrEqual(frame.right - frame.borderRightWidth + 0.5);
+      expect(metric.badgeRight).not.toBeNull();
+      expect(metric.amountRight).not.toBeNull();
+      expect(metric.cardRight - metric.badgeRight!).toBeGreaterThanOrEqual(12);
+      expect(metric.cardRight - metric.amountRight!).toBeGreaterThanOrEqual(12);
+    }
+
+    expect(await contentClippedByAncestor(list)).toEqual([]);
+    expect(await pageOverflow(page)).toBe(0);
+  }
+
+  test('AUT-947 scenario 1: WHEN an ADMIN opens /sales/invoices at 375px in DE THEN each card right border is visible and status badge and amounts are inset', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 10), unpaged: 'array' });
+    await openList(page, '');
+
+    await expectFramedCardsWithRightInset(page, 'Abgeschlossen');
+  });
+
+  test('AUT-947 scenario 2: WHEN the same list is opened at 390px THEN the same inset and complete frame hold', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 10), unpaged: 'array' });
+    await openList(page, '');
+
+    await expectFramedCardsWithRightInset(page, 'Abgeschlossen');
+  });
+
+  test('AUT-947 scenario 3: WHEN the list is opened at 375px in EN THEN badge and amount typography still fits inside the card frame with no overflow', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.addInitScript((storageKey) => {
+      window.localStorage.setItem(storageKey, 'en');
+    }, UI_LANGUAGE_STORAGE_KEY);
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 10), unpaged: 'array' });
+    await openList(page, '');
+
+    await expectFramedCardsWithRightInset(page, 'Finalized');
+  });
+
+  test('AUT-947 scenario 4: WHEN the list is opened at desktop ~1400 THEN table layout matches pre-fix desktop behaviour', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 10), unpaged: 'array' });
+    await openList(page, '');
+
+    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('ul[data-table-list="true"]')).toHaveCount(0);
+    await expect(page.getByText('RE-2026-0001')).toBeVisible();
+    await expect(page.getByText('Abgeschlossen').first()).toBeVisible();
+    expect(await pageOverflow(page)).toBe(0);
   });
 });
