@@ -261,4 +261,12 @@ describe('WorkshopCapacityPage', () => {
     expect(document.body.textContent).not.toContain('Mo., 19. Okt. 2026')
     expect(screen.getByRole('table').closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
   })
+
+  it('keeps the overbooked hint behind an info button until opened', () => {
+    renderPage()
+
+    expect(screen.queryByText(cap.page.overbookedHint)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('capacity-overbooked-info'))
+    expect(screen.getByText(cap.page.overbookedHint)).toBeInTheDocument()
+  })
 })

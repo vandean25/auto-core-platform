@@ -27,6 +27,10 @@ import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIn
 
 type PickerlDue = components['schemas']['PickerlDueDto']
 
+function shouldShowPickerlStatus(status: PickerlDue['status'] | undefined): status is Exclude<PickerlDue['status'], 'OK'> {
+  return Boolean(status && status !== 'OK')
+}
+
 /** Imported records are evidence: the record table offers no edit or delete for them. */
 function PickerlSourceLabel({ source }: { source: string }) {
   const { t } = useTranslation('vehicles')
@@ -127,9 +131,6 @@ export function VehiclePickerlSection({
               />
             ) : null}
           </div>
-          <div className='text-xs text-muted-foreground'>
-            {t('pickerlSection.subtitle')}
-          </div>
         </div>
         <div className='flex flex-wrap gap-2'>
           {canRecord ? (
@@ -168,7 +169,7 @@ export function VehiclePickerlSection({
       <div className='flex flex-wrap items-center gap-2 text-sm'>
         <span className='text-muted-foreground'>{t('pickerlSection.dueLabel')}</span>
         <span className='font-medium'>{formatDueMonth(pickerlDue?.due_month)}</span>
-        {pickerlDue?.status ? (
+        {shouldShowPickerlStatus(pickerlDue?.status) ? (
           <StatusBadge status={pickerlDue.status} />
         ) : null}
       </div>

@@ -151,7 +151,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
       'href',
       `/sales-orders/new?customerId=${CUSTOMER_ID}`,
     );
-    await expect(page.getByText(DE_CUSTOMERS.detail.invoiceHint)).toBeVisible();
+    await expect(page.getByText(DE_CUSTOMERS.detail.invoiceHint)).toHaveCount(0);
     await expect(breadcrumbTrail(page).getByText('Jane Smith')).toHaveAttribute(
       'aria-current',
       'page',

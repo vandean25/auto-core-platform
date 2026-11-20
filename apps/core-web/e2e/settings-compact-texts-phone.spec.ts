@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { captureDocScreenshot } from './utils/doc-screenshot'
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 import { createMockAccountingProfile, createMockLegalEntity } from './utils/mock-factories'
 import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
@@ -411,3 +412,60 @@ test.describe('Credentials placeholder fits the phone width (AUT-902)', () => {
     }
   })
 })
+
+test.describe('Settings repeated OK-state badges (AUT-952)', () => {
+  test.use({ viewport: { width: PHONE_WIDTHS[0], height: 812 } })
+
+  // Scenario 3
+  test('WHEN settings labor, team, legal-entities, sites and bays are opened THEN no Aktiv badge repeats on active rows', async ({ page }) => {
+    await mockCommonSettingsApi(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      await route.fulfill(json([createMockLegalEntity({ is_active: true, seller_readiness: { is_ready: true, missing_fields: [] } })]))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sites'), async (route) => {
+      await route.fulfill(json([{ id: 'site-1', code: 'WIE', name: 'Wien', is_active: true, legal_entity: { name: 'Example GmbH' }, _count: { memberships: 1 } }]))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/bays'), async (route) => {
+      await route.fulfill(json({ data: [{ id: 'bay-1', name: 'Bühne 1', isActive: true, sortOrder: 1 }], meta: { total: 1, page: 1, limit: 100, totalPages: 1 } }))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/labor/categories'), async (route) => {
+      await route.fulfill(json({
+        data: [{ id: 'cat-1', name: 'Wartung', description: null, is_active: true, default_hourly_rate: 120, sort_order: 1, parent_id: null, children: [] }],
+      }))
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), async (route) => {
+      await route.fulfill(json({ data: [{ id: 'tm-1', firstName: 'Max', lastName: 'Muster', email: 'max@example.com', role: 'ADMIN', isActive: true }], meta: { total: 1, page: 1, limit: 20, pageCount: 1 } }))
+    })
+
+    const tabs: Array<{ tab: 'legal-entities' | 'sites' | 'bays' | 'labor' | 'team'; rowText: string }> = [
+      { tab: 'legal-entities', rowText: 'Example GmbH' },
+      { tab: 'sites', rowText: 'Wien' },
+      { tab: 'bays', rowText: 'Bühne 1' },
+      { tab: 'labor', rowText: 'Wartung' },
+      { tab: 'team', rowText: 'Max Muster' },
+    ]
+
+    for (const language of ['de', 'en'] as const) {
+      const okBadgeLabel = language === 'de' ? 'Aktiv' : 'Active'
+      for (const { tab, rowText } of tabs) {
+        await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+        await ensureUiLanguage(page, language)
+
+        if (tab === 'labor') {
+          const wartungRow = page.getByRole('button', { name: rowText, exact: true }).locator('xpath=..')
+          await expect(wartungRow).toBeVisible()
+          await expect(wartungRow.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
+        } else {
+          const scope = page.getByRole('tabpanel')
+          await expect(scope.getByText(rowText).first()).toBeVisible()
+          await expect(scope.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
+        }
+
+        if (language === 'de') {
+          await captureDocScreenshot(page, `aut-952-settings-${tab}-de-375.png`, { fullPage: true })
+        }
+      }
+    }
+  })
+})
+

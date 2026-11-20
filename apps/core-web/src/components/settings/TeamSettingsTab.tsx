@@ -209,9 +209,8 @@ export function TeamSettingsTab() {
         accessorKey: 'isActive',
         meta: { mobile: 'status' },
         header: ({ column }) => <DataTableColumnHeader column={column} title={t('team.columns.status')} />,
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.isActive ? 'ACTIVE' : 'INACTIVE'} />
-        ),
+        cell: ({ row }) =>
+          !row.original.isActive ? <StatusBadge status="INACTIVE" /> : null,
       },
     ],
     [t],

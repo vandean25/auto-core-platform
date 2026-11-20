@@ -10,7 +10,7 @@ import {
   type PushUserEventType,
 } from '@/api/push'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { TimeField } from '@/components/ui/time-field'
@@ -70,7 +70,6 @@ export function PushPreferencesCard() {
       <Card>
         <CardHeader>
           <CardTitle>{t('notifications.events.title')}</CardTitle>
-          <CardDescription>{t('notifications.events.description')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {PUSH_USER_EVENT_TYPES.map((event) => (
@@ -91,7 +90,6 @@ export function PushPreferencesCard() {
       <Card>
         <CardHeader>
           <CardTitle>{t('notifications.quietHours.title')}</CardTitle>
-          <CardDescription>{t('notifications.quietHours.description')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex min-h-11 items-center gap-3">

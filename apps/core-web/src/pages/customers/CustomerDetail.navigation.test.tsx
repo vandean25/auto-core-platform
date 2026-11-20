@@ -85,10 +85,10 @@ describe('CustomerDetail navigation', () => {
     )
   })
 
-  it('explains that invoices are created from sales orders', () => {
+  it('omits the explanatory invoice hint on customer detail', () => {
     renderPage()
 
-    expect(screen.getByText(deCustomers.detail.invoiceHint)).toBeVisible()
+    expect(screen.queryByText(deCustomers.detail.invoiceHint)).not.toBeInTheDocument()
   })
 
   it('does not offer direct invoice creation on the customer page', () => {

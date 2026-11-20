@@ -299,13 +299,15 @@ function CategoryTreeRow({
           onSave={rate => onRateSave(category.id, rate)}
         />
 
-        {/* is_active Toggle */}
-        <CategoryActiveBadge
-          isActive={category.is_active}
-          onToggle={e => { e.stopPropagation(); void onActiveToggle(category) }}
-          title={t("labor.categories.tree.toggleActiveTitle")}
-          label={category.is_active ? t("labor.categories.active") : t("labor.categories.inactive")}
-        />
+        {/* is_active Toggle (only shown when inactive to avoid repeated OK-state badges) */}
+        {!category.is_active ? (
+          <CategoryActiveBadge
+            isActive={category.is_active}
+            onToggle={e => { e.stopPropagation(); void onActiveToggle(category) }}
+            title={t("labor.categories.tree.toggleActiveTitle")}
+            label={t("labor.categories.inactive")}
+          />
+        ) : null}
 
         {/* Actions */}
         <CategoryRowActions

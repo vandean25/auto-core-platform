@@ -33,4 +33,29 @@ describe('BaySettingsTab', () => {
       limit: 100,
     })
   })
+
+  // AUT-952: Kompakte Texte — active bay rows show no repeated Aktiv badge.
+  it('WHEN active and inactive bays are rendered THEN active rows omit Aktiv while inactive rows show Inaktiv', () => {
+    vi.mocked(useBays).mockReturnValueOnce({
+      data: {
+        data: [
+          { id: 'bay-1', name: 'Bühne 1', isActive: true, sortOrder: 1 },
+          { id: 'bay-2', name: 'Bühne 2', isActive: false, sortOrder: 2 },
+        ],
+        meta: { total: 2, page: 1, limit: 100, totalPages: 1 },
+      },
+      isLoading: false,
+    } as never)
+
+    render(
+      <MemoryRouter>
+        <BaySettingsTab />
+      </MemoryRouter>,
+    )
+
+    const activeRow = screen.getByText('Bühne 1').closest('tr')!
+    expect(activeRow).not.toHaveTextContent(deSettings.bays.active)
+    expect(screen.getByText(deSettings.bays.inactive)).toBeInTheDocument()
+  })
 })
+

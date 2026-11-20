@@ -158,4 +158,27 @@ describe('VehiclePickerlSection', () => {
 
     expect(container.querySelector('tbody [data-slot="empty"]')).toHaveTextContent('Noch keine Begutachtung erfasst.')
   })
+
+  // AUT-952: Kompakte Texte — omit Pickerl helper subtitle and OK status badge, keep due date.
+  it('WHEN pickerlDue is OK THEN helper subtitle and OK badge are omitted while due month stays visible', () => {
+    render(
+      <MemoryRouter>
+        <VehiclePickerlSection
+          vehicleId='vehicle-1'
+          pickerlDue={{
+            due_month: '2027-03',
+            status: 'OK',
+            rule_id: 'm1-legacy-pre-2027',
+            warnings: [],
+            last_inspected_on: '2026-03-01',
+          }}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('03/2027')).toBeInTheDocument()
+    expect(screen.queryByText(/Fälligkeit aus Erstzulassung/)).not.toBeInTheDocument()
+    expect(screen.queryByText('OK')).not.toBeInTheDocument()
+  })
 })
+

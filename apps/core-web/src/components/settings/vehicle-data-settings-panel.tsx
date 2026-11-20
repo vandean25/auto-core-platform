@@ -263,9 +263,6 @@ export function VehicleDataSettingsPanel() {
                 )
               }}
             />
-            <p className='text-sm text-muted-foreground'>
-              {t('vehicleData.catalog.awMinutesHint')}
-            </p>
           </div>
         </div>
 

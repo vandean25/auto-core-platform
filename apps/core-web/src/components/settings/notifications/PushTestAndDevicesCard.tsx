@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 import { usePushDevices, useRevokePushDevice, useSendTestPush } from '@/api/push'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getStoredDeviceId } from '@/features/push/push-device'
 import { getHttpErrorStatus } from '@/lib/error-utils'
 import { formatDateTime } from '@/lib/format'
@@ -48,7 +48,6 @@ export function PushTestAndDevicesCard() {
       <Card>
         <CardHeader>
           <CardTitle>{t('notifications.test.title')}</CardTitle>
-          <CardDescription>{t('notifications.test.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button className="min-h-11" disabled={devices.length === 0 || sendTest.isPending} onClick={handleTest}>

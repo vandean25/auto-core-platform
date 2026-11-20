@@ -820,4 +820,19 @@ describe('InventoryList bulk price change (AUT-886 / AUT-936)', () => {
 
     expect(getSelectionPaletteSection()).toBeNull()
   })
+
+  // AUT-952: Kompakte Texte — no repeated "Auf Lager" badge on in-stock parts rows.
+  it('WHEN in-stock and out-of-stock parts are rendered THEN IN_STOCK omits Auf Lager badge while OUT_OF_STOCK stays visible', () => {
+    asMock(inventoryApi.useInventoryCursorList).mockReturnValue(
+      cursorListOf([
+        item,
+        { ...item, id: 'item-2', sku: 'BRK-002', status: 'OUT_OF_STOCK' },
+      ]),
+    )
+    renderList()
+
+    expect(screen.queryByText('Auf Lager')).not.toBeInTheDocument()
+    expect(screen.getByText('Nicht auf Lager')).toBeInTheDocument()
+  })
 })
+

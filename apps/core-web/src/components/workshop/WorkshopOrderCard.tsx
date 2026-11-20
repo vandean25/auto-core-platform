@@ -119,10 +119,12 @@ export function WorkshopOrderCardContent({
       {/* Badges and quick assign */}
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
         <StatusBadge status={order.status} label={formatStatusLabel(order.status)} />
-        <StatusBadge
-          status={order.partsStatus}
-          label={formatStatusLabel(order.partsStatus)}
-        />
+        {order.partsStatus !== 'NO_PARTS' ? (
+          <StatusBadge
+            status={order.partsStatus}
+            label={formatStatusLabel(order.partsStatus)}
+          />
+        ) : null}
         {quickAssignTargets.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

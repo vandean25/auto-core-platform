@@ -3,8 +3,10 @@ import type { CheckInSignaturePadHandle } from './CheckInSignaturePad'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Info } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DetailSkeleton } from '@/components/ui/skeleton-presets'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { generateId } from '@/lib/id'
@@ -47,6 +49,29 @@ type Props = {
 
 function canStartCheckIn(status: string | undefined) {
   return status === 'INTAKE' || status === 'IN_PROGRESS'
+}
+
+function CheckInStorageInfoPopover() {
+  const { t } = useTranslation('workshop')
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="min-h-11 min-w-11 text-muted-foreground"
+          aria-label={t('checkIn.offline.storageEvictionHint')}
+          data-testid="check-in-storage-eviction-info"
+        >
+          <Info className="h-4 w-4" aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 text-sm text-muted-foreground" align="end">
+        {t('checkIn.offline.storageEvictionHint')}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 type CheckInTyreStepProps = {
@@ -654,10 +679,13 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
         title={orderQuery.data.order_number}
         description={vehicleLabel}
         actions={
-          <CheckInSaveIndicator
-            status={saveStatus}
-            offlineStatus={offline.localSaveStatus}
-          />
+          <div className="flex items-center gap-1">
+            <CheckInSaveIndicator
+              status={saveStatus}
+              offlineStatus={offline.localSaveStatus}
+            />
+            <CheckInStorageInfoPopover />
+          </div>
         }
       />
 
@@ -669,10 +697,6 @@ export function WorkshopCheckInFlow({ orderId }: Props) {
           {t('checkIn.completedBanner')}
         </p>
       )}
-
-      <p className="text-xs text-muted-foreground" role="note">
-        {t('checkIn.offline.storageEvictionHint')}
-      </p>
 
       {offline.draftExpiryWarning && (
         <p

@@ -450,7 +450,7 @@ export function LegalEntityAccountingProfileForm({
 
       <div className="rounded-md border border-border bg-muted/50 p-4">
         <div className="flex items-center gap-3">
-          <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
+          {!readiness.is_ready ? <StatusBadge status="INACTIVE" /> : null}
           <span className="text-sm font-medium text-foreground">
             {readiness.is_ready
               ? t('legalEntities.profile.ready')
@@ -867,7 +867,7 @@ function LegalEntitySellerForm({
 
       <div className="rounded-md border border-border bg-muted/50 p-4">
         <div className="flex items-center gap-3">
-          <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
+          {!readiness.is_ready ? <StatusBadge status="INACTIVE" /> : null}
           <span className="text-sm font-medium text-foreground">
             {readiness.is_ready ? t('legalEntities.seller.ready') : t('legalEntities.seller.incomplete')}
           </span>
@@ -1201,10 +1201,10 @@ export function LegalEntitiesSettingsTab() {
                 <TableCell className="font-medium">{entity.name}</TableCell>
                 <TableCell>{entity.country_iso}</TableCell>
                 <TableCell>
-                  <StatusBadge status={entity.seller_readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
+                  {!entity.seller_readiness.is_ready ? <StatusBadge status="INACTIVE" /> : null}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={entity.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                  {!entity.is_active ? <StatusBadge status="INACTIVE" /> : null}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button
