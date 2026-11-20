@@ -324,8 +324,8 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
   const selectRow = DE_COMMON.dataTable.selectRow;
   const selectedCount = (count: number) => `${count} ausgewählt`;
 
-  async function openParts(page: Page) {
-    await mockCursorList(page, { path: '/api/inventory', rows: items });
+  async function openParts(page: Page, customRows = items) {
+    await mockCursorList(page, { path: '/api/inventory', rows: customRows });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
@@ -538,7 +538,7 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
         });
       });
 
-      await openParts(page, '/inventory', { rows, count: { count: 1, isCapped: false } });
+      await openParts(page, rows);
 
       const cards = page.locator('li[data-table-row="true"]');
       await cards.nth(0).locator('label').filter({ has: page.getByRole('checkbox', { name: selectRow }) }).click();
@@ -606,7 +606,7 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
       });
     }
 
-    await openParts(page, '/inventory', { rows, count: { count: rows.length, isCapped: false } });
+    await openParts(page, rows);
 
     const tableRows = page.locator('tbody tr');
     await tableRows.nth(0).getByRole('checkbox', { name: selectRow }).click();
