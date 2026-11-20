@@ -18,19 +18,6 @@ import { Label } from '@/components/ui/label'
 import { TooltipHint } from '@/components/ui/tooltip'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
-// `peek` and `action` open a sheet or dialog and are dropped from a saved view, so they are no reason to offer saving.
-const TABLE_STATE_KEYS = new Set(['page', 'pageSize', 'sortField', 'sortDirection', 'peek', 'action'])
-
-function hasMeaningfulFilters(search: string): boolean {
-  const searchParams = new URLSearchParams(search)
-  for (const [key] of searchParams.entries()) {
-    if (key === 'search') return true
-    if (key.startsWith('filter_')) return true
-    if (!TABLE_STATE_KEYS.has(key)) return true
-  }
-  return false
-}
-
 type SaveCurrentViewButtonProps = {
   title: string
 }
@@ -43,9 +30,6 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
   const [name, setName] = useState(() => t('savedViews.defaultName', { title }))
 
   const href = useMemo(() => `${location.pathname}${location.search}`, [location.pathname, location.search])
-  const shouldShow = useMemo(() => hasMeaningfulFilters(location.search), [location.search])
-
-  if (!shouldShow) return null
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()

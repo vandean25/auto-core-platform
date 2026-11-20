@@ -19,7 +19,7 @@ vi.mock('@/api/client', async (importOriginal) => ({
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ claims: { role: 'ADMIN' } }) }))
 
 const TRIGGER_NAME = 'Als Seitenleisten-Ansicht für Customers speichern'
-const TOOLTIP = 'Speichert diese Filter als Shortcut in den Favoriten'
+const TOOLTIP = 'Speichert diese Ansicht als Shortcut in den Favoriten'
 
 type ServerView = {
   id: string
