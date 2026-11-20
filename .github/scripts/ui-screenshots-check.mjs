@@ -9,6 +9,9 @@ const HTML_IMAGE_RE = /<img\b/i
 const GITHUB_ATTACHMENT_URL_RE =
   /https:\/\/(?:github\.com\/(?:user-attachments|[^/\s]+\/[^/\s]+\/assets)\/|user-images\.githubusercontent\.com\/)\S+/i
 const NA_LINE_RE = /^Screenshots:\s*n\/a\s*[-–]\s*(.+)$/i
+// Screenshot evidence as named Playwright attachments (testInfo.attach) of this head's CI run. The ACP
+// orchestrator downloads them from the playwright-report-* artifacts and the code reviewer opens them.
+const PLAYWRIGHT_ATTACHMENTS_LINE_RE = /^Screenshots:\s*Playwright attachments?\s*[-–:]\s*(.+)$/i
 
 /**
  * Returns true when a repo-relative path is a non-test UI TSX file under `apps/core-web/src/`.
@@ -34,8 +37,9 @@ export function isUiComponentPath(filePath) {
 }
 
 /**
- * Returns true when the PR body contains an image (markdown, `<img>`, or GitHub attachment URL)
- * or a `Screenshots: n/a – <reason>` line with a non-empty reason (ignoring HTML comments).
+ * Returns true when the PR body contains an image (markdown, `<img>`, or GitHub attachment URL),
+ * a `Screenshots: Playwright attachments – <names>` line, or a `Screenshots: n/a – <reason>` line
+ * with a non-empty reason (ignoring HTML comments).
  *
  * @param {string | null | undefined} body
  * @returns {boolean}
@@ -60,7 +64,8 @@ export function hasScreenshotOrNa(body) {
   }
 
   for (const rawLine of stripped.split(/\r?\n/)) {
-    const match = NA_LINE_RE.exec(rawLine.trim())
+    const line = rawLine.trim()
+    const match = NA_LINE_RE.exec(line) ?? PLAYWRIGHT_ATTACHMENTS_LINE_RE.exec(line)
     if (match && match[1].trim().length > 0) {
       return true
     }
@@ -102,7 +107,7 @@ export function runUiScreenshotsCheckCli(env = readRiskCheckCliEnv(), deps = {})
   }
 
   logError(
-    `::error::UI screenshot check failed for: ${result.uiFiles.join(', ')}. Attach before/after screenshots in the PR body (markdown image, <img>, or GitHub attachment URL) or add a \`Screenshots: n/a – <reason>\` line.`,
+    `::error::UI screenshot check failed for: ${result.uiFiles.join(', ')}. Name the Playwright screenshot attachments in a \`Screenshots: Playwright attachments – <names>\` line, attach screenshots in the PR body (markdown image, <img>, or GitHub attachment URL), or add a \`Screenshots: n/a – <reason>\` line.`,
   )
   return 1
 }

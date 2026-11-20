@@ -92,6 +92,21 @@ test('Scenario 3: passes with Screenshots: n/a – <reason> and fails without re
   )
 })
 
+test('Scenario 3b: passes with Screenshots: Playwright attachments – <names> and fails without names', () => {
+  const changedPaths = ['apps/core-web/src/pages/x/Foo.tsx']
+  const cases = [
+    ['Screenshots: Playwright attachments – picker-cleared-de-375, picker-cleared-en-375', true],
+    ['Screenshots: playwright attachment - picker-cleared-de-375', true],
+    ['Screenshots: Playwright attachments: picker-cleared-de-375', true],
+    ['Screenshots: Playwright attachments –   ', false],
+    ['Screenshots: Playwright attachments', false],
+    ['<!-- Screenshots: Playwright attachments – picker-cleared-de-375 -->', false],
+  ]
+  for (const [prBody, ok] of cases) {
+    assert.equal(verifyUiScreenshots({ changedPaths, prBody }).ok, ok, prBody)
+  }
+})
+
 test('Scenario 4: passes without screenshots when only core-web test files change', () => {
   const testOnlyPaths = [
     'apps/core-web/src/pages/x/Foo.test.tsx',

@@ -634,6 +634,9 @@ jobs:
         run: bash .github/scripts/run-ui-smoke.sh "${{ matrix.shard }}" "${{ strategy.job-total }}"
 
       - name: Upload Playwright report
+        # Always, also when green: the ACP orchestrator downloads playwright-report-shard-<n> for the PR head
+        # and the code reviewer opens the named screenshot attachments (testInfo.attach) of the final attempt.
+        # Keep the name pattern and retention (review window) stable.
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
