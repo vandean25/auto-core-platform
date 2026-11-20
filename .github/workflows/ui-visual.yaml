@@ -1,6 +1,6 @@
 name: UI Visual Regression
 
-# AUT-657: advisory screenshot diffs. The job never blocks a merge (continue-on-error) and is not a required check.
+# AUT-657 / AUT-1022: advisory screenshot diffs. The job never blocks a merge (step-level continue-on-error) and is not a required check.
 on:
   pull_request:
     branches:
@@ -17,6 +17,12 @@ on:
       - 'package-lock.json'
       - '.nvmrc'
   workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Regenerate visual regression baselines and upload them as an artifact'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ui-visual-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -30,7 +36,6 @@ jobs:
     name: UI Visual Regression (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     # Baselines are Linux Chromium from this image. Keep the tag equal to build.yaml and the playwright version in
     # package-lock.json (check-playwright-docker-version.spec.ts guards build.yaml only, so bump this file with it).
     container:
@@ -54,10 +59,13 @@ jobs:
         run: npm ci
 
       - name: Compare screenshots with the baselines
+        id: compare
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.update_baselines) }}
+        continue-on-error: true
         run: npm run test:visual --workspace=core-web
 
       - name: Upload expected, actual and diff images
-        if: failure()
+        if: ${{ steps.compare.outcome == 'failure' }}
         id: upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -69,7 +77,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Link the diff artifact in the job summary
-        if: failure()
+        if: ${{ steps.compare.outcome == 'failure' }}
         env:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
@@ -77,4 +85,29 @@ jobs:
             echo "### Visual differences found (advisory)"
             echo "Expected, actual and diff images: [ui-visual-diff]($ARTIFACT_URL)"
             echo "A deliberate change updates the baselines with \`npm run test:visual:update\`, see apps/core-web/e2e/README.md."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::Visual differences found (advisory). See ui-visual-diff artifact: $ARTIFACT_URL"
+
+      - name: Regenerate visual baselines
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        run: npm run test:visual:update --workspace=core-web
+
+      - name: Upload regenerated visual baselines
+        id: upload_baselines
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-visual-baselines
+          path: apps/core-web/e2e/visual/__screenshots__
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Link the regenerated baselines artifact in the job summary
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baselines }}
+        env:
+          ARTIFACT_URL: ${{ steps.upload_baselines.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Visual baselines regenerated"
+            echo "Download regenerated \`__screenshots__\`: [ui-visual-baselines]($ARTIFACT_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
