@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
-import enCommon from '../../../locales/en/common.json';
+import enCommon from '../../../locales/en/common.json' with { type: 'json' };
 import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { expectNoPageScroll, pageOverflow } from './utils/phone-layout';
@@ -745,10 +745,13 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
       );
       await page.goto('/inventory/unknown-item');
 
-      await expect(page).toHaveURL('/inventory/unknown-item/ledger');
-      await expect.poll(() => requested).toBe(true);
-      await expect(page.getByText(copy.notFound.title, { exact: true })).toHaveCount(0);
-      resolveItem();
+      try {
+        await expect(page).toHaveURL('/inventory/unknown-item/ledger');
+        await expect.poll(() => requested).toBe(true);
+        await expect(page.getByText(copy.notFound.title, { exact: true })).toHaveCount(0);
+      } finally {
+        resolveItem();
+      }
       await expect(page.getByText(copy.notFound.title, { exact: true })).toBeVisible({ timeout: 15_000 });
       await expect(page.getByRole('link', { name: copy.notFound.goHome })).toBeVisible();
       await expect(page.getByTestId('inventory-ledger-table')).toHaveCount(0);
