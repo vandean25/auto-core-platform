@@ -620,7 +620,7 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
     await dialog.getByRole('button', { name: bulk.confirm }).click();
 
     await expect(dialog.getByText(bulk.states.conflict)).toBeVisible();
-    await dialog.getByRole('button', { name: bulk.close }).click();
+    await dialog.getByRole('button', { name: bulk.close }).last().click();
     await expect(dialog).toBeHidden();
 
     // Scenario 1 & 2: applied rows update immediately without clicking "Liste aktualisieren"; conflict row stays at old price.
