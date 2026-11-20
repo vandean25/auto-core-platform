@@ -168,83 +168,70 @@ async function setupWorkshopOrdersForSaveView(page: Page) {
   return { createdViews }
 }
 
+type SaveViewLayoutScenario = {
+  name: string
+  viewport: { width: number; height: number }
+  locale: 'de' | 'en'
+  checkOverflow?: boolean
+}
+
+const SAVE_VIEW_LAYOUT_SCENARIOS: SaveViewLayoutScenario[] = [
+  {
+    name: 'WHEN the save-view dialog opens from /workshop/orders on desktop in DE THEN the full description is visible and does not run under the close button',
+    viewport: { width: 1400, height: 900 },
+    locale: 'de',
+  },
+  {
+    name: 'WHEN the same dialog opens in EN THEN the translated description also clears the close button',
+    viewport: { width: 1400, height: 900 },
+    locale: 'en',
+  },
+  {
+    name: 'WHEN the dialog opens at 375px THEN there is no text/X overlap and no horizontal overflow',
+    viewport: { width: 375, height: 812 },
+    locale: 'de',
+    checkOverflow: true,
+  },
+]
+
 test.describe('Save-view dialog layout and close control (AUT-880 / AUT-950)', () => {
-  test('WHEN the save-view dialog opens from /workshop/orders on desktop in DE THEN the full description is visible and does not run under the close button', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1400, height: 900 })
-    await setupWorkshopOrdersForSaveView(page)
-    await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
+  for (const scenario of SAVE_VIEW_LAYOUT_SCENARIOS) {
+    test(scenario.name, async ({ page }) => {
+      await page.setViewportSize(scenario.viewport)
+      await setupWorkshopOrdersForSaveView(page)
+      await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
 
-    const triggerName = deCommon.savedViews.saveAria.replace('{{title}}', deWorkshop.orders.list.saveViewTitle)
-    await page.getByRole('button', { name: triggerName }).click()
+      if (scenario.locale === 'en') {
+        await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
+        await page.getByTestId('language-option-en').click()
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+        await page.keyboard.press('Escape')
+      }
 
-    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
-    await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(deCommon.savedViews.description)).toBeVisible()
+      const common = scenario.locale === 'en' ? enCommon : deCommon
+      const workshop = scenario.locale === 'en' ? enWorkshop : deWorkshop
+      const triggerName = common.savedViews.saveAria.replace('{{title}}', workshop.orders.list.saveViewTitle)
+      await page.getByRole('button', { name: triggerName }).click()
 
-    const closeButton = dialog.getByRole('button', { name: deCommon.actions.close })
-    const closeBox = await closeButton.boundingBox()
-    expect(closeBox).not.toBeNull()
-    expect(closeBox!.width).toBeGreaterThanOrEqual(44)
-    expect(closeBox!.height).toBeGreaterThanOrEqual(44)
+      const dialog = page.getByRole('dialog', { name: common.savedViews.title })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByText(common.savedViews.description)).toBeVisible()
 
-    expect(await textUnderDialogCloseButton(page), 'text under the close button').toEqual([])
-  })
+      const closeButton = dialog.getByRole('button', { name: common.actions.close })
+      const closeBox = await closeButton.boundingBox()
+      expect(closeBox).not.toBeNull()
+      expect(closeBox!.width).toBeGreaterThanOrEqual(44)
+      expect(closeBox!.height).toBeGreaterThanOrEqual(44)
 
-  test('WHEN the same dialog opens in EN THEN the translated description also clears the close button', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1400, height: 900 })
-    await setupWorkshopOrdersForSaveView(page)
-    await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
+      expect(await textUnderDialogCloseButton(page), 'text under the close button').toEqual([])
 
-    await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
-    await page.getByTestId('language-option-en').click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await page.keyboard.press('Escape')
-
-    const triggerName = enCommon.savedViews.saveAria.replace('{{title}}', enWorkshop.orders.list.saveViewTitle)
-    await page.getByRole('button', { name: triggerName }).click()
-
-    const dialog = page.getByRole('dialog', { name: enCommon.savedViews.title })
-    await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(enCommon.savedViews.description)).toBeVisible()
-
-    const closeButton = dialog.getByRole('button', { name: enCommon.actions.close })
-    const closeBox = await closeButton.boundingBox()
-    expect(closeBox).not.toBeNull()
-    expect(closeBox!.width).toBeGreaterThanOrEqual(44)
-    expect(closeBox!.height).toBeGreaterThanOrEqual(44)
-
-    expect(await textUnderDialogCloseButton(page), 'text under the close button').toEqual([])
-  })
-
-  test('WHEN the dialog opens at 375px THEN there is no text/X overlap and no horizontal overflow', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 375, height: 812 })
-    await setupWorkshopOrdersForSaveView(page)
-    await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
-
-    const triggerName = deCommon.savedViews.saveAria.replace('{{title}}', deWorkshop.orders.list.saveViewTitle)
-    await page.getByRole('button', { name: triggerName }).click()
-
-    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
-    await expect(dialog).toBeVisible()
-    await expect(dialog.getByText(deCommon.savedViews.description)).toBeVisible()
-
-    const closeButton = dialog.getByRole('button', { name: deCommon.actions.close })
-    const closeBox = await closeButton.boundingBox()
-    expect(closeBox).not.toBeNull()
-    expect(closeBox!.width).toBeGreaterThanOrEqual(44)
-    expect(closeBox!.height).toBeGreaterThanOrEqual(44)
-
-    expect(await textUnderDialogCloseButton(page), 'text under the close button').toEqual([])
-    const dialogOverflow = await dialog.evaluate((el) => el.scrollWidth > el.clientWidth)
-    expect(dialogOverflow).toBe(false)
-    await expectNoPageScroll(page)
-  })
+      if (scenario.checkOverflow) {
+        const dialogOverflow = await dialog.evaluate((el) => el.scrollWidth > el.clientWidth)
+        expect(dialogOverflow).toBe(false)
+        await expectNoPageScroll(page)
+      }
+    })
+  }
 
   test('WHEN the X is used THEN the dialog closes and no view is saved', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })

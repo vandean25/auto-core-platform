@@ -165,7 +165,7 @@ const DialogHeader = ({
   <div
     className={cn(
       // Leaves the corner to the close button (44px at 16px from the edge), so a wrapping title or description never runs under it.
-      "flex flex-col space-y-1.5 max-sm:px-10 sm:pr-10 text-center sm:text-left",
+      "flex flex-col space-y-1.5 max-sm:px-10 sm:pr-10 text-center sm:text-left [&_[data-dialog-title]]:max-sm:px-0",
       className
     )}
     {...props}
@@ -204,6 +204,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
+    data-dialog-title=""
     className={cn(
       "text-lg font-semibold leading-none tracking-tight max-sm:px-12",
       className
