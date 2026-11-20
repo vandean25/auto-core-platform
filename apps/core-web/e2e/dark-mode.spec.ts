@@ -138,4 +138,66 @@ test.describe('Dark mode switch (AUT-659)', () => {
     await expect(page.locator('html')).toHaveClass(/\bdark\b/)
     await expectNoPageScroll(page)
   })
+
+  // Regression (AUT-1029): Theme option 'System' must have a stable accessible name in DE and EN, selected and unselected.
+  test('WHEN the theme control is opened in DE THEN Hell, Dunkel, and System have matching accessible names whether selected or not', async ({ page }) => {
+    await open(page)
+    await openAccountMenu(page)
+
+    const light = page.getByTestId('theme-option-light')
+    const dark = page.getByTestId('theme-option-dark')
+    const system = page.getByTestId('theme-option-system')
+
+    await expect(system).toBeChecked()
+    await expect(light).toHaveAccessibleName('Hell')
+    await expect(dark).toHaveAccessibleName('Dunkel')
+    await expect(system).toHaveAccessibleName('System')
+
+    await dark.click()
+    await openAccountMenu(page)
+
+    await expect(dark).toBeChecked()
+    await expect(light).toHaveAccessibleName('Hell')
+    await expect(dark).toHaveAccessibleName('Dunkel')
+    await expect(system).toHaveAccessibleName('System')
+  })
+
+  test('WHEN the theme control is opened in EN THEN Light, Dark, and System have matching accessible names whether selected or not', async ({ page }) => {
+    await open(page)
+    await openAccountMenu(page)
+    await page.getByTestId('language-option-en').click()
+
+    const light = page.getByTestId('theme-option-light')
+    const dark = page.getByTestId('theme-option-dark')
+    const system = page.getByTestId('theme-option-system')
+
+    await expect(system).toBeChecked()
+    await expect(light).toHaveAccessibleName('Light')
+    await expect(dark).toHaveAccessibleName('Dark')
+    await expect(system).toHaveAccessibleName('System')
+
+    await light.click()
+    await openAccountMenu(page)
+
+    await expect(light).toBeChecked()
+    await expect(light).toHaveAccessibleName('Light')
+    await expect(dark).toHaveAccessibleName('Dark')
+    await expect(system).toHaveAccessibleName('System')
+  })
+
+  test('WHEN the named System option is activated THEN the theme follows OS preference', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await open(page)
+    await openAccountMenu(page)
+    await page.getByRole('menuitemradio', { name: 'Hell' }).click()
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+
+    await openAccountMenu(page)
+    await page.getByRole('menuitemradio', { name: 'System' }).click()
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+  })
 })
+
