@@ -189,7 +189,14 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await expect(unassignedOption).toBeVisible()
       const optionBox = await unassignedOption.boundingBox()
       expect(optionBox?.height ?? 0).toBeGreaterThanOrEqual(44)
-      await page.screenshot({ path: testInfo.outputPath(`detail-picker-${localeCase.lang}-375.png`) })
+      await testInfo.attach(`detail-picker-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+      await testInfo.attach(`detail-picker-${localeCase.lang}-375.aria.txt`, {
+        body: await page.getByRole('listbox').ariaSnapshot(),
+        contentType: 'text/plain',
+      })
 
       await unassignedOption.click()
       await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
@@ -201,10 +208,18 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await mechanicTrigger.click()
       await expect(unassignedOption).toHaveAttribute('aria-selected', 'true')
       await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'false')
+      await testInfo.attach(`detail-picker-unassigned-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
       await page.getByRole('option', { name: 'Alex Example' }).click()
       await expect(mechanicTrigger).toHaveText('Alex Example')
       await mechanicTrigger.click()
       await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'true')
+      await testInfo.attach(`detail-picker-reassigned-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
       await unassignedOption.click()
       await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
 
