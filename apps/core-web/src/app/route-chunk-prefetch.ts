@@ -61,6 +61,7 @@ const MAIN_LIST_ROUTE_MAP = new Map<string, MainListRouteEntry>(
 
 const INITIAL_URL_ROUTES: readonly MainListRouteEntry[] = [
   ...MAIN_LIST_ROUTES,
+  { path: APP_ROUTE_PATHS.home, loadChunk: loadInventoryList, namespaces: ['inventory'] },
   { path: APP_ROUTE_PATHS.dashboard, loadChunk: loadDashboardPage, namespaces: ['vehicles'] },
   { path: APP_ROUTE_PATHS.salesInvoices, loadChunk: loadInvoiceListPage, namespaces: ['sales', 'finance'] },
   { path: APP_ROUTE_PATHS.purchaseOrders, loadChunk: loadPurchaseOrderList, namespaces: ['finance'] },
