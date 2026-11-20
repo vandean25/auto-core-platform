@@ -490,6 +490,18 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     ]) {
       await expect(dialog.getByRole('columnheader', { name: col, exact: true })).toBeVisible();
     }
+
+    const quantityInput = dialog.getByLabel(
+      PICK.drawer.qtyAria.replace('{{description}}', 'Oil Filter').replace('{{itemNo}}', '06J-115-403-Q'),
+    );
+    await expect(quantityInput).toBeVisible();
+
+    const dialogBox = await dialog.boundingBox();
+    const inputBox = await quantityInput.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
+    expect(inputBox!.x).toBeGreaterThanOrEqual(dialogBox!.x);
+    expect(inputBox!.x + inputBox!.width).toBeLessThanOrEqual(dialogBox!.x + dialogBox!.width + 1);
   });
 });
 

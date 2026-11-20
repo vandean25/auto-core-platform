@@ -149,6 +149,7 @@ describe('WorkshopOrderPickDrawer', () => {
 
     expect(screen.queryByText(deWorkshop.pick.drawer.notEligible)).toBeNull()
     expect(screen.queryByText('0 Positionen')).toBeNull()
+    expect(screen.queryByText(deWorkshop.pick.drawer.totalQty.replace('{{qty}}', '0'))).toBeNull()
   })
 
   // AUT-1023: eligible work orders show their pick lines without the not-eligible warning after load.

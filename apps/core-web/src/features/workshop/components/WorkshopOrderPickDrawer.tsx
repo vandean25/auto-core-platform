@@ -87,6 +87,24 @@ function PickDrawerLinesBadge({
   )
 }
 
+function PickDrawerTotalQtyBadge({
+  isOrderLoading,
+  totalRequiredQuantity,
+}: {
+  isOrderLoading: boolean
+  totalRequiredQuantity: number
+}) {
+  const { t } = useTranslation('workshop')
+  if (isOrderLoading) {
+    return <Skeleton className='h-5 w-28 rounded-full' />
+  }
+  return (
+    <Badge variant='outline'>
+      {t('pick.drawer.totalQty', { qty: formatQuantity(totalRequiredQuantity) })}
+    </Badge>
+  )
+}
+
 function PickDrawerNotEligibleNotice({
   isOrderLoading,
   hasOrder,
@@ -412,9 +430,10 @@ function WorkshopOrderPickDrawerBody({
         <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3'>
           <div className='text-sm font-medium'>{t('pick.drawer.requiredParts')}</div>
           <div className='flex items-center gap-2'>
-            <Badge variant='outline'>
-              {t('pick.drawer.totalQty', { qty: formatQuantity(totalRequiredQuantity) })}
-            </Badge>
+            <PickDrawerTotalQtyBadge
+              isOrderLoading={isOrderLoading}
+              totalRequiredQuantity={totalRequiredQuantity}
+            />
             <Button
               type='button'
               variant='ghost'
