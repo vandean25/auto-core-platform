@@ -28,6 +28,10 @@ import { workshopScheduleDateOptions } from "./workshop-schedule-date";
 import errorsDe from "../../../../../locales/de/errors.json" with { type: "json" };
 import { fetchWithAuth } from "@/api/client";
 import { workshopCheckInKeys } from "@/api/workshop-check-in";
+import { changeUiLanguage } from "@/lib/i18n";
+import { registerGermanUiForTests } from "@/test/german-ui";
+
+registerGermanUiForTests();
 
 vi.mock("@/api/client", () => ({
   API_BASE_URL: "http://127.0.0.1:3000",
@@ -2344,6 +2348,76 @@ describe("WorkshopOrderDetails Characterization", () => {
         expect(order?.mechanic_id ?? null).toBeNull();
       });
 
+      it.each([
+        { language: "de", label: "Zugewiesener Mechaniker" },
+        { language: "en", label: "Assigned tech" },
+      ] as const)("localizes the mechanic picker list in $language instead of Suggestions", async ({ language, label }) => {
+        await changeUiLanguage(language);
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        renderComponent();
+
+        fireEvent.click(screen.getByRole("button", { name: label }));
+
+        expect(screen.getByRole("listbox")).toHaveAccessibleName(label);
+        expect(screen.queryByRole("listbox", { name: "Suggestions" })).not.toBeInTheDocument();
+      });
+
+      it.each([
+        { mechanicId: "mech-1" },
+        { mechanic_id: "mech-1" },
+      ])("selects the assigned mechanic when opening the picker with %j", async (assignment) => {
+        setupDefaultMocks({ ...baseOrder, ...assignment });
+        const assign = vi.fn();
+        asMock(workshopApi.useAssignBoard).mockReturnValue(createMutationMock({ mutateAsync: assign }));
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        renderComponent();
+
+        const trigger = screen.getByRole("button", { name: "Zugewiesener Mechaniker" });
+        expect(trigger).toHaveTextContent("Alex Tech");
+        fireEvent.click(trigger);
+
+        await waitFor(() => expect(screen.getByRole("option", { name: "Alex Tech" })).toHaveAttribute("aria-selected", "true"));
+        expect(screen.getByRole("option", { name: "Nicht zugewiesen" })).toHaveAttribute("aria-selected", "false");
+        fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+        expect(assign).not.toHaveBeenCalled();
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        { language: "de", unassigned: "Nicht zugewiesen" },
+        { language: "en", unassigned: "Unassigned" },
+      ] as const)("updates the unassigned picker selection after assigning a mechanic in $language", async ({ language, unassigned }) => {
+        await changeUiLanguage(language);
+        const actual = await vi.importActual<typeof import("@/api/workshop")>("@/api/workshop");
+        vi.mocked(workshopApi.useWorkshopOrder).mockImplementation(actual.useWorkshopOrder);
+        asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
+        queryClient.setQueryData(workshopApi.workshopKeys.detail("order-1"), baseOrder);
+        vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
+          if (String(input) === "/api/workshop/board/assign" && init?.method === "PATCH") {
+            return Promise.resolve(new Response(JSON.stringify({
+              id: "order-1",
+              mechanicId: "mech-1",
+              bayId: null,
+              stagingLocationId: null,
+            })));
+          }
+          return new Promise<Response>(() => {});
+        });
+        renderComponent();
+
+        const trigger = screen.getByTestId("assigned-tech-select");
+        expect(trigger).toHaveTextContent(unassigned);
+        fireEvent.click(trigger);
+        expect(screen.getByRole("option", { name: unassigned })).toHaveAttribute("aria-selected", "true");
+        fireEvent.click(screen.getByRole("option", { name: "Alex Tech" }));
+
+        await waitFor(() => expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent("Alex Tech"));
+        await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+        fireEvent.click(screen.getByTestId("assigned-tech-select"));
+        await waitFor(() => expect(screen.getByRole("option", { name: "Alex Tech" })).toHaveAttribute("aria-selected", "true"));
+        expect(screen.getByRole("option", { name: unassigned })).toHaveAttribute("aria-selected", "false");
+      });
+
       it("reads the technician and bay from the snake_case ids", () => {
         setupDefaultMocks({ ...baseOrder, mechanic_id: "mech-1", bay_id: "bay-1" });
         asMock(workshopApi.useWorkshopResources).mockReturnValue(resourcesWithMechanic);
@@ -2361,8 +2435,11 @@ describe("WorkshopOrderDetails Characterization", () => {
         expect(screen.getByTestId("assigned-tech-select")).not.toBeDisabled();
       });
 
-      // AUT-949 Scenario 3: unassigning in the detail picker shows pending state and settles immediately from /board/assign without a ~3s stale gap.
-      it("updates the picker to unassigned immediately when /board/assign confirms and shows a success toast", async () => {
+      it.each([
+        { language: "de", unassigned: "Nicht zugewiesen" },
+        { language: "en", unassigned: "Unassigned" },
+      ] as const)("clears the selected mechanic when /board/assign confirms and shows a success toast in $language", async ({ language, unassigned }) => {
+        await changeUiLanguage(language);
         let resolveAssign: (() => void) | undefined;
         vi.mocked(fetchWithAuth).mockImplementation((input, init) => {
           if (
@@ -2401,7 +2478,7 @@ describe("WorkshopOrderDetails Characterization", () => {
         renderComponent();
 
         fireEvent.click(screen.getByTestId("assigned-tech-select"));
-        fireEvent.click(screen.getByRole("option", { name: deWorkshop.orderHeader.unassigned }));
+        fireEvent.click(screen.getByRole("option", { name: unassigned }));
 
         await waitFor(() => expect(screen.getByTestId("assigned-tech-select")).toBeDisabled());
         expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent("Alex Tech");
@@ -2409,12 +2486,16 @@ describe("WorkshopOrderDetails Characterization", () => {
 
         await act(async () => resolveAssign?.());
 
-        expect(toast.success).toHaveBeenCalledWith(orderDetailToast.technicianUnassigned);
-        await waitFor(() =>
-          expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent(
-            deWorkshop.orderHeader.unassigned,
-          ),
+        expect(toast.success).toHaveBeenCalledWith(
+          language === "de" ? orderDetailToast.technicianUnassigned : "Technician unassigned",
         );
+        await waitFor(() =>
+          expect(screen.getByTestId("assigned-tech-select")).toHaveTextContent(unassigned),
+        );
+        await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+        fireEvent.click(screen.getByTestId("assigned-tech-select"));
+        expect(screen.getByRole("option", { name: unassigned })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("option", { name: "Alex Tech" })).toHaveAttribute("aria-selected", "false");
         expect(
           queryClient.getQueryData<{ mechanicId?: string | null; mechanic_id?: string | null }>(
             workshopApi.workshopKeys.detail("order-1"),
