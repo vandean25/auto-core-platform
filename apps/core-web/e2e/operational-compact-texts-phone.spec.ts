@@ -655,15 +655,15 @@ test.describe('AUT-1033: Remaining page subtitles and helper sentences', () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
 
       const subtitleChecks = [
-        { path: '/workshop/orders', titleDe: deWorkshop.orders.list.title, titleEn: enWorkshop.orders.list.title, de: deWorkshop.orders.list.description, en: enWorkshop.orders.list.description },
-        { path: '/customers', titleDe: deCustomers.list.title, titleEn: enCustomers.list.title, de: deCustomers.list.description, en: enCustomers.list.description },
-        { path: '/workshop/board', titleDe: deWorkshop.board.title, titleEn: enWorkshop.board.title, de: deWorkshop.board.description, en: enWorkshop.board.description },
-        { path: '/workshop/tyre-storage', titleDe: deInventory.tyreStorage.list.title, titleEn: enInventory.tyreStorage.list.title, de: deInventory.tyreStorage.list.description, en: enInventory.tyreStorage.list.description },
-        { path: '/workshop/pick-list', titleDe: deWorkshop.pick.queue.title, titleEn: enWorkshop.pick.queue.title, de: deWorkshop.pick.queue.description, en: enWorkshop.pick.queue.description },
-        { path: '/finance/credit-notes', titleDe: deFinance.creditNotes.list.title, titleEn: enFinance.creditNotes.list.title, de: deFinance.creditNotes.list.subtitle, en: enFinance.creditNotes.list.subtitle },
-        { path: '/settings', titleDe: deSettings.page.title, titleEn: enSettings.page.title, de: deSettings.page.description, en: enSettings.page.description },
-        { path: '/inventory', titleDe: deInventory.partsList.title, titleEn: enInventory.partsList.title, de: deInventory.partsList.description, en: enInventory.partsList.description },
-        { path: '/dashboard', titleDe: deCommon.dashboard.title, titleEn: enCommon.dashboard.title, de: deCommon.dashboard.description, en: enCommon.dashboard.description },
+        { slug: 'work-orders', path: '/workshop/orders', titleDe: deWorkshop.orders.list.title, titleEn: enWorkshop.orders.list.title, de: deWorkshop.orders.list.description, en: enWorkshop.orders.list.description },
+        { slug: 'customers', path: '/customers', titleDe: deCustomers.list.title, titleEn: enCustomers.list.title, de: deCustomers.list.description, en: enCustomers.list.description },
+        { slug: 'board', path: '/workshop/board', titleDe: deWorkshop.board.title, titleEn: enWorkshop.board.title, de: deWorkshop.board.description, en: enWorkshop.board.description },
+        { slug: 'tyre-storage', path: '/workshop/tyre-storage', titleDe: deInventory.tyreStorage.list.title, titleEn: enInventory.tyreStorage.list.title, de: deInventory.tyreStorage.list.description, en: enInventory.tyreStorage.list.description },
+        { slug: 'pick-list', path: '/workshop/pick-list', titleDe: deWorkshop.pick.queue.title, titleEn: enWorkshop.pick.queue.title, de: deWorkshop.pick.queue.description, en: enWorkshop.pick.queue.description },
+        { slug: 'credit-notes', path: '/finance/credit-notes', titleDe: deFinance.creditNotes.list.title, titleEn: enFinance.creditNotes.list.title, de: deFinance.creditNotes.list.subtitle, en: enFinance.creditNotes.list.subtitle },
+        { slug: 'settings', path: '/settings', titleDe: deSettings.page.title, titleEn: enSettings.page.title, de: deSettings.page.description, en: enSettings.page.description },
+        { slug: 'inventory', path: '/inventory', titleDe: deInventory.partsList.title, titleEn: enInventory.partsList.title, de: deInventory.partsList.description, en: enInventory.partsList.description },
+        { slug: 'dashboard', path: '/dashboard', titleDe: deCommon.dashboard.title, titleEn: enCommon.dashboard.title, de: deCommon.dashboard.description, en: enCommon.dashboard.description },
       ]
 
       for (const language of ['de', 'en'] as const) {
@@ -673,86 +673,110 @@ test.describe('AUT-1033: Remaining page subtitles and helper sentences', () => {
           await ensureUiLanguage(page, language)
           await expect(page.getByRole('heading', { level: 1, name: language === 'de' ? item.titleDe : item.titleEn })).toBeVisible()
           await expect(page.getByText(language === 'de' ? item.de : item.en)).toHaveCount(0)
+          if (viewport.name === '375px') {
+            await captureDocScreenshot(page, `aut-1033-s1-${item.slug}-${language}-375.png`, { fullPage: true })
+          }
         }
       }
     })
   }
 
-  test('WHEN onboarding card, settings lock date, credit-note detail, sidebar favorites and brake card are opened in DE and EN THEN helper sentences are absent while distinctive data stays', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await page.route(AutoCorePage.apiRouteMatcher('/api/credit-notes/cn-1'), (route) =>
-      route.fulfill(
-        json({
-          id: 'cn-1',
-          creditNumber: 'GS-2026-0001',
-          originalInvoiceId: 'inv-1',
-          date: '2026-06-15T00:00:00.000Z',
-          reason: 'Returned brake discs',
-          status: 'FINALIZED',
-          totalNet: 100,
-          totalTax: 20,
-          totalGross: 120,
-          pdfGeneratedAt: '2026-06-15T10:00:00.000Z',
-          version: 1,
-          items: [],
-        }),
-      ),
-    )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/inv-1'), (route) =>
-      route.fulfill(json({ id: 'inv-1', invoice_number: 'RE-2026-0042', items: [] })),
-    )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1'), (route) =>
-      route.fulfill(
-        json({
-          id: 'wo-1',
-          order_number: 'WO-2026-0001',
-          status: 'IN_PROGRESS',
-          customer: { id: 'c-1', first_name: 'Max', last_name: 'Muster' },
-          vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' },
-          tasks: [],
-        }),
-      ),
-    )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/measurements/brakes'), (route) =>
-      route.fulfill(json({ data: [], meta: { total: 0, page: 1, pageSize: 50, pageCount: 1 } })),
-    )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/inspection-device-sources'), (route) =>
-      route.fulfill(json({ data: [] })),
-    )
+  for (const viewport of [
+    { name: '390px', width: 390, height: 844 },
+    { name: 'desktop', width: 1280, height: 800 },
+  ] as const) {
+    test(`WHEN onboarding card, settings lock date, credit-note detail, sidebar favorites and brake card are opened at ${viewport.name} in DE and EN THEN helper sentences are absent while distinctive data stays`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      await page.route(AutoCorePage.apiRouteMatcher('/api/credit-notes/cn-1'), (route) =>
+        route.fulfill(
+          json({
+            id: 'cn-1',
+            creditNumber: 'GS-2026-0001',
+            originalInvoiceId: 'inv-1',
+            date: '2026-06-15T00:00:00.000Z',
+            reason: 'Returned brake discs',
+            status: 'FINALIZED',
+            totalNet: 100,
+            totalTax: 20,
+            totalGross: 120,
+            pdfGeneratedAt: '2026-06-15T10:00:00.000Z',
+            version: 1,
+            items: [],
+          }),
+        ),
+      )
+      await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/inv-1'), (route) =>
+        route.fulfill(json({ id: 'inv-1', invoice_number: 'RE-2026-0042', items: [] })),
+      )
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1'), (route) =>
+        route.fulfill(
+          json({
+            id: 'wo-1',
+            order_number: 'WO-2026-0001',
+            status: 'IN_PROGRESS',
+            customer: { id: 'c-1', first_name: 'Max', last_name: 'Muster' },
+            vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' },
+            tasks: [],
+          }),
+        ),
+      )
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/measurements/brakes'), (route) =>
+        route.fulfill(json({ data: [], meta: { total: 0, page: 1, pageSize: 50, pageCount: 1 } })),
+      )
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inspection-device-sources'), (route) =>
+        route.fulfill(json({ data: [] })),
+      )
 
-    for (const language of ['de', 'en'] as const) {
-      const c = language === 'de' ? deCommon : enCommon
-      const n = language === 'de' ? deNav : enNav
-      const s = language === 'de' ? deSettings : enSettings
-      const f = language === 'de' ? deFinance : enFinance
-      const w = language === 'de' ? deWorkshop : enWorkshop
+      for (const language of ['de', 'en'] as const) {
+        const c = language === 'de' ? deCommon : enCommon
+        const n = language === 'de' ? deNav : enNav
+        const s = language === 'de' ? deSettings : enSettings
+        const f = language === 'de' ? deFinance : enFinance
+        const w = language === 'de' ? deWorkshop : enWorkshop
 
-      await page.goto('/dashboard')
-      await page.waitForLoadState('networkidle')
-      await ensureUiLanguage(page, language)
-      await expect(page.getByText(c.onboarding.title)).toBeVisible()
-      await expect(page.getByText(c.onboarding.description)).toHaveCount(0)
-      await expect(page.getByText(c.onboarding.steps.customers.description)).toHaveCount(0)
-      await expect(page.getByText(n.favorites.empty)).toHaveCount(0)
+        await page.goto('/dashboard')
+        await page.waitForLoadState('networkidle')
+        await ensureUiLanguage(page, language)
+        await expect(page.getByText(c.onboarding.title)).toBeVisible()
+        await expect(page.getByText(c.onboarding.description)).toHaveCount(0)
+        await expect(page.getByText(c.onboarding.steps.customers.description)).toHaveCount(0)
+        await expect(page.getByText(n.favorites.empty)).toHaveCount(0)
+        if (viewport.name === '390px' && language === 'de') {
+          await captureDocScreenshot(page, 'aut-1033-s3-dashboard-onboarding-de-390.png', { fullPage: true })
+        }
 
-      await page.goto('/settings')
-      await page.waitForLoadState('networkidle')
-      await expect(page.getByLabel(s.finance.fiscal.lockDate).first()).toBeVisible()
-      await expect(page.getByText(s.finance.fiscal.lockDateHint)).toHaveCount(0)
+        await page.goto('/settings')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByLabel(s.finance.fiscal.lockDate).first()).toBeVisible()
+        await expect(page.getByText(s.finance.fiscal.lockDateHint)).toHaveCount(0)
+        if (viewport.name === '390px' && language === 'de') {
+          await captureDocScreenshot(page, 'aut-1033-s3-settings-lock-date-de-390.png', { fullPage: true })
+        }
 
-      await page.goto('/finance/credit-notes/cn-1')
-      await page.waitForLoadState('networkidle')
-      await expect(page.getByText('GS-2026-0001')).toBeVisible()
-      await expect(page.getByText('Returned brake discs')).toBeVisible()
-      await expect(page.getByText(f.creditNotes.detail.finalizedHint)).toHaveCount(0)
-      await expect(page.getByText(f.creditNotes.detail.draftEditHint)).toHaveCount(0)
+        await page.goto('/finance/credit-notes/cn-1')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByText('GS-2026-0001')).toBeVisible()
+        await expect(page.getByText('Returned brake discs')).toBeVisible()
+        await expect(page.getByText('15. Juni 2026')).toBeVisible()
+        await expect(page.getByText(/€\s*120,00/)).toBeVisible()
+        await expect(page.getByText(f.creditNotes.detail.finalizedHint)).toHaveCount(0)
+        await expect(page.getByText(f.creditNotes.detail.draftEditHint)).toHaveCount(0)
+        if (viewport.name === 'desktop') {
+          await captureDocScreenshot(page, `aut-1033-s2-credit-note-detail-${language}-1280.png`, { fullPage: true })
+        } else {
+          await captureDocScreenshot(page, `aut-1033-s3-credit-note-detail-${language}-390.png`, { fullPage: true })
+        }
 
-      await page.goto('/workshop/orders/wo-1')
-      await page.waitForLoadState('networkidle')
-      await expect(page.getByText(w.measurementsSection.title)).toBeVisible()
-      await expect(page.getByText(w.measurementsSection.description)).toHaveCount(0)
-    }
-  })
+        await page.goto('/workshop/orders/wo-1')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByText(w.measurementsSection.title)).toBeVisible()
+        await expect(page.getByText(w.measurementsSection.description)).toHaveCount(0)
+        if (viewport.name === '390px' && language === 'de') {
+          await captureDocScreenshot(page, 'aut-1033-s3-brake-card-de-390.png', { fullPage: true })
+        }
+      }
+    })
+  }
 })
 
 
