@@ -103,6 +103,21 @@ describe('inventory price operations cache sync (AUT-1030)', () => {
     expect(detailCache?.price).toBe(110)
   })
 
+  it('WHEN the guarded PATCH receipt returns a rounded retail_price THEN the cached row follows the receipt amount', async () => {
+    const item1 = makeItem('item-1', 'BRK-001', 100, 3)
+    const { queryClient, cursorKey, wrapper } = createHarness([item1])
+
+    vi.mocked(fetchWithAuth).mockResolvedValueOnce(jsonResponse(200, { id: 'item-1', retail_price: '112.34', revision: 4 }))
+
+    const { result } = renderHook(() => useExecuteGuardedPriceChanges(), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync([makeIntent('item-1', 'BRK-001', 100, 110, 3)])
+    })
+
+    const cursorCache = queryClient.getQueryData<{ pages: Array<{ data: InventoryItem[] }> }>(cursorKey)
+    expect(cursorCache?.pages[0].data[0].price).toBe(112.34)
+  })
+
   // Anti-criteria 2 & 3: conflict and pending/unresolved items must never take an applied or guessed price.
   it('WHEN a bulk run has APPLIED, CONFLICT, and PENDING outcomes THEN only APPLIED rows get the new price', async () => {
     const item1 = makeItem('item-1', 'BRK-001', 100, 1)

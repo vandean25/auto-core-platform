@@ -68,6 +68,7 @@ export type GuardedPriceItemOutcome = {
   expectedRevision: number
   status: GuardedPriceItemStatus
   acceptedAt: string | null
+  appliedPrice?: number | null
   retryable?: boolean
 }
 
@@ -208,7 +209,12 @@ async function fetchOperationByKey(key: string): Promise<InventoryPriceOperation
   }
 }
 
-function outcomeFor(intent: FrozenGuardedPriceIntent, status: GuardedPriceItemStatus, acceptedAt: string | null = null): GuardedPriceItemOutcome {
+function outcomeFor(
+  intent: FrozenGuardedPriceIntent,
+  status: GuardedPriceItemStatus,
+  acceptedAt: string | null = null,
+  appliedPrice: number | null = null,
+): GuardedPriceItemOutcome {
   return {
     key: intent.key,
     itemId: intent.itemId,
@@ -219,13 +225,29 @@ function outcomeFor(intent: FrozenGuardedPriceIntent, status: GuardedPriceItemSt
     expectedRevision: intent.expectedRevision,
     status,
     acceptedAt,
+    ...(appliedPrice !== null ? { appliedPrice } : {}),
+  }
+}
+
+async function parseAppliedReceiptPrice(response: Response): Promise<number | null> {
+  try {
+    const body = (await response.json()) as { retail_price?: unknown; price?: unknown } | null
+    if (!body || typeof body !== 'object') return null
+    const raw = body.retail_price ?? body.price
+    if (raw === undefined || raw === null || raw === '') return null
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? parsed : null
+  } catch {
+    return null
   }
 }
 
 async function resolveUnknownPatchOutcome(intent: FrozenGuardedPriceIntent): Promise<GuardedPriceItemOutcome> {
   const op = await fetchOperationByKey(intent.key)
   if (op) {
-    return outcomeFor(intent, mapOperationDtoToStatus(op), op.acceptedAt)
+    const status = mapOperationDtoToStatus(op)
+    const parsed = status === 'APPLIED' ? Number(op.retail_price) : NaN
+    return outcomeFor(intent, status, op.acceptedAt, Number.isFinite(parsed) ? parsed : null)
   }
   return outcomeFor(intent, 'OUTCOME_UNAVAILABLE')
 }
@@ -269,7 +291,10 @@ async function executeGuardedPatch(intent: FrozenGuardedPriceIntent): Promise<Gu
       }),
     })
 
-    if (response.ok) return outcomeFor(intent, 'APPLIED')
+    if (response.ok) {
+      const appliedPrice = await parseAppliedReceiptPrice(response)
+      return outcomeFor(intent, 'APPLIED', null, appliedPrice)
+    }
 
     const code = await parseErrorCode(response)
     const classified = classifyPatchErrorResponse(response.status, code)
@@ -338,7 +363,7 @@ export function useExecuteGuardedPriceChanges() {
         queryClient,
         outcomes
           .filter((outcome) => outcome.status === 'APPLIED')
-          .map((outcome) => ({ itemId: outcome.itemId, price: outcome.targetPrice })),
+          .map((outcome) => ({ itemId: outcome.itemId, price: outcome.appliedPrice ?? outcome.targetPrice })),
       )
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
       void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
