@@ -40,6 +40,20 @@ function OrderNumberCell({ order, onDismiss }: { order: PurchaseOrder; onDismiss
 
 const EMPTY_ORDERS: PurchaseOrder[] = []
 
+function getPurchaseOrderTableLoadingState(
+    hasLoadedOrders: boolean,
+    isLoading: boolean,
+    pendingRowsLength: number,
+    dataLength: number,
+) {
+    const hasPendingRows = pendingRowsLength !== dataLength
+    return {
+        isLoading: isLoading && !hasPendingRows,
+        hasUsableData: hasLoadedOrders || hasPendingRows,
+        bypassSkeleton: hasPendingRows || hasLoadedOrders,
+    }
+}
+
 export default function PurchaseOrderList() {
     const { t } = useTranslation('finance')
     useEffect(() => {
@@ -52,8 +66,15 @@ export default function PurchaseOrderList() {
     const deleteMutation = useDeletePurchaseOrder()
 
     const data: PurchaseOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? EMPTY_ORDERS
+    const hasLoadedOrders = responseData !== undefined
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
     const pending = usePurchaseOrderPendingCreate(data, dataUpdatedAt)
+    const tableLoading = getPurchaseOrderTableLoadingState(
+        hasLoadedOrders,
+        isLoading,
+        pending.rows.length,
+        data.length,
+    )
 
     const handleDelete = async (id: string) => {
         if (!confirm(t('purchaseOrders.list.deleteConfirm'))) return
@@ -115,8 +136,9 @@ export default function PurchaseOrderList() {
                 saveViewTitle={t('purchaseOrders.list.saveViewTitle')}
                 dashboardSource={DASHBOARD_WIDGET_SOURCE_PURCHASE_ORDERS}
                 pageCount={pageCount}
-                isLoading={isLoading && pending.rows.length === data.length}
-                bypassSkeleton={pending.rows.length !== data.length}
+                isLoading={tableLoading.isLoading}
+                hasUsableData={tableLoading.hasUsableData}
+                bypassSkeleton={tableLoading.bypassSkeleton}
                 searchColumn="order_number"
                 searchPlaceholder={t('purchaseOrders.list.searchPlaceholder')}
                 rowBehaviour={{

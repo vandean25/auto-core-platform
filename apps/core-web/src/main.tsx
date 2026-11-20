@@ -14,6 +14,7 @@ import { captureInstallPrompt } from '@/pwa/install-prompt'
 import { registerServiceWorker } from '@/pwa/register-service-worker'
 import { isPublicApprovalPath } from '@/lib/public-approval-path'
 import { preloadRouteForPathname } from '@/app/route-chunk-prefetch'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 const PublicEstimateApprovalRoot = lazy(() =>
   import('@/pages/public/PublicEstimateApprovalRoot').then((m) => ({
@@ -48,7 +49,7 @@ createRoot(document.getElementById('root')!, {
   <StrictMode>
     {isPublicApproval ? (
       <I18nProvider>
-        <Suspense fallback={null}>
+        <Suspense fallback={<PageLoader />}>
           <PublicEstimateApprovalRoot />
         </Suspense>
       </I18nProvider>

@@ -6,7 +6,8 @@
    - Measured via `apps/core-web/scripts/check-startup-bundle.ts` (`measureStartupBundle`) walking `dist/.vite/manifest.json` from the entry chunk through all static `imports` and `css` assets, comparing `origin/main` (`2713f70`) against this branch.
    - Enforced in unit tests (`apps/core-web/scripts/check-startup-bundle.test.ts`) and Playwright CI (`apps/core-web/e2e/startup-bundle-budget.spec.ts`).
 2. **Hard-load Web Vitals & route-ready timings (Playwright + Chromium):**
-   - Served `dist-e2e` via `vite preview` (`1440x900`, `de-AT`, simulated `80 ms` API RTT per request) on hard URL loads (`page.goto`) of `/dashboard`, `/sales/invoices`, `/purchase-orders`, and `/workshop/tyre-storage`.
+   - Enforced in Playwright CI (`apps/core-web/e2e/first-url-load-timings.spec.ts`), which attaches the recorded JSON timings as the `aut-1025-first-url-load-timings` test artefact.
+   - Served `dist-e2e` via `vite preview` (`1440x900`, `de-AT`, simulated `80 ms` API RTT per request, plus a `250 ms` `GET /api/purchase-orders` case) on hard URL loads (`page.goto`) of `/dashboard`, `/sales/invoices`, `/purchase-orders`, and `/workshop/tyre-storage`.
    - Recorded `first-contentful-paint` (FCP), `largest-contentful-paint` (LCP), `domInteractive`, total time to route ready, `GET /api/purchase-orders` response-to-table-paint interval, and spurious `/api/workshop/resources` request count.
 
 ## Production QA Baseline (`v2026.11.20-release-1` / `9d3d1688`)
@@ -31,12 +32,12 @@
 
 ### Hard URL Load Web Vitals (`vite preview`, 80 ms simulated API RTT)
 
-| Route | Baseline (`origin/main`) | After | Notes |
+| Route | Baseline (`origin/main`) | After (`first-url-load-timings.spec.ts`) | Notes |
 |---|---|---|---|
-| `/dashboard` | 1,563 ms ready (FCP 656 ms, LCP 1,120 ms, 1× `/api/workshop/resources`) | **1,479 ms** ready (FCP 660 ms, LCP 1,208 ms, **0×** `/api/workshop/resources`) | `GlobalSearch` lazy-mounted on Cmd+K |
-| `/sales/invoices` | 1,537 ms ready (FCP 556 ms, LCP 1,216 ms, 1× `/api/workshop/resources`) | **1,449 ms** ready (FCP 664 ms, LCP 1,084 ms, **0×** `/api/workshop/resources`) | Route chunk + locale preloaded in parallel |
-| `/purchase-orders` | 1,536 ms ready (207 ms response-to-paint, FCP 568 ms, LCP 1,260 ms) | **1,621 ms** ready (**432 ms** response-to-paint incl. 350 ms skeleton min-hold, FCP 676 ms, LCP 1,116 ms) | Table paints promptly once `GET /api/purchase-orders` resolves |
-| `/workshop/tyre-storage` | 1,526 ms ready (`PageLoader` fallback, FCP 556 ms, LCP 1,232 ms) | **1,466 ms** ready (`ListRouteSkeleton` fallback, `sawPageLoader: false`, FCP 672 ms, LCP 1,124 ms) | No „Auto Core wird geladen…“ once shell is up |
+| `/dashboard` | 1,563 ms ready (FCP 656 ms, LCP 1,120 ms, 1× `/api/workshop/resources`) | **1,379 ms** ready (FCP 856 ms, LCP 1,324 ms, **0×** `/api/workshop/resources`) | `GlobalSearch` lazy-mounted on Cmd+K |
+| `/sales/invoices` | 1,537 ms ready (FCP 556 ms, LCP 1,216 ms, 1× `/api/workshop/resources`) | **1,754 ms** ready (FCP 708 ms, LCP 1,148 ms, **0×** `/api/workshop/resources`) | Route chunk + locale preloaded in parallel |
+| `/purchase-orders` | 1,536 ms ready (207 ms response-to-paint, FCP 568 ms, LCP 1,260 ms) | **1,608 ms** ready at 250 ms RTT (**198 ms** response-to-paint, FCP 664 ms, LCP 1,172 ms) | `bypassSkeleton` + `hasUsableData` clear the skeleton immediately once `GET /api/purchase-orders` resolves |
+| `/workshop/tyre-storage` | 1,526 ms ready (`PageLoader` fallback, FCP 556 ms, LCP 1,232 ms) | **2,293 ms** ready (`ListRouteSkeleton` fallback, `sawPageLoaderAfterShell: false`, FCP 900 ms, LCP 1,412 ms) | No „Auto Core wird geladen…“ once shell is up |
 
 ## QA Screenshots
 
