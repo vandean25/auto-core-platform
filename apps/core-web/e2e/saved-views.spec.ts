@@ -1,6 +1,13 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import deCommon from '../../../locales/de/common.json' with { type: 'json' }
+import enCommon from '../../../locales/en/common.json' with { type: 'json' }
+import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
+import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
+import { DE_SHELL } from './helpers/de-shell'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { createMockCustomer, createMockListResponse } from './utils/mock-factories'
+import { mockCursorList } from './utils/cursor-list-mock'
+import { createMockCustomer, createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
+import { expectNoPageScroll } from './utils/phone-layout'
 
 test.describe('Saved views mobile (AUT-940)', () => {
   test.use({ viewport: { width: 375, height: 812 } })
@@ -99,5 +106,146 @@ test.describe('Saved views mobile (AUT-940)', () => {
     const teamSection = sheet.getByRole('region', { name: 'Team' })
     await expect(teamSection).toBeVisible()
     await expect(teamSection.getByRole('button', { name: 'Stammkunden Team', exact: true })).toBeVisible()
+  })
+})
+
+type RectBox = { left: number; right: number; top: number; bottom: number }
+
+async function textUnderDialogCloseButton(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
+    const close = dialog?.querySelector<HTMLElement>('button .sr-only')?.closest('button')
+    if (!dialog || !close) return ['no dialog or close button']
+    const button: RectBox = close.getBoundingClientRect()
+    const hits: string[] = []
+    const walker = document.createTreeWalker(dialog, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim() || close.contains(node)) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const rect of Array.from(range.getClientRects())) {
+        const overlaps =
+          rect.left < button.right && rect.right > button.left && rect.top < button.bottom && rect.bottom > button.top
+        if (overlaps && rect.width > 0) {
+          hits.push(`"${node.textContent.trim().slice(0, 40)}" at ${Math.round(rect.left)}-${Math.round(rect.right)}`)
+        }
+      }
+    }
+    return hits
+  })
+}
+
+async function setupWorkshopOrdersForSaveView(page: Page) {
+  const createdViews: Array<{ name: string; href: string }> = []
+  const order = createMockWorkshopOrder({
+    id: 'wo-aut950-1',
+    order_number: 'WO-2026-0950',
+  })
+
+  await mockCursorList(page, { path: '/api/workshop/orders', rows: [order] })
+  await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      })
+      return
+    }
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON() as { name: string; href: string }
+      createdViews.push(body)
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'sv-new', ...body, listPath: '/workshop/orders', visibility: 'PERSONAL', version: 1 }),
+      })
+      return
+    }
+    await route.continue()
+  })
+
+  return { createdViews }
+}
+
+type SaveViewLayoutScenario = {
+  name: string
+  viewport: { width: number; height: number }
+  locale: 'de' | 'en'
+  checkOverflow?: boolean
+}
+
+const SAVE_VIEW_LAYOUT_SCENARIOS: SaveViewLayoutScenario[] = [
+  {
+    name: 'WHEN the save-view dialog opens from /workshop/orders on desktop in DE THEN the full description is visible and does not run under the close button',
+    viewport: { width: 1400, height: 900 },
+    locale: 'de',
+  },
+  {
+    name: 'WHEN the same dialog opens in EN THEN the translated description also clears the close button',
+    viewport: { width: 1400, height: 900 },
+    locale: 'en',
+  },
+  {
+    name: 'WHEN the dialog opens at 375px THEN there is no text/X overlap and no horizontal overflow',
+    viewport: { width: 375, height: 812 },
+    locale: 'de',
+    checkOverflow: true,
+  },
+]
+
+test.describe('Save-view dialog layout and close control (AUT-880 / AUT-950)', () => {
+  for (const scenario of SAVE_VIEW_LAYOUT_SCENARIOS) {
+    test(scenario.name, async ({ page }) => {
+      await page.setViewportSize(scenario.viewport)
+      await setupWorkshopOrdersForSaveView(page)
+      await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
+
+      if (scenario.locale === 'en') {
+        await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
+        await page.getByTestId('language-option-en').click()
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+        await page.keyboard.press('Escape')
+      }
+
+      const common = scenario.locale === 'en' ? enCommon : deCommon
+      const workshop = scenario.locale === 'en' ? enWorkshop : deWorkshop
+      const triggerName = common.savedViews.saveAria.replace('{{title}}', workshop.orders.list.saveViewTitle)
+      await page.getByRole('button', { name: triggerName }).click()
+
+      const dialog = page.getByRole('dialog', { name: common.savedViews.title })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByText(common.savedViews.description)).toBeVisible()
+
+      const closeButton = dialog.getByRole('button', { name: common.actions.close })
+      const closeBox = await closeButton.boundingBox()
+      expect(closeBox).not.toBeNull()
+      expect(closeBox!.width).toBeGreaterThanOrEqual(44)
+      expect(closeBox!.height).toBeGreaterThanOrEqual(44)
+
+      expect(await textUnderDialogCloseButton(page), 'text under the close button').toEqual([])
+
+      if (scenario.checkOverflow) {
+        const dialogOverflow = await dialog.evaluate((el) => el.scrollWidth > el.clientWidth)
+        expect(dialogOverflow).toBe(false)
+        await expectNoPageScroll(page)
+      }
+    })
+  }
+
+  test('WHEN the X is used THEN the dialog closes and no view is saved', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    const { createdViews } = await setupWorkshopOrdersForSaveView(page)
+    await new AutoCorePage(page, 'Order').navigate('/workshop/orders?search=Gruber')
+
+    const triggerName = deCommon.savedViews.saveAria.replace('{{title}}', deWorkshop.orders.list.saveViewTitle)
+    await page.getByRole('button', { name: triggerName }).click()
+
+    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByRole('button', { name: deCommon.actions.close }).click()
+    await expect(dialog).toBeHidden()
+    expect(createdViews).toEqual([])
   })
 })
