@@ -118,7 +118,7 @@ describe('AppSidebar navigation', () => {
     expect(screen.queryByRole('link', { name: 'Saved Pickerl view' })).not.toBeInTheDocument()
   })
 
-  it('requires confirmation before deleting a team view from the sidebar favorites X button', async () => {
+  it('requires confirmation before deleting a team view from the sidebar favorites menu', async () => {
     const deleteCalls: string[] = []
     vi.mocked(fetchWithAuth).mockImplementation(async (input, init) => {
       const url = String(input)
@@ -154,7 +154,8 @@ describe('AppSidebar navigation', () => {
 
     expect(await screen.findByRole('link', { name: /Team Aufträge/ })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Gespeicherte Ansicht Team Aufträge entfernen' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Weitere Aktionen' }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Gespeicherte Ansicht Team Aufträge entfernen' }))
 
     expect(deleteCalls).toEqual([])
     const dialog = await screen.findByRole('alertdialog')

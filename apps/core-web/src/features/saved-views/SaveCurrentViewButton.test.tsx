@@ -19,7 +19,7 @@ vi.mock('@/api/client', async (importOriginal) => ({
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ claims: { role: 'ADMIN' } }) }))
 
 const TRIGGER_NAME = 'Als Seitenleisten-Ansicht für Customers speichern'
-const TOOLTIP = 'Speichert diese Filter als Shortcut in den Favoriten'
+const TOOLTIP = 'Speichert diese Ansicht als Shortcut in den Favoriten'
 
 type ServerView = {
   id: string
@@ -211,24 +211,26 @@ async function openMenu() {
   return screen.findByRole('dialog', { name: /Ansichten/ })
 }
 
-describe('SaveCurrentViewButton visibility (AUT-880)', () => {
-  it.each(['?peek=order-1', '?action=create', '?peek=order-1&page=2&sortField=date'])(
-    'offers no save button for %s: peek, action and table position are not part of a saved view',
-    (search) => {
-      const queryClient = new QueryClient({
-        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-      })
-      render(
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[`/workshop/orders${search}`]}>
-            <SavedViewsProvider userKey="test-user" tenantId="tenant-a">
-              <SaveCurrentViewButton title="Arbeitsaufträge" />
-            </SavedViewsProvider>
-          </MemoryRouter>
-        </QueryClientProvider>,
-      )
+describe('SaveCurrentViewButton without filters', () => {
+  it.each(['', '?peek=order-1', '?action=create', '?peek=order-1&page=2'])(
+    'saves a default view from %s without retaining transient state',
+    async (search) => {
+      render(toolbar({ initial: `/workshop/orders${search}` }))
 
-      expect(screen.queryByRole('button', { name: /speichern/ })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /speichern/ }))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Speichern' }))
+
+      await waitFor(() => expect(fetchWithAuth).toHaveBeenCalledWith('/api/saved-views', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          listPath: '/workshop/orders',
+          name: 'Arbeitsaufträge Ansicht',
+          href: '/workshop/orders',
+          visibility: 'PERSONAL',
+        }),
+      })))
+      expect(within(await openMenu()).getByRole('button', { name: 'Arbeitsaufträge Ansicht' })).toBeInTheDocument()
     },
   )
 })

@@ -40,10 +40,10 @@ function SavedViewRow({
         type="button"
         variant="ghost"
         data-action-id={actions.open.id}
-        className="min-h-11 min-w-0 flex-1 justify-start gap-2 md:h-9 md:min-h-9"
+        className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 md:min-h-9"
         onClick={() => executeEntityAction(actions.open, view, context)}
       >
-        <span className="truncate">{view.name}</span>
+        <span className="min-w-0 flex-1 whitespace-normal break-words text-left">{view.name}</span>
         {view.visibility === 'TENANT' ? (
           <Badge variant="secondary" className="shrink-0">
             {t('savedViews.teamBadge')}
