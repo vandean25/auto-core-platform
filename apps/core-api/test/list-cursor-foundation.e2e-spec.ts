@@ -1355,33 +1355,73 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       },
     );
 
-    it('WHEN many invoices share one date THEN date blocks break the tie by id without gaps or repeats (stable date order)', async () => {
-      await prisma.invoice.createMany({
-        data: Array.from({ length: 7 }, (_, index) =>
-          invoiceRow({ invoice_number: `RE-2026-${100 + index}` }),
-        ),
-      });
-      await prisma.invoice.createMany({
-        data: [
-          invoiceRow({
-            invoice_number: 'RE-2026-200',
-            date: new Date('2026-03-01T10:00:00.000Z'),
-          }),
-        ],
-      });
+    // AUT-967 Scenarios 1 & 2: same-date issued invoices sort by invoice_number in the same direction as date, then id.
+    it.each([
+      ['desc', ['RE-2026-0200', 'RE-2026-0012', 'RE-2026-0011', 'RE-2026-0010']],
+      ['asc', ['RE-2026-0010', 'RE-2026-0011', 'RE-2026-0012', 'RE-2026-0200']],
+    ] as const)(
+      'WHEN many invoices share one date THEN date %s blocks order same-date rows by invoice_number without gaps or repeats',
+      async (direction, expectedNumbers) => {
+        await prisma.invoice.createMany({
+          data: [
+            invoiceRow({ invoice_number: 'RE-2026-0010' }),
+            invoiceRow({ invoice_number: 'RE-2026-0012' }),
+            invoiceRow({ invoice_number: 'RE-2026-0011' }),
+            invoiceRow({
+              invoice_number: 'RE-2026-0200',
+              date: new Date('2026-03-01T10:00:00.000Z'),
+            }),
+          ],
+        });
 
-      const rows = await pageThrough({
-        sortField: 'date',
-        sortDirection: 'desc',
-        limit: '2',
-      });
+        const rows = await pageThrough({
+          sortField: 'date',
+          sortDirection: direction,
+          limit: '2',
+        });
 
-      expect(rows).toHaveLength(8);
-      expect(rows[0].invoice_number).toBe('RE-2026-200');
-      const tied = rows.slice(1).map((row) => row.id);
-      expect(tied).toEqual([...tied].sort().reverse());
-      expect(new Set(rows.map((row) => row.id)).size).toBe(8);
-    });
+        expect(rows.map((row) => row.invoice_number)).toEqual(expectedNumbers);
+        expect(new Set(rows.map((row) => row.id)).size).toBe(4);
+      },
+    );
+
+    // AUT-967 Scenario 4: drafts (null invoice_number) stay in the same-date NULLS LAST tail and page cleanly by id.
+    it.each(['desc', 'asc'] as const)(
+      'WHEN a DRAFT has no invoice_number THEN date %s keeps drafts in the same-date null tail without breaking the cursor',
+      async (direction) => {
+        await prisma.invoice.createMany({
+          data: [
+            invoiceRow({ invoice_number: 'RE-2026-0010' }),
+            invoiceRow({ invoice_number: 'RE-2026-0012' }),
+            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
+            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
+            invoiceRow({
+              invoice_number: 'RE-2026-0001',
+              date: new Date('2025-12-15T10:00:00.000Z'),
+            }),
+          ],
+        });
+
+        const rows = await pageThrough({
+          sortField: 'date',
+          sortDirection: direction,
+          limit: '2',
+        });
+
+        const expectedIssued =
+          direction === 'desc'
+            ? ['RE-2026-0012', 'RE-2026-0010']
+            : ['RE-2026-0010', 'RE-2026-0012'];
+        const sameDateRows = direction === 'desc' ? rows.slice(0, 4) : rows.slice(1, 5);
+        expect(sameDateRows.slice(0, 2).map((row) => row.invoice_number)).toEqual(expectedIssued);
+        expect(sameDateRows.slice(2).map((row) => row.invoice_number)).toEqual([null, null]);
+        const draftIds = sameDateRows.slice(2).map((row) => row.id);
+        const sortedDraftIds = [...draftIds].sort();
+        expect(draftIds).toEqual(direction === 'desc' ? sortedDraftIds.reverse() : sortedDraftIds);
+        expect((direction === 'desc' ? rows[4] : rows[0]).invoice_number).toBe('RE-2026-0001');
+        expect(new Set(rows.map((row) => row.id)).size).toBe(5);
+      },
+    );
 
     it('WHEN no sort is requested THEN the newest invoice comes first and meta.limit defaults to 25', async () => {
       await prisma.invoice.createMany({
