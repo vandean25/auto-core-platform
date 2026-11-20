@@ -24,6 +24,14 @@ export const savedViewKeys = {
     [...savedViewKeys.all, 'import-status', tenantId ?? 'none', userKey ?? 'anon'] as const,
 }
 
+export async function fetchSavedViews(listPath?: string): Promise<SavedViewsListResponseDto> {
+  const queryPath =
+    listPath !== undefined
+      ? `/api/saved-views?listPath=${encodeURIComponent(listPath)}`
+      : '/api/saved-views'
+  return fetchJsonWithAuth<SavedViewsListResponseDto>(queryPath, 'Failed to load saved views')
+}
+
 export function useSavedViewsQuery(options: {
   tenantId?: string | null
   userKey?: string
@@ -31,16 +39,11 @@ export function useSavedViewsQuery(options: {
   enabled?: boolean
 }) {
   const { tenantId, userKey, listPath, enabled } = options
-  const queryPath =
-    listPath !== undefined
-      ? `/api/saved-views?listPath=${encodeURIComponent(listPath)}`
-      : '/api/saved-views'
 
   return useQuery<SavedViewsListResponseDto>({
     queryKey: savedViewKeys.list(tenantId, userKey, listPath),
     enabled: enabled ?? Boolean(tenantId),
-    queryFn: async () =>
-      fetchJsonWithAuth<SavedViewsListResponseDto>(queryPath, 'Failed to load saved views'),
+    queryFn: () => fetchSavedViews(listPath),
   })
 }
 
