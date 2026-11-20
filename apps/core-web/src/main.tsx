@@ -13,6 +13,7 @@ import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
 import { captureInstallPrompt } from '@/pwa/install-prompt'
 import { registerServiceWorker } from '@/pwa/register-service-worker'
 import { isPublicApprovalPath } from '@/lib/public-approval-path'
+import { preloadRouteForPathname } from '@/app/route-chunk-prefetch'
 
 const PublicEstimateApprovalRoot = lazy(() =>
   import('@/pages/public/PublicEstimateApprovalRoot').then((m) => ({
@@ -35,6 +36,9 @@ const queryClient = new QueryClient({
 
 // The customer approval link is public: it renders without AuthProvider, App or any auth bootstrap.
 const isPublicApproval = isPublicApprovalPath(window.location.pathname)
+if (!isPublicApproval) {
+  preloadRouteForPathname(window.location.pathname)
+}
 
 createRoot(document.getElementById('root')!, {
   onUncaughtError: reactErrorHandler(),

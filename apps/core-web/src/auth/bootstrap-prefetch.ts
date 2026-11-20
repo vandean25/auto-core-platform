@@ -1,9 +1,7 @@
-import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
-import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useContext, useEffect } from 'react'
+import { QueryClientContext, type QueryClient } from '@tanstack/react-query'
 import { fetchSavedViews, savedViewKeys } from '@/api/saved-views'
 import { fetchMySites, siteKeys } from '@/api/sites'
-import { preloadRouteForPathname } from '@/app/route-chunk-prefetch'
 import { useAuth } from '@/auth/AuthProvider'
 
 type BootstrapPrefetchInput = {
@@ -34,18 +32,13 @@ export function prefetchBootstrapQueries({ queryClient, userKey, tenantId }: Boo
 
 export function useBootstrapPrefetch(): void {
   const { user, claims, loading } = useAuth()
-  const { pathname } = useLocation()
-  const queryClient = useQueryClient()
+  const queryClient = useContext(QueryClientContext)
   const userKey = user?.uid ?? user?.email ?? null
   const enabled = Boolean(user) && !loading
   const tenantId = claims?.tenantId
 
   useEffect(() => {
-    preloadRouteForPathname(pathname)
-  }, [pathname])
-
-  useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !queryClient) return
     prefetchBootstrapQueries({ queryClient, userKey, tenantId })
   }, [enabled, queryClient, tenantId, userKey])
 }

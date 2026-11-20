@@ -53,17 +53,16 @@ import { RouteTitle } from '@/components/RouteTitle'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
-import { preloadRouteForPathname } from '@/app/route-chunk-prefetch'
 import { useBootstrapPrefetch } from '@/auth/bootstrap-prefetch'
 import { InvoiceDraftEditorNavigationHost } from '@/pages/sales/invoice-draft-editor-navigation'
 import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
 import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 import { UndoEligibleEntrySessionSync } from '@/features/interaction/use-undo-eligible-entry'
+import LoginPage from '@/pages/LoginPage'
 
 const GlobalSearch = React.lazy(() =>
   import('@/components/GlobalSearch').then((m) => ({ default: m.GlobalSearch })),
 )
-const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
 const LandingDemoEmailLinkCompletionPage = React.lazy(
   () => import('@/pages/LandingDemoEmailLinkCompletionPage'),
 )
@@ -116,6 +115,30 @@ type AppShellProps = {
   onSignOut: () => void
 }
 
+function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server'
+  const stored = window.localStorage.getItem('deviceId')
+  if (stored) return stored
+  const newId = generateId()
+  window.localStorage.setItem('deviceId', newId)
+  return newId
+}
+
+function GlobalSearchHost({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  if (!open) return null
+  return (
+    <React.Suspense fallback={null}>
+      <GlobalSearch open onOpenChange={onOpenChange} />
+    </React.Suspense>
+  )
+}
+
 function AppShell({
   userId,
   userEmail,
@@ -133,14 +156,7 @@ function AppShell({
   onSignOut,
 }: AppShellProps) {
   const { t } = useTranslation('common')
-  const [deviceId] = React.useState(() => {
-    if (typeof window === 'undefined') return 'server'
-    const stored = window.localStorage.getItem('deviceId')
-    if (stored) return stored
-    const newId = generateId()
-    window.localStorage.setItem('deviceId', newId)
-    return newId
-  })
+  const [deviceId] = React.useState(getOrCreateDeviceId)
 
   const effectiveUserKey = userId ?? userEmail ?? `anon-${deviceId}`
   const [searchOpen, setSearchOpen] = useGlobalSearchShortcut()
@@ -177,11 +193,7 @@ function AppShell({
                 onSignOut={onSignOut}
               />
 
-              {searchOpen ? (
-                <React.Suspense fallback={null}>
-                  <GlobalSearch open onOpenChange={setSearchOpen} />
-                </React.Suspense>
-              ) : null}
+              <GlobalSearchHost open={searchOpen} onOpenChange={setSearchOpen} />
               <EntityActionConfirmHost />
               <SavedViewRenameHost />
               <IosInstallHint />
@@ -314,9 +326,7 @@ function LoginRoute() {
   return (
     <>
       <GlobalErrorBoundary>
-        <React.Suspense fallback={<PageLoader />}>
-          <LoginPage />
-        </React.Suspense>
+        <LoginPage />
       </GlobalErrorBoundary>
       <Toaster />
     </>
@@ -465,7 +475,6 @@ function App() {
   const userChangePurge = useUserChangeOfflinePurge(user?.uid ?? null)
 
   React.useEffect(() => {
-    preloadRouteForPathname(window.location.pathname)
     void ensureCustomerSearchI18n()
   }, [])
 
