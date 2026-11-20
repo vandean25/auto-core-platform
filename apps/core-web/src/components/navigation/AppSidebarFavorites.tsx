@@ -27,18 +27,17 @@ export function AppSidebarFavorites({
   )
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
+  if (savedViews.length === 0) {
+    return null
+  }
+
   return (
     <NavGroupShell
       groupId="favorites"
       label={t('nav:groups.favorites')}
       hasActiveItem={savedViews.some((view) => view.href === currentPathWithQuery)}
     >
-      {savedViews.length === 0 ? (
-        <p className="px-2 py-1 text-xs text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-          {t('nav:favorites.empty')}
-        </p>
-      ) : (
-        <SidebarMenu>
+      <SidebarMenu>
           {savedViews.map((view) => {
             const canRemove =
               !isOfflineError && canEditSavedView(view, accessContext?.activeRole)
@@ -75,7 +74,6 @@ export function AppSidebarFavorites({
             )
           })}
         </SidebarMenu>
-      )}
     </NavGroupShell>
   )
 }

@@ -84,7 +84,7 @@ test.describe('UI language switch (AUT-718)', () => {
     await expect(mainNavigation(page, DE_SHELL.mainNavigation)).toBeVisible()
     await expect(page.getByRole('link', { name: deNav.modules.customers, exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { level: 1, name: deCommon.dashboard.title })).toBeVisible()
-    await expect(page.getByText(deCommon.dashboard.description)).toBeVisible()
+    await expect(page.getByText(deCommon.dashboard.description)).toHaveCount(0)
     await expect(page.getByRole('button', { name: deNav.search.openAria })).toBeVisible()
 
     await markPage(page)
@@ -94,7 +94,7 @@ test.describe('UI language switch (AUT-718)', () => {
     await expect(page.getByRole('link', { name: enNav.modules.customers, exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: deNav.modules.customers, exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1, name: enCommon.dashboard.title })).toBeVisible()
-    await expect(page.getByText(enCommon.dashboard.description)).toBeVisible()
+    await expect(page.getByText(enCommon.dashboard.description)).toHaveCount(0)
     await expect(page.getByRole('button', { name: enNav.search.openAria })).toBeVisible()
     await expect(page.getByRole('button', { name: deNav.search.openAria })).toHaveCount(0)
     await expectSamePageInstance(page)
@@ -103,14 +103,16 @@ test.describe('UI language switch (AUT-718)', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(mainNavigation(page, enNav.aria.mainNavigation)).toBeVisible()
     await expect(page.getByRole('link', { name: enNav.modules.customers, exact: true })).toBeVisible()
-    await expect(page.getByText(enCommon.dashboard.description)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: enCommon.dashboard.title })).toBeVisible()
+    await expect(page.getByText(enCommon.dashboard.description)).toHaveCount(0)
 
     await markPage(page)
     await switchLanguage(page, 'de')
 
     await expect(mainNavigation(page, DE_SHELL.mainNavigation)).toBeVisible()
     await expect(page.getByRole('link', { name: deNav.modules.customers, exact: true })).toBeVisible()
-    await expect(page.getByText(deCommon.dashboard.description)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: deCommon.dashboard.title })).toBeVisible()
+    await expect(page.getByText(deCommon.dashboard.description)).toHaveCount(0)
     await expectSamePageInstance(page)
   })
 

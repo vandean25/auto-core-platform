@@ -94,7 +94,7 @@ describe('UI language switch (AUT-718)', () => {
     renderShell()
 
     await screen.findByRole('heading', { name: 'Lager' })
-    expect(screen.getByText('Teile und Bestände verwalten.')).toBeInTheDocument()
+    expect(screen.queryByText('Teile und Bestände verwalten.')).not.toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Hauptnavigation' })).toBeInTheDocument()
     expect(within(screen.getByRole('navigation', { name: 'Hauptnavigation' })).getByRole('link', { name: 'Kunden' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Artikel/ })).toBeInTheDocument()
@@ -102,7 +102,7 @@ describe('UI language switch (AUT-718)', () => {
     await switchTo('en')
 
     await screen.findByRole('heading', { name: 'Inventory' })
-    expect(screen.getByText('Manage your automotive parts and stock levels.')).toBeInTheDocument()
+    expect(screen.queryByText('Manage your automotive parts and stock levels.')).not.toBeInTheDocument()
     const englishNav = screen.getByRole('navigation', { name: 'Main navigation' })
     expect(within(englishNav).getByRole('link', { name: 'Customers' })).toBeInTheDocument()
     expect(within(englishNav).queryByRole('link', { name: 'Kunden' })).not.toBeInTheDocument()

@@ -451,7 +451,7 @@ test.describe('Credit notes UI', () => {
     ).toBeVisible();
     await expect(
       page.getByText(DE_FINANCE.creditNotes.detail.finalizedHint),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 
   test('print polls after enqueued PDF generation', async ({ page }) => {
@@ -784,7 +784,7 @@ test.describe('Credit notes UI', () => {
     await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
     await expect(
       page.getByText(DE_FINANCE.creditNotes.detail.draftEditHint),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: DE_FINANCE.actions.finalize }),
     ).toHaveCount(0);

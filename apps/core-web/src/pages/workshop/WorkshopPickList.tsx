@@ -122,7 +122,6 @@ export default function WorkshopPickList() {
       <div className={PAGE_HEADER_ROW}>
         <div className='min-w-0 max-sm:w-full'>
           <h1 className='text-2xl font-semibold tracking-tight'>{t('pick.queue.title')}</h1>
-          <p className='text-muted-foreground'>{t('pick.queue.description')}</p>
         </div>
         <div className='flex items-center gap-2 max-sm:flex-wrap'>
           <Button variant='outline' onClick={() => navigate('/workshop/orders')}>

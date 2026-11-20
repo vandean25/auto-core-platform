@@ -67,13 +67,13 @@ type MockWidget = {
 
 
 test.describe('Blueprint: Dashboard Page', () => {
-  test('renders page header with title and subtitle', async ({ page }) => {
+  test('renders page header with title and without explanatory subtitle', async ({ page }) => {
     // Navigate without seeding any widgets — just verify the header
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { level: 1, name: DE_COMMON.dashboard.title })).toBeVisible();
-    await expect(page.getByText(DE_COMMON.dashboard.description)).toBeVisible();
+    await expect(page.getByText(DE_COMMON.dashboard.description)).toHaveCount(0);
   });
 
   test('shows empty state when no widgets are saved', async ({ page }) => {
