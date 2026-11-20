@@ -247,10 +247,13 @@ describe('CreditNoteDetailPage PDF for SALES (AUT-911)', () => {
     expect(
       screen.getByText(deFinance.creditNotes.detail.pdfNotGeneratedHint),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByText(deFinance.creditNotes.detail.finalizedHint),
+    ).not.toBeInTheDocument()
     expect(mockPostPdfDownload).not.toHaveBeenCalled()
   })
 
-  it('shows no write actions and the read-only draft hint on a draft', () => {
+  it('shows no write actions and omits the read-only draft hint on a draft', () => {
     renderPage(makeCreditNote({ status: 'DRAFT' }))
 
     expect(
@@ -260,7 +263,7 @@ describe('CreditNoteDetailPage PDF for SALES (AUT-911)', () => {
       screen.queryByRole('button', { name: deFinance.actions.void }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByText(deFinance.creditNotes.detail.draftEditHint),
-    ).toBeInTheDocument()
+      screen.queryByText(deFinance.creditNotes.detail.draftEditHint),
+    ).not.toBeInTheDocument()
   })
 })

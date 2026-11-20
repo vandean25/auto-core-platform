@@ -65,7 +65,6 @@ export function WorkshopOrderMeasurementsSection({
       <CardHeader className='flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between'>
         <div className='min-w-0'>
           <CardTitle>{t('measurementsSection.title')}</CardTitle>
-          <p className='text-sm text-muted-foreground'>{t('measurementsSection.description')}</p>
         </div>
         <Button
           variant='outline'

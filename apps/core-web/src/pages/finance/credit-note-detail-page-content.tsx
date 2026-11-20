@@ -128,7 +128,7 @@ export default function CreditNoteDetailPage() {
   const { data: creditNote, isLoading, isError, error } = useCreditNote(id)
   useDocumentTitle(creditNote?.creditNumber)
   const { data: originalInvoice } = useInvoice(creditNote?.originalInvoiceId ?? '')
-  const { role, canManage, canEditDraft } = useCreditNoteAccess(creditNote)
+  const { role, canEditDraft } = useCreditNoteAccess(creditNote)
   const draft = useCreditNoteDraft({ id, creditNote, canEditDraft })
   const actions = useCreditNoteActions(creditNote, draft)
 
@@ -169,7 +169,6 @@ export default function CreditNoteDetailPage() {
             originalInvoice={originalInvoice}
             draft={draft}
             canEditDraft={canEditDraft}
-            canManage={canManage}
           />
           <CreditNoteTotalsCard creditNote={creditNote} />
         </div>
