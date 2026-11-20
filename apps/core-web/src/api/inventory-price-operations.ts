@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 import { inventoryKeys, type InventoryItemDetail } from './inventory'
 import type { InventoryItem } from './types'
 import { generateUuidV7 } from '@/lib/id'
+import { patchRecordInCache } from '@/lib/optimistic-record-patch'
 
 export type InventoryPriceOperationDto = components['schemas']['InventoryPriceOperationDto']
 export type InventoryPriceOperationListResponseDto = components['schemas']['InventoryPriceOperationListResponseDto']
@@ -300,6 +301,31 @@ export function usePreviewGuardedPriceChanges() {
   })
 }
 
+const INVENTORY_RECORD_CACHE_PREFIXES = [
+  [...inventoryKeys.all, 'cursor-list'],
+  [...inventoryKeys.all, 'list'],
+  [...inventoryKeys.all, 'detail'],
+  [...inventoryKeys.all, 'sku'],
+] as const
+
+function patchAppliedInventoryPrices(
+  queryClient: QueryClient,
+  updates: ReadonlyArray<{ itemId: string; price: number }>,
+): void {
+  if (updates.length === 0) return
+  for (const queryKey of INVENTORY_RECORD_CACHE_PREFIXES) {
+    for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
+      const current: unknown = query.state.data
+      if (current === undefined) continue
+      let next: unknown = current
+      for (const { itemId, price } of updates) {
+        next = patchRecordInCache(next, itemId, { price })
+      }
+      queryClient.setQueryData(query.queryKey, next)
+    }
+  }
+}
+
 export function useExecuteGuardedPriceChanges() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -307,7 +333,13 @@ export function useExecuteGuardedPriceChanges() {
     mutationFn: async (intents: FrozenGuardedPriceIntent[]): Promise<GuardedPriceItemOutcome[]> => {
       return await runInBatches(intents, executeGuardedPatch)
     },
-    onSuccess: () => {
+    onSuccess: (outcomes) => {
+      patchAppliedInventoryPrices(
+        queryClient,
+        outcomes
+          .filter((outcome) => outcome.status === 'APPLIED')
+          .map((outcome) => ({ itemId: outcome.itemId, price: outcome.targetPrice })),
+      )
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
       void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
     },
@@ -374,7 +406,13 @@ export function useFenceInventoryPriceOperation() {
       if (classified) return classified
       throw new Error(code ?? 'FENCE_FAILED')
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.outcome === 'OPERATION' && result.operation.state === 'APPLIED') {
+        const price = Number(result.operation.retail_price)
+        if (Number.isFinite(price)) {
+          patchAppliedInventoryPrices(queryClient, [{ itemId: result.operation.itemId, price }])
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
