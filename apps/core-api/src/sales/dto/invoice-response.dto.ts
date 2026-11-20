@@ -50,6 +50,9 @@ export class InvoiceResponseDto extends CustomerVehicleReferenceDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   invoice_number!: string | null;
 
+  @ApiProperty({ type: String, required: false, example: 'RE-D-1042' })
+  draft_number?: string;
+
   @ApiProperty({ enum: InvoiceStatus, enumName: 'InvoiceStatus' })
   status!: InvoiceStatus;
 

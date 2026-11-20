@@ -110,6 +110,8 @@ describe('Workshop Invoicing (e2e)', () => {
         .expect(201);
 
       expect(invoiceRes.body.status).toBe('DRAFT');
+      expect(invoiceRes.body.draft_number).toMatch(/^RE-D-[1-9]\d*$/);
+      expect(invoiceRes.body.invoice_number).toBeNull();
       expect(invoiceRes.body.workshop_order_id).toBe(orderId);
       expect(invoiceRes.body.items).toHaveLength(1);
 
@@ -182,7 +184,9 @@ describe('Workshop Invoicing (e2e)', () => {
         .expect(200);
 
       expect(issueRes.body.status).toBe('ISSUED');
-      expect(issueRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
+      expect(issueRes.body.draft_number).toBe(invoiceRes.body.draft_number);
+      expect(issueRes.body.invoice_number).toMatch(/^RE-\d{4}-\d{4,}$/);
+      expect(issueRes.body.invoice_number).not.toBe(invoiceRes.body.draft_number);
       for (const privateField of [
         'snapshot',
         'pdf_archive_bucket',

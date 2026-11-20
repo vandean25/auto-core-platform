@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn, formatCurrency } from '@/lib/utils'
+import { formatInvoiceNumber } from '@/lib/format'
 import type { Invoice } from '@/api/types'
 import type { GroupedCheckoutTask } from '../hooks/useWorkshopCalculations'
 
@@ -94,7 +95,7 @@ export function CheckoutSummary({
             {activeInvoiceId && (
               <span className='text-xs text-muted-foreground'>
                 {t('checkoutSummary.invoiceLabel', {
-                  number: fetchedInvoice?.invoice_number || activeInvoiceId,
+                  number: formatInvoiceNumber(fetchedInvoice),
                 })}
               </span>
             )}

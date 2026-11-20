@@ -5,7 +5,7 @@ import type { Invoice } from '@/api/types'
 import { DataTablePendingIcon, InteractionErrorMarker, isDataTablePendingRow } from '@/components/data-table/data-table-states'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { PendingCreateRow } from '@/features/interaction/use-list-pending-create'
-import { formatDateShort } from '@/lib/format'
+import { formatDateShort, formatInvoiceNumber } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 
 export function InvoiceNumberCell({ invoice }: { invoice: Invoice }) {
@@ -15,7 +15,7 @@ export function InvoiceNumberCell({ invoice }: { invoice: Invoice }) {
   }
   return (
     <div className="font-medium">
-      {invoice.invoice_number ?? t('sales:shared.draftLabel', { id: invoice.id.slice(0, 8) })}
+      {formatInvoiceNumber(invoice)}
     </div>
   )
 }

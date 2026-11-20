@@ -13,6 +13,12 @@ function missingPlaceholder(): string {
   return i18n.t('common:placeholders.missing')
 }
 
+export function formatInvoiceNumber(
+  invoice: { invoice_number?: string | null; draft_number?: string } | null | undefined,
+): string {
+  return invoice?.invoice_number || invoice?.draft_number || missingPlaceholder()
+}
+
 export function formatNumber(
   value: number | string | null | undefined,
   options?: Intl.NumberFormatOptions,

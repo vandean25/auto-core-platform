@@ -8,6 +8,10 @@ import { toast } from 'sonner'
 import type { Invoice, WorkshopOrder } from '@/api/types'
 import type { DiscountState } from './useWorkshopCalculations'
 import { deWorkshop } from '@/test/de-workshop'
+import { changeUiLanguage } from '@/lib/i18n'
+import { registerGermanUiForTests } from '@/test/german-ui'
+
+registerGermanUiForTests()
 
 const checkoutToast = deWorkshop.checkout.toast
 
@@ -298,10 +302,16 @@ describe('useWorkshopCheckout', () => {
       })
     })
 
-    it('creates draft invoice successfully', async () => {
+    it.each([
+      ['de', 'Rechnungsentwurf erstellt (RE-D-1042)'],
+      ['en', 'Draft invoice created (RE-D-1042)'],
+    ] as const)('shows the product draft number rather than a UUID in the %s create toast', async (language, message) => {
+      await changeUiLanguage(language)
+      const invoiceId = '70aa2593-fe13-493b-bb44-632d4fbf8b8b'
       mockCreateDraft.mockResolvedValueOnce({
-        id: 'inv-new',
-        invoice_number: 'INV-001',
+        id: invoiceId,
+        invoice_number: null,
+        draft_number: 'RE-D-1042',
       })
 
       const { result } = renderHook(() =>
@@ -313,10 +323,9 @@ describe('useWorkshopCheckout', () => {
       })
 
       expect(mockCreateDraft).toHaveBeenCalledWith('order-1')
-      expect(result.current.activeInvoiceId).toBe('inv-new')
-      expect(toast.success).toHaveBeenCalledWith(
-        checkoutToast.draftInvoiceCreated.replace('{{number}}', 'INV-001'),
-      )
+      expect(result.current.activeInvoiceId).toBe(invoiceId)
+      expect(toast.success).toHaveBeenCalledWith(message)
+      expect(vi.mocked(toast.success).mock.calls[0][0]).not.toContain(invoiceId)
     })
 
     it('issues invoice and persists line discount overrides', async () => {

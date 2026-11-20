@@ -1,5 +1,6 @@
 export {
   formatCurrency,
+  formatInvoiceNumber,
   formatDate,
   formatIsoDateOnly,
   formatDateLabel,
