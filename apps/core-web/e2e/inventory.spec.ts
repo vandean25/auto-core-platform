@@ -629,10 +629,9 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
     await expect(tableRows.nth(2)).toContainText(/330,00/);
 
     // Scenario 3: clicking "Liste aktualisieren" keeps the exact same prices.
-    const refreshBtn = page.getByRole('button', { name: DE_COMMON.dataTable.infinite.refresh });
-    if (await refreshBtn.isVisible()) {
-      await refreshBtn.click();
-    }
+    const refreshBtn = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
+    await expect(refreshBtn).toBeVisible();
+    await refreshBtn.click();
     await expect(tableRows.nth(0)).toContainText(/110,00/);
     await expect(tableRows.nth(1)).toContainText(/200,00/);
     await expect(tableRows.nth(2)).toContainText(/330,00/);
