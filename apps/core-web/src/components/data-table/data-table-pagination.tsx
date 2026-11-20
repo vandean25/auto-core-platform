@@ -24,6 +24,14 @@ type DataTablePaginationProps<TData extends object> = {
   pageSizeOptions: readonly number[]
 }
 
+export function getPaginationDisplay(pageCount: number, canNextPage: boolean) {
+  const hasKnownPages = pageCount > 0
+  return {
+    totalPages: hasKnownPages ? pageCount : 1,
+    canNext: hasKnownPages && canNextPage,
+  }
+}
+
 export function DataTablePagination<TData extends object>({
   table,
   pageSizeOptions,
@@ -34,6 +42,11 @@ export function DataTablePagination<TData extends object>({
   const hidden = useContext(PaginationHiddenContext)
 
   if (hidden) return null
+
+  const { totalPages, canNext } = getPaginationDisplay(
+    table.getPageCount(),
+    table.getCanNextPage(),
+  )
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 py-4">
@@ -73,14 +86,14 @@ export function DataTablePagination<TData extends object>({
           <span>{t('dataTable.page')}</span>
           <span className="font-medium">{pagination.pageIndex + 1}</span>
           <span>{t('dataTable.of')}</span>
-          <span className="font-medium">{table.getPageCount()}</span>
+          <span className="font-medium">{totalPages}</span>
         </div>
         <Button
           variant="outline"
           size="sm"
           className="max-md:h-11"
           onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
+          disabled={!canNext}
         >
           {t('dataTable.next')}
         </Button>

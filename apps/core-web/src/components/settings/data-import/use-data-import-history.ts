@@ -101,8 +101,8 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
 
   const rows = jobsQuery.data?.data ?? []
   const pageCount = jobsQuery.data
-    ? Math.ceil(jobsQuery.data.meta.total / pagination.pageSize)
-    : -1
+    ? Math.max(1, Math.ceil(jobsQuery.data.meta.total / pagination.pageSize))
+    : 1
 
   return {
     columns,

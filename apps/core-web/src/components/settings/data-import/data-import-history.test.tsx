@@ -9,13 +9,21 @@ import * as importsApi from '@/api/imports'
 import { useTenantMembers } from '@/api/tenant-members'
 import * as authRole from '@/features/actions/use-auth-role'
 
+import { changeUiLanguage } from '@/lib/i18n'
+import deCommon from '../../../../../../locales/de/common.json'
 import deEnums from '../../../../../../locales/de/enums.json'
 import deSettings from '../../../../../../locales/de/settings.json'
+import enCommon from '../../../../../../locales/en/common.json'
 import enSettings from '../../../../../../locales/en/settings.json'
 
 import { DataImportHistoryView } from './data-import-history-view'
 
 const di = deSettings.dataImport
+const originalInnerWidth = window.innerWidth
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+}
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
@@ -62,13 +70,20 @@ const jobs: ImportJobListItem[] = [
   },
 ]
 
-function renderHistory(role = 'ADMIN') {
-  ;(authRole.useAuthRole as Mock).mockReturnValue(role)
-  ;(importsApi.useImportJobs as Mock).mockReturnValue({
+function renderHistory(
+  role = 'ADMIN',
+  jobsQueryResult: {
+    data?: { data: ImportJobListItem[]; meta: { total: number; page: number; limit: number } }
+    isLoading: boolean
+    isError: boolean
+  } = {
     data: { data: jobs, meta: { total: 2, page: 1, limit: 20 } },
     isLoading: false,
     isError: false,
-  })
+  },
+) {
+  ;(authRole.useAuthRole as Mock).mockReturnValue(role)
+  ;(importsApi.useImportJobs as Mock).mockReturnValue(jobsQueryResult)
   ;(importsApi.useCancelImportJob as Mock).mockReturnValue({ mutate: vi.fn() })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -86,7 +101,10 @@ function renderHistory(role = 'ADMIN') {
 
 describe('DataImportHistoryView', () => {
   beforeEach(() => vi.clearAllMocks())
-  afterEach(() => cleanup())
+  afterEach(() => {
+    cleanup()
+    setViewportWidth(originalInnerWidth)
+  })
 
   it('renders localized status and entity labels, never raw enum values', async () => {
     renderHistory()
@@ -141,5 +159,78 @@ describe('DataImportHistoryView', () => {
     expect(await screen.findByText('customers.csv')).toBeInTheDocument()
     expect(consoleError).not.toHaveBeenCalled()
     consoleError.mockRestore()
+  })
+
+  // Regression AUT-955: pager rendered "Seite 1 von -1" with Weiter enabled while loading.
+  it('WHEN Verlauf is opened and jobsQuery.data is still missing THEN the pager does not show "Seite 1 von -1" and Weiter is disabled', () => {
+    renderHistory('ADMIN', { data: undefined, isLoading: true, isError: false })
+
+    expect(screen.queryByText('-1')).toBeNull()
+    expect(screen.getByRole('button', { name: deCommon.dataTable.next })).toBeDisabled()
+  })
+
+  it('WHEN the query returns a positive total THEN the pager shows "Seite 1 von N" and job rows are listed', async () => {
+    renderHistory('ADMIN', {
+      data: { data: jobs, meta: { total: 45, page: 1, limit: 20 } },
+      isLoading: false,
+      isError: false,
+    })
+
+    expect(await screen.findByText('customers.csv')).toBeInTheDocument()
+    expect(screen.getByText('vehicles.csv')).toBeInTheDocument()
+    expect(screen.getByText(deCommon.dataTable.page)).toBeInTheDocument()
+    expect(screen.getByText(deCommon.dataTable.of)).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: deCommon.dataTable.next })).toBeEnabled()
+  })
+
+  it('WHEN the query returns total 0 THEN an empty state is shown and Weiter is disabled', async () => {
+    renderHistory('ADMIN', {
+      data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
+      isLoading: false,
+      isError: false,
+    })
+
+    expect(await screen.findByText(di.history.empty)).toBeInTheDocument()
+    expect(screen.queryByText('-1')).toBeNull()
+    expect(screen.queryByText('0')).toBeNull()
+    expect(screen.getByRole('button', { name: deCommon.dataTable.next })).toBeDisabled()
+  })
+
+  it('WHEN the same tab is opened at 375px in EN THEN the translated pager follows the same rules (no "-1", Next disabled until a real count exists)', async () => {
+    setViewportWidth(375)
+    await changeUiLanguage('en')
+
+    const { rerender } = renderHistory('ADMIN', {
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    })
+
+    expect(screen.queryByText('-1')).toBeNull()
+    expect(screen.getByRole('button', { name: enCommon.dataTable.next })).toBeDisabled()
+
+    ;(importsApi.useImportJobs as Mock).mockReturnValue({
+      data: { data: jobs, meta: { total: 45, page: 1, limit: 20 } },
+      isLoading: false,
+      isError: false,
+    })
+    rerender(
+      React.createElement(
+        MemoryRouter,
+        null,
+        React.createElement(
+          QueryClientProvider,
+          { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
+          React.createElement(DataImportHistoryView, { onOpenJob: vi.fn() }),
+        ),
+      ),
+    )
+
+    expect(await screen.findByText('customers.csv')).toBeInTheDocument()
+    expect(screen.getByText(enCommon.dataTable.page)).toBeInTheDocument()
+    expect(screen.getByText(enCommon.dataTable.of)).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: enCommon.dataTable.next })).toBeEnabled()
   })
 })
