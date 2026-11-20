@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { resolveAuthBootstrapScreen } from '@/components/shell/auth-bootstrap-screen'
 import { ShellSessionLoadFailed } from '@/components/shell/ShellSessionLoadFailed'
 import { resolveAuthenticatedSessionGate } from '@/components/shell/authenticated-app-session-gate'
-import { ShellPurgePrompt, type CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
+import type { CheckInOfflinePurgePrompt } from '@/components/shell/ShellPurgePrompt'
 import { ClientSessionLoadingScreen } from '@/components/shell/ClientSessionLoadingScreen'
 import { ActiveSiteGateProvider, ActiveSiteOutlet } from '@/components/shell/ActiveSiteGate'
 import { useUserChangeOfflinePurge } from '@/components/shell/use-user-change-purge-prompt'
@@ -32,14 +32,12 @@ import { AdminPhoneNav } from '@/components/navigation/AdminPhoneNav'
 import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { useSidebarOpen } from '@/components/navigation/sidebar-state'
-import { GlobalSearch } from '@/components/GlobalSearch'
 import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { EntityActionConfirmHost } from '@/features/actions/action-confirm-host'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewRenameHost } from '@/features/saved-views/SavedViewRenameHost'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
-import { CheckInOfflinePurgeDialog } from '@/features/workshop/check-in/CheckInOfflinePurgeDialog'
 import { ensureCustomerSearchI18n } from '@/components/sales/customer-search-i18n'
 import { generateId } from '@/lib/id'
 import {
@@ -55,12 +53,30 @@ import { RouteTitle } from '@/components/RouteTitle'
 import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { AppRoutes, MechanicRoutes } from '@/app/AppRouteTree'
+import { preloadRouteForPathname } from '@/app/route-chunk-prefetch'
+import { useBootstrapPrefetch } from '@/auth/bootstrap-prefetch'
 import { InvoiceDraftEditorNavigationHost } from '@/pages/sales/invoice-draft-editor-navigation'
 import { MechanicAccessDeniedPage, NotFoundPage } from '@/app/lazy-app-pages'
-import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
-import LoginPage from '@/pages/LoginPage'
 import { GlobalShortcutLayer } from '@/features/shortcuts/GlobalShortcutLayer'
 import { UndoEligibleEntrySessionSync } from '@/features/interaction/use-undo-eligible-entry'
+
+const GlobalSearch = React.lazy(() =>
+  import('@/components/GlobalSearch').then((m) => ({ default: m.GlobalSearch })),
+)
+const LoginPage = React.lazy(() => import('@/pages/LoginPage'))
+const LandingDemoEmailLinkCompletionPage = React.lazy(
+  () => import('@/pages/LandingDemoEmailLinkCompletionPage'),
+)
+const CheckInOfflinePurgeDialog = React.lazy(() =>
+  import('@/features/workshop/check-in/CheckInOfflinePurgeDialog').then((m) => ({
+    default: m.CheckInOfflinePurgeDialog,
+  })),
+)
+const ShellPurgePrompt = React.lazy(() =>
+  import('@/components/shell/ShellPurgePrompt').then((m) => ({
+    default: m.ShellPurgePrompt,
+  })),
+)
 
 function AppMain() {
   return (
@@ -161,7 +177,11 @@ function AppShell({
                 onSignOut={onSignOut}
               />
 
-              <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+              {searchOpen ? (
+                <React.Suspense fallback={null}>
+                  <GlobalSearch open onOpenChange={setSearchOpen} />
+                </React.Suspense>
+              ) : null}
               <EntityActionConfirmHost />
               <SavedViewRenameHost />
               <IosInstallHint />
@@ -282,7 +302,9 @@ function LoginRoute() {
     return (
       <>
         <GlobalErrorBoundary>
-          <LandingDemoEmailLinkCompletionPage />
+          <React.Suspense fallback={<PageLoader />}>
+            <LandingDemoEmailLinkCompletionPage />
+          </React.Suspense>
         </GlobalErrorBoundary>
         <Toaster />
       </>
@@ -292,7 +314,9 @@ function LoginRoute() {
   return (
     <>
       <GlobalErrorBoundary>
-        <LoginPage />
+        <React.Suspense fallback={<PageLoader />}>
+          <LoginPage />
+        </React.Suspense>
       </GlobalErrorBoundary>
       <Toaster />
     </>
@@ -376,14 +400,16 @@ function AuthenticatedShell({
         </ActiveSiteGateProvider>
       </PushLinkGate>
       {purgePrompt && (
-        <ShellPurgePrompt
-          prompt={purgePrompt}
-          onClose={() => setPurgePrompt(null)}
-          onCancel={pushLink.abandon}
-          onSwitchFailed={pushLink.abandon}
-          completeTenantSwitch={completeTenantSwitch}
-          signOutUser={signOutUser}
-        />
+        <React.Suspense fallback={null}>
+          <ShellPurgePrompt
+            prompt={purgePrompt}
+            onClose={() => setPurgePrompt(null)}
+            onCancel={pushLink.abandon}
+            onSwitchFailed={pushLink.abandon}
+            completeTenantSwitch={completeTenantSwitch}
+            signOutUser={signOutUser}
+          />
+        </React.Suspense>
       )}
     </>
   )
@@ -393,6 +419,8 @@ function AuthenticatedApp() {
   const { user, loading, authInitTimedOut, signOutUser } = useAuth()
   const location = useLocation()
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
+
+  useBootstrapPrefetch()
 
   const isUnknownPath = !isKnownAppPath(location.pathname)
 
@@ -437,6 +465,7 @@ function App() {
   const userChangePurge = useUserChangeOfflinePurge(user?.uid ?? null)
 
   React.useEffect(() => {
+    preloadRouteForPathname(window.location.pathname)
     void ensureCustomerSearchI18n()
   }, [])
 
@@ -455,14 +484,16 @@ function App() {
         <Route path="*" element={<AuthenticatedApp key={clientSessionGeneration} />} />
       </Routes>
       {userChangePurge.summary && (
-        <CheckInOfflinePurgeDialog
-          open
-          summary={userChangePurge.summary}
-          onCancel={userChangePurge.dismiss}
-          onConfirm={() => {
-            void userChangePurge.discard()
-          }}
-        />
+        <React.Suspense fallback={null}>
+          <CheckInOfflinePurgeDialog
+            open
+            summary={userChangePurge.summary}
+            onCancel={userChangePurge.dismiss}
+            onConfirm={() => {
+              void userChangePurge.discard()
+            }}
+          />
+        </React.Suspense>
       )}
     </Router>
   )

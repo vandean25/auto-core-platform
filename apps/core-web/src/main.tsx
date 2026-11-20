@@ -1,5 +1,5 @@
 import './instrument'
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { reactErrorHandler } from '@sentry/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -13,7 +13,12 @@ import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
 import { captureInstallPrompt } from '@/pwa/install-prompt'
 import { registerServiceWorker } from '@/pwa/register-service-worker'
 import { isPublicApprovalPath } from '@/lib/public-approval-path'
-import { PublicEstimateApprovalRoot } from '@/pages/public/PublicEstimateApprovalRoot'
+
+const PublicEstimateApprovalRoot = lazy(() =>
+  import('@/pages/public/PublicEstimateApprovalRoot').then((m) => ({
+    default: m.PublicEstimateApprovalRoot,
+  })),
+)
 
 registerVitePreloadErrorHandler()
 captureInstallPrompt()
@@ -39,7 +44,9 @@ createRoot(document.getElementById('root')!, {
   <StrictMode>
     {isPublicApproval ? (
       <I18nProvider>
-        <PublicEstimateApprovalRoot />
+        <Suspense fallback={null}>
+          <PublicEstimateApprovalRoot />
+        </Suspense>
       </I18nProvider>
     ) : (
       <I18nProvider>

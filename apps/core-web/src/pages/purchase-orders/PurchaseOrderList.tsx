@@ -38,6 +38,8 @@ function OrderNumberCell({ order, onDismiss }: { order: PurchaseOrder; onDismiss
     )
 }
 
+const EMPTY_ORDERS: PurchaseOrder[] = []
+
 export default function PurchaseOrderList() {
     const { t } = useTranslation('finance')
     useEffect(() => {
@@ -49,7 +51,7 @@ export default function PurchaseOrderList() {
     const { data: responseData, isLoading, dataUpdatedAt } = usePurchaseOrders(queryParams)
     const deleteMutation = useDeletePurchaseOrder()
 
-    const data: PurchaseOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? []
+    const data: PurchaseOrder[] = Array.isArray(responseData) ? responseData : responseData?.data ?? EMPTY_ORDERS
     const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount ?? 1
     const pending = usePurchaseOrderPendingCreate(data, dataUpdatedAt)
 

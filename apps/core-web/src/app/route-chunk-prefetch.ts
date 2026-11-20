@@ -9,7 +9,18 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import type { LazyNamespace } from '@/lib/i18n/constants'
 import { isSaveDataEnabled } from '@/lib/intent-prefetch'
 import {
+  loadCustomerList,
+  loadDashboardPage,
+  loadInventoryList,
+  loadInvoiceListPage,
+  loadPurchaseBillsPage,
+  loadPurchaseOrderList,
+  loadSalesOrderList,
+  loadStockTransferList,
+  loadTyreStorageListPage,
   loadVehicleList,
+  loadVehicleStockList,
+  loadVendorList,
   loadWorkshopEstimateList,
   loadWorkshopOrderList,
   loadWorkshopPlannerPage,
@@ -48,6 +59,25 @@ const MAIN_LIST_ROUTE_MAP = new Map<string, MainListRouteEntry>(
   MAIN_LIST_ROUTES.map((entry) => [entry.path, entry]),
 )
 
+const INITIAL_URL_ROUTES: readonly MainListRouteEntry[] = [
+  ...MAIN_LIST_ROUTES,
+  { path: APP_ROUTE_PATHS.dashboard, loadChunk: loadDashboardPage, namespaces: ['vehicles'] },
+  { path: APP_ROUTE_PATHS.salesInvoices, loadChunk: loadInvoiceListPage, namespaces: ['sales', 'finance'] },
+  { path: APP_ROUTE_PATHS.purchaseOrders, loadChunk: loadPurchaseOrderList, namespaces: ['finance'] },
+  { path: APP_ROUTE_PATHS.tyreStorage, loadChunk: loadTyreStorageListPage, namespaces: ['inventory'] },
+  { path: APP_ROUTE_PATHS.customers, loadChunk: loadCustomerList, namespaces: ['customers'] },
+  { path: APP_ROUTE_PATHS.inventory, loadChunk: loadInventoryList, namespaces: ['inventory'] },
+  { path: APP_ROUTE_PATHS.salesOrders, loadChunk: loadSalesOrderList, namespaces: ['sales'] },
+  { path: APP_ROUTE_PATHS.purchaseBills, loadChunk: loadPurchaseBillsPage, namespaces: ['finance'] },
+  { path: APP_ROUTE_PATHS.vendors, loadChunk: loadVendorList, namespaces: ['finance'] },
+  { path: APP_ROUTE_PATHS.stockTransfers, loadChunk: loadStockTransferList, namespaces: ['inventory'] },
+  { path: APP_ROUTE_PATHS.vehicleStock, loadChunk: loadVehicleStockList, namespaces: ['vehicleStock'] },
+]
+
+const INITIAL_URL_ROUTE_MAP = new Map<string, MainListRouteEntry>(
+  INITIAL_URL_ROUTES.map((entry) => [entry.path, entry]),
+)
+
 const IDLE_FALLBACK_DELAY_MS = 200
 const IDLE_TIMEOUT_MS = 1500
 const requestedRoutes = new Set<string>()
@@ -80,6 +110,13 @@ function triggerRoutePrefetch(entry: MainListRouteEntry): void {
 
 export function isMainListRoutePath(pathname: string): boolean {
   return MAIN_LIST_ROUTE_MAP.has(normalizeRoutePath(pathname))
+}
+
+/** Preloads the current URL route's JS chunk and lazy locale bundle in parallel with auth bootstrap. */
+export function preloadRouteForPathname(pathname: string): void {
+  const entry = INITIAL_URL_ROUTE_MAP.get(normalizeRoutePath(pathname))
+  if (!entry) return
+  triggerRoutePrefetch(entry)
 }
 
 /** Prefetches a main-list route's JS chunk and lazy locale bundle once, respecting saveData and permissions. */

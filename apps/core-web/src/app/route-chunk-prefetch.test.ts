@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
+  preloadRouteForPathname,
   prefetchMainListRoute,
   prefetchPermittedMainListRoutes,
   resetRouteChunkPrefetchForTests,
@@ -12,6 +13,11 @@ const loaderMocks = vi.hoisted(() => ({
   vehicles: vi.fn(() => Promise.resolve({ default: () => null })),
   workshopEstimates: vi.fn(() => Promise.resolve({ default: () => null })),
   workshopPlanner: vi.fn(() => Promise.resolve({ default: () => null })),
+  dashboard: vi.fn(() => Promise.resolve({ default: () => null })),
+  salesInvoices: vi.fn(() => Promise.resolve({ default: () => null })),
+  purchaseOrders: vi.fn(() => Promise.resolve({ default: () => null })),
+  tyreStorage: vi.fn(() => Promise.resolve({ default: () => null })),
+  customers: vi.fn(() => Promise.resolve({ default: () => null })),
   ensureNamespaceLoaded: vi.fn(() => Promise.resolve()),
 }))
 
@@ -21,6 +27,11 @@ vi.mock('./lazy-app-pages', async (original) => ({
   loadVehicleList: loaderMocks.vehicles,
   loadWorkshopEstimateList: loaderMocks.workshopEstimates,
   loadWorkshopPlannerPage: loaderMocks.workshopPlanner,
+  loadDashboardPage: loaderMocks.dashboard,
+  loadInvoiceListPage: loaderMocks.salesInvoices,
+  loadPurchaseOrderList: loaderMocks.purchaseOrders,
+  loadTyreStorageListPage: loaderMocks.tyreStorage,
+  loadCustomerList: loaderMocks.customers,
 }))
 
 vi.mock('@/lib/i18n', async (original) => ({
@@ -122,5 +133,24 @@ describe('route-chunk-prefetch', () => {
     expect(loaderMocks.workshopPlanner).not.toHaveBeenCalled()
 
     cancel()
+  })
+
+  it.each([
+    { path: APP_ROUTE_PATHS.dashboard, loaderKey: 'dashboard' as const, namespaces: ['vehicles'] },
+    { path: APP_ROUTE_PATHS.salesInvoices, loaderKey: 'salesInvoices' as const, namespaces: ['sales', 'finance'] },
+    { path: APP_ROUTE_PATHS.purchaseOrders, loaderKey: 'purchaseOrders' as const, namespaces: ['finance'] },
+    { path: APP_ROUTE_PATHS.tyreStorage, loaderKey: 'tyreStorage' as const, namespaces: ['inventory'] },
+    { path: APP_ROUTE_PATHS.customers, loaderKey: 'customers' as const, namespaces: ['customers'] },
+  ])('preloads initial URL route chunk and locale namespaces in parallel for $path', ({ path, loaderKey, namespaces }) => {
+    preloadRouteForPathname(`${path}?page=1`)
+
+    expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
+    for (const ns of namespaces) {
+      expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledWith(ns)
+    }
+
+    // Deduplicated on repeat call
+    preloadRouteForPathname(path)
+    expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
   })
 })

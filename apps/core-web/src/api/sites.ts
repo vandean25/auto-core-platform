@@ -29,6 +29,10 @@ export const siteKeys = {
  * GET /api/me/sites — only activatable sites for the current tenant
  * (ruling 47: Site.is_active AND active SiteMembership AND active TenantMember).
  */
+export async function fetchMySites(): Promise<MeSite[]> {
+  return fetchJsonWithAuth<MeSite[]>('/api/me/sites', 'Failed to load sites')
+}
+
 export function useMySites(enabled = true, tenantId?: string) {
   const { data: authSession } = useAuthSession(undefined, enabled && !tenantId)
   const resolvedTenantId = tenantId ?? authSession?.activeTenant?.id
@@ -36,12 +40,7 @@ export function useMySites(enabled = true, tenantId?: string) {
   return useQuery<MeSite[]>({
     queryKey: siteKeys.me(resolvedTenantId),
     enabled: enabled && Boolean(resolvedTenantId),
-    queryFn: async () => {
-      return fetchJsonWithAuth<MeSite[]>(
-        "/api/me/sites",
-        "Failed to load sites",
-      );
-    },
+    queryFn: fetchMySites,
   });
 }
 
