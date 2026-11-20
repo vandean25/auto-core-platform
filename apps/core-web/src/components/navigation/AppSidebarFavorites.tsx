@@ -34,7 +34,7 @@ function SavedViewFavoriteActions({ view, bundle }: {
       <DropdownMenuTrigger asChild>
         <SidebarMenuAction
           showOnHover
-          aria-label={t('common:actions.moreActions')}
+          aria-label={t('common:peek.moreActions')}
           className="md:size-6 max-md:size-11 max-md:peer-data-[size=default]/menu-button:top-0 max-md:after:hidden"
         >
           <MoreHorizontal aria-hidden="true" />
