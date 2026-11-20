@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
+import { DE_COMMON } from './helpers/de-common';
 import { DE_WORKSHOP } from './helpers/de-workshop';
 
 const PICK = DE_WORKSHOP.pick;
@@ -502,6 +503,20 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
     expect(inputBox).not.toBeNull();
     expect(inputBox!.x).toBeGreaterThanOrEqual(dialogBox!.x);
     expect(inputBox!.x + inputBox!.width).toBeLessThanOrEqual(dialogBox!.x + dialogBox!.width + 1);
+
+    const confirmButton = dialog.getByRole('button', { name: PICK.drawer.confirm, exact: true });
+    const closeButton = dialog.getByRole('button', { name: DE_COMMON.actions.close, exact: true });
+    const confirmBox = await confirmButton.boundingBox();
+    const closeBox = await closeButton.boundingBox();
+    expect(confirmBox).not.toBeNull();
+    expect(closeBox).not.toBeNull();
+    const overlapsHorizontally =
+      confirmBox!.x < closeBox!.x + closeBox!.width &&
+      confirmBox!.x + confirmBox!.width > closeBox!.x;
+    const overlapsVertically =
+      confirmBox!.y < closeBox!.y + closeBox!.height &&
+      confirmBox!.y + confirmBox!.height > closeBox!.y;
+    expect(overlapsHorizontally && overlapsVertically).toBe(false);
   });
 });
 

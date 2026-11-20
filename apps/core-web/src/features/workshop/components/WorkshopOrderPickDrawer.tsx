@@ -305,7 +305,7 @@ function WorkshopOrderPickDrawerBody({
         void handleConfirmPick()
       }}
     >
-      <SheetHeader className='px-4 sm:px-6 py-4 border-b pr-14 text-left' data-pick-drawer-header='true'>
+      <SheetHeader className='px-4 py-4 border-b pr-14 text-left sm:px-6 sm:pr-16' data-pick-drawer-header='true'>
         <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div className='min-w-0'>
             <SheetTitle className='text-lg font-semibold flex items-center gap-2'>
