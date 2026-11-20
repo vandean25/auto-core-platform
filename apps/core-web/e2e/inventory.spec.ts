@@ -324,8 +324,8 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
   const selectRow = DE_COMMON.dataTable.selectRow;
   const selectedCount = (count: number) => `${count} ausgewählt`;
 
-  async function openParts(page: Page) {
-    await mockCursorList(page, { path: '/api/inventory', rows: items });
+  async function openParts(page: Page, customRows = items) {
+    await mockCursorList(page, { path: '/api/inventory', rows: customRows });
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
@@ -502,6 +502,139 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
       expect((await newPreviewBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
       expect(await pageOverflow(page)).toBe(0);
     });
+
+    test('AUT-1030: WHEN a single guarded price change is applied at 375px THEN the updated price is visible and readable without Liste aktualisieren', async ({
+      page,
+    }) => {
+      const bulk = DE_INVENTORY.bulk.adjustPrice;
+      const selectRow = DE_COMMON.dataTable.selectRow;
+      const rows = [
+        createMockInventoryItem({ id: 'item-0000', sku: 'SKU-0000', name: 'Bremsscheibe 0000', price: 100, revision: 4 }),
+      ];
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [], meta: { limit: 50, hasNextPage: false, nextCursor: null } }),
+        });
+      });
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/item-0000'), async (route) => {
+        if (route.request().method() === 'PATCH') {
+          rows[0].price = 110;
+          rows[0].revision = 5;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ ...rows[0], retail_price: 110 }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...rows[0], cost_price: 60 }),
+        });
+      });
+
+      await openParts(page, rows);
+
+      const cards = page.locator('li[data-table-row="true"]');
+      await cards.nth(0).locator('label').filter({ has: page.getByRole('checkbox', { name: selectRow }) }).click();
+      await page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label }).getByRole('button', { name: bulk.action }).click();
+
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel(bulk.percentLabel).fill('10');
+      await dialog.getByRole('button', { name: bulk.preview }).click();
+      await dialog.getByRole('button', { name: bulk.confirm }).click();
+      await expect(dialog).toBeHidden();
+
+      const updatedPrice = cards.nth(0).getByText(/110,00/);
+      await expect(updatedPrice).toBeVisible();
+      const box = (await updatedPrice.boundingBox())!;
+      expect(box.x + box.width).toBeLessThanOrEqual(375);
+      expect(await pageOverflow(page)).toBe(0);
+    });
+  });
+
+  test('AUT-1030: WHEN bulk guarded price changes apply with a conflict THEN applied rows show the new price without Liste aktualisieren and stay identical after refresh', async ({
+    page,
+  }) => {
+    const bulk = DE_INVENTORY.bulk.adjustPrice;
+    const selectRow = DE_COMMON.dataTable.selectRow;
+    const rows = [
+      createMockInventoryItem({ id: 'item-0000', sku: 'SKU-0000', name: 'Bremsscheibe 0000', price: 100, revision: 4 }),
+      createMockInventoryItem({ id: 'item-0001', sku: 'SKU-0001', name: 'Bremsscheibe 0001', price: 200, revision: 5 }),
+      createMockInventoryItem({ id: 'item-0002', sku: 'SKU-0002', name: 'Bremsscheibe 0002', price: 300, revision: 6 }),
+    ];
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { limit: 50, hasNextPage: false, nextCursor: null } }),
+      });
+    });
+
+    for (const item of rows) {
+      await page.route(AutoCorePage.apiRouteMatcher(`/api/inventory/${item.id}`), async (route) => {
+        if (route.request().method() === 'PATCH') {
+          if (item.id === 'item-0001') {
+            await route.fulfill({
+              status: 409,
+              contentType: 'application/json',
+              body: JSON.stringify({ code: 'INVENTORY_REVISION_CONFLICT' }),
+            });
+            return;
+          }
+          const nextPrice = item.id === 'item-0000' ? 110 : 330;
+          item.price = nextPrice;
+          item.revision += 1;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ ...item, retail_price: nextPrice }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...item, cost_price: item.price * 0.6 }),
+        });
+      });
+    }
+
+    await openParts(page, rows);
+
+    const tableRows = page.locator('tbody tr');
+    await tableRows.nth(0).getByRole('checkbox', { name: selectRow }).click();
+    await tableRows.nth(1).getByRole('checkbox', { name: selectRow }).click();
+    await tableRows.nth(2).getByRole('checkbox', { name: selectRow }).click();
+
+    await page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label }).getByRole('button', { name: bulk.action }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(bulk.percentLabel).fill('10');
+    await dialog.getByRole('button', { name: bulk.preview }).click();
+    await dialog.getByRole('button', { name: bulk.confirm }).click();
+
+    await expect(dialog.getByText(bulk.states.conflict)).toBeVisible();
+    await dialog.getByRole('button', { name: bulk.close }).last().click();
+    await expect(dialog).toBeHidden();
+
+    // Scenario 1 & 2: applied rows update immediately without clicking "Liste aktualisieren"; conflict row stays at old price.
+    await expect(tableRows.nth(0)).toContainText(/110,00/);
+    await expect(tableRows.nth(1)).toContainText(/200,00/);
+    await expect(tableRows.nth(2)).toContainText(/330,00/);
+
+    // Scenario 3: clicking "Liste aktualisieren" keeps the exact same prices.
+    const refreshBtn = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
+    await expect(refreshBtn).toBeVisible();
+    await refreshBtn.click();
+    await expect(tableRows.nth(0)).toContainText(/110,00/);
+    await expect(tableRows.nth(1)).toContainText(/200,00/);
+    await expect(tableRows.nth(2)).toContainText(/330,00/);
   });
 });
 

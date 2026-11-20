@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 import { inventoryKeys, type InventoryItemDetail } from './inventory'
 import type { InventoryItem } from './types'
 import { generateUuidV7 } from '@/lib/id'
+import { patchRecordInCache } from '@/lib/optimistic-record-patch'
 
 export type InventoryPriceOperationDto = components['schemas']['InventoryPriceOperationDto']
 export type InventoryPriceOperationListResponseDto = components['schemas']['InventoryPriceOperationListResponseDto']
@@ -67,6 +68,7 @@ export type GuardedPriceItemOutcome = {
   expectedRevision: number
   status: GuardedPriceItemStatus
   acceptedAt: string | null
+  appliedPrice?: number | null
   retryable?: boolean
 }
 
@@ -207,7 +209,12 @@ async function fetchOperationByKey(key: string): Promise<InventoryPriceOperation
   }
 }
 
-function outcomeFor(intent: FrozenGuardedPriceIntent, status: GuardedPriceItemStatus, acceptedAt: string | null = null): GuardedPriceItemOutcome {
+function outcomeFor(
+  intent: FrozenGuardedPriceIntent,
+  status: GuardedPriceItemStatus,
+  acceptedAt: string | null = null,
+  appliedPrice: number | null = null,
+): GuardedPriceItemOutcome {
   return {
     key: intent.key,
     itemId: intent.itemId,
@@ -218,13 +225,29 @@ function outcomeFor(intent: FrozenGuardedPriceIntent, status: GuardedPriceItemSt
     expectedRevision: intent.expectedRevision,
     status,
     acceptedAt,
+    ...(appliedPrice !== null ? { appliedPrice } : {}),
+  }
+}
+
+async function parseAppliedReceiptPrice(response: Response): Promise<number | null> {
+  try {
+    const body = (await response.json()) as { retail_price?: unknown; price?: unknown } | null
+    if (!body || typeof body !== 'object') return null
+    const raw = body.retail_price ?? body.price
+    if (raw === undefined || raw === null || raw === '') return null
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) ? parsed : null
+  } catch {
+    return null
   }
 }
 
 async function resolveUnknownPatchOutcome(intent: FrozenGuardedPriceIntent): Promise<GuardedPriceItemOutcome> {
   const op = await fetchOperationByKey(intent.key)
   if (op) {
-    return outcomeFor(intent, mapOperationDtoToStatus(op), op.acceptedAt)
+    const status = mapOperationDtoToStatus(op)
+    const parsed = status === 'APPLIED' ? Number(op.retail_price) : NaN
+    return outcomeFor(intent, status, op.acceptedAt, Number.isFinite(parsed) ? parsed : null)
   }
   return outcomeFor(intent, 'OUTCOME_UNAVAILABLE')
 }
@@ -268,7 +291,10 @@ async function executeGuardedPatch(intent: FrozenGuardedPriceIntent): Promise<Gu
       }),
     })
 
-    if (response.ok) return outcomeFor(intent, 'APPLIED')
+    if (response.ok) {
+      const appliedPrice = await parseAppliedReceiptPrice(response)
+      return outcomeFor(intent, 'APPLIED', null, appliedPrice)
+    }
 
     const code = await parseErrorCode(response)
     const classified = classifyPatchErrorResponse(response.status, code)
@@ -300,6 +326,31 @@ export function usePreviewGuardedPriceChanges() {
   })
 }
 
+const INVENTORY_RECORD_CACHE_PREFIXES = [
+  [...inventoryKeys.all, 'cursor-list'],
+  [...inventoryKeys.all, 'list'],
+  [...inventoryKeys.all, 'detail'],
+  [...inventoryKeys.all, 'sku'],
+] as const
+
+function patchAppliedInventoryPrices(
+  queryClient: QueryClient,
+  updates: ReadonlyArray<{ itemId: string; price: number }>,
+): void {
+  if (updates.length === 0) return
+  for (const queryKey of INVENTORY_RECORD_CACHE_PREFIXES) {
+    for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
+      const current: unknown = query.state.data
+      if (current === undefined) continue
+      let next: unknown = current
+      for (const { itemId, price } of updates) {
+        next = patchRecordInCache(next, itemId, { price })
+      }
+      queryClient.setQueryData(query.queryKey, next)
+    }
+  }
+}
+
 export function useExecuteGuardedPriceChanges() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -307,7 +358,13 @@ export function useExecuteGuardedPriceChanges() {
     mutationFn: async (intents: FrozenGuardedPriceIntent[]): Promise<GuardedPriceItemOutcome[]> => {
       return await runInBatches(intents, executeGuardedPatch)
     },
-    onSuccess: () => {
+    onSuccess: (outcomes) => {
+      patchAppliedInventoryPrices(
+        queryClient,
+        outcomes
+          .filter((outcome) => outcome.status === 'APPLIED')
+          .map((outcome) => ({ itemId: outcome.itemId, price: outcome.appliedPrice ?? outcome.targetPrice })),
+      )
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
       void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
     },
@@ -374,7 +431,13 @@ export function useFenceInventoryPriceOperation() {
       if (classified) return classified
       throw new Error(code ?? 'FENCE_FAILED')
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.outcome === 'OPERATION' && result.operation.state === 'APPLIED') {
+        const price = Number(result.operation.retail_price)
+        if (Number.isFinite(price)) {
+          patchAppliedInventoryPrices(queryClient, [{ itemId: result.operation.itemId, price }])
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
