@@ -64,6 +64,50 @@ type WorkshopOrderPickDrawerBodyProps = WorkshopOrderPickDrawerProps & {
   order: WorkshopOrder | null | undefined
 }
 
+function PickDrawerLinesBadge({
+  isOrderLoading,
+  hasOrder,
+  requiredLineCount,
+}: {
+  isOrderLoading: boolean
+  hasOrder: boolean
+  requiredLineCount: number
+}) {
+  const { t } = useTranslation('workshop')
+  if (isOrderLoading) {
+    return <Skeleton className='h-5 w-24 rounded-full' />
+  }
+  if (!hasOrder) {
+    return null
+  }
+  return (
+    <Badge variant='secondary'>
+      {t('pick.drawer.linesBadge', { count: requiredLineCount })}
+    </Badge>
+  )
+}
+
+function PickDrawerNotEligibleNotice({
+  isOrderLoading,
+  hasOrder,
+  isPickEligible,
+}: {
+  isOrderLoading: boolean
+  hasOrder: boolean
+  isPickEligible: boolean
+}) {
+  const { t } = useTranslation('workshop')
+  if (isOrderLoading || !hasOrder || isPickEligible) {
+    return null
+  }
+  return (
+    <div className='rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning flex items-start gap-2'>
+      <MapPin className='h-4 w-4 mt-0.5 shrink-0' />
+      {t('pick.drawer.notEligible')}
+    </div>
+  )
+}
+
 function WorkshopOrderPickDrawerBody({
   orderId,
   open,
@@ -243,7 +287,7 @@ function WorkshopOrderPickDrawerBody({
         void handleConfirmPick()
       }}
     >
-      <SheetHeader className='px-6 py-4 border-b pr-14 text-left' data-pick-drawer-header='true'>
+      <SheetHeader className='px-4 sm:px-6 py-4 border-b pr-14 text-left' data-pick-drawer-header='true'>
         <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div className='min-w-0'>
             <SheetTitle className='text-lg font-semibold flex items-center gap-2'>
@@ -264,9 +308,11 @@ function WorkshopOrderPickDrawerBody({
                   {statusLabel}
                 </Badge>
               ) : null}
-              <Badge variant='secondary'>
-                {t('pick.drawer.linesBadge', { count: requiredLineCount })}
-              </Badge>
+              <PickDrawerLinesBadge
+                isOrderLoading={isOrderLoading}
+                hasOrder={Boolean(order)}
+                requiredLineCount={requiredLineCount}
+              />
             </div>
           </div>
 
@@ -290,7 +336,7 @@ function WorkshopOrderPickDrawerBody({
         </div>
       </SheetHeader>
 
-      <div className='px-6 py-4 space-y-4 flex-1 min-h-0'>
+      <div className='px-4 sm:px-6 py-4 flex-1 min-h-0 flex flex-col gap-4'>
         <div className='space-y-2'>
           <div className='text-sm font-medium text-foreground'>
             {t('pick.drawer.destinationTote')}
@@ -309,7 +355,7 @@ function WorkshopOrderPickDrawerBody({
                   variant='outline'
                   role='combobox'
                   aria-expanded={isTotePopoverOpen}
-                  className='w-full justify-between'
+                  className='w-full justify-between max-md:min-h-11'
                   disabled={pickPartsMutation.isPending}
                 >
                   <span className='truncate'>
@@ -363,7 +409,7 @@ function WorkshopOrderPickDrawerBody({
 
         <Separator />
 
-        <div className='flex items-center justify-between gap-3'>
+        <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3'>
           <div className='text-sm font-medium'>{t('pick.drawer.requiredParts')}</div>
           <div className='flex items-center gap-2'>
             <Badge variant='outline'>
@@ -373,6 +419,7 @@ function WorkshopOrderPickDrawerBody({
               type='button'
               variant='ghost'
               size='sm'
+              className='max-md:min-h-11'
               onClick={handlePickAll}
               disabled={requiredPartLines.length === 0 || pickPartsMutation.isPending}
             >
@@ -381,7 +428,7 @@ function WorkshopOrderPickDrawerBody({
           </div>
         </div>
 
-        <ScrollArea className='flex-1 pr-2'>
+        <ScrollArea className='flex-1 min-w-0 sm:pr-2'>
           {isOrderLoading ? (
             <div className='space-y-2'>
               {Array.from({ length: 5 }).map((_, index) => (
@@ -396,22 +443,27 @@ function WorkshopOrderPickDrawerBody({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('pick.drawer.colPart')}</TableHead>
-                  <TableHead>{t('pick.drawer.colTask')}</TableHead>
-                  <TableHead className='text-right'>{t('pick.drawer.colRequired')}</TableHead>
-                  <TableHead className='w-[150px] text-right'>{t('pick.drawer.colPickQty')}</TableHead>
+                  <TableHead className='px-2 sm:px-3'>{t('pick.drawer.colPart')}</TableHead>
+                  <TableHead className='hidden sm:table-cell'>{t('pick.drawer.colTask')}</TableHead>
+                  <TableHead className='hidden sm:table-cell text-right'>{t('pick.drawer.colRequired')}</TableHead>
+                  <TableHead className='w-28 sm:w-[150px] px-2 sm:px-3 text-right'>{t('pick.drawer.colPickQty')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {requiredPartLines.map((line) => (
                   <TableRow key={line.workshopTaskLineItemId}>
-                    <TableCell>
-                      <div className='font-medium'>{line.itemNo}</div>
+                    <TableCell className='px-2 sm:px-3'>
+                      <div className='font-medium break-words'>{line.itemNo}</div>
                       <div className='text-xs text-muted-foreground'>{line.description}</div>
+                      <div className='text-xs text-muted-foreground sm:hidden'>
+                        {line.taskTitle} · {t('pick.drawer.colRequired')}: {formatQuantity(line.requiredQuantity)}
+                      </div>
                     </TableCell>
-                    <TableCell className='text-sm text-muted-foreground'>{line.taskTitle}</TableCell>
-                    <TableCell className='text-right font-medium'>{formatQuantity(line.requiredQuantity)}</TableCell>
-                    <TableCell>
+                    <TableCell className='hidden sm:table-cell text-sm text-muted-foreground'>{line.taskTitle}</TableCell>
+                    <TableCell className='hidden sm:table-cell text-right font-medium tabular-nums'>
+                      {formatQuantity(line.requiredQuantity)}
+                    </TableCell>
+                    <TableCell className='px-2 sm:px-3'>
                       <Input
                         type='number'
                         min='0'
@@ -426,7 +478,7 @@ function WorkshopOrderPickDrawerBody({
                           }))
                           setFormError(null)
                         }}
-                        className='h-8 text-right'
+                        className='h-11 sm:h-8 text-right tabular-nums'
                         aria-label={t('pick.drawer.qtyAria', {
                           description: line.description,
                           itemNo: line.itemNo,
@@ -441,12 +493,11 @@ function WorkshopOrderPickDrawerBody({
           )}
         </ScrollArea>
 
-        {!isPickEligible ? (
-          <div className='rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning flex items-start gap-2'>
-            <MapPin className='h-4 w-4 mt-0.5 shrink-0' />
-            {t('pick.drawer.notEligible')}
-          </div>
-        ) : null}
+        <PickDrawerNotEligibleNotice
+          isOrderLoading={isOrderLoading}
+          hasOrder={Boolean(order)}
+          isPickEligible={isPickEligible}
+        />
 
         {formError ? (
           <div className='rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive'>

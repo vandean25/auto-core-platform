@@ -424,4 +424,72 @@ test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
       expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
     }
   });
+
+  // AUT-1023: pick-line table must fit within 375px and 390px drawers with Komm.-Menge visible and >=44px tap target, without regressing desktop.
+  for (const viewportWidth of [375, 390] as const) {
+    test(`keeps pick-line table and quantity input visible without horizontal overflow at ${viewportWidth}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: viewportWidth, height: 812 });
+      const { mockedOrder } = await mockPickQueueBaseRoutes(page);
+
+      await page.goto('/workshop/pick-list');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByText(mockedOrder.order_number).first().click();
+
+      const dialog = page.getByRole('dialog', { name: PICK.drawer.title });
+      await expect(dialog).toBeVisible();
+
+      const dialogBox = await dialog.boundingBox();
+      expect(dialogBox).not.toBeNull();
+      expect(Math.round(dialogBox!.width)).toBe(viewportWidth);
+
+      const pickQtyHeader = dialog.getByRole('columnheader', { name: PICK.drawer.colPickQty, exact: true });
+      await expect(pickQtyHeader).toBeVisible();
+
+      const quantityInput = dialog.getByLabel(
+        PICK.drawer.qtyAria.replace('{{description}}', 'Oil Filter').replace('{{itemNo}}', '06J-115-403-Q'),
+      );
+      await expect(quantityInput).toBeVisible();
+
+      const inputBox = await quantityInput.boundingBox();
+      expect(inputBox).not.toBeNull();
+      expect(inputBox!.x).toBeGreaterThanOrEqual(dialogBox!.x);
+      expect(inputBox!.x + inputBox!.width).toBeLessThanOrEqual(dialogBox!.x + dialogBox!.width + 1);
+      expect(inputBox!.height).toBeGreaterThanOrEqual(44);
+
+      const hasHorizontalOverflow = await dialog.evaluate((el) => {
+        const scrollRegions = Array.from(el.querySelectorAll('[role="region"], table'));
+        return (
+          el.scrollWidth > el.clientWidth + 1 ||
+          scrollRegions.some((node) => node.scrollWidth > node.clientWidth + 1)
+        );
+      });
+      expect(hasHorizontalOverflow).toBe(false);
+    });
+  }
+
+  test('keeps all four pick-line columns visible at desktop width', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const { mockedOrder } = await mockPickQueueBaseRoutes(page);
+
+    await page.goto('/workshop/pick-list');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByText(mockedOrder.order_number).first().click();
+
+    const dialog = page.getByRole('dialog', { name: PICK.drawer.title });
+    await expect(dialog).toBeVisible();
+
+    for (const col of [
+      PICK.drawer.colPart,
+      PICK.drawer.colTask,
+      PICK.drawer.colRequired,
+      PICK.drawer.colPickQty,
+    ]) {
+      await expect(dialog.getByRole('columnheader', { name: col, exact: true })).toBeVisible();
+    }
+  });
 });
+

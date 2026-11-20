@@ -453,7 +453,8 @@
     "drawer": {
       "title": "Pick Parts",
       "description": "Assign parts to a staging tote for this workshop order.",
-      "linesBadge": "{{count}} lines",
+      "linesBadge_one": "{{count}} line",
+      "linesBadge_other": "{{count}} lines",
       "cancel": "Cancel",
       "confirm": "Confirm Pick",
       "destinationTote": "Destination Tote",

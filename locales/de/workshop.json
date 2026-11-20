@@ -453,7 +453,8 @@
     "drawer": {
       "title": "Teile kommissionieren",
       "description": "Teile einem Bereitstellungsbehälter für diesen Werkstattauftrag zuweisen.",
-      "linesBadge": "{{count}} Positionen",
+      "linesBadge_one": "{{count}} Position",
+      "linesBadge_other": "{{count}} Positionen",
       "cancel": "Abbrechen",
       "confirm": "Kommissionierung bestätigen",
       "destinationTote": "Zielbehälter",
