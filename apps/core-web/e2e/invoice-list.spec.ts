@@ -202,8 +202,8 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       expect(metric.cardRight).toBeLessThanOrEqual(frame.right - frame.borderRightWidth + 0.5);
       expect(metric.badgeRight).not.toBeNull();
       expect(metric.amountRight).not.toBeNull();
-      expect(metric.cardRight - metric.badgeRight!).toBeGreaterThanOrEqual(8);
-      expect(metric.cardRight - metric.amountRight!).toBeGreaterThanOrEqual(8);
+      expect(metric.cardRight - metric.badgeRight!).toBeGreaterThanOrEqual(12);
+      expect(metric.cardRight - metric.amountRight!).toBeGreaterThanOrEqual(12);
     }
 
     expect(await contentClippedByAncestor(list)).toEqual([]);
@@ -238,7 +238,7 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
       window.localStorage.setItem(storageKey, 'en');
     }, UI_LANGUAGE_STORAGE_KEY);
     await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 10), unpaged: 'array' });
-    await page.goto('/sales/invoices');
+    await openList(page, '');
 
     await expectFramedCardsWithRightInset(page, 'Finalized');
   });
