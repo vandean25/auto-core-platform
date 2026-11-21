@@ -1,12 +1,51 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import type { Browser } from 'playwright';
 import { chromium } from 'playwright';
 
+export function shouldWarmPlaywrightBrowser(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.PDF_WORKER_WARM_CHROMIUM === 'true') {
+    return true;
+  }
+  if (env.PDF_WORKER_WARM_CHROMIUM === 'false') {
+    return false;
+  }
+  // Only the pdf-worker image bundles Chromium (PLAYWRIGHT_BROWSERS_PATH) without Cloud Tasks producer config.
+  return (
+    env.NODE_ENV === 'production' &&
+    Boolean(env.PLAYWRIGHT_BROWSERS_PATH?.trim()) &&
+    env.CLOUD_TASKS_ENABLED !== 'true'
+  );
+}
+
 @Injectable()
-export class PlaywrightBrowserService implements OnModuleDestroy {
+export class PlaywrightBrowserService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlaywrightBrowserService.name);
   private browser: Browser | null = null;
   private browserInitPromise: Promise<Browser> | null = null;
+
+  onModuleInit(): void {
+    if (shouldWarmPlaywrightBrowser()) {
+      void this.warmBrowser();
+    }
+  }
+
+  async warmBrowser(): Promise<void> {
+    try {
+      await this.getBrowser();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to warm Playwright browser on startup: ${message}`,
+      );
+    }
+  }
 
   async getBrowser(): Promise<Browser> {
     if (this.browser && !this.browser.isConnected()) {

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_PDF_POLL_INTERVAL_MS,
+  DEFAULT_PDF_POLL_MAX_ATTEMPTS,
   DEFAULT_PDF_POLL_TIMEOUT_MS,
   DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
   downloadPdfFromGetUrl,
@@ -184,6 +185,100 @@ describe('pollUntilPdfBlob', () => {
   it('defaults DEFAULT_PDF_POLL_TIMEOUT_MS to 60_000', () => {
     expect(DEFAULT_PDF_POLL_TIMEOUT_MS).toBe(60_000)
   })
+
+  // Regression: AUT-1026 — first poll wait was 1500ms, delaying fast renders
+  it('defaults DEFAULT_PDF_POLL_INTERVAL_MS to 500 and polls at 500ms with backoff', async () => {
+    expect(DEFAULT_PDF_POLL_INTERVAL_MS).toBe(500)
+
+    vi.useFakeTimers()
+    const pdfBlob = new Blob(['%PDF'], { type: 'application/pdf' })
+    const fetchPdf = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        blob: async () => pdfBlob,
+      })
+
+    const promise = pollUntilPdfBlob(fetchPdf)
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchPdf).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(499)
+    expect(fetchPdf).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchPdf).toHaveBeenCalledTimes(2)
+
+    await expect(promise).resolves.toBe(pdfBlob)
+  })
+
+  // Regression: AUT-1026 — tighter first poll must be capped so it cannot hammer the API
+  it('caps total poll attempts even when timeoutMs would allow more', async () => {
+    expect(DEFAULT_PDF_POLL_MAX_ATTEMPTS).toBeGreaterThanOrEqual(10)
+    expect(DEFAULT_PDF_POLL_MAX_ATTEMPTS).toBeLessThanOrEqual(25)
+
+    vi.useFakeTimers()
+    const fetchPdf = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+    })
+
+    const promise = pollUntilPdfBlob(fetchPdf, {
+      intervalMs: 100,
+      backoffMultiplier: 1,
+      timeoutMs: 60_000,
+    })
+
+    const assertion = expect(promise).rejects.toThrow(
+      DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
+    )
+    await vi.advanceTimersByTimeAsync(60_000)
+    await assertion
+    expect(fetchPdf).toHaveBeenCalledTimes(DEFAULT_PDF_POLL_MAX_ATTEMPTS)
+  })
+
+  // Negative test: a ready PDF still resolves to 200 within the cap with backoff
+  it('resolves to 200 within maxAttempts when backoff applies', async () => {
+    vi.useFakeTimers()
+    const pdfBlob = new Blob(['%PDF-ready'], { type: 'application/pdf' })
+    const fetchPdf = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        blob: async () => pdfBlob,
+      })
+
+    const promise = pollUntilPdfBlob(fetchPdf, {
+      maxAttempts: 4,
+    })
+
+    // t=0 (attempt 1), t=500 (attempt 2), t=1250 (attempt 3), t=2375 (attempt 4 -> 200)
+    await vi.advanceTimersByTimeAsync(2_375)
+    await expect(promise).resolves.toBe(pdfBlob)
+    expect(fetchPdf).toHaveBeenCalledTimes(4)
+  })
 })
 
 describe('downloadPdfFromGetUrl', () => {
@@ -346,5 +441,46 @@ describe('generateAndDownloadPdfBlob', () => {
         checkGenerationFailed: async () => 'Renderer crashed: font not found',
       }),
     ).rejects.toThrow('Renderer crashed: font not found')
+  })
+
+  // Scenario 2: worker finishes in <1s -> client observes 200 on 500ms poll instead of waiting 1.5s
+  it('observes 200 at 500ms when enqueued worker finishes under 1s', async () => {
+    vi.useFakeTimers()
+    const pdfBlob = new Blob(['%PDF-fast'], { type: 'application/pdf' })
+    let getCount = 0
+
+    vi.mocked(fetchWithAuth).mockImplementation(async (_url, init) => {
+      if (init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ mode: 'enqueued' }),
+        } as Response
+      }
+      getCount += 1
+      if (getCount === 1) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+        } as Response
+      }
+      return {
+        ok: true,
+        blob: async () => pdfBlob,
+      } as Response
+    })
+
+    const promise = generateAndDownloadPdfBlob({
+      postUrl: '/api/workshop/orders/wo-1/pdf',
+      getUrl: '/api/workshop/orders/wo-1/pdf',
+    })
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(getCount).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(500)
+    expect(getCount).toBe(2)
+
+    await expect(promise).resolves.toBe(pdfBlob)
   })
 })

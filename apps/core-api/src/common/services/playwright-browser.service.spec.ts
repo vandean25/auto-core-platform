@@ -69,4 +69,66 @@ describe('PlaywrightBrowserService', () => {
     await jest.advanceTimersByTimeAsync(15_000);
     await rejection;
   });
+
+  it('warms Chromium on module init when enabled and reuses it on first getBrowser', async () => {
+    const browser: Partial<Browser> = {
+      isConnected: jest.fn().mockReturnValue(true),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockResolvedValue(asBrowser(browser));
+    const prevWarm = process.env.PDF_WORKER_WARM_CHROMIUM;
+    process.env.PDF_WORKER_WARM_CHROMIUM = 'true';
+
+    try {
+      service.onModuleInit();
+      await Promise.resolve();
+      const resolved = await service.getBrowser();
+
+      expect(resolved).toBe(browser);
+      expect(launchSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      if (prevWarm === undefined) {
+        delete process.env.PDF_WORKER_WARM_CHROMIUM;
+      } else {
+        process.env.PDF_WORKER_WARM_CHROMIUM = prevWarm;
+      }
+    }
+  });
+
+  it('does not throw from warmBrowser if startup Chromium launch fails', async () => {
+    jest
+      .spyOn(chromium, 'launch')
+      .mockRejectedValueOnce(new Error('Chromium binary missing'));
+
+    await expect(service.warmBrowser()).resolves.toBeUndefined();
+  });
+
+  it('skips startup warm-up in test and core-api environments, enables it in pdf-worker production', async () => {
+    const { shouldWarmPlaywrightBrowser } = await import(
+      './playwright-browser.service.js'
+    );
+
+    expect(
+      shouldWarmPlaywrightBrowser({
+        NODE_ENV: 'production',
+        PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright',
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldWarmPlaywrightBrowser({
+        NODE_ENV: 'production',
+        CLOUD_TASKS_ENABLED: 'true',
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldWarmPlaywrightBrowser({
+        NODE_ENV: 'test',
+        PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright',
+      }),
+    ).toBe(false);
+  });
 });
