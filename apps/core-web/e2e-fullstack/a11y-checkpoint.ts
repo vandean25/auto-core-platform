@@ -5,6 +5,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { A11Y_AXE_TAGS, settleA11yPage } from '../e2e/utils/a11y.ts'
 import { compareA11yViolationsToBaseline } from './a11y-baseline.mjs'
+import { A11Y_FULLSTACK_CHECKPOINT_PATHS } from './a11y-checkpoint-paths.ts'
 
 const baselinePath = resolve(fileURLToPath(new URL('.', import.meta.url)), 'a11y-baseline.json')
 
@@ -15,6 +16,11 @@ function loadBaseline(): A11yBaseline {
 }
 
 export async function scanA11y(page: Page, checkpointId: string): Promise<void> {
+  expect(
+    Object.prototype.hasOwnProperty.call(A11Y_FULLSTACK_CHECKPOINT_PATHS, checkpointId),
+    `[a11y] checkpoint "${checkpointId}" must be registered in e2e-fullstack/a11y-checkpoint-paths.ts`,
+  ).toBe(true)
+
   await settleA11yPage(page)
 
   const results = await new AxeBuilder({ page }).withTags(A11Y_AXE_TAGS).analyze()
