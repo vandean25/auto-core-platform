@@ -18,6 +18,10 @@ describe('isKnownAppPath', () => {
     expect(isKnownAppPath(APP_ROUTE_PATHS.invoicesLegacy)).toBe(true)
   })
 
+  it('recognizes bare inventory links so login can return to the requested item', () => {
+    expect(isKnownAppPath('/inventory/item-1')).toBe(true)
+  })
+
   it('rejects unknown routes', () => {
     expect(isKnownAppPath('/this-route-does-not-exist-qa')).toBe(false)
     expect(isKnownAppPath('/login')).toBe(false)

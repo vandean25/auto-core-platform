@@ -23,6 +23,7 @@ type RoutePattern =
 export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
   [APP_ROUTE_PATHS.home]: 'modules.inventory',
   [APP_ROUTE_PATHS.inventory]: 'modules.inventory',
+  [APP_ROUTE_PATHS.inventoryItemAlias]: 'routeTitles.inventoryLedger',
   [APP_ROUTE_PATHS.inventoryLedger]: 'routeTitles.inventoryLedger',
   [APP_ROUTE_PATHS.dashboard]: 'modules.dashboard',
   [APP_ROUTE_PATHS.agentSupervision]: 'modules.agentSupervision',

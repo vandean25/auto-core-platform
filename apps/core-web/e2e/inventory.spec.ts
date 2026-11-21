@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_INVENTORY } from './helpers/de-inventory';
 import { DE_COMMON } from './helpers/de-common';
+import enCommon from '../../../locales/en/common.json' with { type: 'json' };
 import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { expectNoPageScroll, pageOverflow } from './utils/phone-layout';
@@ -672,6 +673,89 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
     );
+  }
+
+  test('AUT-966: WHEN an admin opens a bare item URL THEN its ledger is usable on desktop and phones', async ({ page }) => {
+    await mockLedger(page);
+    await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}`);
+
+    await expect(page).toHaveURL(`/inventory/${ledgerItem.id}/ledger`);
+    await expect(page.getByText(ledgerItem.name, { exact: true })).toBeVisible();
+    await expect(page.getByTestId('inventory-ledger-table').getByText('PO-2026-0042')).toBeVisible();
+    await expect(page.getByText(DE_COMMON.notFound.title, { exact: true })).toHaveCount(0);
+
+    for (const width of [375, 390]) {
+      await page.setViewportSize({ width, height: 812 });
+      await expect(page.getByTestId('inventory-ledger-mobile-list').getByText('PO-2026-0042')).toBeVisible();
+      for (const name of [DE_INVENTORY.actions.receive, DE_INVENTORY.actions.adjust, DE_INVENTORY.actions.edit]) {
+        const button = page.getByRole('button', { name, exact: true });
+        await expect(button).toBeEnabled();
+        const box = (await button.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+      }
+      await expectNoPageScroll(page);
+    }
+
+    const back = page.getByRole('link', { name: DE_INVENTORY.ledger.backToInventory });
+    await back.focus();
+    await expect(back).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL('/inventory');
+  });
+
+  test('AUT-966: WHEN a bare item URL has query parameters THEN the ledger preserves them', async ({ page }) => {
+    await mockLedger(page);
+    await mockCursorList(page, { path: '/api/inventory', rows: [ledgerItem] });
+    const query = '?sku=06J-115-403-Q&search=oil%20filter&location=warehouse-a';
+    await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}${query}`);
+
+    await expect(page).toHaveURL(`/inventory/${ledgerItem.id}/ledger${query}`);
+    await expect(page.getByText(ledgerItem.name, { exact: true })).toBeVisible();
+    await expect(page.getByTestId('inventory-ledger-table').getByText('PO-2026-0042')).toBeVisible();
+  });
+
+  test('AUT-966: WHEN the list opens an item THEN its canonical ledger URL still works', async ({ page }) => {
+    await mockLedger(page);
+    await mockCursorList(page, { path: '/api/inventory', rows: [ledgerItem] });
+    const corePage = new AutoCorePage(page, 'Artikel');
+    await corePage.navigate('/inventory');
+    await corePage.openRowDetails(ledgerItem.sku);
+
+    await expect(page).toHaveURL(`/inventory/${ledgerItem.id}/ledger?sku=06J-115-403-Q`);
+    await expect(page.getByTestId('inventory-ledger-table').getByText('PO-2026-0042')).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(ledgerItem.name, { exact: true })).toBeVisible();
+  });
+
+  for (const [locale, copy] of [['de', DE_COMMON], ['en', enCommon]] as const) {
+    test(`AUT-966: WHEN an unknown bare item URL resolves THEN not-found appears in ${locale}`, async ({ page }) => {
+      await page.addInitScript((language) => window.localStorage.setItem('acp:ui-language', language), locale);
+      await mockCursorList(page, { path: '/api/inventory', rows: [] });
+      let requested = false;
+      let resolveItem!: () => void;
+      const itemResponse = new Promise<void>((resolve) => { resolveItem = resolve; });
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item'), async (route) => {
+        requested = true;
+        await itemResponse;
+        await route.fulfill({ status: 404, json: { message: 'Item not found' } });
+      });
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item/history'), (route) =>
+        route.fulfill({ status: 200, json: [] }),
+      );
+      await page.goto('/inventory/unknown-item');
+
+      try {
+        await expect(page).toHaveURL('/inventory/unknown-item/ledger');
+        await expect.poll(() => requested).toBe(true);
+        await expect(page.getByText(copy.notFound.title, { exact: true })).toHaveCount(0);
+      } finally {
+        resolveItem();
+      }
+      await expect(page.getByText(copy.notFound.title, { exact: true })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('link', { name: copy.notFound.goHome })).toBeVisible();
+      await expect(page.getByTestId('inventory-ledger-table')).toHaveCount(0);
+    });
   }
 
   test('Scenario 3: header actions sit on one row and are >=44px at 375px', async ({ page }) => {

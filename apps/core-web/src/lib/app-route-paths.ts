@@ -8,6 +8,7 @@ export const LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH = '/login/email-link' as const
 export const APP_ROUTE_PATHS = {
   home: '/',
   inventory: '/inventory',
+  inventoryItemAlias: '/inventory/:itemId',
   inventoryLedger: '/inventory/:itemId/ledger',
   dashboard: '/dashboard',
   customers: '/customers',
