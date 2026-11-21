@@ -68,10 +68,17 @@ export class WorkshopCheckInController {
 
   @Get()
   @ApiOkResponse({ type: WorkshopCheckInResponseDto, nullable: true })
-  get(
+  async get(
     @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<WorkshopCheckInResponseDto | null> {
-    return this.checkIns.get(orderId);
+    const checkIn = await this.checkIns.get(orderId);
+    if (checkIn === null) {
+      // NestJS sends an empty body for null returns; serialize JSON null explicitly.
+      res.status(HttpStatus.OK).json(null);
+      return null;
+    }
+    return checkIn;
   }
 
   @Patch()
