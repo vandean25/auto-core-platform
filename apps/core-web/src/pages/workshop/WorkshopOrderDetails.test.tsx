@@ -1791,6 +1791,41 @@ describe("WorkshopOrderDetails Characterization", () => {
         expect(window.URL.createObjectURL).toHaveBeenCalled();
       });
     });
+
+    it("keeps the job card button pending while polling an enqueued PDF", async () => {
+      const mockGenerate = createMutationMock({
+        mutateAsync: vi.fn().mockResolvedValue({ enqueued: true }),
+      });
+      asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(mockGenerate);
+
+      let resolveDownload!: (blob: Blob) => void;
+      asMock(workshopApi.downloadWorkshopPdf).mockImplementation(
+        () =>
+          new Promise<Blob>((resolve) => {
+            resolveDownload = resolve;
+          }),
+      );
+
+      window.URL.createObjectURL = vi.fn().mockReturnValue("mock-url");
+      window.URL.revokeObjectURL = vi.fn();
+
+      renderComponent();
+
+      const button = screen.getAllByText("Jobkarte drucken")[0]?.closest("button") as HTMLButtonElement;
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(workshopApi.downloadWorkshopPdf).toHaveBeenCalledWith("order-1", { poll: true });
+      });
+      expect(button).toBeDisabled();
+
+      resolveDownload(new Blob());
+
+      await waitFor(() => {
+        expect(button).not.toBeDisabled();
+        expect(window.URL.createObjectURL).toHaveBeenCalled();
+      });
+    });
   });
 
   // =====================================================================
@@ -2214,21 +2249,24 @@ describe("WorkshopOrderDetails Characterization", () => {
     });
 
     describe("print action", () => {
-      it("shows the queued toast and skips the download when the PDF is enqueued", async () => {
+      it("polls and downloads the PDF when the job card PDF is enqueued", async () => {
         asMock(workshopApi.useGenerateWorkshopPdf).mockReturnValue(
           createMutationMock({ mutateAsync: vi.fn().mockResolvedValue({ enqueued: true }) }),
         );
+        asMock(workshopApi.downloadWorkshopPdf).mockResolvedValue(new Blob());
+        window.URL.createObjectURL = vi.fn().mockReturnValue("mock-url");
+        window.URL.revokeObjectURL = vi.fn();
         renderComponent();
 
         fireEvent.click(screen.getAllByText("Jobkarte drucken")[0]!);
 
         await waitFor(() =>
-          expect(toast.success).toHaveBeenCalledWith(orderDetailToast.jobCardPdfQueued, {
+          expect(toast.success).toHaveBeenCalledWith(orderDetailToast.jobCardPdfDownloaded, {
             id: "toast-id",
           }),
         );
         expect(toast.loading).toHaveBeenCalledWith(orderDetailToast.jobCardPdfGenerating);
-        expect(workshopApi.downloadWorkshopPdf).not.toHaveBeenCalled();
+        expect(workshopApi.downloadWorkshopPdf).toHaveBeenCalledWith("order-1", { poll: true });
       });
 
       it("downloads a sanitized job card file name and resolves the loading toast", async () => {
