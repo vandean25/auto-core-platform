@@ -47,10 +47,19 @@ function validateA11yRouteCoverage({
     }
   }
 
+  const routeObjects = patterns.map((path) => ({ path }))
+  const coveredPatterns = new Set<string>()
+
+  for (const coveredPath of coveredPaths) {
+    const matches = matchRoutes(routeObjects, coveredPath)
+    const winningPattern = matches?.[0]?.route.path
+    if (winningPattern) {
+      coveredPatterns.add(winningPattern)
+    }
+  }
+
   for (const pattern of patterns) {
-    const isCovered = coveredPaths.some(
-      (coveredPath) => matchRoutes([{ path: pattern }], coveredPath) !== null,
-    )
+    const isCovered = coveredPatterns.has(pattern)
     const isExcepted = Object.prototype.hasOwnProperty.call(exceptions, pattern)
 
     if (isCovered && isExcepted) {
@@ -152,5 +161,19 @@ describe('a11y route coverage guard (AUT-1016)', () => {
 
     expect(result.ok).toBe(false)
     expect(result.message).toContain('/workshop/*')
+  })
+
+  it('ranks route matching so static /vehicle-stock/purchases/new leaves /vehicle-stock/purchases/:id uncovered', () => {
+    const result = validateA11yRouteCoverage({
+      patterns: [
+        APP_ROUTE_PATHS.vehicleStockPurchaseNew,
+        APP_ROUTE_PATHS.vehicleStockPurchaseDetail,
+      ],
+      coveredPaths: ['/vehicle-stock/purchases/new'],
+      exceptions: {},
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain(APP_ROUTE_PATHS.vehicleStockPurchaseDetail)
   })
 })

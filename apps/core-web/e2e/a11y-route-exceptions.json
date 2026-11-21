@@ -9,6 +9,7 @@
   "/vehicle-stock/reports": "not yet covered, AUT-1006 follow-up",
   "/workshop/reports/kpis": "not yet covered, AUT-1006 follow-up",
   "/workshop/estimates": "not yet covered, AUT-1006 follow-up",
+  "/vehicle-stock/purchases/:id": "not yet covered, AUT-1006 follow-up",
   "/vehicle-stock/:vehicleId/listing": "not yet covered, AUT-1006 follow-up",
   "/sales-orders/new": "not yet covered, AUT-1006 follow-up",
   "/vendors/:id": "not yet covered, AUT-1006 follow-up",
