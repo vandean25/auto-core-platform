@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoCriticalA11yViolations, settleA11yPage } from './utils/a11y';
+import { A11Y_SMOKE_ROUTE_PATHS } from './utils/a11y-smoke-route-paths';
 import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-routes';
 
 /**
