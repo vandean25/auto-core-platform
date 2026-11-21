@@ -90,6 +90,7 @@ export type WorkshopOrderRowActionContext = {
   ) => void | Promise<void>
   reschedule?: (request: WorkshopOrderRescheduleRequest) => void | Promise<void>
   undoNotes?: (orderId: string) => void | Promise<void>
+  onPdfPendingChange?: (pending: boolean) => void
 }
 
 function workshopOrderDetailPath(orderId: string) {
@@ -264,19 +265,25 @@ function buildTaskStateChildren(
   })
 }
 
+const inFlightJobCardPdfOrderIds = new Set<string>()
+
 export async function runGenerateWorkshopJobCardPdf(
   row: Pick<WorkshopOrderListRow, 'id' | 'orderNo'>,
-  { generatePdf, t: translate }: Pick<WorkshopOrderRowActionContext, 'generatePdf' | 't'>,
+  {
+    generatePdf,
+    t: translate,
+    onPdfPendingChange,
+  }: Pick<WorkshopOrderRowActionContext, 'generatePdf' | 't' | 'onPdfPendingChange'>,
 ) {
-  if (generatePdf.isPending) return
+  if (generatePdf.isPending || inFlightJobCardPdfOrderIds.has(row.id)) return
+  inFlightJobCardPdfOrderIds.add(row.id)
+  onPdfPendingChange?.(true)
   const toastId = toast.loading(translate('orderDetail.toast.jobCardPdfGenerating'))
   try {
     const res = await generatePdf.mutateAsync(row.id)
-    if (res.enqueued) {
-      toast.success(translate('orderDetail.toast.jobCardPdfQueued'), { id: toastId })
-      return
-    }
-    const blob = await downloadWorkshopPdf(row.id)
+    const blob = res.enqueued
+      ? await downloadWorkshopPdf(row.id, { poll: true })
+      : await downloadWorkshopPdf(row.id)
     const fileName = `job-card-${row.orderNo}`
       .replace(/[^a-z0-9]/gi, '_')
       .toLowerCase()
@@ -286,6 +293,9 @@ export async function runGenerateWorkshopJobCardPdf(
     toast.error(getErrorMessage(error, translate('orderDetail.toast.jobCardPdfFailed')), {
       id: toastId,
     })
+  } finally {
+    inFlightJobCardPdfOrderIds.delete(row.id)
+    onPdfPendingChange?.(false)
   }
 }
 
