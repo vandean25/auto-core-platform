@@ -4,9 +4,11 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  createMemberBearer,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -542,6 +544,40 @@ describe('Labor Module (e2e)', () => {
         if (customerId)
           await prisma.customer.deleteMany({ where: { id: customerId } });
       }
+    });
+
+    it('GET /api/labor/search without workshopOrderId returns 400 (AUT-1024)', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/labor/search?q=Brake')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(400);
+
+      expect(res.body.message).toBe('workshopOrderId is required');
+    });
+
+    it('GET /api/labor/search without q returns 400 (AUT-1024)', async () => {
+      const res = await request(app.getHttpServer())
+        .get(
+          '/api/labor/search?workshopOrderId=00000000-0000-0000-0000-000000000000',
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(400);
+
+      expect(res.body.message).toBe('q is required');
+    });
+
+    it('GET /api/labor/search without permission returns 403 even when params are missing (AUT-1024)', async () => {
+      const techBearer = await createMemberBearer(
+        app.get<PrismaService>(PrismaService),
+        app.get(AuthService),
+        testTenant,
+        'TECH',
+      );
+
+      await request(app.getHttpServer())
+        .get('/api/labor/search?q=Brake')
+        .set('Authorization', techBearer)
+        .expect(403);
     });
   });
 });
