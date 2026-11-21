@@ -362,4 +362,38 @@ describe('work order row actions', () => {
       vi.useRealTimers()
     }
   })
+
+  it('clears pending state and in-flight guard if toast.loading throws', async () => {
+    const { toast } = await import('sonner')
+    const loadingSpy = vi.spyOn(toast, 'loading').mockImplementation(() => {
+      throw new Error('toast failed')
+    })
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-err')
+    const onPdfPendingChange = vi.fn()
+    const mutateAsync = vi.fn().mockResolvedValue({ enqueued: false })
+
+    try {
+      await runGenerateWorkshopJobCardPdf(row, {
+        generatePdf: { mutateAsync, isPending: false } as never,
+        t,
+        onPdfPendingChange,
+      })
+
+      expect(onPdfPendingChange).toHaveBeenNthCalledWith(1, true)
+      expect(onPdfPendingChange).toHaveBeenLastCalledWith(false)
+      expect(errorSpy).toHaveBeenCalledWith('orderDetail.toast.jobCardPdfFailed', undefined)
+      expect(mutateAsync).not.toHaveBeenCalled()
+
+      loadingSpy.mockImplementation(() => 'toast-ok')
+      await runGenerateWorkshopJobCardPdf(row, {
+        generatePdf: { mutateAsync, isPending: false } as never,
+        t,
+        onPdfPendingChange,
+      })
+      expect(mutateAsync).toHaveBeenCalledWith('order-1')
+    } finally {
+      loadingSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
 })

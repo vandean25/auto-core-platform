@@ -276,10 +276,11 @@ export async function runGenerateWorkshopJobCardPdf(
   }: Pick<WorkshopOrderRowActionContext, 'generatePdf' | 't' | 'onPdfPendingChange'>,
 ) {
   if (generatePdf.isPending || inFlightJobCardPdfOrderIds.has(row.id)) return
-  inFlightJobCardPdfOrderIds.add(row.id)
-  onPdfPendingChange?.(true)
-  const toastId = toast.loading(translate('orderDetail.toast.jobCardPdfGenerating'))
+  let toastId: string | number | undefined
   try {
+    inFlightJobCardPdfOrderIds.add(row.id)
+    onPdfPendingChange?.(true)
+    toastId = toast.loading(translate('orderDetail.toast.jobCardPdfGenerating'))
     const res = await generatePdf.mutateAsync(row.id)
     const blob = res.enqueued
       ? await downloadWorkshopPdf(row.id, { poll: true })
@@ -290,9 +291,10 @@ export async function runGenerateWorkshopJobCardPdf(
     triggerBlobDownload(blob, `${fileName}.pdf`)
     toast.success(translate('orderDetail.toast.jobCardPdfDownloaded'), { id: toastId })
   } catch (error: unknown) {
-    toast.error(getErrorMessage(error, translate('orderDetail.toast.jobCardPdfFailed')), {
-      id: toastId,
-    })
+    toast.error(
+      getErrorMessage(error, translate('orderDetail.toast.jobCardPdfFailed')),
+      toastId !== undefined ? { id: toastId } : undefined,
+    )
   } finally {
     inFlightJobCardPdfOrderIds.delete(row.id)
     onPdfPendingChange?.(false)
