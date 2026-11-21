@@ -18,6 +18,7 @@ export type ListCursorPayload = {
   tid: string;
   sid: string;
   sv: string | number | boolean | null;
+  sv2?: string | number | boolean | null;
   id: string;
 };
 
@@ -55,6 +56,7 @@ const listCursorFieldChecks: ((parsed: ListCursorPayload) => boolean)[] = [
   (parsed) => typeof parsed.sid === 'string',
   (parsed) => hasUuidFields(parsed, ['tid', 'id']),
   (parsed) => isValidSortValue(parsed.sv),
+  (parsed) => parsed.sv2 === undefined || isValidSortValue(parsed.sv2),
 ];
 
 function isListCursorPayload(value: unknown): value is ListCursorPayload {

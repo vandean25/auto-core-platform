@@ -3,6 +3,7 @@ import {
   GLOBAL_LIST_LIMIT_MAX,
   LIST_CURSOR_ENDPOINT,
   listCursorSortUnsupportedException,
+  type CursorSortConfig,
   type KeysetSortDirection,
 } from '../common/list-cursor/index.js';
 
@@ -17,17 +18,23 @@ const INVOICE_CURSOR_DEFAULT_LIMIT = 25;
  */
 export type InvoiceCursorSortField = 'invoice_number' | 'date';
 
-const INVOICE_CURSOR_SORTS: Record<
-  InvoiceCursorSortField,
-  { prismaField: string; valueKind: 'string' | 'date'; nullable: boolean }
-> = {
+const INVOICE_CURSOR_SORTS: Record<InvoiceCursorSortField, CursorSortConfig> = {
   // Drafts have no number yet: NULLS LAST in both directions, ties broken by the unique id.
   invoice_number: {
     prismaField: 'invoice_number',
     valueKind: 'string',
     nullable: true,
   },
-  date: { prismaField: 'date', valueKind: 'date', nullable: false },
+  date: {
+    prismaField: 'date',
+    valueKind: 'date',
+    nullable: false,
+    secondary: {
+      prismaField: 'invoice_number',
+      valueKind: 'string',
+      nullable: true,
+    },
+  },
 };
 
 export type InvoiceListQuery = {
