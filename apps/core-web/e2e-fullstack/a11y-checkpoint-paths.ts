@@ -1,5 +1,5 @@
 export const A11Y_FULLSTACK_CHECKPOINT_PATHS = {
-  'auth-home': '/',
+  'auth-home': '/inventory',
   'customers-list': '/customers',
   'login-screen': '/login',
   'sales-order-detail': '/sales-orders/so-1',
@@ -12,7 +12,7 @@ export const A11Y_FULLSTACK_CHECKPOINT_PATHS = {
   'vehicle-sale-detail': '/vehicle-stock/sales/sale-1',
   'margin-scheme-invoice-detail': '/sales/invoices/inv-2',
   'workshop-checkout-panel': '/workshop/orders/wo-1',
-  'workshop-command-preview': '/',
+  'workshop-command-preview': '/inventory',
   'workshop-orders-list': '/workshop/orders',
   'workshop-board': '/workshop/board',
   'mechanic-queue': '/mechanic/queue',

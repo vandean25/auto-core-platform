@@ -1,4 +1,5 @@
 {
+  "/": "redirect alias to /inventory, not yet covered (AUT-1006 follow-up)",
   "/inventory/:itemId/ledger": "not yet covered, AUT-1006 follow-up",
   "/dashboard": "not yet covered, AUT-1006 follow-up",
   "/vehicles": "not yet covered, AUT-1006 follow-up",
