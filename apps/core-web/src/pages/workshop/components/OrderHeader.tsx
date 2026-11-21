@@ -265,6 +265,7 @@ function AssignedTechField({
       pending={pending}
       disabled={disabled || pending}
       ariaLabel={ariaLabel}
+      listLabel={ariaLabel}
       emptyText={unassignedLabel}
       leading={<User className='w-4 h-4 mr-1.5 text-muted-foreground' />}
       className='font-medium'

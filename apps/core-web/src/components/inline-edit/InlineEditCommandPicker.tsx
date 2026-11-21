@@ -26,6 +26,7 @@ type InlineEditCommandPickerProps = {
   pending?: boolean
   disabled?: boolean
   ariaLabel: string
+  listLabel?: string
   emptyText: string
   /** Closed control. `field` matches a select; `badge` keeps the status chip. */
   appearance?: 'field' | 'badge'
@@ -42,6 +43,8 @@ function matchesSearch(_itemValue: string, search: string, keywords: string[] = 
 }
 
 function PickerOptions({
+  value,
+  listLabel,
   options,
   saving,
   emptyLabel,
@@ -49,6 +52,8 @@ function PickerOptions({
   onSelect,
   onCancel,
 }: {
+  value?: string | null
+  listLabel?: string
   options: InlineEditPickerOption[]
   saving: boolean
   emptyLabel: string
@@ -57,7 +62,7 @@ function PickerOptions({
   onCancel: () => void
 }) {
   return (
-    <Command filter={matchesSearch}>
+    <Command filter={matchesSearch} defaultValue={value ?? undefined}>
       <CommandInput
         aria-label={searchLabel}
         placeholder={searchLabel}
@@ -68,7 +73,7 @@ function PickerOptions({
           onCancel()
         }}
       />
-      <CommandList>
+      <CommandList label={listLabel}>
         <CommandEmpty>{emptyLabel}</CommandEmpty>
         <CommandGroup>
           {options.map((option) => (
@@ -351,6 +356,8 @@ function commandPickerView({
   const close = () => setOpen(false)
   const panel = (
     <PickerOptions
+      value={value}
+      listLabel={props.listLabel}
       options={options}
       saving={saving}
       emptyLabel={emptyLabel}
