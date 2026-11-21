@@ -1,11 +1,22 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { matchRoutes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import { A11Y_FULLSTACK_ROUTE_PATHS } from '../../e2e-fullstack/a11y-checkpoint-paths'
-import { A11Y_SMOKE_ROUTE_PATHS } from '../../e2e/utils/a11y-smoke-route-paths'
-import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS, isKnownAppPath } from './app-route-paths'
+import {
+  A11Y_FULLSTACK_CHECKPOINT_PATHS,
+  A11Y_FULLSTACK_ROUTE_PATHS,
+} from '../../e2e-fullstack/a11y-checkpoint-paths'
+import {
+  A11Y_SMOKE_PATHS_BY_NAME,
+  A11Y_SMOKE_ROUTE_PATHS,
+} from '../../e2e/utils/a11y-smoke-route-paths'
+import {
+  APP_ROUTE_PATHS,
+  MECHANIC_ROUTE_PATHS,
+  isKnownAppPath,
+  matchKnownAppRoutePattern,
+} from './app-route-paths'
 
 const KNOWN_ROUTE_PATTERNS = [
   ...Object.values(APP_ROUTE_PATHS),
@@ -175,5 +186,56 @@ describe('a11y route coverage guard (AUT-1016)', () => {
 
     expect(result.ok).toBe(false)
     expect(result.message).toContain(APP_ROUTE_PATHS.vehicleStockPurchaseDetail)
+  })
+
+  it('resolves known route patterns via matchKnownAppRoutePattern', () => {
+    expect(matchKnownAppRoutePattern('/sales-orders/so-1')).toBe(APP_ROUTE_PATHS.salesOrderDetail)
+    expect(matchKnownAppRoutePattern('/vehicle-stock/purchases/new')).toBe(
+      APP_ROUTE_PATHS.vehicleStockPurchaseNew,
+    )
+    expect(matchKnownAppRoutePattern('/mechanic/tasks/task-1')).toBe(
+      MECHANIC_ROUTE_PATHS.taskDetail,
+    )
+    expect(matchKnownAppRoutePattern('/login')).toBeNull()
+  })
+
+  it('passes every A11Y_FULLSTACK_CHECKPOINT_PATHS key to scanA11y under e2e-fullstack', () => {
+    const fullstackDir = resolve(import.meta.dirname, '../../e2e-fullstack')
+    const fullstackSource = readdirSync(fullstackDir)
+      .filter(
+        (name) =>
+          name.endsWith('.ts') &&
+          name !== 'a11y-checkpoint.ts' &&
+          name !== 'a11y-checkpoint-paths.ts',
+      )
+      .map((name) => readFileSync(resolve(fullstackDir, name), 'utf8'))
+      .join('\n')
+
+    for (const checkpointId of Object.keys(A11Y_FULLSTACK_CHECKPOINT_PATHS)) {
+      const escaped = checkpointId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      expect(
+        fullstackSource,
+        `checkpoint "${checkpointId}" must be passed to scanA11y under e2e-fullstack`,
+      ).toMatch(new RegExp(`\\bscanA11y\\s*\\([^)]*,\\s*['"]${escaped}['"]\\s*\\)`))
+    }
+  })
+
+  it('derives every A11Y_SMOKE_ROUTES path from A11Y_SMOKE_PATHS_BY_NAME', () => {
+    const smokeRoutesPath = resolve(import.meta.dirname, '../../e2e/utils/a11y-smoke-routes.ts')
+    const source = readFileSync(smokeRoutesPath, 'utf8')
+    const arrayStart = source.indexOf('export const A11Y_SMOKE_ROUTES')
+    expect(arrayStart).toBeGreaterThan(-1)
+    const routesSection = source.slice(arrayStart)
+
+    const pathLines = [...routesSection.matchAll(/^\s*path:\s*(.+?),?\s*$/gm)].map((m) =>
+      m[1].trim(),
+    )
+    const referencedKeys = pathLines.map((expr) => {
+      const match = expr.match(/^A11Y_SMOKE_PATHS_BY_NAME\[['"]([^'"]+)['"]\]$/)
+      expect(match, `expected A11Y_SMOKE_PATHS_BY_NAME lookup, got: ${expr}`).not.toBeNull()
+      return match![1]
+    })
+
+    expect(new Set(referencedKeys)).toEqual(new Set(Object.keys(A11Y_SMOKE_PATHS_BY_NAME)))
   })
 })

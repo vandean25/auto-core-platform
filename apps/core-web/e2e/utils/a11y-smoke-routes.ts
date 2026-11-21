@@ -119,7 +119,7 @@ const boardOrders = [
 export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   {
     name: 'sales order detail',
-    path: `/sales-orders/${SALES_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['sales order detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(page, `/api/sales-orders/${SALES_ORDER_ID}`, {
@@ -132,7 +132,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'customer detail',
-    path: `/customers/${CUSTOMER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['customer detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(
@@ -162,7 +162,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'workshop order detail',
-    path: `/workshop/orders/${WORKSHOP_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['workshop order detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(
@@ -182,7 +182,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'purchase order detail',
-    path: `/purchase-orders/${PURCHASE_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['purchase order detail'],
     mock: async (page) => {
       const vendor = createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' });
       await mockApi(

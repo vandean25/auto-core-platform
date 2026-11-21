@@ -288,6 +288,31 @@ describe('A11y anti-criteria static checks', () => {
       )
     }
   })
+
+  test('every key in A11Y_FULLSTACK_CHECKPOINT_PATHS is passed to scanA11y under e2e-fullstack', () => {
+    const checkpointPathsSource = readFileSync(checkpointPathsPath, 'utf8')
+    const checkpointIds = [...checkpointPathsSource.matchAll(/['"]([^'"]+)['"]\s*:/g)].map((m) => m[1])
+    assert.ok(checkpointIds.length > 0, 'expected at least one checkpoint in a11y-checkpoint-paths.ts')
+
+    const fullstackSource = readdirSync(fullstackDir)
+      .filter(
+        (name) =>
+          name.endsWith('.ts') &&
+          name !== 'a11y-checkpoint.ts' &&
+          name !== 'a11y-checkpoint-paths.ts',
+      )
+      .map((name) => readFileSync(resolve(fullstackDir, name), 'utf8'))
+      .join('\n')
+
+    for (const checkpointId of checkpointIds) {
+      const escaped = checkpointId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      assert.match(
+        fullstackSource,
+        new RegExp(`\\bscanA11y\\s*\\([^)]*,\\s*['"]${escaped}['"]\\s*\\)`),
+        `checkpoint "${checkpointId}" in a11y-checkpoint-paths.ts must be passed to scanA11y under e2e-fullstack`,
+      )
+    }
+  })
 })
 
 describe('checkA11yRouteExceptionsRatchet (AUT-1016)', () => {

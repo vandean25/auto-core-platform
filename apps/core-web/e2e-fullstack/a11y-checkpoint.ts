@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { A11Y_AXE_TAGS, settleA11yPage } from '../e2e/utils/a11y.ts'
+import { matchKnownAppRoutePattern } from '../src/lib/app-route-paths.ts'
 import { compareA11yViolationsToBaseline } from './a11y-baseline.mjs'
 import { A11Y_FULLSTACK_CHECKPOINT_PATHS } from './a11y-checkpoint-paths.ts'
 
@@ -23,8 +24,25 @@ export async function scanA11y(page: Page, checkpointId: string): Promise<void> 
 
   await settleA11yPage(page)
 
-  const results = await new AxeBuilder({ page }).withTags(A11Y_AXE_TAGS).analyze()
   const pathname = new URL(page.url()).pathname
+  const registeredPath =
+    A11Y_FULLSTACK_CHECKPOINT_PATHS[checkpointId as keyof typeof A11Y_FULLSTACK_CHECKPOINT_PATHS]
+  const registeredPattern = matchKnownAppRoutePattern(registeredPath)
+  const actualPattern = matchKnownAppRoutePattern(pathname)
+
+  expect(
+    actualPattern,
+    `[a11y] checkpoint "${checkpointId}" registered path "${registeredPath}" (${registeredPattern ?? 'unmatched'}) does not match page pathname "${pathname}" (${actualPattern ?? 'unmatched'})`,
+  ).toBe(registeredPattern)
+
+  if (registeredPattern === null) {
+    expect(
+      pathname,
+      `[a11y] checkpoint "${checkpointId}" expected pathname "${registeredPath}", got "${pathname}"`,
+    ).toBe(registeredPath)
+  }
+
+  const results = await new AxeBuilder({ page }).withTags(A11Y_AXE_TAGS).analyze()
 
   await test.info().attach(`a11y-${checkpointId}`, {
     body: JSON.stringify(results, null, 2),
