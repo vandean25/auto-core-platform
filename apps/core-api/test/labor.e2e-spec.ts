@@ -23,13 +23,14 @@ describe('Labor Module (e2e)', () => {
   let authToken: string;
   let prisma: PrismaService;
   let tenantId: string;
+  let testTenant: TestTenantResult;
 
   beforeAll(async () => {
     app = await createE2eApp();
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    const testTenant = await createTestTenant(prisma);
+    testTenant = await createTestTenant(prisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
