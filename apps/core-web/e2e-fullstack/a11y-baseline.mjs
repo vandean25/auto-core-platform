@@ -83,3 +83,23 @@ export function checkA11yBaselineRatchet(baseBaseline, headBaseline) {
     message: `A11y baseline ratchet failed:\n${errors.map((e) => `- ${e}`).join('\n')}`,
   }
 }
+
+export function checkA11yRouteExceptionsRatchet(baseExceptions, headExceptions) {
+  const errors = []
+
+  for (const pattern of Object.keys(headExceptions)) {
+    if (!Object.prototype.hasOwnProperty.call(baseExceptions, pattern)) {
+      errors.push(`Route exceptions file adds "${pattern}"`)
+    }
+  }
+
+  if (errors.length === 0) {
+    return { ok: true, errors: [], message: '' }
+  }
+
+  return {
+    ok: false,
+    errors,
+    message: `A11y route exceptions ratchet failed:\n${errors.map((e) => `- ${e}`).join('\n')}`,
+  }
+}
