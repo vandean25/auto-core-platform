@@ -120,6 +120,23 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
   test.describe('at 375px', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
+    test('keeps the complete product draft number readable at 375px without UUID fragments', async ({ page }) => {
+      const invoiceId = '600ad785-64af-43ce-9fbd-9ce37b2c0c41';
+      await mockCursorList(page, {
+        path: '/api/sales/invoices',
+        rows: [{ ...invoiceRows[0], id: invoiceId, status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-1042' }],
+        unpaged: 'array',
+      });
+      await openList(page, '');
+
+      const number = page.getByText('RE-D-1042', { exact: true });
+      await expect(number).toBeVisible();
+      expect(await contentClippedByAncestor(page.locator('li[data-table-row="true"]'))).toEqual([]);
+      expect(await number.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await pageOverflow(page)).toBe(0);
+      await expect(page.locator('li[data-table-row="true"]')).not.toContainText('600ad785');
+    });
+
     test('WHEN the viewport is 375px THEN the invoice cards virtualize with variable heights and stay at least 44px tappable', async ({ page }) => {
       const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows, unpaged: 'array' });
       await openList(page, '?sortField=invoice_number&sortDirection=asc');

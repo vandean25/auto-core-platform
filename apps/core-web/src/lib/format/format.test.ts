@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { formatCurrency, formatDate, formatIsoDateOnly, formatNumber } from '@/lib/format'
+import { formatCurrency, formatDate, formatInvoiceNumber, formatIsoDateOnly, formatNumber } from '@/lib/format'
 import { zonedWallClockToUtc } from '@/lib/format/timezone'
 
 describe('lib/format (de-AT)', () => {
+  it.each([
+    [{ invoice_number: null, draft_number: 'RE-D-1042' }, 'RE-D-1042'],
+    [{ invoice_number: 'RE-2026-0001', draft_number: 'RE-D-1042' }, 'RE-2026-0001'],
+    [undefined, '—'],
+  ] as const)('chooses the persisted invoice display number for %j', (invoice, expected) => {
+    expect(formatInvoiceNumber(invoice)).toBe(expected)
+  })
+
   it('formats numbers with Austrian grouping', () => {
     expect(formatNumber(1234.5, { minimumFractionDigits: 1, maximumFractionDigits: 1 })).toBe('1.234,5')
   })

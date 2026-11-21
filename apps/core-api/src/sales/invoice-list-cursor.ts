@@ -105,6 +105,7 @@ export function buildInvoiceListWhere(
     OR: [
       { invoice_number: { contains: search, mode: 'insensitive' } },
       customerNameMatch(tenantId, search.split(/\s+/)),
+      { draft_number: { contains: search, mode: 'insensitive' } },
       ...(statuses.length > 0 ? [{ status: { in: statuses } }] : []),
     ],
   };
