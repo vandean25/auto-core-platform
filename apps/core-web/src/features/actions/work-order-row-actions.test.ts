@@ -301,4 +301,99 @@ describe('work order row actions', () => {
     })
     successSpy.mockRestore()
   })
+
+  it('polls GET at 500ms after enqueue, keeps pending state during poll, and downloads the PDF', async () => {
+    vi.useFakeTimers()
+    const apiClient = await import('@/api/client')
+    const downloadLib = await import('@/lib/download')
+    const { toast } = await import('sonner')
+
+    const pdfBlob = new Blob(['%PDF-1.4'], { type: 'application/pdf' })
+    const fetchSpy = vi
+      .spyOn(apiClient, 'fetchWithAuth')
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Workshop PDF is not generated yet' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        blob: async () => pdfBlob,
+      } as Response)
+    const downloadSpy = vi.spyOn(downloadLib, 'triggerBlobDownload').mockImplementation(() => {})
+    const loadingSpy = vi.spyOn(toast, 'loading').mockImplementation(() => 'toast-pdf')
+    const successSpy = vi.spyOn(toast, 'success').mockImplementation(() => 'toast-pdf')
+    const onPdfPendingChange = vi.fn()
+    const mutateAsync = vi.fn().mockResolvedValue({ enqueued: true })
+
+    try {
+      const runPromise = runGenerateWorkshopJobCardPdf(row, {
+        generatePdf: { mutateAsync, isPending: false } as never,
+        t,
+        onPdfPendingChange,
+      })
+
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mutateAsync).toHaveBeenCalledWith('order-1')
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        1,
+        '/api/workshop/orders/order-1/pdf',
+        expect.objectContaining({ headers: { Accept: 'application/pdf' }, cache: 'no-store' }),
+      )
+      expect(onPdfPendingChange).toHaveBeenCalledWith(true)
+      expect(onPdfPendingChange).not.toHaveBeenCalledWith(false)
+
+      await vi.advanceTimersByTimeAsync(499)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await runPromise
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(downloadSpy).toHaveBeenCalledWith(pdfBlob, 'job_card_wo_1.pdf')
+      expect(onPdfPendingChange).toHaveBeenLastCalledWith(false)
+    } finally {
+      fetchSpy.mockRestore()
+      downloadSpy.mockRestore()
+      loadingSpy.mockRestore()
+      successSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears pending state and in-flight guard if toast.loading throws', async () => {
+    const { toast } = await import('sonner')
+    const loadingSpy = vi.spyOn(toast, 'loading').mockImplementation(() => {
+      throw new Error('toast failed')
+    })
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'toast-err')
+    const onPdfPendingChange = vi.fn()
+    const mutateAsync = vi.fn().mockResolvedValue({ enqueued: false })
+
+    try {
+      await runGenerateWorkshopJobCardPdf(row, {
+        generatePdf: { mutateAsync, isPending: false } as never,
+        t,
+        onPdfPendingChange,
+      })
+
+      expect(onPdfPendingChange).toHaveBeenNthCalledWith(1, true)
+      expect(onPdfPendingChange).toHaveBeenLastCalledWith(false)
+      expect(errorSpy).toHaveBeenCalledWith('orderDetail.toast.jobCardPdfFailed', undefined)
+      expect(mutateAsync).not.toHaveBeenCalled()
+
+      loadingSpy.mockImplementation(() => 'toast-ok')
+      await runGenerateWorkshopJobCardPdf(row, {
+        generatePdf: { mutateAsync, isPending: false } as never,
+        t,
+        onPdfPendingChange,
+      })
+      expect(mutateAsync).toHaveBeenCalledWith('order-1')
+    } finally {
+      loadingSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
 })

@@ -104,11 +104,12 @@ describe('SettingsPage characterization: session and header', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
   })
 
-  it('renders the page title and description once the session is loaded', () => {
+  it('renders the page title without explanatory subtitle or lock-date helper once the session is loaded', () => {
     renderSettings()
 
     expect(screen.getByRole('heading', { level: 1, name: deSettings.page.title })).toBeVisible()
-    expect(screen.getByText(deSettings.page.description)).toBeVisible()
+    expect(screen.queryByText(deSettings.page.description)).not.toBeInTheDocument()
+    expect(screen.queryByText(deSettings.finance.fiscal.lockDateHint)).not.toBeInTheDocument()
   })
 })
 

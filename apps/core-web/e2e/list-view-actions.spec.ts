@@ -35,13 +35,13 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
     });
   });
 
-  test('empty sidebar Favorites copy names the new Save button', async ({ page }) => {
+  test('empty sidebar Favorites omits helper copy', async ({ page }) => {
     const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
     await corePage.navigate('/customers');
 
     await expect(
       page.getByText(DE_SHELL.favorites.empty),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 
   test('save button shows its tooltip on keyboard focus and hides it on Escape', async ({ page }) => {

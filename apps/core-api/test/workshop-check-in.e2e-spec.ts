@@ -556,13 +556,15 @@ describe('Workshop check-in (e2e)', () => {
     expect(signatureRow?.id).toBe(signatureId);
   });
 
-  it('returns 200 with empty/null body when an in-tenant order has no check-in', async () => {
+  it('returns 200 with JSON null and application/json when an in-tenant order has no check-in', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/workshop/orders/${otherOrderId}/check-in`)
       .set('Authorization', `Bearer ${otherAuthToken}`)
       .expect(200);
 
-    expect(res.text).toBe('');
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.text).toBe('null');
+    expect(res.body).toBeNull();
   });
 
   it('isolates check-in reads across tenants and returns 404 for missing orders', async () => {

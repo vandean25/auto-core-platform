@@ -3,13 +3,16 @@ import { useTranslation } from 'react-i18next'
 import type { AuthSessionTenant } from '@/api/auth-session'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
-import { GlobalSearch } from '@/components/GlobalSearch'
 import { useGlobalSearchShortcut } from '@/hooks/useGlobalSearchShortcut'
 import { MechanicPhoneNav } from '@/components/navigation/MechanicPhoneNav'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 import { IosInstallHint } from '@/components/pwa/IosInstallHint'
 import { Toaster } from '@/components/ui/sonner'
 import { ActiveSiteOutlet } from './ActiveSiteGate'
+
+const GlobalSearch = React.lazy(() =>
+  import('@/components/GlobalSearch').then((m) => ({ default: m.GlobalSearch })),
+)
 
 const LEGACY_MECHANIC_ID_KEY = 'acp:mechanic-id'
 
@@ -62,7 +65,11 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
           <ActiveSiteOutlet>{children}</ActiveSiteOutlet>
         </GlobalErrorBoundary>
       </main>
-      {searchOpen ? <GlobalSearch open onOpenChange={setSearchOpen} /> : null}
+      {searchOpen ? (
+        <React.Suspense fallback={null}>
+          <GlobalSearch open onOpenChange={setSearchOpen} />
+        </React.Suspense>
+      ) : null}
       <MechanicPhoneNav onOpenSearch={() => setSearchOpen(true)} />
       <IosInstallHint />
       <Toaster />

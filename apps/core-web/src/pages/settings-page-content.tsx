@@ -399,7 +399,7 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title={t('page.title')} description={t('page.description')} />
+            <PageHeader title={t('page.title')} />
 
             <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
                 <SettingsTabNav

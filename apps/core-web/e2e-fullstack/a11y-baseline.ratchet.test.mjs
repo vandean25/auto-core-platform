@@ -6,14 +6,17 @@ import { describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
   checkA11yBaselineRatchet,
+  checkA11yRouteExceptionsRatchet,
   compareA11yViolationsToBaseline,
 } from './a11y-baseline.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)))
 const fullstackDir = resolve(repoRoot, 'apps/core-web/e2e-fullstack')
 const baselinePath = resolve(fullstackDir, 'a11y-baseline.json')
+const checkpointPathsPath = resolve(fullstackDir, 'a11y-checkpoint-paths.ts')
 const checkpointHelperPath = resolve(fullstackDir, 'a11y-checkpoint.ts')
 const mockedA11yUtilsPath = resolve(repoRoot, 'apps/core-web/e2e/utils/a11y.ts')
+const routeExceptionsPath = resolve(repoRoot, 'apps/core-web/e2e/a11y-route-exceptions.json')
 
 function makeViolation({
   id = 'color-contrast',
@@ -272,5 +275,93 @@ describe('A11y anti-criteria static checks', () => {
       /export const A11Y_ALLOWLIST[\s\S]*?=\s*\[\s*\]\s*;/,
       'A11Y_ALLOWLIST in e2e/utils/a11y.ts must remain empty',
     )
+  })
+
+  test('every key in a11y-baseline.json is registered in a11y-checkpoint-paths.ts', () => {
+    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'))
+    const checkpointPathsSource = readFileSync(checkpointPathsPath, 'utf8')
+    for (const checkpointId of Object.keys(baseline)) {
+      assert.match(
+        checkpointPathsSource,
+        new RegExp(`['"]${checkpointId}['"]\\s*:`),
+        `checkpoint "${checkpointId}" in a11y-baseline.json must be registered in a11y-checkpoint-paths.ts`,
+      )
+    }
+  })
+
+  test('every key in A11Y_FULLSTACK_CHECKPOINT_PATHS is passed to scanA11y under e2e-fullstack', () => {
+    const checkpointPathsSource = readFileSync(checkpointPathsPath, 'utf8')
+    const checkpointIds = [...checkpointPathsSource.matchAll(/['"]([^'"]+)['"]\s*:/g)].map((m) => m[1])
+    assert.ok(checkpointIds.length > 0, 'expected at least one checkpoint in a11y-checkpoint-paths.ts')
+
+    const fullstackSource = readdirSync(fullstackDir)
+      .filter(
+        (name) =>
+          name.endsWith('.ts') &&
+          name !== 'a11y-checkpoint.ts' &&
+          name !== 'a11y-checkpoint-paths.ts',
+      )
+      .map((name) => readFileSync(resolve(fullstackDir, name), 'utf8'))
+      .join('\n')
+
+    for (const checkpointId of checkpointIds) {
+      const escaped = checkpointId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      assert.match(
+        fullstackSource,
+        new RegExp(`\\bscanA11y\\s*\\([^)]*,\\s*['"]${escaped}['"]\\s*\\)`),
+        `checkpoint "${checkpointId}" in a11y-checkpoint-paths.ts must be passed to scanA11y under e2e-fullstack`,
+      )
+    }
+  })
+})
+
+describe('checkA11yRouteExceptionsRatchet (AUT-1016)', () => {
+  const base = {
+    '/hr': 'not yet covered, AUT-1006 follow-up',
+    '/dashboard': 'not yet covered, AUT-1006 follow-up',
+  }
+
+  test('Scenario 5a: fails when a PR adds a key to the exception file versus base', () => {
+    const head = {
+      ...base,
+      '/new-route': 'not yet covered, AUT-1006 follow-up',
+    }
+    const result = checkA11yRouteExceptionsRatchet(base, head)
+    assert.equal(result.ok, false)
+    assert.match(result.message, /\/new-route/)
+  })
+
+  test('Scenario 5b: passes when a PR removes a key from the exception file versus base', () => {
+    const head = {
+      '/hr': 'not yet covered, AUT-1006 follow-up',
+    }
+    const result = checkA11yRouteExceptionsRatchet(base, head)
+    assert.equal(result.ok, true, result.message)
+  })
+})
+
+describe('A11y route exceptions ratchet against base branch (AUT-1016)', () => {
+  test('committed a11y-route-exceptions.json does not add keys compared to base branch', () => {
+    assert.ok(existsSync(routeExceptionsPath), 'missing apps/core-web/e2e/a11y-route-exceptions.json')
+    const headExceptions = JSON.parse(readFileSync(routeExceptionsPath, 'utf8'))
+
+    const baseRef = process.env.A11Y_BASELINE_BASE_REF || 'origin/main'
+    let baseRaw = null
+    try {
+      baseRaw = execFileSync(
+        'git',
+        ['show', `${baseRef}:apps/core-web/e2e/a11y-route-exceptions.json`],
+        { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+    } catch {
+      // Base branch does not have a11y-route-exceptions.json yet (initial introduction PR).
+      baseRaw = null
+    }
+
+    if (baseRaw !== null) {
+      const baseExceptions = JSON.parse(baseRaw)
+      const result = checkA11yRouteExceptionsRatchet(baseExceptions, headExceptions)
+      assert.equal(result.ok, true, result.message)
+    }
   })
 })
