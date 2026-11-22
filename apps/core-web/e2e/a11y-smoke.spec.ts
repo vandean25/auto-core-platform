@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoCriticalA11yViolations, settleA11yPage } from './utils/a11y';
+import { A11Y_SMOKE_ROUTE_PATHS } from './utils/a11y-smoke-route-paths';
 import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-routes';
 
 /**
@@ -61,6 +62,12 @@ async function expectNoHorizontalScroll(page: Page) {
 }
 
 test.describe('A11y smoke: axe serious, critical and color-contrast (AUT-482)', () => {
+  test('smoke route path set equals A11Y_SMOKE_ROUTE_PATHS (AUT-1016)', () => {
+    expect(new Set(A11Y_SMOKE_ROUTES.map((route) => route.path))).toEqual(
+      new Set(A11Y_SMOKE_ROUTE_PATHS),
+    );
+  });
+
   for (const route of A11Y_SMOKE_ROUTES) {
     test(`${route.name} has no serious, critical or contrast violations`, async ({ page }) => {
       await openRoute(page, route);

@@ -40,16 +40,13 @@ export function CreditNoteInfoCard({
   originalInvoice,
   draft,
   canEditDraft,
-  canManage,
 }: {
   creditNote: CreditNoteResponseDto
   originalInvoice: Invoice | undefined
   draft: CreditNoteDraft
   canEditDraft: boolean
-  canManage: boolean
 }) {
   const { t } = useTranslation('finance')
-  const isDraft = creditNote.status === 'DRAFT'
   const originalInvoiceLabel = originalInvoice?.invoice_number ?? creditNote.originalInvoiceId.slice(0, 8)
 
   return (
@@ -98,12 +95,6 @@ export function CreditNoteInfoCard({
             <div className="font-medium">{creditNote.reason}</div>
           )}
         </div>
-        {isDraft && !canManage ? (
-          <p className="text-xs text-muted-foreground">{t('creditNotes.detail.draftEditHint')}</p>
-        ) : null}
-        {creditNote.status === 'FINALIZED' ? (
-          <p className="text-xs text-muted-foreground">{t('creditNotes.detail.finalizedHint')}</p>
-        ) : null}
       </CardContent>
     </Card>
   )

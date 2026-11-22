@@ -1,8 +1,9 @@
 import { fetchWithAuth } from '@/api/client'
 
-export const DEFAULT_PDF_POLL_INTERVAL_MS = 1_500
+export const DEFAULT_PDF_POLL_INTERVAL_MS = 500
 export const DEFAULT_PDF_POLL_MAX_INTERVAL_MS = 5_000
 export const DEFAULT_PDF_POLL_BACKOFF_MULTIPLIER = 1.5
+export const DEFAULT_PDF_POLL_MAX_ATTEMPTS = 20
 export const DEFAULT_PDF_POLL_TIMEOUT_MS = 60_000
 export const DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE =
   'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.'
@@ -27,6 +28,7 @@ export interface PollPdfOptions {
   intervalMs?: number
   maxIntervalMs?: number
   backoffMultiplier?: number
+  maxAttempts?: number
   timeoutMs?: number
   signal?: AbortSignal
   onPoll?: (attempt: number) => void
@@ -43,6 +45,7 @@ export interface GenerateAndDownloadPdfBlobOptions {
   intervalMs?: number
   maxIntervalMs?: number
   backoffMultiplier?: number
+  maxAttempts?: number
   timeoutMs?: number
   timeoutErrorMessage?: string
   errorFallbackMessage?: string
@@ -66,45 +69,77 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
+function resolvePollConfig(options: PollPdfOptions) {
+  return {
+    initialIntervalMs: options.intervalMs ?? DEFAULT_PDF_POLL_INTERVAL_MS,
+    maxIntervalMs: options.maxIntervalMs ?? DEFAULT_PDF_POLL_MAX_INTERVAL_MS,
+    backoffMultiplier:
+      options.backoffMultiplier ?? DEFAULT_PDF_POLL_BACKOFF_MULTIPLIER,
+    maxAttempts: options.maxAttempts ?? DEFAULT_PDF_POLL_MAX_ATTEMPTS,
+    timeoutMs: options.timeoutMs ?? DEFAULT_PDF_POLL_TIMEOUT_MS,
+    timeoutErrorMessage:
+      options.timeoutErrorMessage ?? DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
+  }
+}
+
+async function tryFetchPdfAttempt(
+  fetchPdf: () => Promise<Response>,
+  attempt: number,
+  options: PollPdfOptions,
+): Promise<Blob | null> {
+  options.onPoll?.(attempt)
+
+  const failedMessage = await options.checkGenerationFailed?.()
+  if (failedMessage) {
+    throw new Error(failedMessage)
+  }
+
+  const response = await fetchPdf()
+  if (response.ok) {
+    return response.blob()
+  }
+
+  const message = await readPdfDownloadError(response, 'Failed to download PDF')
+  if (!isPdfNotReadyHttpStatus(response.status, message)) {
+    throw new Error(message)
+  }
+
+  return null
+}
+
 export async function pollUntilPdfBlob(
   fetchPdf: () => Promise<Response>,
   options: PollPdfOptions = {},
 ): Promise<Blob> {
-  const initialIntervalMs = options.intervalMs ?? DEFAULT_PDF_POLL_INTERVAL_MS
-  const maxIntervalMs = options.maxIntervalMs ?? DEFAULT_PDF_POLL_MAX_INTERVAL_MS
-  const backoffMultiplier = options.backoffMultiplier ?? DEFAULT_PDF_POLL_BACKOFF_MULTIPLIER
-  const timeoutMs = options.timeoutMs ?? DEFAULT_PDF_POLL_TIMEOUT_MS
-  const timeoutErrorMessage =
-    options.timeoutErrorMessage ?? DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE
+  const {
+    initialIntervalMs,
+    maxIntervalMs,
+    backoffMultiplier,
+    maxAttempts,
+    timeoutMs,
+    timeoutErrorMessage,
+  } = resolvePollConfig(options)
   const deadline = Date.now() + timeoutMs
   let currentInterval = initialIntervalMs
-  let attempt = 0
 
-  while (Date.now() < deadline) {
+  for (
+    let attempt = 1;
+    attempt <= maxAttempts && Date.now() < deadline;
+    attempt += 1
+  ) {
     if (options.signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError')
     }
 
-    attempt += 1
-    options.onPoll?.(attempt)
-
-    const failedMessage = await options.checkGenerationFailed?.()
-    if (failedMessage) {
-      throw new Error(failedMessage)
+    const blob = await tryFetchPdfAttempt(fetchPdf, attempt, options)
+    if (blob) {
+      return blob
     }
 
-    const response = await fetchPdf()
-    if (response.ok) {
-      return response.blob()
+    if (attempt < maxAttempts) {
+      await sleep(currentInterval, options.signal)
+      currentInterval = Math.min(currentInterval * backoffMultiplier, maxIntervalMs)
     }
-
-    const message = await readPdfDownloadError(response, 'Failed to download PDF')
-    if (!isPdfNotReadyHttpStatus(response.status, message)) {
-      throw new Error(message)
-    }
-
-    await sleep(currentInterval, options.signal)
-    currentInterval = Math.min(currentInterval * backoffMultiplier, maxIntervalMs)
   }
 
   throw new Error(timeoutErrorMessage)
@@ -153,6 +188,7 @@ export async function generateAndDownloadPdfBlob(
     intervalMs: options.intervalMs,
     maxIntervalMs: options.maxIntervalMs,
     backoffMultiplier: options.backoffMultiplier,
+    maxAttempts: options.maxAttempts,
     timeoutMs: options.timeoutMs,
     signal: options.signal,
     onPoll: options.onPoll,

@@ -453,7 +453,8 @@
     "drawer": {
       "title": "Teile kommissionieren",
       "description": "Teile einem Bereitstellungsbehälter für diesen Werkstattauftrag zuweisen.",
-      "linesBadge": "{{count}} Positionen",
+      "linesBadge_one": "{{count}} Position",
+      "linesBadge_other": "{{count}} Positionen",
       "cancel": "Abbrechen",
       "confirm": "Kommissionierung bestätigen",
       "destinationTote": "Zielbehälter",
@@ -664,7 +665,6 @@
       "taskDeleted": "Aufgabe gelöscht",
       "taskDeleteFailed": "Aufgabe konnte nicht gelöscht werden",
       "jobCardPdfGenerating": "Job-Card-PDF wird erstellt…",
-      "jobCardPdfQueued": "Die Job-Card-PDF-Erstellung wurde in die Warteschlange gestellt und steht in Kürze bereit.",
       "jobCardPdfDownloaded": "Job-Card-PDF erfolgreich heruntergeladen",
       "jobCardPdfFailed": "PDF konnte nicht erstellt werden",
       "technicianAssigned": "Mechaniker zugewiesen",

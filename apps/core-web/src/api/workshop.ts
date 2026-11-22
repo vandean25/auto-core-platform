@@ -25,6 +25,7 @@ import { DETAIL_PREFETCH_GC_MS } from '@/lib/intent-prefetch'
 import { isWorkshopTaskStatusUpdateOptimisticEligible } from '@/features/interaction/workshop-task-update-eligibility'
 import { applyChecklistEdits, revertChecklistEdits } from '@/api/inspection-checklist-patch'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
+import { downloadPdfFromGetUrl, type PollPdfOptions } from '@/lib/async-pdf'
 import {
   getRequiredPartLines,
   getTotalRequiredQuantity,
@@ -1019,17 +1020,11 @@ export function useGenerateWorkshopPdf() {
   })
 }
 
-export async function downloadWorkshopPdf(orderId: string): Promise<Blob> {
-  const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/pdf`, {
-    headers: {
-      Accept: 'application/pdf',
-    },
-  })
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.message || 'Failed to download workshop PDF')
-  }
-  return response.blob()
+export async function downloadWorkshopPdf(
+  orderId: string,
+  options?: { poll?: boolean; pollOptions?: PollPdfOptions },
+): Promise<Blob> {
+  return downloadPdfFromGetUrl(`${WORKSHOP_API}/orders/${orderId}/pdf`, options)
 }
 
 // ─── Board API ────────────────────────────────────────────────────────────────

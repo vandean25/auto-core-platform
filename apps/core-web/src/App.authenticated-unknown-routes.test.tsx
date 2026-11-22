@@ -2,7 +2,7 @@
  * AUT-222: Authenticated unknown routes show a 404 page inside the app shell.
  */
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
@@ -106,28 +106,48 @@ describe('App authenticated unknown routes (AUT-222)', () => {
   it('redirects /invoices to the sales invoices list (AUT-311)', async () => {
     renderAtPath('/invoices')
 
-    expect(await screen.findByText('Sales Invoices List', {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(
+      () => {
+        expect(screen.getByText('Sales Invoices List')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
   })
 
   it('redirects /finance/invoices to the sales invoices list (AUT-311)', async () => {
     renderAtPath('/finance/invoices')
 
-    expect(await screen.findByText('Sales Invoices List', {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(
+      () => {
+        expect(screen.getByText('Sales Invoices List')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
   })
 
   it('redirects /workshop/pick to the pick list', async () => {
     renderAtPath('/workshop/pick')
 
-    expect(await screen.findByText('Parts pick queue', {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(
+      () => {
+        expect(screen.getByText('Parts pick queue')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.workshopPickList)
   })
 
   it('redirects /vehicles/stock to vehicle stock (AUT-289)', async () => {
     renderAtPath('/vehicles/stock')
 
-    expect(await screen.findByText('Vehicle Stock List', {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(
+      () => {
+        expect(screen.getByText('Vehicle Stock List')).toBeInTheDocument()
+      },
+      { timeout: 5000 },
+    )
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.vehicleStock)
   })
 

@@ -13,6 +13,11 @@ describe('RoutePendingFallback', () => {
     APP_ROUTE_PATHS.workshopOrders,
     APP_ROUTE_PATHS.vehicles,
     APP_ROUTE_PATHS.workshopEstimates,
+    APP_ROUTE_PATHS.tyreStorage,
+    APP_ROUTE_PATHS.purchaseOrders,
+    APP_ROUTE_PATHS.salesInvoices,
+    APP_ROUTE_PATHS.customers,
+    APP_ROUTE_PATHS.inventory,
   ])('renders an immediate table skeleton for %s without PageLoader', (pathname) => {
     const { container } = render(<RoutePendingFallback pathname={pathname} />)
 

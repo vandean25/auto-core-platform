@@ -136,5 +136,89 @@ describe('WorkshopOrderPickDrawer', () => {
     expect(header.queryByText(status, { exact: true })).toBeNull()
     expect(header.queryByText(`status.${status}`, { exact: true })).toBeNull()
   })
+
+  // AUT-1023: loading state must not flash the 'not released' warning or a settled '0 Positionen' badge.
+  it('does not show the not-eligible warning or a 0-count badge while the order is loading', () => {
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({ data: undefined, isLoading: true })
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByText(deWorkshop.pick.drawer.notEligible)).toBeNull()
+    expect(screen.queryByText('0 Positionen')).toBeNull()
+    expect(screen.queryByText(deWorkshop.pick.drawer.totalQty.replace('{{qty}}', '0'))).toBeNull()
+  })
+
+  // AUT-1023: eligible work orders show their pick lines without the not-eligible warning after load.
+  it('shows pick lines without the not-eligible warning once an eligible order has loaded', () => {
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
+      data: createOrder('tote-1', 2, 'INTAKE'),
+      isLoading: false,
+    })
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByText(deWorkshop.pick.drawer.notEligible)).toBeNull()
+    expect(screen.getByText('PART-001')).toBeInTheDocument()
+  })
+
+  // AUT-1023: genuinely non-eligible work orders still show the warning after loading finishes.
+  it('shows the not-eligible warning once a non-eligible order has finished loading', () => {
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({
+      data: createOrder('tote-1', 2, 'SCHEDULED'),
+      isLoading: false,
+    })
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText(deWorkshop.pick.drawer.notEligible)).toBeInTheDocument()
+  })
+
+  // AUT-1023: singular/plural position count in DE and EN.
+  it.each([
+    ['de', 1, '1 Position'],
+    ['de', 2, '2 Positionen'],
+    ['en', 1, '1 line'],
+    ['en', 2, '2 lines'],
+  ] as const)('formats %s linesBadge for %i line(s) as %s', async (language, lineCount, expectedBadge) => {
+    await changeUiLanguage(language)
+    const order = createOrder('tote-1', 2, 'INTAKE')
+    order.tasks = [
+      {
+        id: 'task-1',
+        title: 'Inspect',
+        lineItems: Array.from({ length: lineCount }, (_, index) => ({
+          id: `line-${index + 1}`,
+          type: 'PART' as const,
+          catalogItemId: `catalog-${index + 1}`,
+          itemNo: `PART-00${index + 1}`,
+          description: `Part ${index + 1}`,
+          qty: 2,
+        })),
+      },
+    ]
+
+    mocked(workshopApi.useWorkshopOrder).mockReturnValue({ data: order, isLoading: false })
+
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <WorkshopOrderPickDrawer orderId='order-1' open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    )
+
+    const header = within(document.querySelector('[data-pick-drawer-header="true"]') as HTMLElement)
+    expect(header.getByText(expectedBadge, { exact: true })).toBeInTheDocument()
+  })
 })
 

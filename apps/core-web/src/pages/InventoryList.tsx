@@ -111,7 +111,6 @@ export default function InventoryList() {
             <div className={PAGE_HEADER_ROW}>
                 <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('partsList.title')}</h1>
-                    <p className="text-muted-foreground">{t('partsList.description')}</p>
                 </div>
                 <AddItemDialog onCreate={pending.submit} />
             </div>

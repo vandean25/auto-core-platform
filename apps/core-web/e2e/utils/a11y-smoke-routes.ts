@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { AutoCorePage } from '../pom/AutoCorePage';
 import { DE_SETTINGS } from '../helpers/de-settings';
+import { A11Y_SMOKE_IDS, A11Y_SMOKE_PATHS_BY_NAME } from './a11y-smoke-route-paths';
 import inventoryDe from '../../../../locales/de/inventory.json' with { type: 'json' };
 import {
   createMockBay,
@@ -63,11 +64,11 @@ function titleReady(title?: string) {
   };
 }
 
-const SALES_ORDER_ID = 'so-a11y-1';
-const CUSTOMER_ID = 'cust-a11y-1';
-const WORKSHOP_ORDER_ID = 'ws-a11y-1';
-const PURCHASE_ORDER_ID = 'po-a11y-1';
-const VENDOR_ID = 'vendor-a11y-1';
+const SALES_ORDER_ID = A11Y_SMOKE_IDS.salesOrder;
+const CUSTOMER_ID = A11Y_SMOKE_IDS.customer;
+const WORKSHOP_ORDER_ID = A11Y_SMOKE_IDS.workshopOrder;
+const PURCHASE_ORDER_ID = A11Y_SMOKE_IDS.purchaseOrder;
+const VENDOR_ID = A11Y_SMOKE_IDS.vendor;
 
 const boardMechanic = createMockEmployee({
   id: 'emp-mech-001',
@@ -118,7 +119,7 @@ const boardOrders = [
 export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   {
     name: 'sales order detail',
-    path: `/sales-orders/${SALES_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['sales order detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(page, `/api/sales-orders/${SALES_ORDER_ID}`, {
@@ -131,7 +132,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'customer detail',
-    path: `/customers/${CUSTOMER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['customer detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(
@@ -161,7 +162,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'workshop order detail',
-    path: `/workshop/orders/${WORKSHOP_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['workshop order detail'],
     keyPage: true,
     mock: async (page) => {
       await mockApi(
@@ -181,7 +182,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'purchase order detail',
-    path: `/purchase-orders/${PURCHASE_ORDER_ID}`,
+    path: A11Y_SMOKE_PATHS_BY_NAME['purchase order detail'],
     mock: async (page) => {
       const vendor = createMockVendor({ id: VENDOR_ID, name: 'Bosch Automotive' });
       await mockApi(
@@ -204,7 +205,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'workshop board',
-    path: '/workshop/board',
+    path: A11Y_SMOKE_PATHS_BY_NAME['workshop board'],
     mock: async (page) => {
       await mockApi(page, '/api/workshop/resources', {
         mechanics: [boardMechanic],
@@ -218,7 +219,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'settings: finance tab',
-    path: '/settings',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: finance tab'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/finance/revenue-groups', [
@@ -229,7 +230,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'settings: brands tab',
-    path: '/settings?tab=brands',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: brands tab'],
     mock: async (page) => {
       await mockShellApis(page);
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
@@ -244,7 +245,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'settings: storage locations tab',
-    path: '/settings?tab=locations',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: storage locations tab'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/inventory/locations/tree', [createMockStorageLocation({ name: 'Aisle F' })]);
@@ -253,7 +254,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'settings: labor tab',
-    path: '/settings?tab=labor',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: labor tab'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(
@@ -271,7 +272,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'customers list with add customer dialog open',
-    path: '/customers',
+    path: A11Y_SMOKE_PATHS_BY_NAME['customers list with add customer dialog open'],
     mock: async (page) => {
       await mockApi(page, '/api/customers', createMockListResponse([]));
     },
@@ -286,7 +287,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'sales orders list',
-    path: '/sales-orders',
+    path: A11Y_SMOKE_PATHS_BY_NAME['sales orders list'],
     mock: async (page) => {
       await mockApi(page, '/api/sales-orders', createMockListResponse([]));
     },
@@ -294,7 +295,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'purchase orders list',
-    path: '/purchase-orders',
+    path: A11Y_SMOKE_PATHS_BY_NAME['purchase orders list'],
     mock: async (page) => {
       await mockApi(page, '/api/purchase-orders', createMockListResponse([]));
     },
@@ -302,7 +303,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'inventory list',
-    path: '/inventory',
+    path: A11Y_SMOKE_PATHS_BY_NAME['inventory list'],
     mock: async (page) => {
       await mockShellApis(page);
       await mockApi(page, '/api/inventory', createMockListResponse([createMockInventoryItem()]));
@@ -317,7 +318,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'vehicle stock list',
-    path: '/vehicle-stock',
+    path: A11Y_SMOKE_PATHS_BY_NAME['vehicle stock list'],
     mock: async (page) => {
       await mockApi(page, '/api/vehicle-stock', createMockListResponse([]));
     },
@@ -325,7 +326,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
   },
   {
     name: 'vendors list',
-    path: '/vendors',
+    path: A11Y_SMOKE_PATHS_BY_NAME['vendors list'],
     mock: async (page) => {
       await mockApi(page, '/api/vendors', createMockListResponse([]));
     },

@@ -83,6 +83,10 @@ describe('OnboardingChecklist steps', () => {
     expect(screen.getByRole('link', { name: 'Fahrzeuge öffnen' })).toHaveAttribute('href', '/vehicles')
     expect(screen.getByRole('link', { name: 'Lager öffnen' })).toHaveAttribute('href', '/inventory')
     expect(screen.getByRole('link', { name: 'Werkstattaufträge öffnen' })).toHaveAttribute('href', '/workshop/orders')
+    expect(screen.queryByText('Vier Schritte bis zum ersten Auftrag am Board.')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Erfassen Sie Privat- und Firmenkunden, die Sie abrechnen und betreuen.'),
+    ).not.toBeInTheDocument()
   })
 })
 

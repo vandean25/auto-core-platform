@@ -48,8 +48,8 @@ export class LaborController {
     schema: { type: 'string' },
   })
   search(
-    @Query('q') query: string,
-    @Query('workshopOrderId') workshopOrderId: string,
+    @Query('q') query?: string,
+    @Query('workshopOrderId') workshopOrderId?: string,
   ) {
     return this.laborService.search(query, workshopOrderId);
   }
