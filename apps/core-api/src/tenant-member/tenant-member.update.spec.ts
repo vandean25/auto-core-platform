@@ -1,8 +1,13 @@
 import { TenantMemberRole } from '@prisma/client';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import {
   buildMembershipUpdateData,
   isSecuritySensitiveChange,
 } from './tenant-member.update.js';
+import { TenantMemberService } from './tenant-member.service.js';
 
 describe('buildMembershipUpdateData', () => {
   it('maps only the role when only the role is provided', () => {
@@ -50,5 +55,120 @@ describe('isSecuritySensitiveChange', () => {
       isSecuritySensitiveChange(TenantMemberRole.TECH, { isActive: true }),
     ).toBe(false);
     expect(isSecuritySensitiveChange(TenantMemberRole.TECH, {})).toBe(false);
+  });
+});
+
+describe('membership role change when the audit insert fails', () => {
+  it('rolls the role change back when the audit delegate rejects', async () => {
+    const membership = {
+      id: 'membership-1',
+      tenant_id: 'tenant-a',
+      user_id: 'user-1',
+      role: TenantMemberRole.ADMIN,
+      is_active: true,
+      createdAt: new Date('2026-04-23T10:00:00.000Z'),
+      updatedAt: new Date('2026-04-23T10:00:00.000Z'),
+      user: {
+        id: 'user-1',
+        email: 'tech@autocore.com',
+        firstName: 'Tech',
+        lastName: 'User',
+        firebaseUid: 'firebase-uid-1',
+        active_tenant_id: 'tenant-a',
+      },
+    };
+    let committedRole = TenantMemberRole.ADMIN;
+    const auditCreate = jest
+      .fn()
+      .mockRejectedValue(new Error('audit insert failed'));
+    const update = jest.fn(
+      async (args: { data: { role?: TenantMemberRole } }) => ({
+        ...membership,
+        ...args.data,
+      }),
+    );
+    const systemPrisma = {
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue(membership),
+        update,
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      tenant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          firebaseUid: 'firebase-uid-1',
+          email: 'tech@autocore.com',
+          active_tenant_id: 'tenant-a',
+          platformAdmin: null,
+          memberships: [
+            {
+              tenant_id: 'tenant-a',
+              role: TenantMemberRole.TECH,
+              is_active: true,
+            },
+          ],
+        }),
+      },
+      auditLog: { create: auditCreate },
+      $transaction: jest.fn(
+        async (fn: (client: typeof systemPrisma) => Promise<{ role: TenantMemberRole }>) => {
+          const result = await fn(systemPrisma);
+          committedRole = result.role;
+          return result;
+        },
+      ),
+    };
+    const tenantContext = {
+      getRequiredTenantId: jest.fn().mockReturnValue('tenant-a'),
+      getAuthenticatedUser: jest.fn().mockReturnValue({
+        userId: 'admin-user',
+        email: 'admin@autocore.com',
+        tenantId: 'tenant-a',
+        role: 'ADMIN',
+      }),
+    };
+    const realtime = {
+      emitClaimsUpdated: jest.fn(),
+      emitSiteContextUpdated: jest.fn(),
+      emitSiteAccessScopeUpdated: jest.fn(),
+    };
+
+    class TestableTenantMemberService extends TenantMemberService {
+      public override getFirebaseAuth() {
+        return {
+          getUser: jest.fn().mockResolvedValue({ customClaims: {} }),
+          setCustomUserClaims: jest.fn().mockResolvedValue(undefined),
+          revokeRefreshTokens: jest.fn().mockResolvedValue(undefined),
+        } as never;
+      }
+    }
+
+    const service = new TestableTenantMemberService(
+      systemPrisma as unknown as SystemPrismaService,
+      tenantContext as unknown as TenantContextService,
+      realtime as unknown as DashboardRealtimeService,
+      { $transaction: jest.fn() } as unknown as PrismaService,
+    );
+
+    let thrown: unknown;
+    try {
+      await service.update('membership-1', { role: TenantMemberRole.TECH });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(committedRole).toBe(TenantMemberRole.ADMIN);
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toBe('audit insert failed');
+    expect(auditCreate).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'membership-1', tenant_id: 'tenant-a' },
+        data: { role: TenantMemberRole.TECH },
+      }),
+    );
   });
 });

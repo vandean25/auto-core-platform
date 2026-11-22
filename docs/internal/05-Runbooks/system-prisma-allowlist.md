@@ -29,6 +29,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `landingDemoAccessRequest`, `landingDemoSignInGrant`, `publicRateLimitCounter` | AUT-547 public landing demo form (pre-tenant). Abuse counters are global. |
 | `site`, `siteMembership` | AUT-547 demo user provisioning on the landing demo tenant only. |
 | `notificationOutbox` | AUT-547 outbox writes in the same system transaction as demo access grants (tenant id on the row). |
+| `auditLog.create` (transaction client only) | Membership role and active-state writes insert the audit row in the same transaction. The service does not expose `auditLog`. `tenant_id` is the calling user's tenant. |
 
 Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELEGATES` **and** documented here with an explicit caller.
 
@@ -39,7 +40,7 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | Caller | Delegates |
 |---|---|
 | `AuthSessionService` | `user` |
-| `TenantMemberService` | `user`, `tenantMember` |
+| `TenantMemberService` | `user`, `tenantMember`, `auditLog.create` (inside the membership transaction only) |
 | `PlatformAdminService` | `tenant`, `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem`, `vehicleEquipmentOption` (create-tenant transaction) |
 | `MechanicSchedulerService` | `laborEntry` |
 | `HrAttendanceSchedulerService` | `attendanceEvent` |

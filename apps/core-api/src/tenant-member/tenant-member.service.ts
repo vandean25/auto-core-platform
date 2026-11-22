@@ -32,6 +32,11 @@ import {
   resolveTenantMemberPagination,
 } from './tenant-member.queries.js';
 import {
+  membershipAuditActor,
+  membershipAuditSnapshot,
+  recordTenantMemberAudit,
+} from './tenant-member.audit.js';
+import {
   buildMembershipUpdateData,
   isSecuritySensitiveChange,
 } from './tenant-member.update.js';
@@ -100,7 +105,14 @@ export class TenantMemberService {
       existingUser,
     });
 
+    const actor = membershipAuditActor(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const membership = await this.systemPrisma.$transaction(async (tx) => {
+      const before = await tx.tenantMember.findFirst({
+        where: { tenant_id: tenantId, user_id: userId },
+        include: { user: true },
+      });
       const row = await tx.tenantMember.upsert({
         where: {
           tenant_id_user_id: {
@@ -119,6 +131,13 @@ export class TenantMemberService {
           is_active: true,
         },
         include: { user: true },
+      });
+      await recordTenantMemberAudit(tx.auditLog, {
+        actor,
+        action: before ? 'UPDATE' : 'CREATE',
+        entityId: row.id,
+        before: before ? membershipAuditSnapshot(before) : null,
+        after: membershipAuditSnapshot(row),
       });
       await advanceScopeEpoch(tx, {
         kind: 'member',
@@ -140,12 +159,22 @@ export class TenantMemberService {
     const tenantId = this.tenantContext.getRequiredTenantId();
     const existingMembership = await this.findMembershipOrThrow(id, tenantId);
 
+    const actor = membershipAuditActor(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const updatedMembership = await this.systemPrisma.$transaction(
       async (tx) => {
         const row = await tx.tenantMember.update({
-          where: { id },
+          where: { id, tenant_id: tenantId },
           data: buildMembershipUpdateData(dto),
           include: { user: true },
+        });
+        await recordTenantMemberAudit(tx.auditLog, {
+          actor,
+          action: 'UPDATE',
+          entityId: row.id,
+          before: membershipAuditSnapshot(existingMembership),
+          after: membershipAuditSnapshot(row),
         });
         await advanceScopeEpoch(tx, {
           kind: 'member',

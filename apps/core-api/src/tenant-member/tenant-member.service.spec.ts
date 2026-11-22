@@ -28,6 +28,9 @@ const mockSystemPrisma = {
     create: jest.fn(),
     update: jest.fn(),
   },
+  auditLog: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
@@ -91,6 +94,8 @@ describe('TenantMemberService', () => {
     mockSystemPrisma.tenantMember.upsert.mockReset();
     mockSystemPrisma.tenantMember.findFirst.mockReset();
     mockSystemPrisma.tenantMember.update.mockReset();
+    mockSystemPrisma.auditLog.create.mockReset();
+    mockSystemPrisma.auditLog.create.mockResolvedValue({ id: 'audit-1' });
     mockSystemPrisma.user.findFirst.mockReset();
     mockSystemPrisma.user.create.mockReset();
     mockSystemPrisma.user.update.mockReset();
@@ -453,7 +458,7 @@ describe('TenantMemberService', () => {
     });
 
     expect(mockSystemPrisma.tenantMember.update).toHaveBeenCalledWith({
-      where: { id: 'membership-1' },
+      where: { id: 'membership-1', tenant_id: 'tenant-a' },
       data: {
         role: TenantMemberRole.TECH,
         is_active: false,
