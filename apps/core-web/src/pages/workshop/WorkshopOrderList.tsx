@@ -41,7 +41,6 @@ export default function WorkshopOrderList() {
     <div className='space-y-6'>
       <PageHeader
         title={t('orders.list.title')}
-        description={t('orders.list.description')}
         actions={
           <>
             <TooltipHint hint={t('orders.list.partsPickHint')}>

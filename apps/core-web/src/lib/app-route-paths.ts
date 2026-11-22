@@ -86,6 +86,10 @@ const KNOWN_APP_ROUTE_PATHS = [
 
 const APP_ROUTE_OBJECTS: RouteObject[] = KNOWN_APP_ROUTE_PATHS.map((path) => ({ path }))
 
+export function matchKnownAppRoutePattern(pathname: string): string | null {
+  return matchRoutes(APP_ROUTE_OBJECTS, pathname)?.[0]?.route.path ?? null
+}
+
 export function isKnownAppPath(pathname: string) {
-  return matchRoutes(APP_ROUTE_OBJECTS, pathname) !== null
+  return matchKnownAppRoutePattern(pathname) !== null
 }

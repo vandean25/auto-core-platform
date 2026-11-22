@@ -114,9 +114,6 @@ function FiscalSettingsForm({ form, canEdit }: { form: FinanceSettingsForm; canE
                             disabled={!canEdit}
                             onChange={(lockDate) => setFormState(prev => ({ ...prev, lock_date: lockDate }))}
                         />
-                        <p className="text-sm text-muted-foreground">
-                            {t('finance.fiscal.lockDateHint')}
-                        </p>
                     </div>
                 </div>
 

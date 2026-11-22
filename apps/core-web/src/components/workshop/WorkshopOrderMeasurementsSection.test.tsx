@@ -55,6 +55,9 @@ describe('WorkshopOrderMeasurementsSection', () => {
   it('renders applied measurement history with German labels and paging', () => {
     render(<WorkshopOrderMeasurementsSection orderId='order-1' />)
     expect(screen.getByText('Geräteergebnis Bremsen')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Externe Bremsmessung prüfen und als Nachweis übernehmen.'),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('SYNTH-NATIVE-RESULT-1')).toBeInTheDocument()
     expect(screen.getByText('Übernommen')).toBeInTheDocument()
     expect(screen.getByText(/Achse 1 links/)).toBeInTheDocument()

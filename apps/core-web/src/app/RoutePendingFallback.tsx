@@ -50,16 +50,38 @@ function PlannerRouteSkeleton() {
   )
 }
 
+const LIST_SKELETON_ROUTE_PATHS = new Set<string>([
+  APP_ROUTE_PATHS.workshopOrders,
+  APP_ROUTE_PATHS.vehicles,
+  APP_ROUTE_PATHS.workshopEstimates,
+  APP_ROUTE_PATHS.tyreStorage,
+  APP_ROUTE_PATHS.purchaseOrders,
+  APP_ROUTE_PATHS.salesInvoices,
+  APP_ROUTE_PATHS.customers,
+  APP_ROUTE_PATHS.inventory,
+  APP_ROUTE_PATHS.salesOrders,
+  APP_ROUTE_PATHS.purchaseBills,
+  APP_ROUTE_PATHS.vendors,
+  APP_ROUTE_PATHS.stockTransfers,
+  APP_ROUTE_PATHS.vehicleStock,
+])
+
+function normalizePathname(pathname: string): string {
+  const withoutHash = pathname.split('#', 1)[0] ?? ''
+  return withoutHash.split('?', 1)[0] ?? ''
+}
+
 /**
- * Immediate route-pending skeleton for main-list routes while a lazy chunk or locale bundle
+ * Immediate route-pending skeleton for list routes while a lazy chunk or locale bundle
  * is still loading, reusing the existing AUT-879 R2 skeleton primitives.
  */
 export function RoutePendingFallback({ pathname }: { pathname: string }) {
-  if (!isMainListRoutePath(pathname)) {
-    return <PageLoader />
-  }
-  if (pathname === APP_ROUTE_PATHS.workshopPlanner) {
+  const normalized = normalizePathname(pathname)
+  if (normalized === APP_ROUTE_PATHS.workshopPlanner) {
     return <PlannerRouteSkeleton />
   }
-  return <ListRouteSkeleton />
+  if (isMainListRoutePath(normalized) || LIST_SKELETON_ROUTE_PATHS.has(normalized)) {
+    return <ListRouteSkeleton />
+  }
+  return <PageLoader />
 }
