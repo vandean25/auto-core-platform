@@ -155,7 +155,7 @@ describe('AppSidebar navigation', () => {
     expect(await screen.findByRole('link', { name: /Team Aufträge/ })).toBeInTheDocument()
 
     fireEvent.keyDown(screen.getByRole('button', { name: 'Weitere Aktionen' }), { key: 'Enter' })
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Gespeicherte Ansicht Team Aufträge entfernen' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Ansicht entfernen' }))
 
     expect(deleteCalls).toEqual([])
     const dialog = await screen.findByRole('alertdialog')

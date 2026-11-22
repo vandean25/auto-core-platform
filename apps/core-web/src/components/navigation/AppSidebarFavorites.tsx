@@ -19,7 +19,7 @@ function SavedViewFavoriteActions({ view, bundle }: {
   view: SavedView
   bundle: ReturnType<typeof useSavedViewActions>
 }) {
-  const { t } = useTranslation(['nav', 'common'])
+  const { t } = useTranslation('common')
   const { setOpenMobile } = useSidebar()
   const openingDialog = useRef(false)
   const { actions, context, role, isOfflineError } = bundle
@@ -34,7 +34,7 @@ function SavedViewFavoriteActions({ view, bundle }: {
       <DropdownMenuTrigger asChild>
         <SidebarMenuAction
           showOnHover
-          aria-label={t('common:peek.moreActions')}
+          aria-label={t('peek.moreActions')}
           className="md:size-6 max-md:size-11 max-md:peer-data-[size=default]/menu-button:top-0 max-md:after:hidden"
         >
           <MoreHorizontal aria-hidden="true" />
@@ -52,7 +52,6 @@ function SavedViewFavoriteActions({ view, bundle }: {
             <DropdownMenuItem
               key={action.id}
               data-action-id={action.id}
-              aria-label={action.id === actions.remove.id ? t('nav:favorites.removeAria', { name: view.name }) : undefined}
               className={cn('gap-2 max-md:min-h-11', action.destructive && 'text-destructive focus:text-destructive')}
               onSelect={() => {
                 openingDialog.current = action.kind === 'dialog' || Boolean(action.confirm)
@@ -86,18 +85,17 @@ export function AppSidebarFavorites({
   )
   const currentPathWithQuery = normalizePathWithQuery(location.pathname, location.search)
 
+  if (savedViews.length === 0) {
+    return null
+  }
+
   return (
     <NavGroupShell
       groupId="favorites"
       label={t('nav:groups.favorites')}
       hasActiveItem={savedViews.some((view) => view.href === currentPathWithQuery)}
     >
-      {savedViews.length === 0 ? (
-        <p className="px-2 py-1 text-xs text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-          {t('nav:favorites.empty')}
-        </p>
-      ) : (
-        <SidebarMenu className="max-md:[&_[data-sidebar=menu-button]]:h-11 max-md:[&_[data-sidebar=menu-button]]:pr-12">
+      <SidebarMenu className="max-md:[&_[data-sidebar=menu-button]]:h-11 max-md:[&_[data-sidebar=menu-button]]:pr-12">
           {savedViews.map((view) => {
             const teamBadge =
               view.visibility === 'TENANT' ? (
@@ -121,7 +119,6 @@ export function AppSidebarFavorites({
             )
           })}
         </SidebarMenu>
-      )}
     </NavGroupShell>
   )
 }

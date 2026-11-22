@@ -89,7 +89,6 @@ export default function WorkshopBoard() {
       <PageHeader
         className="mb-0"
         title={t('board.title')}
-        description={t('board.description')}
         actions={<BoardViewToggle value={viewMode} onChange={setViewMode} />}
       />
 

@@ -181,7 +181,15 @@ for (const locale of ['de', 'en'] as const) {
       await new AutoCorePage(page, '').navigate('/workshop/orders?search=Service')
       const save = page.getByRole('button', { name: saveName })
       await expect(save).toBeVisible()
-      await expect(page.getByText(nav.favorites.empty, { exact: true })).toContainText((await save.innerText()).trim())
+      await expect(save).toContainText(common.savedViews.saveButton)
+      await save.focus()
+      const hint = page.getByRole('tooltip')
+      await expect(hint).toHaveText(common.savedViews.saveHint)
+      await expect(hint).not.toContainText(/filter/i)
+      expect(common.savedViews.title).toBe(common.savedViews.saveButton)
+      expect(nav.favorites.empty).toContain(common.savedViews.saveButton)
+      expect(nav.favorites.empty.toLowerCase()).not.toContain('filter')
+      await expect(page.getByText(nav.favorites.empty, { exact: true })).toHaveCount(0)
     })
 
     for (const width of [375, 390, 1400]) {

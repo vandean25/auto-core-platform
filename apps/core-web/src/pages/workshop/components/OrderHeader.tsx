@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Phone, Clock, Key, MapPin, User } from 'lucide-react'
@@ -96,10 +96,14 @@ function OrderJobCardPdfButton({ order }: { order: WorkshopOrder }) {
   const { t } = useTranslation('workshop')
   const navigate = useNavigate()
   const generatePdf = useGenerateWorkshopPdf()
+  const [isPollingPdf, setIsPollingPdf] = useState(false)
   const role = useAuthSession()?.data?.activeRole
   const jobCardPdfAction = useMemo(() => createWorkshopOrderJobCardPdfAction(t), [t])
   const listRow = useMemo(() => workshopOrderToListRow(order), [order])
-  const runContext = useMemo(() => ({ navigate, generatePdf, t }), [generatePdf, navigate, t])
+  const runContext = useMemo(
+    () => ({ navigate, generatePdf, t, onPdfPendingChange: setIsPollingPdf }),
+    [generatePdf, navigate, t],
+  )
 
   return (
     <RegistryActionButton
@@ -108,7 +112,7 @@ function OrderJobCardPdfButton({ order }: { order: WorkshopOrder }) {
       runContext={runContext}
       role={role}
       label={t('orderHeader.printJobCard')}
-      loading={generatePdf.isPending}
+      loading={generatePdf.isPending || isPollingPdf}
       className="min-h-11"
     />
   )
