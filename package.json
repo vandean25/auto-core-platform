@@ -27,6 +27,7 @@
     "spec-quality:check": "node tools/check-spec-quality.mjs",
     "spec-quality:check:test": "node --test tools/spec-quality.test.mjs",
     "gate-override:verify:test": "node --test .github/scripts/verify-gate-override.test.mjs",
+    "migration-overlap-check:test": "node --test .github/scripts/migration-overlap-check.test.mjs",
     "pilot-name-guard:test": "node --test .github/scripts/pilot-name-guard.test.mjs",
     "risk-from-paths:test": "node --test .github/scripts/risk-from-paths.test.mjs",
     "ui-screenshots-check:test": "node --test .github/scripts/ui-screenshots-check.test.mjs",

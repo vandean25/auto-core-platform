@@ -1,0 +1,47 @@
+# Non-blocking PR hints. A docs-check job is added in this workflow later.
+name: PR hints
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'apps/core-api/prisma/migrations/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-hints-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-overlap:
+    name: Migration overlap hint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test migration overlap check
+        run: node --test .github/scripts/migration-overlap-check.test.mjs
+
+      - name: Warn on overlapping Prisma migrations
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/migration-overlap-check.mjs
