@@ -52,6 +52,17 @@ describe('list-cursor.codec', () => {
     expect(decodeListCursor(encodeListCursor({ ...samplePayload(), sv: true }))?.sv).toBe(true);
   });
 
+  it('round-trips optional secondary sort value sv2 and rejects invalid sv2', () => {
+    const withNumber = samplePayload({ sv2: 'RE-2026-0011' });
+    expect(decodeListCursor(encodeListCursor(withNumber))).toEqual(withNumber);
+
+    const withNull = samplePayload({ sv2: null });
+    expect(decodeListCursor(encodeListCursor(withNull))).toEqual(withNull);
+
+    const invalid = encodeListCursor({ ...samplePayload(), sv2: { x: 1 } as unknown as null });
+    expect(decodeListCursor(invalid)).toBeNull();
+  });
+
   it('serializes Prisma Decimal sort values as strings', () => {
     expect(serializeSortValueForCursor(new Prisma.Decimal('12.50'))).toBe('12.5');
     const encoded = encodeListCursor({

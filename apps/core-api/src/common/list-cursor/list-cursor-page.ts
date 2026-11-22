@@ -3,6 +3,7 @@ import { LIST_CURSOR_VERSION } from './list-cursor.constants.js';
 import {
   deserializeSortValueFromCursor,
   encodeListCursor,
+  listCursorInvalidException,
   parseListCursorParam,
   serializeSortValueForCursor,
 } from './list-cursor.codec.js';
@@ -15,10 +16,14 @@ import {
 } from './list-keyset.js';
 import type { KeysetSortDirection } from './list-keyset.types.js';
 
-export type CursorSortConfig = {
+export type CursorSortFieldConfig = {
   prismaField: string;
   valueKind: 'string' | 'number' | 'int' | 'decimal' | 'date' | 'enum';
   nullable: boolean;
+};
+
+export type CursorSortConfig = CursorSortFieldConfig & {
+  secondary?: CursorSortFieldConfig;
 };
 
 export type KeysetListPageRequest = {
@@ -46,6 +51,7 @@ function buildKeysetNextCursor<TRecord extends { id: string }>(
   last: TRecord,
   readSortValue: (record: TRecord, prismaField: string) => unknown,
 ): string {
+  const secondary = request.sortConfig.secondary;
   return encodeListCursor({
     v: LIST_CURSOR_VERSION,
     ep: request.endpoint,
@@ -57,6 +63,13 @@ function buildKeysetNextCursor<TRecord extends { id: string }>(
     sv: serializeSortValueForCursor(
       readSortValue(last, request.sortConfig.prismaField),
     ),
+    ...(secondary
+      ? {
+          sv2: serializeSortValueForCursor(
+            readSortValue(last, secondary.prismaField),
+          ),
+        }
+      : {}),
     id: last.id,
   });
 }
@@ -85,23 +98,45 @@ export async function fetchKeysetListPage<TRecord extends { id: string }, TRow>(
   const { sortConfig, sortDirection: direction } = request;
   let keysetClause: Record<string, unknown> | undefined;
   if (decoded) {
+    if (Boolean(sortConfig.secondary) !== (decoded.sv2 !== undefined)) {
+      throw listCursorInvalidException();
+    }
     const sortValue = deserializeSortValueFromCursor(
       decoded.sv,
       sortConfig.valueKind,
     );
+    const secondary = sortConfig.secondary
+      ? {
+          field: sortConfig.secondary.prismaField,
+          value: deserializeSortValueFromCursor(
+            decoded.sv2 ?? null,
+            sortConfig.secondary.valueKind,
+          ),
+          nullable: sortConfig.secondary.nullable,
+        }
+      : undefined;
     keysetClause = buildKeysetAfterClause(
       sortConfig.prismaField,
       direction,
       sortValue,
       decoded.id,
-      { sortIsNullable: sortConfig.nullable },
+      { sortIsNullable: sortConfig.nullable, secondary },
     );
   }
   const where = andCombineListWhere(request.baseWhere, keysetClause);
   const orderBy = buildPrismaNullsLastOrderBy(
     sortConfig.prismaField,
     direction,
-    { sortIsNullable: sortConfig.nullable, idDirection: direction },
+    {
+      sortIsNullable: sortConfig.nullable,
+      idDirection: direction,
+      secondary: sortConfig.secondary
+        ? {
+            field: sortConfig.secondary.prismaField,
+            nullable: sortConfig.secondary.nullable,
+          }
+        : undefined,
+    },
   );
   const rows = await deps.findMany(where, orderBy, request.limit + 1);
   const { page, hasNextPage } = sliceKeysetPage(rows, request.limit);

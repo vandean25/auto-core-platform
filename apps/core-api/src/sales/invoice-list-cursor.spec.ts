@@ -26,7 +26,15 @@ describe('invoice list cursor helpers', () => {
     expect(resolveInvoiceCursorSort('invoice_number').config.nullable).toBe(
       true,
     );
-    expect(resolveInvoiceCursorSort('date').config.nullable).toBe(false);
+    expect(resolveInvoiceCursorSort('invoice_number').config.secondary).toBeUndefined();
+    expect(resolveInvoiceCursorSort('date').config).toMatchObject({
+      nullable: false,
+      secondary: {
+        prismaField: 'invoice_number',
+        valueKind: 'string',
+        nullable: true,
+      },
+    });
   });
 
   it.each(['customer', 'status', 'total_gross', 'constructor', '__proto__'])(

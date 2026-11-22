@@ -14,6 +14,9 @@ export {
   listCursorStockFilterRequiredException,
 } from './list-cursor.codec.js';
 export { LIST_CURSOR_ENDPOINT } from './list-cursor.constants.js';
-export { fetchKeysetListPage } from './list-cursor-page.js';
+export {
+  fetchKeysetListPage,
+  type CursorSortConfig,
+} from './list-cursor-page.js';
 export { encodeListCursor } from './list-cursor.codec.js';
 export type { KeysetSortDirection } from './list-keyset.types.js';
