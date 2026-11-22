@@ -105,6 +105,13 @@ describe('isKnownAppPath', () => {
 
   it('recognizes bare inventory links so login can return to the requested item', () => {
     expect(isKnownAppPath('/inventory/item-1')).toBe(true)
+    expect(isKnownAppPath('/inventory/item-1/ledger')).toBe(true)
+    expect(matchKnownAppRoutePattern('/inventory')).toBe(APP_ROUTE_PATHS.inventory)
+    expect(matchKnownAppRoutePattern('/inventory/item-1/ledger')).toBe(
+      APP_ROUTE_PATHS.inventoryLedger,
+    )
+    // The alias is a redirect, not a page pattern, so the a11y guard does not require a scan of it.
+    expect(matchKnownAppRoutePattern('/inventory/item-1')).toBeNull()
   })
 
   it('rejects unknown routes', () => {

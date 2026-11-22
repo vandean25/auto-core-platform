@@ -1,4 +1,4 @@
-import { matchRoutes, type RouteObject } from 'react-router-dom'
+import { matchPath, matchRoutes, type RouteObject } from 'react-router-dom'
 
 export const LOGIN_PATH = '/login' as const
 
@@ -8,7 +8,6 @@ export const LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH = '/login/email-link' as const
 export const APP_ROUTE_PATHS = {
   home: '/',
   inventory: '/inventory',
-  inventoryItemAlias: '/inventory/:itemId',
   inventoryLedger: '/inventory/:itemId/ledger',
   dashboard: '/dashboard',
   customers: '/customers',
@@ -74,6 +73,9 @@ export const APP_ROUTE_PATHS = {
   agentSupervision: '/agent/supervision',
 } as const
 
+/** Redirect only. Kept out of {@link APP_ROUTE_PATHS} so the a11y route guard does not treat it as a page. */
+export const INVENTORY_ITEM_ALIAS_PATH = '/inventory/:itemId' as const
+
 export const MECHANIC_ROUTE_PATHS = {
   queue: '/mechanic/queue',
   taskDetail: '/mechanic/tasks/:taskId',
@@ -92,5 +94,8 @@ export function matchKnownAppRoutePattern(pathname: string): string | null {
 }
 
 export function isKnownAppPath(pathname: string) {
-  return matchKnownAppRoutePattern(pathname) !== null
+  return (
+    matchKnownAppRoutePattern(pathname) !== null ||
+    matchPath({ path: INVENTORY_ITEM_ALIAS_PATH, end: true }, pathname) !== null
+  )
 }

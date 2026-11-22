@@ -40,6 +40,8 @@ describe('route title table', () => {
     ...Object.values(APP_ROUTE_PATHS),
     ...Object.values(MECHANIC_ROUTE_PATHS),
     LOGIN_PATH,
+    // Literal so this file still loads when overlaid on a base that does not export the alias constant.
+    '/inventory/:itemId',
   ]
 
   it('has exactly one entry per route constant in app-route-paths', () => {

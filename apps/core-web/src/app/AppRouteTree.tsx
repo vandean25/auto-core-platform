@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Navigate, Route, useLocation } from 'react-router-dom'
-import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { APP_ROUTE_PATHS, INVENTORY_ITEM_ALIAS_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { PageLoader } from '@/components/ui/PageLoader'
 import * as Lazy from './lazy-app-pages'
@@ -31,7 +31,7 @@ export function AppRoutes() {
               <Route element={<LazyNamespaceLayout namespaces={['inventory']} />}>
                 <Route path={APP_ROUTE_PATHS.inventory} element={<Lazy.InventoryList />} />
                 <Route
-                  path={APP_ROUTE_PATHS.inventoryItemAlias}
+                  path={INVENTORY_ITEM_ALIAS_PATH}
                   element={<Navigate to={{ pathname: 'ledger', search, hash }} replace />}
                 />
                 <Route path={APP_ROUTE_PATHS.inventoryLedger} element={<Lazy.InventoryLedgerPage />} />

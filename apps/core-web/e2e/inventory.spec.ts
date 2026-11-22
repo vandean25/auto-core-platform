@@ -675,14 +675,19 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
     );
   }
 
-  test('AUT-966: WHEN an admin opens a bare item URL THEN its ledger is usable on desktop and phones', async ({ page }) => {
+  test('AUT-966: WHEN an admin opens a bare item URL THEN its ledger is usable on desktop and phones', async ({ page }, testInfo) => {
     await mockLedger(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
     await new AutoCorePage(page, '').navigate(`/inventory/${ledgerItem.id}`);
 
     await expect(page).toHaveURL(`/inventory/${ledgerItem.id}/ledger`);
     await expect(page.getByText(ledgerItem.name, { exact: true })).toBeVisible();
     await expect(page.getByTestId('inventory-ledger-table').getByText('PO-2026-0042')).toBeVisible();
     await expect(page.getByText(DE_COMMON.notFound.title, { exact: true })).toHaveCount(0);
+    await testInfo.attach('aut-966-ledger-desktop', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
 
     for (const width of [375, 390]) {
       await page.setViewportSize({ width, height: 812 });
@@ -695,6 +700,10 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
         expect(box.x + box.width).toBeLessThanOrEqual(width);
       }
       await expectNoPageScroll(page);
+      await testInfo.attach(`aut-966-ledger-${width}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
     }
 
     const back = page.getByRole('link', { name: DE_INVENTORY.ledger.backToInventory });
@@ -728,35 +737,49 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
     await expect(page.getByText(ledgerItem.name, { exact: true })).toBeVisible();
   });
 
-  for (const [locale, copy] of [['de', DE_COMMON], ['en', enCommon]] as const) {
-    test(`AUT-966: WHEN an unknown bare item URL resolves THEN not-found appears in ${locale}`, async ({ page }) => {
-      await page.addInitScript((language) => window.localStorage.setItem('acp:ui-language', language), locale);
-      await mockCursorList(page, { path: '/api/inventory', rows: [] });
-      let requested = false;
-      let resolveItem!: () => void;
-      const itemResponse = new Promise<void>((resolve) => { resolveItem = resolve; });
-      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item'), async (route) => {
-        requested = true;
-        await itemResponse;
-        await route.fulfill({ status: 404, json: { message: 'Item not found' } });
-      });
-      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item/history'), (route) =>
-        route.fulfill({ status: 200, json: [] }),
-      );
-      await page.goto('/inventory/unknown-item');
-
-      try {
-        await expect(page).toHaveURL('/inventory/unknown-item/ledger');
-        await expect.poll(() => requested).toBe(true);
-        await expect(page.getByText(copy.notFound.title, { exact: true })).toHaveCount(0);
-      } finally {
-        resolveItem();
-      }
-      await expect(page.getByText(copy.notFound.title, { exact: true })).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByRole('link', { name: copy.notFound.goHome })).toBeVisible();
-      await expect(page.getByTestId('inventory-ledger-table')).toHaveCount(0);
+  test('AUT-966: WHEN an unknown bare item URL resolves THEN not-found is shown in DE and EN', async ({ page }, testInfo) => {
+    await page.addInitScript((language) => window.localStorage.setItem('acp:ui-language', language), 'de');
+    await mockCursorList(page, { path: '/api/inventory', rows: [] });
+    let requested = false;
+    let resolveItem!: () => void;
+    const itemResponse = new Promise<void>((resolve) => { resolveItem = resolve; });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item'), async (route) => {
+      requested = true;
+      await itemResponse;
+      await route.fulfill({ status: 404, json: { message: 'Item not found' } });
     });
-  }
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/unknown-item/history'), (route) =>
+      route.fulfill({ status: 200, json: [] }),
+    );
+    await page.goto('/inventory/unknown-item');
+
+    try {
+      await expect(page).toHaveURL('/inventory/unknown-item/ledger');
+      await expect.poll(() => requested).toBe(true);
+      await expect(page.getByText(DE_COMMON.notFound.title, { exact: true })).toHaveCount(0);
+      await expect(page.getByText(enCommon.notFound.title, { exact: true })).toHaveCount(0);
+    } finally {
+      resolveItem();
+    }
+    await expect(page.getByText(DE_COMMON.notFound.title, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: DE_COMMON.notFound.goHome })).toBeVisible();
+    await expect(page.getByTestId('inventory-ledger-table')).toHaveCount(0);
+    await testInfo.attach('aut-966-not-found-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.addInitScript((language) => window.localStorage.setItem('acp:ui-language', language), 'en');
+    await page.reload();
+    await expect(page.getByText(enCommon.notFound.title, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: enCommon.notFound.goHome })).toBeVisible();
+    await expect(page.getByText(DE_COMMON.notFound.title, { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('inventory-ledger-table')).toHaveCount(0);
+    await testInfo.attach('aut-966-not-found-en', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 
   test('Scenario 3: header actions sit on one row and are >=44px at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
