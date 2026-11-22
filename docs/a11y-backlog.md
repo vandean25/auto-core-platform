@@ -103,3 +103,8 @@ WCAG 4.1.3 (status messages), toasts:
 - All impacts are tracked in `apps/core-web/e2e-fullstack/a11y-baseline.json` (`{checkpointId: {ruleId: nodeCount}}`). New rules or increased counts fail the flow, and fixed violations still listed in the baseline fail with `"remove from baseline"`.
 - `apps/core-web/e2e-fullstack/a11y-baseline.ratchet.test.mjs` runs in `.github/workflows/e2e-fullstack.yaml` and rejects any PR that adds a key or raises a count against the base branch, or introduces blanket rule disables / root exclusions / wildcard keys / `A11Y_ALLOWLIST` entries.
 
+## Route coverage guard (AUT-1016)
+
+- Every route pattern in `APP_ROUTE_PATHS` and `MECHANIC_ROUTE_PATHS` (`apps/core-web/src/lib/app-route-paths.ts`) must be matched by `A11Y_SMOKE_ROUTE_PATHS` (`apps/core-web/e2e/utils/a11y-smoke-route-paths.ts`), by an `e2e-fullstack` checkpoint in `A11Y_FULLSTACK_CHECKPOINT_PATHS` (`apps/core-web/e2e-fullstack/a11y-checkpoint-paths.ts`), or listed with a non-empty reason in `apps/core-web/e2e/a11y-route-exceptions.json` (no wildcard/prefix keys).
+- Enforced without a browser in `apps/core-web/src/lib/app-route-paths.test.ts` (coverage guard) and in `apps/core-web/e2e-fullstack/a11y-baseline.ratchet.test.mjs` (shrink-only ratchet: PRs may remove exception keys as scans are added, never add new ones).
+

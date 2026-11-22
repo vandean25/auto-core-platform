@@ -1,6 +1,10 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
 import { AutoCorePage } from './pom/AutoCorePage'
+import deFinance from '../../../locales/de/finance.json' with { type: 'json' }
 import deSales from '../../../locales/de/sales.json' with { type: 'json' }
+import enFinance from '../../../locales/en/finance.json' with { type: 'json' }
+import enSales from '../../../locales/en/sales.json' with { type: 'json' }
 import { controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 
 /** AUT-777: the invoice detail header keeps the number on one line and stacks its actions on a phone. */
@@ -116,5 +120,90 @@ test.describe('Invoice detail header on a phone (AUT-777)', () => {
       expect(box.height, name).toBeGreaterThanOrEqual(44)
     }
     await expectNoPageScroll(page)
+  })
+})
+
+async function expectMatchingButtonTypography(
+  record: Locator,
+  creditNote: Locator,
+  pdf: Locator,
+) {
+  for (const button of [record, creditNote, pdf]) {
+    await expect(button).toBeVisible()
+  }
+  const styles = await Promise.all(
+    [record, creditNote, pdf].map((button) =>
+      button.evaluate((el) => {
+        const cs = getComputedStyle(el)
+        return { fontSize: cs.fontSize, fontWeight: cs.fontWeight }
+      }),
+    ),
+  )
+  expect(styles[0].fontSize).toBe(styles[1].fontSize)
+  expect(styles[0].fontSize).toBe(styles[2].fontSize)
+  expect(styles[0].fontWeight).toBe(styles[1].fontWeight)
+  expect(styles[0].fontWeight).toBe(styles[2].fontWeight)
+}
+
+test.describe('Invoice detail settlement button typography (AUT-1032)', () => {
+  test('WHEN an issued invoice detail is opened at 375px in DE THEN Abrechnung erfassen uses the same font size and weight as Gutschrift and PDF herunterladen', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openInvoice(page)
+
+    const record = page.getByRole('button', { name: deFinance.actions.recordSettlement })
+    const creditNote = page.getByRole('button', { name: deSales.invoices.detail.creditNote })
+    const pdf = page.getByRole('button', { name: deSales.invoices.detail.downloadPdf })
+
+    await expectMatchingButtonTypography(record, creditNote, pdf)
+    expect((await record.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  })
+
+  test('WHEN an issued invoice detail is opened at 390px and desktop in DE THEN the same typography alignment holds', async ({
+    page,
+  }) => {
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await openInvoice(page)
+
+      const record = page.getByRole('button', { name: deFinance.actions.recordSettlement })
+      const creditNote = page.getByRole('button', { name: deSales.invoices.detail.creditNote })
+      const pdf = page.getByRole('button', { name: deSales.invoices.detail.downloadPdf })
+
+      await expectMatchingButtonTypography(record, creditNote, pdf)
+    }
+  })
+
+  test('WHEN the UI language is EN THEN the equivalent button matches its siblings and the label still fits', async ({
+    page,
+  }) => {
+    await page.addInitScript((storageKey) => {
+      window.localStorage.setItem(storageKey, 'en')
+    }, UI_LANGUAGE_STORAGE_KEY)
+
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await openInvoice(page)
+
+      const record = page.getByRole('button', { name: enFinance.actions.recordSettlement })
+      const creditNote = page.getByRole('button', { name: enSales.invoices.detail.creditNote })
+      const pdf = page.getByRole('button', { name: enSales.invoices.detail.downloadPdf })
+
+      await expectMatchingButtonTypography(record, creditNote, pdf)
+
+      const box = (await record.boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+      const fitsInsideButton = await record.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+      expect(fitsInsideButton).toBe(true)
+    }
   })
 })
