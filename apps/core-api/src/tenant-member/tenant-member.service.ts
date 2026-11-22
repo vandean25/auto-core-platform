@@ -132,19 +132,23 @@ export class TenantMemberService {
         },
         include: { user: true },
       });
-      await recordTenantMemberAudit(tx.auditLog, {
-        actor,
-        action: before ? 'UPDATE' : 'CREATE',
-        entityId: row.id,
-        before: before ? membershipAuditSnapshot(before) : null,
-        after: membershipAuditSnapshot(row),
-      });
       await advanceScopeEpoch(tx, {
         kind: 'member',
         tenantId,
         userId,
       });
-      return row;
+      const committed = await tx.tenantMember.findFirstOrThrow({
+        where: { id: row.id, tenant_id: tenantId },
+        include: { user: true },
+      });
+      await recordTenantMemberAudit(tx.auditLog, {
+        actor,
+        action: before ? 'UPDATE' : 'CREATE',
+        entityId: committed.id,
+        before: before ? membershipAuditSnapshot(before) : null,
+        after: membershipAuditSnapshot(committed),
+      });
+      return committed;
     });
 
     await this.syncUserClaims(userId);
@@ -169,19 +173,23 @@ export class TenantMemberService {
           data: buildMembershipUpdateData(dto),
           include: { user: true },
         });
-        await recordTenantMemberAudit(tx.auditLog, {
-          actor,
-          action: 'UPDATE',
-          entityId: row.id,
-          before: membershipAuditSnapshot(existingMembership),
-          after: membershipAuditSnapshot(row),
-        });
         await advanceScopeEpoch(tx, {
           kind: 'member',
           tenantId,
           userId: row.user_id,
         });
-        return row;
+        const committed = await tx.tenantMember.findFirstOrThrow({
+          where: { id: row.id, tenant_id: tenantId },
+          include: { user: true },
+        });
+        await recordTenantMemberAudit(tx.auditLog, {
+          actor,
+          action: 'UPDATE',
+          entityId: committed.id,
+          before: membershipAuditSnapshot(existingMembership),
+          after: membershipAuditSnapshot(committed),
+        });
+        return committed;
       },
     );
 

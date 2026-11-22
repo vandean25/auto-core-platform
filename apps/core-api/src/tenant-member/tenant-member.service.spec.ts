@@ -17,6 +17,7 @@ const mockSystemPrisma = {
     count: jest.fn(),
     upsert: jest.fn(),
     findFirst: jest.fn(),
+    findFirstOrThrow: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
   },
@@ -93,6 +94,20 @@ describe('TenantMemberService', () => {
     mockSystemPrisma.tenantMember.count.mockReset();
     mockSystemPrisma.tenantMember.upsert.mockReset();
     mockSystemPrisma.tenantMember.findFirst.mockReset();
+    mockSystemPrisma.tenantMember.findFirstOrThrow.mockReset();
+    mockSystemPrisma.tenantMember.findFirstOrThrow.mockImplementation(
+      async () => {
+        const writes = [
+          ...mockSystemPrisma.tenantMember.update.mock.results,
+          ...mockSystemPrisma.tenantMember.upsert.mock.results,
+        ];
+        const last = writes.at(-1);
+        if (last?.type === 'return') {
+          return last.value;
+        }
+        throw new Error('membership row missing after write');
+      },
+    );
     mockSystemPrisma.tenantMember.update.mockReset();
     mockSystemPrisma.auditLog.create.mockReset();
     mockSystemPrisma.auditLog.create.mockResolvedValue({ id: 'audit-1' });

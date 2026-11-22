@@ -87,9 +87,16 @@ describe('membership role change when the audit insert fails', () => {
         ...args.data,
       }),
     );
+    const committedMembership = {
+      ...membership,
+      role: TenantMemberRole.TECH,
+      scope_epoch: 1n,
+      updatedAt: new Date('2026-04-23T11:00:00.000Z'),
+    };
     const systemPrisma = {
       tenantMember: {
         findFirst: jest.fn().mockResolvedValue(membership),
+        findFirstOrThrow: jest.fn().mockResolvedValue(committedMembership),
         update,
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
@@ -164,6 +171,15 @@ describe('membership role change when the audit insert fails', () => {
     expect(thrown).toBeInstanceOf(Error);
     expect((thrown as Error).message).toBe('audit insert failed');
     expect(auditCreate).toHaveBeenCalledTimes(1);
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        after: expect.objectContaining({
+          role: TenantMemberRole.TECH,
+          scope_epoch: '1',
+          updatedAt: '2026-04-23T11:00:00.000Z',
+        }),
+      }),
+    });
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'membership-1', tenant_id: 'tenant-a' },

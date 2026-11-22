@@ -669,6 +669,22 @@ describe('Audit Tracing and Governance (e2e)', () => {
       .expect(200);
 
     const log = await oneMembershipUpdateAudit(membership.id);
+    const persisted = await prismaA.tenantMember.findFirstOrThrow({
+      where: { id: membership.id, tenant_id: tenantA },
+    });
+    expect(log.after).toEqual({
+      id: persisted.id,
+      tenant_id: persisted.tenant_id,
+      user_id: persisted.user_id,
+      role: persisted.role,
+      is_active: persisted.is_active,
+      scope_epoch: persisted.scope_epoch.toString(),
+      demo_access_expires_at: persisted.demo_access_expires_at
+        ? persisted.demo_access_expires_at.toISOString()
+        : null,
+      createdAt: persisted.createdAt.toISOString(),
+      updatedAt: persisted.updatedAt.toISOString(),
+    });
     expect(log.actor_user_id).toBe(tenantARef.firebaseUid);
     expect(log.actor_role).toBe('ADMIN');
     expect(log.actor_email).toBe(tenantARef.email);
