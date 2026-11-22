@@ -37,6 +37,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Test migration overlap check
+        run: node --test .github/scripts/migration-overlap-check.test.mjs
+
       - name: Warn on overlapping Prisma migrations
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
