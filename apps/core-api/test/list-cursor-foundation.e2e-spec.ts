@@ -1278,6 +1278,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
 
     function invoiceRow(
       overrides: Partial<{
+        id: string;
         invoice_number: string | null;
         status: InvoiceStatus;
         date: Date;
@@ -1355,73 +1356,128 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       },
     );
 
-    // AUT-967 Scenarios 1 & 2: same-date issued invoices sort by invoice_number in the same direction as date, then id.
-    it.each([
-      ['desc', ['RE-2026-0200', 'RE-2026-0012', 'RE-2026-0011', 'RE-2026-0010']],
-      ['asc', ['RE-2026-0010', 'RE-2026-0011', 'RE-2026-0012', 'RE-2026-0200']],
-    ] as const)(
-      'WHEN many invoices share one date THEN date %s blocks order same-date rows by invoice_number without gaps or repeats',
-      async (direction, expectedNumbers) => {
-        await prisma.invoice.createMany({
-          data: [
-            invoiceRow({ invoice_number: 'RE-2026-0010' }),
-            invoiceRow({ invoice_number: 'RE-2026-0012' }),
-            invoiceRow({ invoice_number: 'RE-2026-0011' }),
-            invoiceRow({
-              invoice_number: 'RE-2026-0200',
-              date: new Date('2026-03-01T10:00:00.000Z'),
-            }),
-          ],
-        });
+    // Ids run opposite to invoice_number so a leftover id tiebreak cannot pass.
+    // The later day has the lowest number so a number-only sort cannot pass either.
+    const laterDay = new Date('2026-03-01T10:00:00.000Z');
+    const sameDay = new Date('2026-01-01T10:00:00.000Z');
+    const issuedCluster = () => [
+      invoiceRow({
+        id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
+        invoice_number: 'RE-2026-0010',
+        date: sameDay,
+      }),
+      invoiceRow({
+        id: 'ffffffff-ffff-4fff-8fff-fffffffffff2',
+        invoice_number: 'RE-2026-0011',
+        date: sameDay,
+      }),
+      invoiceRow({
+        id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
+        invoice_number: 'RE-2026-0012',
+        date: sameDay,
+      }),
+      invoiceRow({
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+        invoice_number: 'RE-2026-0001',
+        date: laterDay,
+      }),
+    ];
 
-        const rows = await pageThrough({
-          sortField: 'date',
-          sortDirection: direction,
-          limit: '2',
-        });
+    // AUT-967 scenario 1. Default is date desc (no sort params), not invoice_number.
+    it('WHEN the default list has two or more issued invoices on the same date THEN they appear in invoice_number descending order', async () => {
+      await prisma.invoice.createMany({ data: issuedCluster() });
 
-        expect(rows.map((row) => row.invoice_number)).toEqual(expectedNumbers);
-        expect(new Set(rows.map((row) => row.id)).size).toBe(4);
-      },
-    );
+      const rows = await pageThrough({ limit: '2' });
 
-    // AUT-967 Scenario 4: drafts (null invoice_number) stay in the same-date NULLS LAST tail and page cleanly by id.
-    it.each(['desc', 'asc'] as const)(
-      'WHEN a DRAFT has no invoice_number THEN date %s keeps drafts in the same-date null tail without breaking the cursor',
-      async (direction) => {
-        await prisma.invoice.createMany({
-          data: [
-            invoiceRow({ invoice_number: 'RE-2026-0010' }),
-            invoiceRow({ invoice_number: 'RE-2026-0012' }),
-            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
-            invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT }),
-            invoiceRow({
-              invoice_number: 'RE-2026-0001',
-              date: new Date('2025-12-15T10:00:00.000Z'),
-            }),
-          ],
-        });
+      expect(rows.map((row) => row.invoice_number)).toEqual([
+        'RE-2026-0001',
+        'RE-2026-0012',
+        'RE-2026-0011',
+        'RE-2026-0010',
+      ]);
+      expect(new Set(rows.map((row) => row.id)).size).toBe(4);
+    });
 
-        const rows = await pageThrough({
-          sortField: 'date',
-          sortDirection: direction,
-          limit: '2',
-        });
+    // AUT-967 scenario 2.
+    it('WHEN sorted by date ascending THEN same-date invoices appear in invoice_number ascending order', async () => {
+      await prisma.invoice.createMany({ data: issuedCluster() });
 
-        const expectedIssued =
-          direction === 'desc'
-            ? ['RE-2026-0012', 'RE-2026-0010']
-            : ['RE-2026-0010', 'RE-2026-0012'];
-        const sameDateRows = direction === 'desc' ? rows.slice(0, 4) : rows.slice(1, 5);
-        expect(sameDateRows.slice(0, 2).map((row) => row.invoice_number)).toEqual(expectedIssued);
-        expect(sameDateRows.slice(2).map((row) => row.invoice_number)).toEqual([null, null]);
-        const draftIds = sameDateRows.slice(2).map((row) => row.id);
-        const sortedDraftIds = [...draftIds].sort();
-        expect(draftIds).toEqual(direction === 'desc' ? sortedDraftIds.reverse() : sortedDraftIds);
-        expect((direction === 'desc' ? rows[4] : rows[0]).invoice_number).toBe('RE-2026-0001');
-        expect(new Set(rows.map((row) => row.id)).size).toBe(5);
-      },
-    );
+      const rows = await pageThrough({
+        sortField: 'date',
+        sortDirection: 'asc',
+        limit: '2',
+      });
+
+      expect(rows.map((row) => row.invoice_number)).toEqual([
+        'RE-2026-0010',
+        'RE-2026-0011',
+        'RE-2026-0012',
+        'RE-2026-0001',
+      ]);
+      expect(new Set(rows.map((row) => row.id)).size).toBe(4);
+    });
+
+    // AUT-967 scenario 4. Null numbers stay on their date, after issued numbers, and the cursor crosses that boundary.
+    it('WHEN a DRAFT has no invoice_number THEN it stays in the null tail and does not break the cursor', async () => {
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({
+            id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
+            invoice_number: 'RE-2026-0010',
+            date: sameDay,
+          }),
+          invoiceRow({
+            id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
+            invoice_number: 'RE-2026-0012',
+            date: sameDay,
+          }),
+          invoiceRow({
+            id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+            invoice_number: null,
+            status: InvoiceStatus.DRAFT,
+            date: sameDay,
+          }),
+          invoiceRow({
+            id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+            invoice_number: null,
+            status: InvoiceStatus.DRAFT,
+            date: sameDay,
+          }),
+          invoiceRow({
+            id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',
+            invoice_number: 'RE-2026-0099',
+            date: new Date('2025-12-15T10:00:00.000Z'),
+          }),
+        ],
+      });
+
+      const desc = await pageThrough({ sortField: 'date', sortDirection: 'desc', limit: '2' });
+      expect(desc.map((row) => row.invoice_number)).toEqual([
+        'RE-2026-0012',
+        'RE-2026-0010',
+        null,
+        null,
+        'RE-2026-0099',
+      ]);
+      expect(desc.slice(2, 4).map((row) => row.id)).toEqual([
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+      ]);
+
+      const asc = await pageThrough({ sortField: 'date', sortDirection: 'asc', limit: '2' });
+      expect(asc.map((row) => row.invoice_number)).toEqual([
+        'RE-2026-0099',
+        'RE-2026-0010',
+        'RE-2026-0012',
+        null,
+        null,
+      ]);
+      expect(asc.slice(3).map((row) => row.id)).toEqual([
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+      ]);
+      expect(new Set(desc.map((row) => row.id)).size).toBe(5);
+    });
 
     it('WHEN no sort is requested THEN the newest invoice comes first and meta.limit defaults to 25', async () => {
       await prisma.invoice.createMany({
