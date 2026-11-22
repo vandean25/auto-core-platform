@@ -18,18 +18,18 @@ export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
       onValueChange={(val) => {
         if (val === 'mechanic' || val === 'bay') onChange(val)
       }}
-      className="flex flex-wrap rounded-md border border-border bg-card p-0.5"
+      className="flex shrink-0 flex-nowrap rounded-md border border-border bg-card p-0.5"
     >
       <ToggleGroupItem
         value="mechanic"
-        className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-foreground data-[state=on]:text-background"
+        className="gap-1.5 rounded-sm px-3 py-1.5 text-sm data-[state=on]:bg-foreground data-[state=on]:text-background max-sm:min-h-11 max-sm:px-2"
       >
         <Wrench className="h-3.5 w-3.5" />
         {t('board.viewMode.byMechanic')}
       </ToggleGroupItem>
       <ToggleGroupItem
         value="bay"
-        className="rounded-sm px-3 py-1.5 text-sm gap-1.5 data-[state=on]:bg-foreground data-[state=on]:text-background"
+        className="gap-1.5 rounded-sm px-3 py-1.5 text-sm data-[state=on]:bg-foreground data-[state=on]:text-background max-sm:min-h-11 max-sm:px-2"
       >
         <Construction className="h-3.5 w-3.5" />
         {t('board.viewMode.byBay')}

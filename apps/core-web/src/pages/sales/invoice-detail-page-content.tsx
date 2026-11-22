@@ -93,6 +93,7 @@ function useInvoicePdfDownload(invoice: Invoice | undefined) {
     checkGenerationFailed: () =>
       invoice ? fetchInvoicePdfGenerationError(invoice.id) : Promise.resolve(null),
     messages: {
+      generating: t('invoices.detail.generatingPdf'),
       success: t('invoices.detail.pdfSuccess'),
       errorFallback: t('invoices.detail.pdfError'),
     },

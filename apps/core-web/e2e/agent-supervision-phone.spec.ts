@@ -1,6 +1,8 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Locator } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_AGENT } from './helpers/de-agent'
+import deVehicles from '../../../locales/de/vehicles.json' with { type: 'json' }
+import { createMockCustomer, createMockVehicleListItem } from './utils/mock-factories'
 import { contentClippedByAncestor, controlsOutsideTheirCard, controlsShorterThan44, expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 
 /** AUT-748: the three supervision tabs, their filters and cards fit a phone without horizontal page scroll. */
@@ -160,5 +162,94 @@ test.describe('Activity table scroll cue on a phone (AUT-790)', () => {
       await expectNoPageScroll(page)
     })
   }
+})
+
+async function expectTabLabelReadable(tab: Locator, viewportWidth: number) {
+  const box = (await tab.boundingBox())!
+  expect(box.height, await tab.getAttribute('data-testid')).toBeGreaterThanOrEqual(43.5)
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth)
+  const text = await tab.evaluate((node) => {
+    const textNode = [...node.childNodes].find((child) => child.nodeType === Node.TEXT_NODE)
+    const raw = textNode?.textContent ?? ''
+    const broken: string[] = []
+    if (textNode) {
+      for (const match of raw.matchAll(/\S+/g)) {
+        const range = document.createRange()
+        const start = match.index ?? 0
+        range.setStart(textNode, start)
+        range.setEnd(textNode, start + match[0].length)
+        if (range.getClientRects().length > 1) broken.push(match[0])
+      }
+    }
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const textBox = range.getBoundingClientRect()
+    const host = node.getBoundingClientRect()
+    return {
+      broken,
+      insetLeft: textBox.left - host.left,
+      insetRight: host.right - textBox.right,
+      padLeft: parseFloat(getComputedStyle(node).paddingLeft),
+      padRight: parseFloat(getComputedStyle(node).paddingRight),
+      clipped: node.scrollWidth - node.clientWidth,
+    }
+  })
+  expect(text.broken, 'tab label splits a word').toEqual([])
+  expect(text.clipped, 'tab label clipped').toBeLessThanOrEqual(1)
+  expect(text.insetLeft).toBeGreaterThanOrEqual(text.padLeft - 1)
+  expect(text.insetRight).toBeGreaterThanOrEqual(text.padRight - 1)
+}
+
+test('WHEN the agent page and a vehicle-detail page are opened at 375px THEN Genehmigungen and the detail tabs are fully readable', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 844 })
+  const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) => route.fulfill(json([])))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/agent-supervision/triage'), (route) => route.fulfill(json({ data: [], next_cursor: null })))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/agent-proposals'), (route) => route.fulfill(json({ data: [] })))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/agent-actions'), (route) => route.fulfill(json({ data: [] })))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/decision-shadow-logs'), (route) => route.fulfill(json({ data: [], nextCursor: null })))
+
+  await new AutoCorePage(page, DE_AGENT.header.title).navigate('/agent/supervision')
+  await page.getByTestId('tab-activity').click()
+  const approvals = page.getByTestId('tab-approvals')
+  await expect(approvals).toHaveAttribute('data-state', 'inactive')
+  await expectTabLabelReadable(approvals, 375)
+  for (const testId of ['tab-activity', 'tab-decision-shadow']) {
+    await expectTabLabelReadable(page.getByTestId(testId), 375)
+  }
+  await expectNoPageScroll(page)
+  await testInfo.attach('aut-953-agent-tabs-375', { body: await page.screenshot(), contentType: 'image/png' })
+
+  const vehicle = {
+    ...createMockVehicleListItem({ id: 'veh-aut-953', year: 2005, make: 'QA', model: 'Modell', plate: 'W-953' }),
+    sales_orders: [],
+    workshop_orders: [],
+    invoices: [],
+    customer: createMockCustomer({ first_name: 'Jane', last_name: 'Smith' }),
+  }
+  const fulfill = (path: string, body: unknown) =>
+    page.route(AutoCorePage.apiRouteMatcher(path), (route) => {
+      if (route.request().method() !== 'GET') return route.fallback()
+      return route.fulfill(json(body))
+    })
+  await fulfill(`/api/vehicles/${vehicle.id}`, vehicle)
+  await fulfill(`/api/vehicles/${vehicle.id}/parties`, { data: [], suggested_bill_to: null })
+  await fulfill(`/api/vehicles/${vehicle.id}/inspection-records`, [])
+  await fulfill(`/api/vehicles/${vehicle.id}/pickerl-open-order`, null)
+  await fulfill('/api/inspection-source-connections', { data: [] })
+
+  await page.goto(`/vehicles/${vehicle.id}`)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const tabs = page.getByRole('tablist').first()
+  for (const label of [
+    deVehicles.detail.tabs.activeOrders,
+    deVehicles.detail.tabs.invoiceHistory,
+    deVehicles.detail.tabs.serviceOrders,
+  ]) {
+    await expectTabLabelReadable(tabs.getByRole('tab', { name: label, exact: true }), 375)
+  }
+  await expectNoPageScroll(page)
+  await testInfo.attach('aut-953-vehicle-tabs-375', { body: await page.screenshot(), contentType: 'image/png' })
 })
 

@@ -255,3 +255,38 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
     await expect(page.getByText(deWorkshop.orderDetail.toast.notesUndoSuccess)).toBeVisible()
   })
 })
+
+test('WHEN a work-order detail opens at 375px and 390px THEN page width equals the viewport, no horizontal scrollbar', async ({ page }, testInfo) => {
+  const order = createMockWorkshopOrder({
+    id: 'wo-aut-953',
+    order_number: 'WO202608421STANDORTWIEN',
+    status: 'IN_PROGRESS',
+    customer: {
+      id: 'cust-953',
+      type: 'COMPANY',
+      first_name: null,
+      last_name: null,
+      company_name: 'Nordwerkstatt Ersatzteile und Fahrzeugtechnik Gesellschaft',
+      email: 'buero@example.invalid',
+      phone: '+43 1 234567',
+    },
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}/estimates`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  for (const width of [375, 390] as const) {
+    await page.setViewportSize({ width, height: 812 })
+    await new AutoCorePage(page, order.order_number).navigate(`/workshop/orders/${order.id}`)
+    await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+    await expectNoPageScroll(page)
+    await testInfo.attach(`aut-953-work-order-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
+  }
+})

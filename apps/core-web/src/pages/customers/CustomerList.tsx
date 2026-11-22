@@ -12,6 +12,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useActionDialogParam } from '@/features/actions/use-action-dialog-param'
 import { DASHBOARD_WIDGET_SOURCE_CUSTOMERS } from '@/features/dashboard-widgets/sources'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { CustomerPeekSheet } from '@/features/peek/CustomerPeekSheet'
 import { usePeekSearchParam } from '@/features/peek/use-peek-search-param'
@@ -23,6 +24,7 @@ export const CUSTOMER_CREATE_DIALOG_ACTION_IDS = ['create', 'customer.create'] a
 
 export default function CustomerList() {
   const { t } = useTranslation('customers')
+  const isMobile = useIsMobile()
   useEffect(() => {
     void ensureNamespaceLoaded('customers')
   }, [])
@@ -72,15 +74,30 @@ export default function CustomerList() {
     },
     {
       accessorKey: 'email',
+      meta: { mobile: 'details' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.contact')} />
       ),
-      cell: ({ row }) => (
-        <div className="flex flex-col text-sm">
-          <span>{row.original.email}</span>
-          <span className="text-muted-foreground">{row.original.phone}</span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const phone = row.original.phone?.trim()
+        return (
+          <div className="flex min-w-0 flex-col text-sm">
+            <span className="min-w-0 break-all">{row.original.email}</span>
+            {phone ? (
+              isMobile ? (
+                <a
+                  href={`tel:${phone.replace(/[^\d+]/g, '')}`}
+                  className="inline-flex min-h-11 min-w-11 max-w-full items-center text-muted-foreground"
+                >
+                  {phone}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">{phone}</span>
+              )
+            ) : null}
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'address_city',

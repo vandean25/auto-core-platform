@@ -9,6 +9,7 @@ import {
 } from './helpers/de-workshop'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoAxeViolationsForRules } from './utils/a11y'
+import { expectNoPageScroll } from './utils/phone-layout'
 import {
   createMockEmployee,
   createMockBay,
@@ -802,5 +803,24 @@ test.describe('Blueprint: Workshop Board', () => {
     expect(assignPayload.orderId).toBe(ORDER_ID_2)
     expect(assignPayload.mechanicId).toBe(MECHANIC_ID)
     await expect(page.getByTestId('board-column-emp-mech-001')).toContainText('WO-2026-0002')
+  })
+
+  test('WHEN /workshop/board is opened at 375px THEN Mechaniker/Hebebühne controls sit on one row without overflow', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await setupBoardRoutes(page)
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const mechanic = page.getByRole('radio', { name: DE_WORKSHOP.board.viewMode.byMechanic })
+    const bay = page.getByRole('radio', { name: DE_WORKSHOP.board.viewMode.byBay })
+    await expect(mechanic).toBeVisible()
+    const mechanicBox = (await mechanic.boundingBox())!
+    const bayBox = (await bay.boundingBox())!
+    expect(Math.abs(mechanicBox.y - bayBox.y), 'controls share one row').toBeLessThan(8)
+    expect(bayBox.x, 'bay sits beside mechanic').toBeGreaterThanOrEqual(mechanicBox.x + mechanicBox.width - 1)
+    expect(bayBox.x + bayBox.width).toBeLessThanOrEqual(375)
+    expect(mechanicBox.height).toBeGreaterThanOrEqual(43.5)
+    expect(bayBox.height).toBeGreaterThanOrEqual(43.5)
+    await expectNoPageScroll(page)
+    await testInfo.attach('aut-953-board-375', { body: await page.screenshot(), contentType: 'image/png' })
   })
 })

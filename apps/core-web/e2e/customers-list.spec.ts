@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
 import { DE_CUSTOMERS } from './helpers/de-customers';
-import { PHONE_WIDTHS } from './utils/phone-layout';
+import { expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout';
 import {
   closeListPeekSheet,
   expectListPeekForRecord,
@@ -44,6 +44,7 @@ test.describe('Customers list row navigation (AUT-220)', () => {
       first_name: 'Anna',
       last_name: 'Alpin',
       email: 'anna@berge.at',
+      phone: '+43 660 1234567',
     }),
   ];
 
@@ -141,4 +142,21 @@ test.describe('Customers list row navigation (AUT-220)', () => {
       expect(box.x + box.width).toBeLessThanOrEqual(width);
     });
   }
+
+  test('WHEN the customer list at 375px has a row with a phone number THEN a 44px tel target is present', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 844 });
+    const corePage = new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer);
+    await corePage.navigate('/customers');
+
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'Anna Alpin' });
+    const tel = row.locator('a[href^="tel:"]');
+    await expect(tel).toBeVisible();
+    await expect(tel).toHaveAttribute('href', 'tel:+436601234567');
+    const box = (await tel.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(43.5);
+    expect(box.width).toBeGreaterThanOrEqual(43.5);
+    expect(box.x + box.width).toBeLessThanOrEqual(375);
+    await expectNoPageScroll(page);
+    await testInfo.attach('aut-953-customers-375', { body: await page.screenshot(), contentType: 'image/png' });
+  });
 });

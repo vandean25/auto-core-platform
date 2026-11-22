@@ -15,8 +15,8 @@ import { TraceAuditDetailDialog } from './components/TraceAuditDetailDialog'
 
 type SupervisionTab = 'approvals' | 'activity' | 'decision-shadow'
 
-// Labels may wrap ("Entscheidungs-Schatten") so three tabs fit a 375px screen.
-const TAB_TRIGGER_CLASS = 'text-center max-sm:whitespace-normal max-sm:px-1'
+// Each label stays whole. On a phone the row wraps instead of squeezing a tab until the text hits the border.
+const TAB_TRIGGER_CLASS = 'max-sm:min-h-11 max-sm:shrink-0'
 
 export default function AgentSupervisionPage() {
   const { t } = useTranslation('agent')
@@ -72,7 +72,7 @@ export default function AgentSupervisionPage() {
         onValueChange={(val) => setCurrentTab(val as SupervisionTab)}
         className="space-y-6"
       >
-        <TabsList className="grid h-auto w-full max-w-lg grid-cols-3 max-sm:items-stretch sm:h-9">
+        <TabsList className="flex h-auto w-full max-w-lg flex-wrap justify-start gap-1 sm:h-9 sm:flex-nowrap">
           <TabsTrigger value="approvals" data-testid="tab-approvals" className={TAB_TRIGGER_CLASS}>
             {t('tabs.approvals')}
           </TabsTrigger>

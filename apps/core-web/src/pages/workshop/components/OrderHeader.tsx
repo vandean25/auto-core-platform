@@ -147,16 +147,16 @@ export function OrderTopBar({
     <header>
       <Card className='mb-8'>
         <CardContent className='p-4 sm:p-5'>
-          <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
-            <div className='space-y-3'>
-              <div className='flex items-center gap-3'>
-                <h1 className='text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
-                <StatusBadge status={order.status} />
+          <div className='flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+            <div className='min-w-0 space-y-3'>
+              <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
+                <h1 className='min-w-0 break-words text-2xl font-semibold tracking-tight'>{order.order_number ?? `#${order.id}`}</h1>
+                <StatusBadge className='shrink-0' status={order.status} />
               </div>
-              <p className='text-sm text-muted-foreground'>
+              <p className='min-w-0 break-words text-sm text-muted-foreground'>
                 {customerName} · {vehicleLabel} · {plate}
               </p>
-              <p className='text-sm text-muted-foreground'>
+              <p className='min-w-0 break-words text-sm text-muted-foreground'>
                 {t('orderHeader.promisedMeta', {
                   promised: promisedLabel,
                   tech: assignedTechName ?? unassigned,

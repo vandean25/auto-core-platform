@@ -46,6 +46,13 @@ const holidays = [
 
 const locationTree = [
   {
+    id: 'loc-qa',
+    name: 'QA Bin MAIN 01 (AUT-861 transfer test)',
+    code: 'QA-BIN-MAIN-01',
+    type: 'bin',
+    children: [],
+  },
+  {
     id: 'loc-1',
     name: 'Hauptlager Wien Simmering',
     code: 'WH-VIE-01',
@@ -140,6 +147,40 @@ test.describe('Page content on a phone (AUT-752)', () => {
       await expectNoPageScroll(page)
     })
   }
+
+  test('WHEN settings locations are opened at 375px with a long name THEN it wraps on word boundaries', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await mockApi(page)
+    await new AutoCorePage(page, '').navigate('/settings?tab=locations')
+    const name = page.locator('span', { hasText: /^QA Bin MAIN 01 \(AUT-861 transfer test\)$/ })
+    await expect(name).toBeVisible()
+    const metrics = await name.evaluate((node) => {
+      const text = node.textContent ?? ''
+      const textNode = [...node.childNodes].find((child) => child.nodeType === Node.TEXT_NODE)
+      const broken: string[] = []
+      if (textNode) {
+        for (const match of text.matchAll(/\S+/g)) {
+          const range = document.createRange()
+          const start = match.index ?? 0
+          range.setStart(textNode, start)
+          range.setEnd(textNode, start + match[0].length)
+          if (range.getClientRects().length > 1) broken.push(match[0])
+        }
+      }
+      return {
+        broken,
+        width: node.getBoundingClientRect().width,
+        overflowWrap: getComputedStyle(node).overflowWrap,
+        clipped: node.scrollWidth - node.clientWidth,
+      }
+    })
+    expect(metrics.broken, 'name splits a word').toEqual([])
+    expect(metrics.clipped, 'name clipped').toBeLessThanOrEqual(0)
+    expect(metrics.width, 'name column').toBeGreaterThanOrEqual(160)
+    expect(metrics.overflowWrap).toBe('normal')
+    await expectNoPageScroll(page)
+    await testInfo.attach('aut-953-locations-375', { body: await page.screenshot(), contentType: 'image/png' })
+  })
 
   // Content QA found cut off or squeezed on a phone (release-1 comment): names stay readable, filters fit their card.
   test('Lagerorte: names and code badges are not squeezed or wrapped at 375px', async ({ page }) => {
