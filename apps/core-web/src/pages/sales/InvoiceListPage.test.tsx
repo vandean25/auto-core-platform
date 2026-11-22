@@ -14,6 +14,10 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { deSales } from '@/test/de-sales'
+import { changeUiLanguage } from '@/lib/i18n'
+import { registerGermanUiForTests } from '@/test/german-ui'
+
+registerGermanUiForTests()
 
 const mockNavigate = vi.fn()
 const mockUseAuth = vi.fn((): { claims: { role?: string } | null } => ({
@@ -65,6 +69,7 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
     total_gross: '119.00',
     items: [],
     invoice_number: 'RE-2026-0001',
+    draft_number: 'RE-D-1041',
     ...overrides,
   }
 }
@@ -187,15 +192,32 @@ describe('InvoiceListPage', () => {
     await screen.findByText('RE-2026-0001')
   })
 
+  it.each(['de', 'en'] as const)('shows the product draft number without a UUID in the %s invoice list', async (language) => {
+    await changeUiLanguage(language)
+    const invoiceId = '600ad785-64af-43ce-9fbd-9ce37b2c0c41'
+    serveInvoices(() => [makeInvoice({
+      id: invoiceId,
+      status: 'DRAFT',
+      invoice_number: undefined,
+      draft_number: 'RE-D-1042',
+    })])
+
+    renderPage()
+
+    expect(await screen.findByText('RE-D-1042')).toBeInTheDocument()
+    expect(screen.getByRole('table')).not.toHaveTextContent(invoiceId)
+    expect(screen.getByRole('table')).not.toHaveTextContent('600ad785')
+  })
+
   it('opens sales-order drafts on the edit route and finalized invoices on detail', async () => {
     serveInvoices(() => [
-      makeInvoice({ id: 'inv-draft-so', status: 'DRAFT', sales_order_id: 'so-1', invoice_number: undefined }),
+      makeInvoice({ id: 'inv-draft-so', status: 'DRAFT', sales_order_id: 'so-1', invoice_number: undefined, draft_number: 'RE-D-1042' }),
       makeInvoice({ id: 'inv-final', status: 'FINALIZED', invoice_number: 'RE-2026-0099' }),
     ])
 
     renderPage()
 
-    fireEvent.click(await screen.findByText(deSales.shared.draftLabel.replace('{{id}}', 'inv-draf')))
+    fireEvent.click(await screen.findByText('RE-D-1042'))
     expect(mockNavigate).toHaveBeenCalledWith(APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', 'inv-draft-so'))
 
     fireEvent.click(screen.getByText('RE-2026-0099'))
@@ -282,6 +304,18 @@ describe('InvoiceListPage', () => {
     fireEvent.change(screen.getByPlaceholderText(deSales.invoices.list.searchPlaceholder), { target: { value: 'turing' } })
 
     expect(screen.getByText('RE-2026-0002')).toBeInTheDocument()
+    expect(screen.queryByText('RE-2026-0001')).not.toBeInTheDocument()
+  })
+
+  it('finds a draft by its product number in the unpaged list', () => {
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [makeInvoice({ id: 'inv-draft', status: 'DRAFT', invoice_number: undefined, draft_number: 'RE-D-1042' }), makeInvoice()],
+      isLoading: false,
+    })
+    renderPage('/sales/invoices?sortField=customer&sortDirection=asc')
+    fireEvent.change(screen.getByPlaceholderText(deSales.invoices.list.searchPlaceholder), { target: { value: 'RE-D-1042' } })
+
+    expect(screen.getByText('RE-D-1042')).toBeInTheDocument()
     expect(screen.queryByText('RE-2026-0001')).not.toBeInTheDocument()
   })
 

@@ -60,6 +60,14 @@ describe('invoice list cursor helpers', () => {
     expect(resolveInvoiceCursorLimit(limit)).toBe(expected);
   });
 
+  it('finds a draft by its product number within the tenant', () => {
+    const where = buildInvoiceListWhere('tenant-1', { search: 'RE-D-1042' });
+    expect(where.tenant_id).toBe('tenant-1');
+    expect(where.OR).toContainEqual({
+      draft_number: { contains: 'RE-D-1042', mode: 'insensitive' },
+    });
+  });
+
   it('WHEN there is no search THEN the where clause is only the tenant filter', () => {
     expect(buildInvoiceListWhere('tenant-1', { search: '  ' })).toEqual({
       tenant_id: 'tenant-1',
@@ -82,7 +90,7 @@ describe('invoice list cursor helpers', () => {
     const withoutStatus = buildInvoiceListWhere('t', { search: 'RE-2026' });
 
     expect(withStatus.OR).toContainEqual({ status: { in: ['PAID'] } });
-    expect(withoutStatus.OR).toHaveLength(2);
+    expect(withoutStatus.OR).toHaveLength(3);
   });
 
   it('WHEN the search only differs in surrounding blanks THEN the cursor filter context is equal', () => {

@@ -7024,6 +7024,8 @@ export interface components {
             vehicle?: components["schemas"]["VehicleResponseDto"] | null;
             id: string;
             invoice_number?: string | null;
+            /** @example RE-D-1042 */
+            draft_number?: string;
             status: components["schemas"]["InvoiceStatus"];
             sales_order_id?: string | null;
             workshop_order_id?: string | null;

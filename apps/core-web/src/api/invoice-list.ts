@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { formatInvoiceNumber } from '@/lib/format'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { invoiceKeys, isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
 import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
@@ -11,7 +12,7 @@ export function formatInvoiceCustomerName(invoice: Invoice) {
 }
 
 function matchesSearch(invoice: Invoice, search: string) {
-  return [invoice.invoice_number ?? '', formatInvoiceCustomerName(invoice), invoice.status].join(' ').toLowerCase().includes(search)
+  return [formatInvoiceNumber(invoice), formatInvoiceCustomerName(invoice), invoice.status].join(' ').toLowerCase().includes(search)
 }
 
 function sortValue(invoice: Invoice, field: string) {

@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockWorkshopOrder } from './utils/mock-factories'
 import { controlsShorterThan44, expectNoPageScroll, pageOverflow } from './utils/phone-layout'
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
+import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
 
 test.describe('Workshop order task quick-add layout (AUT-842)', () => {
   const order = createMockWorkshopOrder({
@@ -253,5 +255,88 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
 
     await undoButton.click()
     await expect(page.getByText(deWorkshop.orderDetail.toast.notesUndoSuccess)).toBeVisible()
+  })
+})
+
+test.describe('Abrechnung draft number (AUT-1027)', () => {
+  const invoiceId = '70aa2593-fe13-493b-bb44-632d4fbf8b8b'
+  const draftNumber = 'RE-D-1042'
+
+  test.beforeEach(async ({ page }) => {
+    const order = {
+      ...createMockWorkshopOrder({
+        id: 'wo-aut-1027',
+        order_number: 'WO-2026-1027',
+        status: 'COMPLETED',
+      }),
+      invoice: { id: invoiceId },
+    }
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}/estimates`), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${invoiceId}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: invoiceId,
+          status: 'DRAFT',
+          invoice_number: null,
+          draft_number: draftNumber,
+          items: [],
+          total_net: '0.00',
+          total_tax: '0.00',
+          total_gross: '0.00',
+        }),
+      })
+    })
+  })
+
+  async function openAbrechnung(page: Page, language: 'de' | 'en') {
+    if (language === 'en') {
+      await page.addInitScript((storageKey) => {
+        window.localStorage.setItem(storageKey, 'en')
+      }, UI_LANGUAGE_STORAGE_KEY)
+    }
+    const copy = language === 'en' ? enWorkshop : deWorkshop
+    const corePage = new AutoCorePage(page, copy.checkout.primaryAction)
+    await corePage.navigate('/workshop/orders/wo-aut-1027')
+    await page.getByRole('button', { name: copy.checkout.primaryAction, exact: true }).click()
+    const label = copy.checkoutSummary.invoiceLabel.replace('{{number}}', draftNumber)
+    await expect(page.getByText(label, { exact: true })).toBeVisible()
+    await expect(page.getByText(invoiceId)).toHaveCount(0)
+    await expect(page.getByText('70aa2593')).toHaveCount(0)
+    expect(await pageOverflow(page)).toBe(0)
+    return label
+  }
+
+  test('shows the product draft number in the Abrechnung label at 375px in DE', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openAbrechnung(page, 'de')
+    await testInfo.attach('aut-1027-abrechnung-draft-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('shows the product draft number in the Abrechnung label at 390px in DE', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openAbrechnung(page, 'de')
+    await testInfo.attach('aut-1027-abrechnung-draft-de-390', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('shows the product draft number in the Abrechnung label at 375px in EN', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openAbrechnung(page, 'en')
+    await testInfo.attach('aut-1027-abrechnung-draft-en-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
 })

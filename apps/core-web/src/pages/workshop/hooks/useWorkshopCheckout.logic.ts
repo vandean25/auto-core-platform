@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 import { parseDiscountValue } from '@/lib/discount'
+import { formatInvoiceNumber } from '@/lib/format'
 import type { DiscountType, Invoice } from '@/api/types'
 import { EMPTY_DISCOUNT_STATE, type DiscountState } from './useWorkshopCalculations'
 import { findInvoiceItemForWorkshopLine } from '@/lib/workshop-checkout-billing'
@@ -146,7 +147,7 @@ export async function executeCreateDraftInvoice(
     toast.success(
       i18n.t('checkout.toast.draftInvoiceCreated', {
         ns: 'workshop',
-        number: invoice.invoice_number || invoice.id,
+        number: formatInvoiceNumber(invoice),
       }),
     )
     return invoice.id
@@ -199,7 +200,7 @@ export async function executeIssueInvoiceWithDiscounts(params: {
     toast.success(
       i18n.t('checkout.toast.invoiceIssued', {
         ns: 'workshop',
-        number: invoice.invoice_number || invoice.id,
+        number: formatInvoiceNumber(invoice),
       }),
     )
   } catch (error: unknown) {
