@@ -52,6 +52,7 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const { theme = 'system', setTheme } = useTheme()
   const singleKeyShortcuts = useSingleKeyShortcutsEnabled()
   const shortcutsLabelId = useId()
+  const themeLabelBaseId = useId()
   const initials = initialsFor(userEmail)
   const accountLabel = userEmail ?? tCommon('profile.menuLabel')
 
@@ -105,17 +106,21 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t('user.theme.section')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-              {THEME_CHOICES.map(({ value, icon: Icon }) => (
-                <DropdownMenuRadioItem
-                  key={value}
-                  value={value}
-                  className="max-sm:min-h-11"
-                  data-testid={`theme-option-${value}`}
-                >
-                  <Icon aria-hidden="true" className="mr-2 h-4 w-4" />
-                  {t(`user.theme.${value}`)}
-                </DropdownMenuRadioItem>
-              ))}
+              {THEME_CHOICES.map(({ value, icon: Icon }) => {
+                const labelId = `${themeLabelBaseId}-${value}`
+                return (
+                  <DropdownMenuRadioItem
+                    key={value}
+                    value={value}
+                    aria-labelledby={labelId}
+                    className="max-sm:min-h-11"
+                    data-testid={`theme-option-${value}`}
+                  >
+                    <Icon aria-hidden="true" className="mr-2 h-4 w-4" />
+                    <span id={labelId}>{t(`user.theme.${value}`)}</span>
+                  </DropdownMenuRadioItem>
+                )
+              })}
             </DropdownMenuRadioGroup>
 
             <DropdownMenuSeparator />

@@ -268,7 +268,8 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 ### PR body (checked by CI)
 - `gh pr create --body` / `gh api ... -f body=...` do **not** apply `.github/pull_request_template.md`. Write the body from the template yourself and keep every section (Summary, Screenshots, Risk, Issue, Tests).
 - `Risk: low|medium|high|critical` is required on every PR and must be at least the path-derived minimum (G5, `.github/scripts/risk-from-paths.mjs`). The template default `Risk: low` fails when critical paths are touched.
-- UI PRs (`apps/core-web/src/**/*.tsx`, excluding tests) need screenshots or `Screenshots: n/a – <reason>`.
+- UI PRs (`apps/core-web/src/**/*.tsx`, excluding tests) need `Screenshots: Playwright attachments – <attachment names>` or `Screenshots: n/a – <reason>`.
+- UI evidence: every UI-relevant WHEN/THEN scenario gets a Playwright test that ends in the THEN state and attaches a named screenshot (`await testInfo.attach('<stable-name>', { body: await page.screenshot(), contentType: 'image/png' })`); the DoD table names test + attachment. CI uploads the report (`playwright-report-*`) on every run and the reviewer opens the attachments from there. Do not download CI artifacts, commit screenshots (e.g. `docs/internal/assets/*.png`) or paste image links as evidence.
 - Check before opening the PR:
   ```bash
   BASE_REF=main PR_BODY="$(cat pr-body.md)" node .github/scripts/risk-from-paths.mjs

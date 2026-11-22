@@ -2,7 +2,7 @@
 <!-- What changed and why? -->
 
 ## Screenshots
-<!-- Required when apps/core-web/src/**/*.tsx changes (excluding tests): before/after at desktop and 390 px, or `Screenshots: n/a – <reason>`. -->
+<!-- Required when apps/core-web/src/**/*.tsx changes (excluding tests): `Screenshots: Playwright attachments – <attachment names>` (named testInfo.attach screenshots from the e2e tests; the reviewer opens them from the CI artifact), or `Screenshots: n/a – <reason>`. Do not commit screenshots. -->
 
 ## Risk
 <!-- Required on every PR. Must be >= the path-derived minimum (CI checks touched files vs G2 critical paths). -->
