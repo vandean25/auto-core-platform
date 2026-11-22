@@ -86,11 +86,13 @@ jobs:
           CI: true
         run: npm run test:e2e:fullstack --workspace=core-web
 
-      - name: Upload Playwright traces and screenshots
-        if: failure()
+      - name: Upload Playwright report, traces and screenshots
+        # Always, also when green: the ACP orchestrator reviews the named screenshot attachments
+        # (testInfo.attach) from this report. Name must match playwright-report-*.
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: playwright-fullstack-artifacts
+          name: playwright-report-fullstack
           path: |
             apps/core-web/playwright-report
             apps/core-web/test-results
