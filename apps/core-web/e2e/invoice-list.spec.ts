@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { UI_LANGUAGE_STORAGE_KEY } from '../src/lib/i18n/constants';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON } from './helpers/de-common';
@@ -117,24 +117,46 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     await expect(page.getByText('RE-2026-0001')).toBeVisible({ timeout: 5_000 });
   });
 
+  const draftInvoiceId = '600ad785-64af-43ce-9fbd-9ce37b2c0c41';
+
+  async function openDraftRow(page: Page, language: 'de' | 'en' = 'de') {
+    if (language === 'en') {
+      await page.addInitScript((storageKey) => {
+        window.localStorage.setItem(storageKey, 'en');
+      }, UI_LANGUAGE_STORAGE_KEY);
+    }
+    await mockCursorList(page, {
+      path: '/api/sales/invoices',
+      rows: [{ ...invoiceRows[0], id: draftInvoiceId, status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-1042' }],
+      unpaged: 'array',
+    });
+    await openList(page, '');
+    const number = page.getByText('RE-D-1042', { exact: true });
+    await expect(number).toBeVisible();
+    const row = page.locator('[data-table-row="true"]').filter({ hasText: 'RE-D-1042' });
+    await expect(row).not.toContainText(draftInvoiceId);
+    await expect(row).not.toContainText('600ad785');
+    await expect(row).toContainText(language === 'en' ? 'Draft' : 'Entwurf');
+    return { number, row };
+  }
+
+  async function expectDraftNumberFits(page: Page, testInfo: TestInfo, attachmentName: string, language: 'de' | 'en' = 'de') {
+    const { number, row } = await openDraftRow(page, language);
+    expect(await contentClippedByAncestor(row)).toEqual([]);
+    expect(await number.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await pageOverflow(page)).toBe(0);
+    await testInfo.attach(attachmentName, { body: await page.screenshot(), contentType: 'image/png' });
+  }
+
   test.describe('at 375px', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
-    test('keeps the complete product draft number readable at 375px without UUID fragments', async ({ page }) => {
-      const invoiceId = '600ad785-64af-43ce-9fbd-9ce37b2c0c41';
-      await mockCursorList(page, {
-        path: '/api/sales/invoices',
-        rows: [{ ...invoiceRows[0], id: invoiceId, status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-1042' }],
-        unpaged: 'array',
-      });
-      await openList(page, '');
+    test('keeps the complete product draft number readable at 375px without UUID fragments', async ({ page }, testInfo) => {
+      await expectDraftNumberFits(page, testInfo, 'aut-1027-invoice-list-draft-de-375');
+    });
 
-      const number = page.getByText('RE-D-1042', { exact: true });
-      await expect(number).toBeVisible();
-      expect(await contentClippedByAncestor(page.locator('li[data-table-row="true"]'))).toEqual([]);
-      expect(await number.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-      expect(await pageOverflow(page)).toBe(0);
-      await expect(page.locator('li[data-table-row="true"]')).not.toContainText('600ad785');
+    test('keeps the product draft number readable at 375px in EN without a UUID prefix', async ({ page }, testInfo) => {
+      await expectDraftNumberFits(page, testInfo, 'aut-1027-invoice-list-draft-en-375', 'en');
     });
 
     test('WHEN the viewport is 375px THEN the invoice cards virtualize with variable heights and stay at least 44px tappable', async ({ page }) => {
@@ -174,6 +196,22 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
         expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
       }).toPass();
+    });
+  });
+
+  test.describe('draft number at 390px', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('keeps the complete product draft number readable at 390px without UUID fragments', async ({ page }, testInfo) => {
+      await expectDraftNumberFits(page, testInfo, 'aut-1027-invoice-list-draft-de-390');
+    });
+  });
+
+  test.describe('draft number on desktop', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('shows the product draft number in the desktop invoice row without a UUID', async ({ page }, testInfo) => {
+      await expectDraftNumberFits(page, testInfo, 'aut-1027-invoice-list-draft-de-1280');
     });
   });
 
