@@ -11,6 +11,7 @@ interface BoardViewToggleProps {
 
 export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
   const { t } = useTranslation('workshop')
+  // Pair wraps under 360px so a 320px reflow does not scroll the page; one row from 360px up.
   return (
     <ToggleGroup
       type="single"
@@ -18,7 +19,7 @@ export function BoardViewToggle({ value, onChange }: BoardViewToggleProps) {
       onValueChange={(val) => {
         if (val === 'mechanic' || val === 'bay') onChange(val)
       }}
-      className="flex shrink-0 flex-nowrap rounded-md border border-border bg-card p-0.5"
+      className="flex max-w-full flex-wrap rounded-md border border-border bg-card p-0.5 min-[360px]:flex-nowrap"
     >
       <ToggleGroupItem
         value="mechanic"
