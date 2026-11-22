@@ -50,6 +50,9 @@ import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
 import type { TFunction } from 'i18next'
 
+/** Phone: 44px target, and the label wraps instead of widening the page. */
+const estimatePhoneButton = 'max-sm:h-auto max-sm:min-h-11 max-sm:min-w-0 max-sm:max-w-full max-sm:whitespace-normal'
+
 /** The warning fields the overrun description reads. */
 type DescribedOverrun = Pick<
   WorkshopEstimateOverrunWarning,
@@ -164,7 +167,7 @@ interface EstimateHeaderProps {
 function EstimateHeader({ estimate, latest, canCreate, canRevise, busy, onCreate, onRevise }: EstimateHeaderProps) {
   const { t } = useTranslation('workshop')
   return (
-    <CardHeader className='flex flex-row items-start justify-between gap-3 space-y-0 pb-3'>
+    <CardHeader className='flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-3'>
       <div className='min-w-0'>
         <CardTitle className='text-base font-semibold'>{t('estimateCard.title')}</CardTitle>
         {estimate && <p className='text-xs text-muted-foreground'>{estimate.estimate_number}</p>}
@@ -175,13 +178,13 @@ function EstimateHeader({ estimate, latest, canCreate, canRevise, busy, onCreate
         )}
       </div>
       {canCreate && (
-        <Button size='sm' onClick={onCreate} disabled={busy}>
+        <Button size='sm' className={estimatePhoneButton} onClick={onCreate} disabled={busy}>
           <Plus className='h-4 w-4 mr-2' />
           {t('estimateCard.create')}
         </Button>
       )}
       {canRevise && (
-        <Button size='sm' variant='outline' onClick={onRevise} disabled={busy}>
+        <Button size='sm' variant='outline' className={estimatePhoneButton} onClick={onRevise} disabled={busy}>
           <Plus className='h-4 w-4 mr-2' />
           {t('estimateCard.newVersion')}
         </Button>
@@ -274,14 +277,14 @@ function EstimateOverrunBanner({
           ))}
         </ul>
         {overrun.notified_at && <OverrunNoticeLine overrun={overrun} />}
-        <div className='mt-3 flex flex-wrap gap-2'>
+        <div className='mt-3 flex min-w-0 max-w-full flex-wrap gap-2'>
           {canNotify && (
-            <Button size='sm' variant='outline' onClick={onNotify}>
+            <Button size='sm' variant='outline' className={estimatePhoneButton} onClick={onNotify}>
               {t('estimateCard.notifyCustomer')}
             </Button>
           )}
           {canReviseAndSend && (
-            <Button size='sm' variant='outline' onClick={onReviseAndSend} disabled={busy}>
+            <Button size='sm' variant='outline' className={estimatePhoneButton} onClick={onReviseAndSend} disabled={busy}>
               <Send className='h-4 w-4 mr-2' />
               {t('estimateCard.reviseAndSend')}
             </Button>
@@ -329,6 +332,7 @@ function SendVersionButton({ canSend, onSend }: { canSend: boolean; onSend: () =
       variant='outline'
       onClick={onSend}
       disabled={!canSend}
+      className={estimatePhoneButton}
       title={canSend ? undefined : t('estimateCard.sendDisabledTitle')}
     >
       <Send className='h-4 w-4 mr-2' />
@@ -348,7 +352,7 @@ function DownloadVersionButton({
 }) {
   const { t } = useTranslation('workshop')
   return (
-    <Button size='sm' variant='outline' onClick={onDownload} disabled={isDownloadBusy}>
+    <Button size='sm' variant='outline' className={estimatePhoneButton} onClick={onDownload} disabled={isDownloadBusy}>
       {isDownloading ? <Loader2 className='h-4 w-4 mr-2 animate-spin' /> : <Download className='h-4 w-4 mr-2' />}
       {isDownloading ? t('estimateCard.pdfGenerating') : t('estimateCard.pdfDownload')}
     </Button>
@@ -422,11 +426,11 @@ function VersionRow({
         )}
       </div>
 
-      <div className='flex items-center gap-4'>
+      <div className='flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4'>
         <VersionTotal version={version} liveDraftTotal={liveDraftTotal} />
         {isDraft && isLatest && <SendVersionButton canSend={canSend} onSend={onSend} />}
         {canRecordDecision && (
-          <Button size='sm' variant='outline' onClick={onRecordDecision}>
+          <Button size='sm' variant='outline' className={estimatePhoneButton} onClick={onRecordDecision}>
             {t('estimateCard.recordDecision')}
           </Button>
         )}
@@ -656,7 +660,7 @@ export function WorkshopEstimateCard({
   }
 
   return (
-    <Card>
+    <Card className='min-w-0 max-w-full'>
       <EstimateHeader
         estimate={estimate}
         latest={latest}
