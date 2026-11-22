@@ -452,13 +452,25 @@ describe('LaborService', () => {
 
     it('throws BadRequestException when q is empty', async () => {
       await expect(service.search('', 'wo-1')).rejects.toThrow(
-        BadRequestException,
+        new BadRequestException('q is required'),
+      );
+    });
+
+    it('throws BadRequestException when q is undefined (AUT-1024 regression)', async () => {
+      await expect(service.search(undefined, 'wo-1')).rejects.toThrow(
+        new BadRequestException('q is required'),
       );
     });
 
     it('throws BadRequestException when workshopOrderId is empty', async () => {
       await expect(service.search('oil', '')).rejects.toThrow(
-        BadRequestException,
+        new BadRequestException('workshopOrderId is required'),
+      );
+    });
+
+    it('throws BadRequestException when workshopOrderId is undefined (AUT-1024 regression)', async () => {
+      await expect(service.search('Brake', undefined)).rejects.toThrow(
+        new BadRequestException('workshopOrderId is required'),
       );
     });
 

@@ -100,7 +100,6 @@ export default function CustomerList() {
     <>
       <PageHeader
         title={t('list.title')}
-        description={t('list.description')}
         actions={
           <Button className="max-sm:min-h-11" onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" /> {t('list.addCustomer')}

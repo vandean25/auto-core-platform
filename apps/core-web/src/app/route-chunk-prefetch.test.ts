@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
+  preloadRouteForPathname,
   prefetchMainListRoute,
   prefetchPermittedMainListRoutes,
   resetRouteChunkPrefetchForTests,
@@ -12,6 +13,11 @@ const loaderMocks = vi.hoisted(() => ({
   vehicles: vi.fn(() => Promise.resolve({ default: () => null })),
   workshopEstimates: vi.fn(() => Promise.resolve({ default: () => null })),
   workshopPlanner: vi.fn(() => Promise.resolve({ default: () => null })),
+  dashboard: vi.fn(() => Promise.resolve({ default: () => null })),
+  salesInvoices: vi.fn(() => Promise.resolve({ default: () => null })),
+  purchaseOrders: vi.fn(() => Promise.resolve({ default: () => null })),
+  tyreStorage: vi.fn(() => Promise.resolve({ default: () => null })),
+  customers: vi.fn(() => Promise.resolve({ default: () => null })),
   ensureNamespaceLoaded: vi.fn(() => Promise.resolve()),
 }))
 
@@ -21,6 +27,11 @@ vi.mock('./lazy-app-pages', async (original) => ({
   loadVehicleList: loaderMocks.vehicles,
   loadWorkshopEstimateList: loaderMocks.workshopEstimates,
   loadWorkshopPlannerPage: loaderMocks.workshopPlanner,
+  loadDashboardPage: loaderMocks.dashboard,
+  loadInvoiceListPage: loaderMocks.salesInvoices,
+  loadPurchaseOrderList: loaderMocks.purchaseOrders,
+  loadTyreStorageListPage: loaderMocks.tyreStorage,
+  loadCustomerList: loaderMocks.customers,
 }))
 
 vi.mock('@/lib/i18n', async (original) => ({
@@ -63,11 +74,12 @@ describe('route-chunk-prefetch', () => {
     })
   })
 
-  it('requests WO list, vehicles, estimates and planner chunks once on idle after login', () => {
+  it('requests WO list, vehicles, estimates and planner chunks once on idle after login', async () => {
     const cancel = scheduleIdleMainListPrefetch(adminContext)
 
     expect(loaderMocks.workshopOrders).not.toHaveBeenCalled()
     vi.advanceTimersByTime(300)
+    await Promise.resolve()
 
     expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
     expect(loaderMocks.vehicles).toHaveBeenCalledTimes(1)
@@ -86,8 +98,9 @@ describe('route-chunk-prefetch', () => {
     cancel()
   })
 
-  it('prefetches a single main-list route on hover/focus before idle prefetch runs, including query links', () => {
+  it('prefetches a single main-list route on hover/focus before idle prefetch runs, including query links', async () => {
     prefetchMainListRoute(`${APP_ROUTE_PATHS.workshopOrders}?status=OPEN`, adminContext)
+    await Promise.resolve()
 
     expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
     expect(loaderMocks.vehicles).not.toHaveBeenCalled()
@@ -122,5 +135,43 @@ describe('route-chunk-prefetch', () => {
     expect(loaderMocks.workshopPlanner).not.toHaveBeenCalled()
 
     cancel()
+  })
+
+  it.each([
+    { path: APP_ROUTE_PATHS.dashboard, loaderKey: 'dashboard' as const, namespaces: ['vehicles'] },
+    { path: APP_ROUTE_PATHS.salesInvoices, loaderKey: 'salesInvoices' as const, namespaces: ['sales', 'finance'] },
+    { path: APP_ROUTE_PATHS.purchaseOrders, loaderKey: 'purchaseOrders' as const, namespaces: ['finance'] },
+    { path: APP_ROUTE_PATHS.tyreStorage, loaderKey: 'tyreStorage' as const, namespaces: ['inventory'] },
+    { path: APP_ROUTE_PATHS.customers, loaderKey: 'customers' as const, namespaces: ['customers'] },
+  ])('preloads initial URL route chunk and locale namespaces in parallel for $path', async ({ path, loaderKey, namespaces }) => {
+    preloadRouteForPathname(`${path}?page=1`)
+    await Promise.resolve()
+
+    expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
+    for (const ns of namespaces) {
+      expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledWith(ns)
+    }
+
+    // Deduplicated on repeat call
+    preloadRouteForPathname(path)
+    expect(loaderMocks[loaderKey]).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a failed namespace load on a subsequent prefetch without re-requesting the chunk', async () => {
+    loaderMocks.ensureNamespaceLoaded.mockRejectedValueOnce(new Error('network error'))
+
+    preloadRouteForPathname(APP_ROUTE_PATHS.workshopOrders)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledTimes(1)
+
+    // Subsequent idle/hover prefetch retries the failed namespace without re-importing the chunk.
+    prefetchMainListRoute(APP_ROUTE_PATHS.workshopOrders, adminContext)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(loaderMocks.workshopOrders).toHaveBeenCalledTimes(1)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenCalledTimes(2)
+    expect(loaderMocks.ensureNamespaceLoaded).toHaveBeenLastCalledWith('workshop')
   })
 })

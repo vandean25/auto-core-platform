@@ -86,7 +86,7 @@ function RecordControls({
           <SelectItem value="CARD">{t('settlement.methodCard')}</SelectItem>
         </SelectContent>
       </Select>
-      <Button size="sm" className="max-sm:min-h-11" onClick={onRecord} disabled={pending} aria-busy={pending}>
+      <Button className="max-sm:min-h-11" onClick={onRecord} disabled={pending} aria-busy={pending}>
         {t('actions.recordSettlement')}
       </Button>
     </>

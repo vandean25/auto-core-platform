@@ -453,7 +453,8 @@
     "drawer": {
       "title": "Pick Parts",
       "description": "Assign parts to a staging tote for this workshop order.",
-      "linesBadge": "{{count}} lines",
+      "linesBadge_one": "{{count}} line",
+      "linesBadge_other": "{{count}} lines",
       "cancel": "Cancel",
       "confirm": "Confirm Pick",
       "destinationTote": "Destination Tote",
@@ -664,7 +665,6 @@
       "taskDeleted": "Task deleted",
       "taskDeleteFailed": "Failed to delete task",
       "jobCardPdfGenerating": "Generating Job Card PDF...",
-      "jobCardPdfQueued": "Job Card PDF generation has been queued in the background. It will be available shortly.",
       "jobCardPdfDownloaded": "Job Card PDF downloaded successfully",
       "jobCardPdfFailed": "Failed to generate PDF",
       "technicianAssigned": "Technician assigned",

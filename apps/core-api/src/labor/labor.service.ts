@@ -25,11 +25,12 @@ export class LaborService {
     private readonly siteContext: SiteContextService,
   ) {}
 
-  async search(query: string, workshopOrderId: string) {
+  async search(query?: string, workshopOrderId?: string) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const trimmedQuery = query.trim();
-    const trimmedWorkshopOrderId = workshopOrderId.trim();
+    const trimmedQuery = typeof query === 'string' ? query.trim() : '';
+    const trimmedWorkshopOrderId =
+      typeof workshopOrderId === 'string' ? workshopOrderId.trim() : '';
     if (!trimmedQuery) {
       throw new BadRequestException('q is required');
     }

@@ -1,6 +1,6 @@
 export * from './constants'
 export { I18nProvider } from './I18nProvider'
-export { initI18n, changeUiLanguage, ensureNamespaceLoaded, i18n } from './init-i18n'
+export { initI18n, changeUiLanguage, ensureNamespaceLoaded, whenI18nReady, i18n } from './init-i18n'
 export { LocaleBundleLoadFailed } from './LocaleBundleLoadFailed'
 export { SafeTrans } from './SafeTrans'
 export { useLazyNamespaceBundleReady } from './use-lazy-namespace-bundle-ready'
