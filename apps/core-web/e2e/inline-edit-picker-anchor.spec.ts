@@ -23,6 +23,13 @@ const order = {
   scheduled_end_at: '2026-08-21T07:00:00.000Z',
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(1)
+}
+
 async function expectSearchAnchoredTo(page: Page, trigger: Locator) {
   const dialog = page.getByRole('dialog')
   const search = dialog.getByPlaceholder(SEARCH)
@@ -85,10 +92,17 @@ test.describe('desktop inline pickers stay anchored', () => {
     await expect(statusTrigger).toBeVisible()
 
     await mechanicTrigger.click()
+    await expect(page.getByRole('listbox')).toHaveAccessibleName(deWorkshop.orderHeader.assignedTech)
+    await expect(page.getByRole('listbox', { name: 'Suggestions' })).toHaveCount(0)
+    await expect(page.getByRole('option', { name: deWorkshop.orderHeader.unassigned })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     await expectSearchAnchoredTo(page, mechanicTrigger)
     await page.screenshot({ path: testInfo.outputPath('mechanic-picker.png') })
     await mechanicTrigger.click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe('hidden')
 
     await dateTrigger.click()
     await expectSearchAnchoredTo(page, dateTrigger)
@@ -107,6 +121,7 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
   for (const localeCase of [
     {
       lang: 'de',
+      listLabel: deWorkshop.orderHeader.assignedTech,
       unassigned: deWorkshop.orderHeader.unassigned,
       unassignedToast: deWorkshop.orderDetail.toast.technicianUnassigned,
       assignedToast: deWorkshop.orderDetail.toast.technicianAssigned,
@@ -114,6 +129,7 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
     },
     {
       lang: 'en',
+      listLabel: enWorkshop.orderHeader.assignedTech,
       unassigned: enWorkshop.orderHeader.unassigned,
       unassignedToast: enWorkshop.orderDetail.toast.technicianUnassigned,
       assignedToast: enWorkshop.orderDetail.toast.technicianAssigned,
@@ -177,12 +193,40 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       const triggerBox = await mechanicTrigger.boundingBox()
       expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(44)
 
+      await expect(mechanicTrigger).toHaveText('Alex Example')
       await mechanicTrigger.click()
+      await expect(page.getByRole('listbox')).toHaveAccessibleName(localeCase.listLabel)
+      await expect(page.getByRole('listbox', { name: 'Suggestions' })).toHaveCount(0)
+      await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'true')
       const unassignedOption = page.getByRole('option', { name: localeCase.unassigned })
+      await expect(unassignedOption).toHaveAttribute('aria-selected', 'false')
       await expect(unassignedOption).toBeVisible()
       const optionBox = await unassignedOption.boundingBox()
       expect(optionBox?.height ?? 0).toBeGreaterThanOrEqual(44)
-      await page.screenshot({ path: testInfo.outputPath(`detail-picker-${localeCase.lang}-375.png`) })
+      await testInfo.attach(`detail-picker-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+      await testInfo.attach(`detail-picker-${localeCase.lang}-375.aria.txt`, {
+        body: await page.getByRole('listbox').ariaSnapshot(),
+        contentType: 'text/plain',
+      })
+      await expectNoHorizontalOverflow(page)
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      await expect(page.getByRole('listbox')).toHaveAccessibleName(localeCase.listLabel)
+      await expect(page.getByRole('listbox', { name: 'Suggestions' })).toHaveCount(0)
+      await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'true')
+      const optionAt390 = await page.getByRole('option', { name: localeCase.unassigned }).boundingBox()
+      expect(optionAt390?.height ?? 0).toBeGreaterThanOrEqual(44)
+      const triggerAt390 = await mechanicTrigger.boundingBox()
+      expect(triggerAt390?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await expectNoHorizontalOverflow(page)
+      await testInfo.attach(`detail-picker-${localeCase.lang}-390.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+      await page.setViewportSize({ width: 375, height: 812 })
 
       await unassignedOption.click()
       await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
@@ -190,6 +234,24 @@ test.describe('375px DE/EN assign and unassign flows keep >=44px targets and toa
       await expect(unassignToast).toBeVisible()
       await expect(unassignToast).toHaveCSS('opacity', '1')
       await page.screenshot({ path: testInfo.outputPath(`detail-unassign-toast-${localeCase.lang}-375.png`) })
+
+      await mechanicTrigger.click()
+      await expect(unassignedOption).toHaveAttribute('aria-selected', 'true')
+      await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'false')
+      await testInfo.attach(`detail-picker-unassigned-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+      await page.getByRole('option', { name: 'Alex Example' }).click()
+      await expect(mechanicTrigger).toHaveText('Alex Example')
+      await mechanicTrigger.click()
+      await expect(page.getByRole('option', { name: 'Alex Example' })).toHaveAttribute('aria-selected', 'true')
+      await testInfo.attach(`detail-picker-reassigned-${localeCase.lang}-375.png`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+      await unassignedOption.click()
+      await expect(mechanicTrigger).toHaveText(localeCase.unassigned)
 
       await new AutoCorePage(page, 'Board').navigate('/workshop/board')
       const assignBtn = page.getByRole('button', { name: new RegExp(localeCase.assignLabel, 'i') }).first()

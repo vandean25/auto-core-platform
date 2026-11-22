@@ -26,6 +26,7 @@ type InlineEditCommandPickerProps = {
   pending?: boolean
   disabled?: boolean
   ariaLabel: string
+  listLabel?: string
   emptyText: string
   /** Closed control. `field` matches a select; `badge` keeps the status chip. */
   appearance?: 'field' | 'badge'
@@ -42,6 +43,8 @@ function matchesSearch(_itemValue: string, search: string, keywords: string[] = 
 }
 
 function PickerOptions({
+  value,
+  listLabel,
   options,
   saving,
   emptyLabel,
@@ -49,6 +52,8 @@ function PickerOptions({
   onSelect,
   onCancel,
 }: {
+  value?: string | null
+  listLabel?: string
   options: InlineEditPickerOption[]
   saving: boolean
   emptyLabel: string
@@ -56,8 +61,23 @@ function PickerOptions({
   onSelect: (value: string) => void
   onCancel: () => void
 }) {
+  // cmdk scrolls the highlighted option into view, and focusing the search field scrolls the page.
+  // Either one pulls a popover opened near the bottom of the viewport off its trigger.
+  React.useLayoutEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const previousHtml = html.style.overflow
+    const previousBody = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = previousHtml
+      body.style.overflow = previousBody
+    }
+  }, [])
+
   return (
-    <Command filter={matchesSearch}>
+    <Command filter={matchesSearch} defaultValue={value ?? undefined}>
       <CommandInput
         aria-label={searchLabel}
         placeholder={searchLabel}
@@ -68,7 +88,7 @@ function PickerOptions({
           onCancel()
         }}
       />
-      <CommandList>
+      <CommandList label={listLabel}>
         <CommandEmpty>{emptyLabel}</CommandEmpty>
         <CommandGroup>
           {options.map((option) => (
@@ -351,6 +371,8 @@ function commandPickerView({
   const close = () => setOpen(false)
   const panel = (
     <PickerOptions
+      value={value}
+      listLabel={props.listLabel}
       options={options}
       saving={saving}
       emptyLabel={emptyLabel}
