@@ -22721,6 +22721,10 @@
             "type": "string",
             "nullable": true
           },
+          "draft_number": {
+            "type": "string",
+            "example": "RE-D-1042"
+          },
           "status": {
             "allOf": [
               {

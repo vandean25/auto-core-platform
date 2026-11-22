@@ -2,42 +2,48 @@ import type { KeysetSortDirection } from './list-keyset.types.js';
 
 export type { KeysetSortDirection } from './list-keyset.types.js';
 
+export type KeysetSecondarySort = {
+  field: string;
+  value: unknown;
+  nullable: boolean;
+};
+
 /** Prisma `where` fragment: rows strictly after the cursor in sort order (NULLS LAST). */
 export function buildKeysetAfterClause(
   sortField: string,
   direction: KeysetSortDirection,
   sortValue: unknown,
   id: string,
-  options: { sortIsNullable: boolean },
+  options: { sortIsNullable: boolean; secondary?: KeysetSecondarySort },
 ): Record<string, unknown> {
+  const afterId =
+    direction === 'asc' ? ({ gt: id } as const) : ({ lt: id } as const);
+  const tieBreak = options.secondary
+    ? buildKeysetAfterClause(
+        options.secondary.field,
+        direction,
+        options.secondary.value,
+        id,
+        { sortIsNullable: options.secondary.nullable },
+      )
+    : { id: afterId };
+
   if (sortValue === null) {
     if (!options.sortIsNullable) {
-      return { id: direction === 'asc' ? { gt: id } : { lt: id } };
+      return tieBreak;
     }
     return {
-      AND: [
-        { [sortField]: null },
-        { id: direction === 'asc' ? { gt: id } : { lt: id } },
-      ],
+      AND: [{ [sortField]: null }, tieBreak],
     };
   }
 
-  const afterId =
-    direction === 'asc' ? ({ gt: id } as const) : ({ lt: id } as const);
-  const orBranches: Record<string, unknown>[] = [];
-
-  if (direction === 'asc') {
-    orBranches.push({ [sortField]: { gt: sortValue } });
-    orBranches.push({ AND: [{ [sortField]: sortValue }, { id: afterId }] });
-    if (options.sortIsNullable) {
-      orBranches.push({ [sortField]: null });
-    }
-  } else {
-    orBranches.push({ [sortField]: { lt: sortValue } });
-    orBranches.push({ AND: [{ [sortField]: sortValue }, { id: afterId }] });
-    if (options.sortIsNullable) {
-      orBranches.push({ [sortField]: null });
-    }
+  const cmp = direction === 'asc' ? 'gt' : 'lt';
+  const orBranches: Record<string, unknown>[] = [
+    { [sortField]: { [cmp]: sortValue } },
+    { AND: [{ [sortField]: sortValue }, tieBreak] },
+  ];
+  if (options.sortIsNullable) {
+    orBranches.push({ [sortField]: null });
   }
 
   return { OR: orBranches };
@@ -61,13 +67,26 @@ export function andCombineListWhere(
 export function buildPrismaNullsLastOrderBy(
   sortField: string,
   direction: KeysetSortDirection,
-  options: { sortIsNullable: boolean; idDirection?: KeysetSortDirection },
+  options: {
+    sortIsNullable: boolean;
+    idDirection?: KeysetSortDirection;
+    secondary?: { field: string; nullable: boolean };
+  },
 ): Record<string, unknown>[] {
   const idDirection = options.idDirection ?? direction;
   const primaryOrder = options.sortIsNullable
     ? { sort: direction, nulls: 'last' as const }
     : direction;
-  return [{ [sortField]: primaryOrder }, { id: idDirection }];
+  const orderBy: Record<string, unknown>[] = [{ [sortField]: primaryOrder }];
+  if (options.secondary) {
+    orderBy.push({
+      [options.secondary.field]: options.secondary.nullable
+        ? { sort: direction, nulls: 'last' as const }
+        : direction,
+    });
+  }
+  orderBy.push({ id: idDirection });
+  return orderBy;
 }
 
 export function sliceKeysetPage<T>(

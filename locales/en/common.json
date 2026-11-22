@@ -186,7 +186,7 @@
   },
   "savedViews": {
     "saveButton": "Save as sidebar view",
-    "saveHint": "Saves these filters as a shortcut in the sidebar",
+    "saveHint": "Saves this view as a shortcut in the sidebar",
     "saveAria": "Save as sidebar view for {{title}}",
     "title": "Save as sidebar view",
     "description": "Give this view a name to save it to your Favorites.",

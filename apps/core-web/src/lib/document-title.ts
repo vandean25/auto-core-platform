@@ -1,5 +1,10 @@
 import { matchRoutes, type RouteObject } from 'react-router-dom'
-import { APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import {
+  APP_ROUTE_PATHS,
+  INVENTORY_ITEM_ALIAS_PATH,
+  LOGIN_PATH,
+  MECHANIC_ROUTE_PATHS,
+} from '@/lib/app-route-paths'
 import { i18n } from '@/lib/i18n'
 import type nav from '../../../../locales/de/nav.json'
 
@@ -15,6 +20,7 @@ type RoutePattern =
   | (typeof APP_ROUTE_PATHS)[keyof typeof APP_ROUTE_PATHS]
   | (typeof MECHANIC_ROUTE_PATHS)[keyof typeof MECHANIC_ROUTE_PATHS]
   | typeof LOGIN_PATH
+  | typeof INVENTORY_ITEM_ALIAS_PATH
 
 /**
  * `nav` namespace key of the section title per route pattern, named after the sidebar entry the page belongs to.
@@ -23,6 +29,7 @@ type RoutePattern =
 export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
   [APP_ROUTE_PATHS.home]: 'modules.inventory',
   [APP_ROUTE_PATHS.inventory]: 'modules.inventory',
+  [INVENTORY_ITEM_ALIAS_PATH]: 'routeTitles.inventoryLedger',
   [APP_ROUTE_PATHS.inventoryLedger]: 'routeTitles.inventoryLedger',
   [APP_ROUTE_PATHS.dashboard]: 'modules.dashboard',
   [APP_ROUTE_PATHS.agentSupervision]: 'modules.agentSupervision',

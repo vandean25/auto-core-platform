@@ -3300,6 +3300,7 @@ model Invoice {
   tenant_id         String
   tenant            Tenant         @relation(fields: [tenant_id], references: [id])
   invoice_number    String? // Nullable because it's only generated on FINALIZED
+  draft_number      String         @default(dbgenerated("('RE-D-'::text || (nextval('invoice_draft_number_seq'::regclass))::text)"))
   customer_id       String
   customer          Customer       @relation(fields: [customer_id], references: [id])
   vehicle_id        String?
@@ -3355,6 +3356,7 @@ model Invoice {
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, invoice_number]) // tenant-scoped
+  @@unique([tenant_id, draft_number])
   @@unique([tenant_id, sales_order_id]) // tenant-scoped
   @@unique([tenant_id, workshop_order_id]) // tenant-scoped
   @@unique([tenant_id, vehicle_sale_id])
@@ -3363,7 +3365,7 @@ model Invoice {
   @@index([tenant_id, site_id, date])
   @@index([tenant_id, legal_entity_id, date])
   @@index([tenant_id, invoice_number, id])
-  @@index([tenant_id, date, id])
+  @@index([tenant_id, date, invoice_number, id])
   @@index([invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "invoices_invoice_number_trgm_idx")
   @@map("invoices")
 }

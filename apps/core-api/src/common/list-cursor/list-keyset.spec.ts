@@ -1,4 +1,8 @@
-import { andCombineListWhere, buildKeysetAfterClause } from './list-keyset.js';
+import {
+  andCombineListWhere,
+  buildKeysetAfterClause,
+  buildPrismaNullsLastOrderBy,
+} from './list-keyset.js';
 import type { KeysetSortDirection } from './list-keyset.types.js';
 
 describe('list-keyset', () => {
@@ -78,6 +82,78 @@ describe('list-keyset', () => {
       ).toEqual(expected);
     },
   );
+
+  it('DESC with a nullable secondary sort breaks same-date ties by secondary field NULLS LAST then id', () => {
+    const date = new Date('2026-03-01T10:00:00.000Z');
+    const clause = buildKeysetAfterClause('date', 'desc', date, 'id-b', {
+      sortIsNullable: false,
+      secondary: {
+        field: 'invoice_number',
+        value: 'RE-2026-0011',
+        nullable: true,
+      },
+    });
+    expect(clause).toEqual({
+      OR: [
+        { date: { lt: date } },
+        {
+          AND: [
+            { date },
+            {
+              OR: [
+                { invoice_number: { lt: 'RE-2026-0011' } },
+                {
+                  AND: [
+                    { invoice_number: 'RE-2026-0011' },
+                    { id: { lt: 'id-b' } },
+                  ],
+                },
+                { invoice_number: null },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('ASC with a null secondary cursor value stays in the same-date NULLS LAST tail', () => {
+    const date = new Date('2026-03-01T10:00:00.000Z');
+    const clause = buildKeysetAfterClause('date', 'asc', date, 'id-b', {
+      sortIsNullable: false,
+      secondary: {
+        field: 'invoice_number',
+        value: null,
+        nullable: true,
+      },
+    });
+    expect(clause).toEqual({
+      OR: [
+        { date: { gt: date } },
+        {
+          AND: [
+            { date },
+            {
+              AND: [{ invoice_number: null }, { id: { gt: 'id-b' } }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('buildPrismaNullsLastOrderBy places nullable secondary sort between primary and id', () => {
+    expect(
+      buildPrismaNullsLastOrderBy('date', 'desc', {
+        sortIsNullable: false,
+        secondary: { field: 'invoice_number', nullable: true },
+      }),
+    ).toEqual([
+      { date: 'desc' },
+      { invoice_number: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+  });
 
   it('AND-combines keyset clauses with search OR filters intact', () => {
     const base = {

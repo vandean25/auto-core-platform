@@ -12,7 +12,7 @@ export const DE_SHELL = {
   },
   favorites: {
     empty:
-      'Noch keine gespeicherten Ansichten. Setzen Sie Filter in einer Tabelle und wählen Sie „Als Seitenleistenansicht speichern“.',
+      'Noch keine gespeicherten Ansichten. Wählen Sie in einer Tabelle „Als Seitenleisten-Ansicht speichern“.',
   },
   user: {
     // The account of the e2e auth bypass (src/auth/AuthProvider.tsx).

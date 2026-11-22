@@ -186,7 +186,7 @@
   },
   "savedViews": {
     "saveButton": "Als Seitenleisten-Ansicht speichern",
-    "saveHint": "Speichert diese Filter als Shortcut in den Favoriten",
+    "saveHint": "Speichert diese Ansicht als Shortcut in den Favoriten",
     "saveAria": "Als Seitenleisten-Ansicht für {{title}} speichern",
     "title": "Als Seitenleisten-Ansicht speichern",
     "description": "Geben Sie dieser Ansicht einen Namen, um sie in Ihren Favoriten zu speichern.",

@@ -1506,6 +1506,33 @@ describe("WorkshopOrderDetails Characterization", () => {
       );
     });
 
+    it("shows the product draft number rather than a UUID in the Abrechnung invoice label", () => {
+      const invoiceId = "70aa2593-fe13-493b-bb44-632d4fbf8b8b";
+      setupDefaultMocks({ ...completedOrder, invoice: { id: invoiceId } });
+      asMock(salesApi.useInvoice).mockReturnValue({
+        data: { id: invoiceId, status: "DRAFT", invoice_number: null, draft_number: "RE-D-1042", items: [] },
+        isLoading: false,
+      });
+      renderComponent();
+
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
+
+      expect(screen.getByText("Rechnung: RE-D-1042")).toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(invoiceId))).not.toBeInTheDocument();
+    });
+
+    it("never exposes the invoice UUID while the Abrechnung invoice is loading", () => {
+      const invoiceId = "70aa2593-fe13-493b-bb44-632d4fbf8b8b";
+      setupDefaultMocks({ ...completedOrder, invoice: { id: invoiceId } });
+      asMock(salesApi.useInvoice).mockReturnValue({ data: undefined, isLoading: true });
+      renderComponent();
+
+      fireEvent.click(screen.getByRole("button", { name: checkoutCopy.primaryAction }));
+
+      expect(screen.getByText(checkoutSummaryCopy.loadingInvoice)).toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(invoiceId))).not.toBeInTheDocument();
+    });
+
     it("renders checkout totals without discounts", () => {
       setupDefaultMocks(completedOrder);
       renderComponent();
