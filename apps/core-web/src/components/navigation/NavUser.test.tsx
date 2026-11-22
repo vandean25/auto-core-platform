@@ -86,43 +86,42 @@ describe('NavUser', () => {
     expect(screen.getByRole('menuitemradio', { name: 'System' })).toBeChecked()
   })
 
-  // Regression (AUT-1029): Radix DropdownMenuRadioItem must expose a stable accessible name for System (and Hell/Dunkel) in both selected and unselected states.
+  // Regression (AUT-1029): the selected radio indicator must not leave System (or Hell/Dunkel) without a name.
   it('WHEN the theme control is opened in DE THEN Hell, Dunkel and System expose matching accessible names whether selected or not', () => {
     renderUser()
 
-    const light = screen.getByRole('menuitemradio', { name: 'Hell' })
-    const dark = screen.getByRole('menuitemradio', { name: 'Dunkel' })
-    const system = screen.getByRole('menuitemradio', { name: 'System' })
-    expect(system).toBeChecked()
-    expect(light).toHaveAccessibleName('Hell')
-    expect(dark).toHaveAccessibleName('Dunkel')
-    expect(system).toHaveAccessibleName('System')
+    expectThemeOptionName('light', 'Hell')
+    expectThemeOptionName('dark', 'Dunkel')
+    expectThemeOptionName('system', 'System')
+    expect(screen.getByTestId('theme-option-system')).toBeChecked()
 
-    fireEvent.click(dark)
+    fireEvent.click(screen.getByTestId('theme-option-dark'))
     fireEvent.keyDown(screen.getByRole('button', { name: 'admin@example.com' }), { key: 'Enter' })
 
-    expect(screen.getByRole('menuitemradio', { name: 'Dunkel' })).toBeChecked()
-    expect(screen.getByRole('menuitemradio', { name: 'Hell' })).toHaveAccessibleName('Hell')
-    expect(screen.getByRole('menuitemradio', { name: 'Dunkel' })).toHaveAccessibleName('Dunkel')
-    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAccessibleName('System')
+    expect(screen.getByTestId('theme-option-dark')).toBeChecked()
+    expect(screen.getByTestId('theme-option-system')).not.toBeChecked()
+    expectThemeOptionName('light', 'Hell')
+    expectThemeOptionName('dark', 'Dunkel')
+    expectThemeOptionName('system', 'System')
   })
 
   it('WHEN the theme control is opened in EN THEN Light, Dark and System expose matching accessible names whether selected or not', async () => {
     await changeUiLanguage('en')
     renderUser()
 
-    expect(screen.getByRole('menuitemradio', { name: 'System' })).toBeChecked()
-    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toHaveAccessibleName('Light')
-    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveAccessibleName('Dark')
-    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAccessibleName('System')
+    expect(screen.getByTestId('theme-option-system')).toBeChecked()
+    expectThemeOptionName('light', 'Light')
+    expectThemeOptionName('dark', 'Dark')
+    expectThemeOptionName('system', 'System')
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Light' }))
+    fireEvent.click(screen.getByTestId('theme-option-light'))
     fireEvent.keyDown(screen.getByRole('button', { name: 'admin@example.com' }), { key: 'Enter' })
 
-    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toBeChecked()
-    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toHaveAccessibleName('Light')
-    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveAccessibleName('Dark')
-    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAccessibleName('System')
+    expect(screen.getByTestId('theme-option-light')).toBeChecked()
+    expect(screen.getByTestId('theme-option-system')).not.toBeChecked()
+    expectThemeOptionName('light', 'Light')
+    expectThemeOptionName('dark', 'Dark')
+    expectThemeOptionName('system', 'System')
   })
 
   it('WHEN the named System option is activated THEN the theme follows OS preference', () => {
@@ -147,8 +146,26 @@ describe('NavUser', () => {
 
     expect(document.documentElement).toHaveClass('dark')
     expect(window.localStorage.getItem('acp-theme')).toBe('system')
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'admin@example.com' }), { key: 'Enter' })
+    expect(screen.getByTestId('theme-option-system')).toBeChecked()
+    expect(screen.getByTestId('theme-option-light')).not.toBeChecked()
+    expect(screen.getByTestId('theme-option-dark')).not.toBeChecked()
   })
 })
+
+/** The option's accessible name is the visible label, including when the radio dot is shown. */
+function expectThemeOptionName(value: 'light' | 'dark' | 'system', label: string) {
+  const option = screen.getByTestId(`theme-option-${value}`)
+  const labelId = option.getAttribute('aria-labelledby')
+  expect(labelId).toEqual(expect.stringMatching(/\S/))
+  const labelNode = document.getElementById(labelId!)
+  expect(labelNode?.textContent).toBe(label)
+  expect(labelNode).not.toHaveAttribute('aria-hidden', 'true')
+  expect(option).toContainElement(labelNode)
+  expect(option).toHaveAccessibleName(label)
+  expect(option.querySelector(':scope > span')).toHaveAttribute('aria-hidden', 'true')
+}
 
 const shortcutRowCustomer: Customer = {
   id: 'cust-1',
