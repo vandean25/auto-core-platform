@@ -77,7 +77,7 @@ describe('membership role change when the audit insert fails', () => {
         active_tenant_id: 'tenant-a',
       },
     };
-    let committedRole = TenantMemberRole.ADMIN;
+    let committedRole: TenantMemberRole = TenantMemberRole.ADMIN;
     const auditCreate = jest
       .fn()
       .mockRejectedValue(new Error('audit insert failed'));
