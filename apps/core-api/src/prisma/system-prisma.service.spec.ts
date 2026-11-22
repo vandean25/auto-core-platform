@@ -103,6 +103,7 @@ describe('createSystemPrismaTransactionClient', () => {
     attendanceEvent: { findMany: jest.fn() },
     customer: { findMany: jest.fn() },
     vehicle: { findMany: jest.fn() },
+    auditLog: { create: jest.fn(), findMany: jest.fn() },
   };
 
   it('forwards allowlisted delegates', () => {
@@ -120,6 +121,15 @@ describe('createSystemPrismaTransactionClient', () => {
 
     expect('customer' in tx).toBe(false);
     expect((tx as { customer?: unknown }).customer).toBeUndefined();
+  });
+
+  it('forwards only auditLog.create so membership writes can audit in the same transaction', async () => {
+    const tx = createSystemPrismaTransactionClient(fakeClient as never);
+
+    await tx.auditLog.create({ data: { tenant_id: 'tenant-a' } } as never);
+
+    expect(fakeClient.auditLog.create).toHaveBeenCalledTimes(1);
+    expect('findMany' in tx.auditLog).toBe(false);
   });
 });
 

@@ -32,6 +32,11 @@ import {
   resolveTenantMemberPagination,
 } from './tenant-member.queries.js';
 import {
+  membershipAuditActor,
+  membershipAuditSnapshot,
+  recordTenantMemberAudit,
+} from './tenant-member.audit.js';
+import {
   buildMembershipUpdateData,
   isSecuritySensitiveChange,
 } from './tenant-member.update.js';
@@ -100,7 +105,14 @@ export class TenantMemberService {
       existingUser,
     });
 
+    const actor = membershipAuditActor(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const membership = await this.systemPrisma.$transaction(async (tx) => {
+      const before = await tx.tenantMember.findFirst({
+        where: { tenant_id: tenantId, user_id: userId },
+        include: { user: true },
+      });
       const row = await tx.tenantMember.upsert({
         where: {
           tenant_id_user_id: {
@@ -125,7 +137,18 @@ export class TenantMemberService {
         tenantId,
         userId,
       });
-      return row;
+      const committed = await tx.tenantMember.findFirstOrThrow({
+        where: { id: row.id, tenant_id: tenantId },
+        include: { user: true },
+      });
+      await recordTenantMemberAudit(tx.auditLog, {
+        actor,
+        action: before ? 'UPDATE' : 'CREATE',
+        entityId: committed.id,
+        before: before ? membershipAuditSnapshot(before) : null,
+        after: membershipAuditSnapshot(committed),
+      });
+      return committed;
     });
 
     await this.syncUserClaims(userId);
@@ -140,10 +163,13 @@ export class TenantMemberService {
     const tenantId = this.tenantContext.getRequiredTenantId();
     const existingMembership = await this.findMembershipOrThrow(id, tenantId);
 
+    const actor = membershipAuditActor(
+      this.tenantContext.getAuthenticatedUser(),
+    );
     const updatedMembership = await this.systemPrisma.$transaction(
       async (tx) => {
         const row = await tx.tenantMember.update({
-          where: { id },
+          where: { id, tenant_id: tenantId },
           data: buildMembershipUpdateData(dto),
           include: { user: true },
         });
@@ -152,7 +178,18 @@ export class TenantMemberService {
           tenantId,
           userId: row.user_id,
         });
-        return row;
+        const committed = await tx.tenantMember.findFirstOrThrow({
+          where: { id: row.id, tenant_id: tenantId },
+          include: { user: true },
+        });
+        await recordTenantMemberAudit(tx.auditLog, {
+          actor,
+          action: 'UPDATE',
+          entityId: committed.id,
+          before: membershipAuditSnapshot(existingMembership),
+          after: membershipAuditSnapshot(committed),
+        });
+        return committed;
       },
     );
 

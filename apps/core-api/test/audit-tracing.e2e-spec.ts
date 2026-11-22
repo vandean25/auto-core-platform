@@ -19,7 +19,10 @@ import {
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import { AuditLogAction } from '@prisma/client';
+import { AuditLogAction, TenantMemberRole } from '@prisma/client';
+import type { UserRecord } from 'firebase-admin/auth';
+import { getFirebaseAdminAuth } from '../src/auth/firebase-admin.js';
+import { stubFirebaseAdminAuthForCustomClaimsE2e } from './helpers/firebase-auth-e2e-mocks.js';
 
 describe('Audit Tracing and Governance (e2e)', () => {
   let app: INestApplication;
@@ -613,6 +616,154 @@ describe('Audit Tracing and Governance (e2e)', () => {
     } finally {
       purgeSpy.mockRestore();
     }
+  });
+
+  async function oneMembershipUpdateAudit(entityId: string) {
+    const logs = await prismaA.auditLog.findMany({
+      where: {
+        entity_type: 'TenantMember',
+        entity_id: entityId,
+        action: AuditLogAction.UPDATE,
+      },
+    });
+    expect(logs).toHaveLength(1);
+    const log = logs[0];
+    expect(log.tenant_id).toBe(tenantA);
+    return log;
+  }
+
+  async function seedTenantMember(
+    role: TenantMemberRole,
+    isActive: boolean,
+  ) {
+    const stamp = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const user = await prisma.user.create({
+      data: {
+        firebaseUid: `e2e-aut1010-${stamp}`,
+        email: `aut1010-${stamp}@example.com`,
+        memberships: {
+          create: {
+            tenant_id: tenantA,
+            role,
+            is_active: isActive,
+          },
+        },
+      },
+      include: { memberships: true },
+    });
+    const membership = user.memberships[0];
+    if (!membership) {
+      throw new Error('Expected the seeded membership to exist.');
+    }
+    return { user, membership };
+  }
+
+  it('AUT-1010: an admin role change writes one audit entry and tenant B sees none', async () => {
+    stubFirebaseAdminAuthForCustomClaimsE2e();
+    const { membership } = await seedTenantMember(TenantMemberRole.TECH, true);
+
+    await request(app.getHttpServer())
+      .patch(`/tenant-members/${membership.id}`)
+      .set('Authorization', authHeaderA)
+      .send({ role: TenantMemberRole.SALES })
+      .expect(200);
+
+    const log = await oneMembershipUpdateAudit(membership.id);
+    const persisted = await prismaA.tenantMember.findFirstOrThrow({
+      where: { id: membership.id, tenant_id: tenantA },
+    });
+    expect(log.after).toEqual({
+      id: persisted.id,
+      tenant_id: persisted.tenant_id,
+      user_id: persisted.user_id,
+      role: persisted.role,
+      is_active: persisted.is_active,
+      scope_epoch: persisted.scope_epoch.toString(),
+      demo_access_expires_at: persisted.demo_access_expires_at
+        ? persisted.demo_access_expires_at.toISOString()
+        : null,
+      createdAt: persisted.createdAt.toISOString(),
+      updatedAt: persisted.updatedAt.toISOString(),
+    });
+    expect(log.actor_user_id).toBe(tenantARef.firebaseUid);
+    expect(log.actor_role).toBe('ADMIN');
+    expect(log.actor_email).toBe(tenantARef.email);
+    expect((log.before as { role?: string }).role).toBe(TenantMemberRole.TECH);
+    expect((log.after as { role?: string }).role).toBe(TenantMemberRole.SALES);
+    expect(
+      (log.diff as { role?: { before: string; after: string } }).role,
+    ).toEqual({
+      before: TenantMemberRole.TECH,
+      after: TenantMemberRole.SALES,
+    });
+
+    const foreignLogs = await prismaB.auditLog.findMany({
+      where: {
+        entity_type: 'TenantMember',
+        entity_id: membership.id,
+      },
+    });
+    expect(foreignLogs).toHaveLength(0);
+
+    const resB = await request(app.getHttpServer())
+      .get('/audit-logs')
+      .set('Authorization', authHeaderB)
+      .expect(200);
+    const tenantBIds = resB.body.data.map(
+      (item: { entityId: string }) => item.entityId,
+    );
+    expect(tenantBIds).not.toContain(membership.id);
+  });
+
+  it('AUT-1010: deactivating a member writes one audit entry with is_active true to false', async () => {
+    stubFirebaseAdminAuthForCustomClaimsE2e();
+    const { membership } = await seedTenantMember(TenantMemberRole.TECH, true);
+
+    await request(app.getHttpServer())
+      .patch(`/tenant-members/${membership.id}`)
+      .set('Authorization', authHeaderA)
+      .send({ isActive: false })
+      .expect(200);
+
+    const log = await oneMembershipUpdateAudit(membership.id);
+    expect((log.before as { is_active?: boolean }).is_active).toBe(true);
+    expect((log.after as { is_active?: boolean }).is_active).toBe(false);
+    expect(
+      (log.diff as { is_active?: { before: boolean; after: boolean } })
+        .is_active,
+    ).toEqual({ before: true, after: false });
+  });
+
+  it('AUT-1010: re-inviting an inactive member with another role writes one audit diff', async () => {
+    stubFirebaseAdminAuthForCustomClaimsE2e();
+    const { user, membership } = await seedTenantMember(
+      TenantMemberRole.TECH,
+      false,
+    );
+    const firebaseAuth = getFirebaseAdminAuth();
+    jest.spyOn(firebaseAuth, 'getUserByEmail').mockResolvedValue({
+      uid: user.firebaseUid,
+      email: user.email,
+      emailVerified: true,
+    } as UserRecord);
+
+    await request(app.getHttpServer())
+      .post('/tenant-members/invite')
+      .set('Authorization', authHeaderA)
+      .send({ email: user.email, role: TenantMemberRole.ADMIN })
+      .expect(201);
+
+    const log = await oneMembershipUpdateAudit(membership.id);
+    expect(
+      (log.diff as { role?: { before: string; after: string } }).role,
+    ).toEqual({
+      before: TenantMemberRole.TECH,
+      after: TenantMemberRole.ADMIN,
+    });
+    expect(
+      (log.diff as { is_active?: { before: boolean; after: boolean } })
+        .is_active,
+    ).toEqual({ before: false, after: true });
   });
 });
 

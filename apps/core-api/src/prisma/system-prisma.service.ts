@@ -29,7 +29,7 @@ import {
  *
  * Allowed callers:
  * - AuthSessionService — User
- * - TenantMemberService — User, TenantMember
+ * - TenantMemberService — User, TenantMember, and auditLog.create inside the membership transaction
  * - PlatformAdminService — Tenant, FinanceSettings, InspectionTemplate, InspectionTemplateItem, VehicleEquipmentOption (new-tenant bootstrap only)
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)

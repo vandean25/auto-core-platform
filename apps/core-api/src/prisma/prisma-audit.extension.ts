@@ -471,6 +471,34 @@ function buildAuditLogData(
   };
 }
 
+/**
+ * Same audit-log row the Prisma extension inserts. Returns undefined when an
+ * update has no business diff, so callers do not write an empty history row.
+ * SystemPrisma writes use this instead of copying the column list.
+ */
+export function buildAuditLogCreateData(input: {
+  actor: AuditActorContext;
+  model: string;
+  entityId: string;
+  action: 'CREATE' | 'UPDATE';
+  before: unknown;
+  after: unknown;
+}): Record<string, unknown> | undefined {
+  const payload =
+    input.action === 'CREATE'
+      ? createCreateRecord(input.model, input.entityId, input.after)
+      : createUpdateRecord(
+          input.model,
+          input.entityId,
+          input.before,
+          input.after,
+        );
+  if (!isMeaningfulAuditRecord(payload)) {
+    return undefined;
+  }
+  return buildAuditLogData(input.actor, payload);
+}
+
 const BOOKKEEPING_FIELDS = new Set(['updatedAt']);
 
 /** Skip when the write itself is empty ({}) or touches nothing but updatedAt. */

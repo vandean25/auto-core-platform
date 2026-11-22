@@ -21,6 +21,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - notificationOutbox: AUT-547 outbox writes in the same transaction as demo access grants (tenant id on row).
  * - customerConsentUnsubscribeToken: public marketing opt-out lookup by token hash before tenant context (AUT-589).
  * - scheduledJobRun: scheduled background job execution timestamps and distributed lease claims (AUT-839).
+ * - auditLog.create: transaction client only, so a membership write can insert its audit row
+ *   in the same transaction. Not a service delegate. tenant_id is the calling user's tenant.
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -56,10 +58,19 @@ export type ForbiddenSystemPrismaDelegate = Exclude<
   SystemPrismaModelDelegate
 >;
 
+/**
+ * Allowlisted delegates, plus `auditLog.create` so a membership write can
+ * insert its audit row on the same transaction. The service itself does not
+ * expose `auditLog` (reads and other writes stay on PrismaService).
+ */
 export type SystemPrismaTransactionClient = Pick<
   PrismaClient,
   SystemPrismaModelDelegate
->;
+> & {
+  auditLog: {
+    create: PrismaClient['auditLog']['create'];
+  };
+};
 
 type SystemPrismaTransactionOptions = {
   maxWait?: number;
@@ -88,7 +99,7 @@ export type AssertSystemPrismaOmitsTenantModels<Target> =
     : Extract<keyof Target, ForbiddenSystemPrismaDelegate>;
 
 export function createSystemPrismaTransactionClient(
-  client: Pick<PrismaClient, SystemPrismaModelDelegate>,
+  client: Pick<PrismaClient, SystemPrismaModelDelegate | 'auditLog'>,
 ): SystemPrismaTransactionClient {
   return {
     tenant: client.tenant,
@@ -112,5 +123,8 @@ export function createSystemPrismaTransactionClient(
     notificationOutbox: client.notificationOutbox,
     customerConsentUnsubscribeToken: client.customerConsentUnsubscribeToken,
     scheduledJobRun: client.scheduledJobRun,
+    auditLog: {
+      create: (args) => client.auditLog.create(args),
+    },
   };
 }
