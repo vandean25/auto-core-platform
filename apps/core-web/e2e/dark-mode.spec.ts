@@ -138,4 +138,81 @@ test.describe('Dark mode switch (AUT-659)', () => {
     await expect(page.locator('html')).toHaveClass(/\bdark\b/)
     await expectNoPageScroll(page)
   })
+
+  // Regression (AUT-1029): System (and Hell/Dunkel) keep a name taken from the visible label, selected or not.
+  test('WHEN the theme control is opened in DE THEN Hell, Dunkel, and System have matching accessible names whether selected or not', async ({ page }) => {
+    await open(page)
+    await openAccountMenu(page)
+
+    const light = page.getByTestId('theme-option-light')
+    const dark = page.getByTestId('theme-option-dark')
+    const system = page.getByTestId('theme-option-system')
+
+    await expect(system).toBeChecked()
+    await expectThemeOptionName(light, 'Hell')
+    await expectThemeOptionName(dark, 'Dunkel')
+    await expectThemeOptionName(system, 'System')
+
+    await dark.click()
+    await openAccountMenu(page)
+
+    await expect(dark).toBeChecked()
+    await expect(system).not.toBeChecked()
+    await expectThemeOptionName(light, 'Hell')
+    await expectThemeOptionName(dark, 'Dunkel')
+    await expectThemeOptionName(system, 'System')
+  })
+
+  test('WHEN the theme control is opened in EN THEN Light, Dark, and System have matching accessible names whether selected or not', async ({ page }) => {
+    await open(page)
+    await openAccountMenu(page)
+    await page.getByTestId('language-option-en').click()
+
+    const light = page.getByTestId('theme-option-light')
+    const dark = page.getByTestId('theme-option-dark')
+    const system = page.getByTestId('theme-option-system')
+
+    await expect(system).toBeChecked()
+    await expectThemeOptionName(light, 'Light')
+    await expectThemeOptionName(dark, 'Dark')
+    await expectThemeOptionName(system, 'System')
+
+    await light.click()
+    await openAccountMenu(page)
+
+    await expect(light).toBeChecked()
+    await expect(system).not.toBeChecked()
+    await expectThemeOptionName(light, 'Light')
+    await expectThemeOptionName(dark, 'Dark')
+    await expectThemeOptionName(system, 'System')
+  })
+
+  test('WHEN the named System option is activated THEN the theme follows OS preference', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await open(page)
+    await openAccountMenu(page)
+    await page.getByRole('menuitemradio', { name: 'Hell' }).click()
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+
+    await openAccountMenu(page)
+    await page.getByRole('menuitemradio', { name: 'System' }).click()
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+    expect(await page.evaluate(() => window.localStorage.getItem('acp-theme'))).toBe('system')
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+    expect(await page.evaluate(() => window.localStorage.getItem('acp-theme'))).toBe('system')
+  })
 })
+
+/** Name is the visible label, and the radio dot is hidden from the accessibility tree. */
+async function expectThemeOptionName(option: ReturnType<Page['getByTestId']>, label: string) {
+  await expect(option).toHaveAccessibleName(label)
+  const labelId = await option.getAttribute('aria-labelledby')
+  expect(labelId).toMatch(/\S/)
+  const labelNode = option.locator(`[id="${labelId}"]`)
+  await expect(labelNode).toHaveText(label)
+  await expect(labelNode).toBeVisible()
+  await expect(option.locator('> span').first()).toHaveAttribute('aria-hidden', 'true')
+}
+
