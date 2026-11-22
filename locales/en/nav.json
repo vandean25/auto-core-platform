@@ -14,7 +14,7 @@
     "favorites": "Favorites"
   },
   "favorites": {
-    "empty": "No saved views yet. Apply filters on a table and click Save as sidebar view.",
+    "empty": "No saved views yet. Click Save as sidebar view on a table.",
     "removeAria": "Remove saved view {{name}}"
   },
   "aria": {
