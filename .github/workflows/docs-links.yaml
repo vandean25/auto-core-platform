@@ -1,0 +1,27 @@
+name: Docs Links
+
+on:
+  pull_request:
+    paths:
+      - 'docs/internal/01-ADR/**'
+      - '.github/scripts/adr-links.test.mjs'
+      - '.github/workflows/docs-links.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  docs-links:
+    name: Docs Link Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify ADR index and reciprocal links
+        run: node --test .github/scripts/adr-links.test.mjs
