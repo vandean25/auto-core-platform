@@ -61,6 +61,21 @@ function PickerOptions({
   onSelect: (value: string) => void
   onCancel: () => void
 }) {
+  // cmdk scrolls the highlighted option into view, and focusing the search field scrolls the page.
+  // Either one pulls a popover opened near the bottom of the viewport off its trigger.
+  React.useLayoutEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const previousHtml = html.style.overflow
+    const previousBody = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = previousHtml
+      body.style.overflow = previousBody
+    }
+  }, [])
+
   return (
     <Command filter={matchesSearch} defaultValue={value ?? undefined}>
       <CommandInput
