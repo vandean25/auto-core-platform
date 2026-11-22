@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDetailPage from './InvoiceDetailPage'
 import { deSales } from '@/test/de-sales'
+import enSales from '../../../../../locales/en/sales.json' with { type: 'json' }
+import { changeUiLanguage } from '@/lib/i18n'
 import * as salesApi from '@/api/sales'
 import * as invoicesApi from '@/api/invoices'
 import type { Invoice } from '@/api/types'
@@ -219,11 +221,26 @@ describe('InvoiceDetailPage download action', () => {
     expect(resolvedPostUrl).toBe('/api/invoices/inv-123/pdf')
     expect(resolvedGetUrl).toBe('/api/invoices/inv-123/pdf')
     expect(resolvedFilename).toBe('invoice_re_2026_0042.pdf')
+    expect(capturedPdfConfig?.messages?.generating).toBe(deSales.invoices.detail.generatingPdf)
     expect(capturedPdfConfig?.messages?.success).toBe(deSales.invoices.detail.pdfSuccess)
     expect(capturedPdfConfig?.messages?.errorFallback).toBe(deSales.invoices.detail.pdfError)
 
     await capturedPdfConfig?.checkGenerationFailed?.()
     expect(invoicesApi.fetchInvoicePdfGenerationError).toHaveBeenCalledWith('inv-123')
+  })
+
+  it('WHEN an invoice PDF is generated in EN THEN the in-progress toast shows the translated generatingPdf message', async () => {
+    await changeUiLanguage('en')
+    renderPage(
+      makeInvoice({
+        id: 'inv-123',
+        invoice_number: 'RE-2026-0042',
+        status: 'FINALIZED',
+      }),
+    )
+
+    expect(capturedPdfConfig?.messages?.generating).toBe(enSales.invoices.detail.generatingPdf)
+    expect(capturedPdfConfig?.messages?.generating).not.toBe('Generating PDF in the background...')
   })
 
   it('renders disabled state with Generating... while downloading', () => {

@@ -153,7 +153,7 @@ export function VehicleOrderTabs({ vehicle }: { vehicle: VehicleDetailResponse }
 
   return (
     <Tabs defaultValue='orders'>
-      <TabsList className='h-auto min-h-9 flex-wrap gap-1 max-sm:flex max-sm:w-full max-sm:justify-start'>
+      <TabsList className='h-auto min-h-9 flex-wrap gap-1 max-sm:flex max-sm:w-full max-sm:justify-start max-sm:[&_[role=tab]]:min-h-11 max-sm:[&_[role=tab]]:shrink-0'>
         <TabsTrigger value='orders'>{t('detail.tabs.activeOrders')}</TabsTrigger>
         <TabsTrigger value='invoices'>{t('detail.tabs.invoiceHistory')}</TabsTrigger>
         <TabsTrigger value='service'>{t('detail.tabs.serviceOrders')}</TabsTrigger>

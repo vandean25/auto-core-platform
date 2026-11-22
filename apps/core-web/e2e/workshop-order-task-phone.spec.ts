@@ -258,6 +258,125 @@ test.describe('Workshop order undo toast above sticky chrome (AUT-919)', () => {
   })
 })
 
+test('WHEN a work-order detail opens at 375px and 390px THEN page width equals the viewport, no horizontal scrollbar', async ({ page }, testInfo) => {
+  const order = createMockWorkshopOrder({
+    id: 'wo-aut-953',
+    order_number: 'WO202608421STANDORTWIEN',
+    status: 'IN_PROGRESS',
+    customer: {
+      id: 'cust-953',
+      type: 'COMPANY',
+      first_name: null,
+      last_name: null,
+      company_name: 'Nordwerkstatt Ersatzteile und Fahrzeugtechnik Gesellschaft',
+      email: 'buero@example.invalid',
+      phone: '+43 1 234567',
+    },
+  })
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}/estimates`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  for (const width of [375, 390] as const) {
+    await page.setViewportSize({ width, height: 812 })
+    await new AutoCorePage(page, order.order_number).navigate(`/workshop/orders/${order.id}`)
+    await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
+    await expectNoPageScroll(page)
+    await testInfo.attach(`aut-953-work-order-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
+  }
+})
+
+test('WHEN a work order with a Kostenvoranschlag opens at 320, 375 and 390 THEN the page is no wider than the screen', async ({ page }, testInfo) => {
+  const order = createMockWorkshopOrder({
+    id: 'wo-aut-953-estimate',
+    order_number: 'WO-2026-0953',
+    status: 'IN_PROGRESS',
+  })
+  const sentAt = '2026-10-10T08:05:00.000Z'
+  const estimate = {
+    id: 'est-953',
+    workshop_order_id: order.id,
+    estimate_number: 'KV-2026-0953',
+    year: 2026,
+    created_at: '2026-10-10T08:00:00.000Z',
+    send_enabled: true,
+    customer_send_blockers: [],
+    overrun_threshold_pct: '15.00',
+    overrun_warning: {
+      detected_at: '2026-10-12T08:00:00.000Z',
+      notified_at: null,
+      notified_channel: null,
+      notified_amount_gross: null,
+      customer_reaction: null,
+      note: null,
+      requires_customer_notice: true,
+      total_over_threshold: true,
+      new_work_lines: false,
+      approved_total_gross: '216.00',
+      current_total_gross: '270.00',
+      threshold_pct: '15.00',
+      new_line_count: 0,
+    },
+    versions: [
+      {
+        id: 'est-953-v1',
+        approval: null,
+        version: 1,
+        status: 'SENT',
+        sent_at: sentAt,
+        valid_from: sentAt,
+        valid_until: '2026-10-24T08:05:00.000Z',
+        total_net: '180.00',
+        total_tax: '36.00',
+        total_gross: '216.00',
+        snapshot_sha256: 'a'.repeat(64),
+        legal_text_version: 'kv-legal-de-v1',
+        retain_until: null,
+        legal_hold: false,
+        pdf_generated_at: sentAt,
+        pdf_generation_error: null,
+      },
+    ],
+  }
+
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(order) })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}/estimates`), async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [estimate] }),
+    })
+  })
+  await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  const card = page.locator('.rounded-xl.border').filter({
+    has: page.getByRole('heading', { name: deWorkshop.estimateCard.title, exact: true }),
+  })
+
+  for (const width of [320, 375, 390] as const) {
+    await page.setViewportSize({ width, height: 812 })
+    await new AutoCorePage(page, order.order_number).navigate(`/workshop/orders/${order.id}`)
+    await expect(page.getByRole('heading', { name: deWorkshop.estimateCard.title, exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: deWorkshop.estimateCard.recordDecision })).toBeVisible()
+    await expect(page.getByRole('button', { name: deWorkshop.estimateCard.pdfDownload })).toBeVisible()
+    const scrollWidth = await page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0)
+    expect(scrollWidth, `page is ${scrollWidth}px at ${width}px`).toBeLessThanOrEqual(width + 1)
+    expect(await controlsShorterThan44(card), 'estimate card controls under 44px').toEqual([])
+    await testInfo.attach(`aut-953-estimate-card-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
+  }
+})
+
 test.describe('Abrechnung draft number (AUT-1027)', () => {
   const invoiceId = '70aa2593-fe13-493b-bb44-632d4fbf8b8b'
   const draftNumber = 'RE-D-1042'

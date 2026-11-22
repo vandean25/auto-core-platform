@@ -74,23 +74,25 @@ const LocationTreeItem = ({
                     onClick={() => setExpanded(!expanded)}
                     aria-expanded={hasChildren ? expanded : undefined}
                 >
-                    <span className="flex items-center gap-1 text-muted-foreground w-4">
+                    <span className="flex w-4 shrink-0 items-center gap-1 text-muted-foreground">
                         {hasChildren && (
                             expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
                         )}
                     </span>
 
-                    {location.type === 'warehouse' ? <Folder className="h-4 w-4 text-info" /> :
-                        location.type === 'bin' ? <Box className="h-4 w-4 text-success" /> :
-                            <span className="h-2 w-2 rounded-full bg-muted-foreground/40 mx-1" />}
+                    {location.type === 'warehouse' ? <Folder className="h-4 w-4 shrink-0 text-info" /> :
+                        location.type === 'bin' ? <Box className="h-4 w-4 shrink-0 text-success" /> :
+                            <span className="mx-1 h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />}
 
-                    <span className="min-w-0 break-words font-medium text-sm">{location.name}</span>
-                    <Badge variant="outline" className="text-xs h-5 ml-2 shrink-0 whitespace-nowrap font-mono text-muted-foreground group-hover:text-foreground transition-colors">
-                        {location.code}
-                    </Badge>
+                    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="max-w-full break-normal font-medium text-sm">{location.name}</span>
+                        <Badge variant="outline" className="h-5 shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground sm:ml-2">
+                            {location.code}
+                        </Badge>
+                    </span>
                 </button>
 
-                <div className="ml-auto opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100">
+                <div className="ml-auto shrink-0 opacity-0 transition-opacity pointer-coarse:opacity-100 hover-capable:group-hover:opacity-100">
                     <Button
                         variant="ghost"
                         size="icon"

@@ -200,7 +200,7 @@ export function CustomerDetailTabs({ customer }: { customer: CustomerDetailRespo
 
   return (
     <Tabs defaultValue='orders'>
-      <TabsList className='flex h-auto min-h-9 w-full flex-wrap gap-1'>
+      <TabsList className='flex h-auto min-h-9 w-full flex-wrap gap-1 max-sm:[&_[role=tab]]:min-h-11 max-sm:[&_[role=tab]]:shrink-0'>
         <TabsTrigger value='orders'>{t('detail.tabs.activeOrders')}</TabsTrigger>
         <TabsTrigger value='invoices'>{t('detail.tabs.invoices')}</TabsTrigger>
         <TabsTrigger value='vehicles'>{t('detail.tabs.vehicles')}</TabsTrigger>
