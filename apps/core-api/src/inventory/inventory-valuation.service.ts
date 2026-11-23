@@ -122,6 +122,57 @@ async function resolveBookingKeys(
   return { sortedKeys, legalEntityByIndex };
 }
 
+const BACKFILL_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 120_000,
+} as const;
+
+type BoundRawQuery = (
+  query: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<unknown>;
+
+function valuationAdvisoryLockKey(tenantId: string): string {
+  return `inventory_valuation:${tenantId}`;
+}
+
+async function acquireValuationSharedLock(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<void> {
+  const executeRaw = tx['$executeRaw'].bind(tx) as BoundRawQuery;
+  const lockMaterial = valuationAdvisoryLockKey(tenantId);
+  await executeRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended(${lockMaterial}::text, 0))`;
+}
+
+async function acquireValuationExclusiveLock(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<void> {
+  const executeRaw = tx['$executeRaw'].bind(tx) as BoundRawQuery;
+  const lockMaterial = valuationAdvisoryLockKey(tenantId);
+  await executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockMaterial}::text, 0))`;
+}
+
+async function lockValuationRows(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  sortedValuationIds: readonly string[],
+): Promise<void> {
+  if (sortedValuationIds.length === 0) {
+    return;
+  }
+  const queryRaw = tx['$queryRaw'].bind(tx) as BoundRawQuery;
+  await queryRaw`
+    SELECT id
+    FROM inventory_valuations
+    WHERE tenant_id = ${tenantId}
+      AND id IN (${Prisma.join(sortedValuationIds)})
+    ORDER BY id
+    FOR UPDATE
+  `;
+}
+
 async function lockAndLoadValuations(
   tx: Prisma.TransactionClient,
   tenantId: string,
@@ -148,12 +199,12 @@ async function lockAndLoadValuations(
     },
     select: { id: true },
   });
-  const valuationIds = existingIdRows.map((row) => row.id);
+  const valuationIds = [...new Set(existingIdRows.map((row) => row.id))].sort();
+  if (valuationIds.length === 0) {
+    return [];
+  }
 
-  await tx.inventoryValuation.updateMany({
-    where: { tenant_id: tenantId, id: { in: valuationIds } },
-    data: { as_of: new Date() },
-  });
+  await lockValuationRows(tx, tenantId, valuationIds);
 
   return tx.inventoryValuation.findMany({
     where: { tenant_id: tenantId, id: { in: valuationIds } },
@@ -205,6 +256,8 @@ export class InventoryValuationService {
         commit: () => Promise.resolve(),
       };
     }
+
+    await acquireValuationSharedLock(tx, tenantId);
 
     const { sortedKeys, legalEntityByIndex } = await resolveBookingKeys(
       tx,
@@ -368,10 +421,13 @@ export class InventoryValuationService {
   async backfillTenant(
     tenantId: string,
     txClient?: Prisma.TransactionClient,
+    txOptions?: { timeoutMs?: number; maxWaitMs?: number },
   ): Promise<BackfillValuationReport> {
     const run = async (
-      tx: Prisma.TransactionClient | PrismaService,
+      tx: Prisma.TransactionClient,
     ): Promise<BackfillValuationReport> => {
+      await acquireValuationExclusiveLock(tx, tenantId);
+
       const sites = await tx.site.findMany({
         where: { tenant_id: tenantId },
         select: { id: true, legal_entity_id: true },
@@ -494,6 +550,9 @@ export class InventoryValuationService {
     if (txClient) {
       return run(txClient);
     }
-    return this.prisma.$transaction((tx) => run(tx));
+    return this.prisma.$transaction((tx) => run(tx), {
+      maxWait: txOptions?.maxWaitMs ?? BACKFILL_TRANSACTION_OPTIONS.maxWait,
+      timeout: txOptions?.timeoutMs ?? BACKFILL_TRANSACTION_OPTIONS.timeout,
+    });
   }
 }

@@ -36,6 +36,7 @@ describe('InventoryValuationService', () => {
         upsert: jest.fn(),
       },
       $queryRaw: jest.fn().mockResolvedValue([]),
+      $executeRaw: jest.fn().mockResolvedValue(0),
     };
     service = new InventoryValuationService(mockPrisma as PrismaService);
   });
@@ -259,6 +260,83 @@ describe('InventoryValuationService', () => {
           }),
         }),
       );
+    });
+
+    it('locks multiple valuation rows in sorted id order via FOR UPDATE and does not use updateMany as a lock', async () => {
+      mockPrisma.site.findMany.mockResolvedValue([
+        { id: SITE_ID, legal_entity_id: LEGAL_ENTITY_ID },
+      ]);
+      mockPrisma.inventoryValuation.findMany
+        .mockResolvedValueOnce([{ id: 'val-z' }, { id: 'val-a' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'val-a',
+            tenant_id: TENANT_ID,
+            legal_entity_id: LEGAL_ENTITY_ID,
+            catalog_item_id: 'item-a',
+            average_unit_cost: new Decimal('10.0000'),
+            valued_quantity: new Decimal('2.000'),
+            last_booking_seq: BigInt(1),
+          },
+          {
+            id: 'val-z',
+            tenant_id: TENANT_ID,
+            legal_entity_id: LEGAL_ENTITY_ID,
+            catalog_item_id: 'item-z',
+            average_unit_cost: new Decimal('20.0000'),
+            valued_quantity: new Decimal('3.000'),
+            last_booking_seq: BigInt(2),
+          },
+        ]);
+
+      await service.prepareAndLockBatch(mockPrisma, TENANT_ID, [
+        {
+          itemId: 'item-z',
+          siteId: SITE_ID,
+          quantity: 1,
+          type: TransactionType.PURCHASE_RECEIPT,
+          costBasis: 30,
+        },
+        {
+          itemId: 'item-a',
+          siteId: SITE_ID,
+          quantity: 1,
+          type: TransactionType.PURCHASE_RECEIPT,
+          costBasis: 10,
+        },
+      ]);
+
+      expect(mockPrisma.inventoryValuation.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+      const [queryStrings, ...params] = mockPrisma.$queryRaw.mock.calls[0];
+      const sql = (queryStrings as string[]).join('?');
+      expect(sql).toContain('FROM inventory_valuations');
+      expect(sql).toContain('ORDER BY id');
+      expect(sql).toContain('FOR UPDATE');
+      expect(params[0]).toBe(TENANT_ID);
+    });
+  });
+
+  describe('backfillTenant locking and timeout', () => {
+    it('acquires exclusive advisory lock before reading journal and passes explicit transaction timeout', async () => {
+      mockPrisma.site.findMany.mockResolvedValue([]);
+
+      await service.backfillTenant(TENANT_ID, undefined, {
+        timeoutMs: 60_000,
+        maxWaitMs: 5_000,
+      });
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { timeout: 60_000, maxWait: 5_000 },
+      );
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+      const lockSql = (
+        mockPrisma.$executeRaw.mock.calls[0][0] as string[]
+      ).join('?');
+      expect(lockSql).toContain('pg_advisory_xact_lock(');
+      expect(lockSql).not.toContain('pg_advisory_xact_lock_shared');
     });
   });
 });

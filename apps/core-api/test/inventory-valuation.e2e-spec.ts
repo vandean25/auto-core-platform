@@ -854,4 +854,171 @@ describe('Inventory Valuation (e2e)', () => {
     );
     expect(empty).toBeNull();
   });
+
+  it('Scenario 3b: concurrent multi-article bookings in opposite orders do not deadlock and preserve all updates', async () => {
+    const itemA = await createItem('SKU-MULTI-A');
+    const itemB = await createItem('SKU-MULTI-B');
+
+    await prisma.inventoryStock.createMany({
+      data: [
+        {
+          tenant_id: tenantId,
+          site_id: defaultSiteId,
+          catalog_item_id: itemA.id,
+          location_id: binAId,
+          quantity_on_hand: new Decimal(0),
+          quantity_reserved: new Decimal(0),
+        },
+        {
+          tenant_id: tenantId,
+          site_id: defaultSiteId,
+          catalog_item_id: itemB.id,
+          location_id: binAId,
+          quantity_on_hand: new Decimal(0),
+          quantity_reserved: new Decimal(0),
+        },
+      ],
+    });
+
+    await Promise.all([
+      runInTenantContext(() =>
+        basePrisma.$transaction((tx) =>
+          ledgerService.recordTransactions(
+            [
+              {
+                itemId: itemA.id,
+                locationId: binAId,
+                quantity: 5,
+                type: TransactionType.PURCHASE_RECEIPT,
+                costBasis: 10,
+              },
+              {
+                itemId: itemB.id,
+                locationId: binAId,
+                quantity: 5,
+                type: TransactionType.PURCHASE_RECEIPT,
+                costBasis: 30,
+              },
+            ],
+            tx,
+          ),
+        ),
+      ),
+      runInTenantContext(() =>
+        basePrisma.$transaction((tx) =>
+          ledgerService.recordTransactions(
+            [
+              {
+                itemId: itemB.id,
+                locationId: binAId,
+                quantity: 5,
+                type: TransactionType.PURCHASE_RECEIPT,
+                costBasis: 50,
+              },
+              {
+                itemId: itemA.id,
+                locationId: binAId,
+                quantity: 5,
+                type: TransactionType.PURCHASE_RECEIPT,
+                costBasis: 20,
+              },
+            ],
+            tx,
+          ),
+        ),
+      ),
+    ]);
+
+    const valuations = await prisma.inventoryValuation.findMany({
+      where: {
+        tenant_id: tenantId,
+        legal_entity_id: defaultLegalEntityId,
+        catalog_item_id: { in: [itemA.id, itemB.id] },
+      },
+    });
+    const valA = valuations.find((v) => v.catalog_item_id === itemA.id)!;
+    const valB = valuations.find((v) => v.catalog_item_id === itemB.id)!;
+
+    expect(new Decimal(valA.valued_quantity).toFixed(3)).toBe('10.000');
+    expect(new Decimal(valA.average_unit_cost!).toFixed(4)).toBe('15.0000');
+    expect(new Decimal(valB.valued_quantity).toFixed(3)).toBe('10.000');
+    expect(new Decimal(valB.average_unit_cost!).toFixed(4)).toBe('40.0000');
+  });
+
+  it('Scenario 5b: receipt committed during backfillTenant waits on lock and is included in the final average', async () => {
+    const item = await createItem('SKU-BACKFILL-RACE');
+    await prisma.inventoryStock.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: defaultSiteId,
+        catalog_item_id: item.id,
+        location_id: binAId,
+        quantity_on_hand: new Decimal(10),
+        quantity_reserved: new Decimal(0),
+      },
+    });
+    await prisma.inventoryTransaction.create({
+      data: {
+        tenant_id: tenantId,
+        site_id: defaultSiteId,
+        item_id: item.id,
+        location_id: binAId,
+        quantity: new Decimal(10),
+        type: TransactionType.PURCHASE_RECEIPT,
+        cost_basis: new Decimal(10),
+      },
+    });
+
+    let concurrentReceiptPromise: Promise<void> | null = null;
+    await runInTenantContext(() =>
+      basePrisma.$transaction(async (backfillTx) => {
+        const originalFindMany = backfillTx.inventoryTransaction.findMany.bind(
+          backfillTx.inventoryTransaction,
+        );
+        backfillTx.inventoryTransaction.findMany = (async (
+          args: Parameters<typeof originalFindMany>[0],
+        ) => {
+          const rows = await originalFindMany(args);
+          // Start a live receipt after backfill has read the journal, before it upserts.
+          concurrentReceiptPromise = runInTenantContext(() =>
+            basePrisma.$transaction((receiptTx) =>
+              ledgerService.recordTransactions(
+                [
+                  {
+                    itemId: item.id,
+                    locationId: binAId,
+                    quantity: 10,
+                    type: TransactionType.PURCHASE_RECEIPT,
+                    costBasis: 20,
+                  },
+                ],
+                receiptTx,
+              ),
+            ),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return rows;
+        }) as typeof backfillTx.inventoryTransaction.findMany;
+
+        await valuationService.backfillTenant(tenantId, backfillTx);
+      }),
+    );
+
+    expect(concurrentReceiptPromise).not.toBeNull();
+    await concurrentReceiptPromise!;
+
+    const finalValuation = await prisma.inventoryValuation.findFirst({
+      where: {
+        tenant_id: tenantId,
+        legal_entity_id: defaultLegalEntityId,
+        catalog_item_id: item.id,
+      },
+    });
+    expect(new Decimal(finalValuation!.valued_quantity).toFixed(3)).toBe(
+      '20.000',
+    );
+    expect(new Decimal(finalValuation!.average_unit_cost!).toFixed(4)).toBe(
+      '15.0000',
+    );
+  });
 });
