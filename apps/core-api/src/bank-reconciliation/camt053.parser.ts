@@ -54,10 +54,28 @@ function stripNamespacePrefix(tagName: string): string {
 
 function parseAttributes(rawAttrs: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  const attrRegex = /([A-Za-z_][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-  for (const match of rawAttrs.matchAll(attrRegex)) {
-    const key = stripNamespacePrefix(match[1]);
-    attrs[key] = decodeXmlEntities(match[2] ?? match[3] ?? '');
+  let cursor = 0;
+  while (cursor < rawAttrs.length) {
+    const eq = rawAttrs.indexOf('=', cursor);
+    if (eq < 0) break;
+    const rawName = rawAttrs.slice(cursor, eq).trim();
+    let valPos = eq + 1;
+    while (valPos < rawAttrs.length && /\s/.test(rawAttrs[valPos])) {
+      valPos++;
+    }
+    const quote = rawAttrs[valPos];
+    if (quote !== '"' && quote !== "'") {
+      cursor = valPos + 1;
+      continue;
+    }
+    const valEnd = rawAttrs.indexOf(quote, valPos + 1);
+    if (valEnd < 0) break;
+    if (rawName) {
+      attrs[stripNamespacePrefix(rawName)] = decodeXmlEntities(
+        rawAttrs.slice(valPos + 1, valEnd),
+      );
+    }
+    cursor = valEnd + 1;
   }
   return attrs;
 }
@@ -114,6 +132,28 @@ function stripXmlDelimitedBlock(
   return result;
 }
 
+function consumeXmlTag(stack: XmlNode[], cleaned: string, lt: number): number {
+  if (cleaned.startsWith('<![CDATA[', lt)) {
+    const end = cleaned.indexOf(']]>', lt + 9);
+    if (end < 0) {
+      throw new BadRequestException('Malformed XML: unclosed CDATA section.');
+    }
+    stack[stack.length - 1].text += cleaned.slice(lt + 9, end);
+    return end + 3;
+  }
+  const gt = cleaned.indexOf('>', lt + 1);
+  if (gt < 0) {
+    throw new BadRequestException('Malformed XML: unclosed XML tag.');
+  }
+  const tagContent = cleaned.slice(lt + 1, gt).trim();
+  if (tagContent.startsWith('/')) {
+    handleClosingTag(stack, tagContent);
+  } else if (tagContent) {
+    handleOpeningTag(stack, tagContent);
+  }
+  return gt + 1;
+}
+
 function parseXmlDocument(xml: string): XmlNode {
   if (/<!(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
     throw new BadRequestException(
@@ -139,21 +179,19 @@ function parseXmlDocument(xml: string): XmlNode {
 
   const root: XmlNode = { name: '__root__', attrs: {}, children: [], text: '' };
   const stack: XmlNode[] = [root];
-  const tokenRegex = /<!\[CDATA\[([\s\S]*?)\]\]>|<([^>]+)>|([^<]+)/g;
-
-  for (const match of cleaned.matchAll(tokenRegex)) {
-    if (match[1] !== undefined) {
-      stack[stack.length - 1].text += match[1];
-    } else if (match[3] !== undefined) {
-      stack[stack.length - 1].text += decodeXmlEntities(match[3]);
-    } else {
-      const tagContent = match[2].trim();
-      if (tagContent.startsWith('/')) {
-        handleClosingTag(stack, tagContent);
-      } else if (tagContent) {
-        handleOpeningTag(stack, tagContent);
-      }
+  let cursor = 0;
+  while (cursor < cleaned.length) {
+    const lt = cleaned.indexOf('<', cursor);
+    if (lt < 0) {
+      stack[stack.length - 1].text += decodeXmlEntities(cleaned.slice(cursor));
+      break;
     }
+    if (lt > cursor) {
+      stack[stack.length - 1].text += decodeXmlEntities(
+        cleaned.slice(cursor, lt),
+      );
+    }
+    cursor = consumeXmlTag(stack, cleaned, lt);
   }
 
   if (stack.length !== 1 || root.children.length !== 1) {
