@@ -118,6 +118,7 @@ describe('DataImportHistoryView', () => {
     expect(screen.queryByText('DRY_RUN_DONE')).toBeNull()
     expect(screen.queryByText('CUSTOMER')).toBeNull()
     expect(screen.queryByText('VEHICLE')).toBeNull()
+    expect(screen.queryByText(di.history.description)).toBeNull()
   })
 
   it('WHEN an import run by a known user is listed THEN the user column shows that user name', async () => {

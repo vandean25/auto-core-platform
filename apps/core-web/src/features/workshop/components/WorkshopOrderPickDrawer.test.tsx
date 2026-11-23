@@ -87,6 +87,9 @@ describe('WorkshopOrderPickDrawer', () => {
 
     vi.runAllTimers()
 
+    expect(screen.queryByText(/Teile einem Bereitstellungsbehälter/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Einen Bereitstellungsbehälter für diesen Transfer wählen/)).not.toBeInTheDocument()
+
     const quantityInput = screen.getByLabelText(qtyLabel)
     expect(quantityInput).toHaveValue(2)
     expect(screen.getByRole('combobox')).toHaveTextContent('TOTE-01 - Primary Tote')

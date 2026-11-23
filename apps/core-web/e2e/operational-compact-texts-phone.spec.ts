@@ -779,4 +779,378 @@ test.describe('AUT-1033: Remaining page subtitles and helper sentences', () => {
   }
 })
 
+test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper sentences)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
+      route.fulfill(
+        json({
+          userId: 'user-1',
+          email: 'admin@example.com',
+          activeTenant: { id: 'tenant-1', name: 'Test Workshop', slug: 'test-workshop' },
+          activeRole: 'ADMIN',
+          activeSiteId: 'site-1',
+          memberships: [{ tenantId: 'tenant-1', role: 'ADMIN' }],
+          locale: null,
+          effectiveLocale: 'de',
+          defaultLocale: 'de',
+          formatLocale: 'de-AT',
+          effectiveCapabilities: { pickerl57a: true, tyreStorage: true },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) =>
+      route.fulfill(json([{ id: 'site-1', name: 'Wien Nord', code: 'WN', is_active: true }])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), (route) =>
+      route.fulfill(json({ data: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/purchase-orders'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'po-1',
+              po_number: 'PO-2026-0001',
+              status: 'DRAFT',
+              order_date: '2026-06-15T00:00:00.000Z',
+              vendor: { id: 'v-1', name: 'Bosch Automotive' },
+              items: [{ id: 'poi-1' }],
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 10, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vendors'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'v-1',
+              name: 'Bosch Automotive',
+              email: 'orders@bosch.example',
+              phone: '+43 1 555 0100',
+              brands: [],
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 10, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/purchase-invoices'), (route) =>
+      route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 10, pageCount: 1 } })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'member-1',
+              email: 'owner@autocore.test',
+              role: 'ADMIN',
+              isActive: true,
+              createdAt: '2026-06-01T08:00:00.000Z',
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 100, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/imports'), (route) =>
+      route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/locations'), (route) =>
+      route.fulfill(json([{ id: 'tote-1', code: 'TOTE-01', name: 'Box 1', type: 'staging_tote' }])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'wo-1',
+              order_number: 'WO-2026-0001',
+              status: 'IN_PROGRESS',
+              createdAt: '2026-06-15T00:00:00.000Z',
+              customer: { id: 'c-1', first_name: 'Max', last_name: 'Mustermann' },
+              vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' },
+              tasks: [
+                {
+                  id: 'task-1',
+                  title: 'Brake service',
+                  status: 'IN_PROGRESS',
+                  lineItems: [
+                    {
+                      id: 'li-1',
+                      type: 'PART',
+                      catalogItemId: 'part-1',
+                      description: 'Brake Pad',
+                      qty: 2,
+                      unit_price: 49.9,
+                    },
+                  ],
+                },
+              ],
+              parts: [
+                {
+                  id: 'wop-1',
+                  catalog_item_id: 'part-1',
+                  description: 'Brake Pad',
+                  quantity_required: 2,
+                  quantity_picked: 0,
+                },
+              ],
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 100, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1'), (route) =>
+      route.fulfill(
+        json({
+          id: 'wo-1',
+          order_number: 'WO-2026-0001',
+          status: 'INTAKE',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          customer: { id: 'c-1', first_name: 'Max', last_name: 'Mustermann' },
+          vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' },
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Brake service',
+              status: 'IN_PROGRESS',
+              lineItems: [
+                {
+                  id: 'li-1',
+                  type: 'PART',
+                  catalogItemId: 'part-1',
+                  description: 'Brake Pad',
+                  qty: 2,
+                  unit_price: 49.9,
+                },
+              ],
+            },
+          ],
+          parts: [
+            {
+              id: 'wop-1',
+              catalog_item_id: 'part-1',
+              description: 'Brake Pad',
+              quantity_required: 2,
+              quantity_picked: 0,
+            },
+          ],
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in'), (route) =>
+      route.fulfill(
+        json({
+          id: 'ci-1',
+          workshop_order_id: 'wo-1',
+          status: 'DRAFT',
+          revision: 1,
+          odometer: 45000,
+          fuel_level: 50,
+          items_left: null,
+          key_count: 2,
+          warning_lights: [],
+          damage_markers_json: [],
+          condition_json: { tyre_season: 'UNKNOWN', exterior_notes: '', interior_notes: '' },
+          customer_signature_media_id: null,
+          acknowledgement_version: null,
+          completed_at: null,
+          created_at: '2026-06-15T00:00:00.000Z',
+          updated_at: '2026-06-15T00:00:00.000Z',
+          inspection_id: 'insp-1',
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in/media'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-1/check-in/inspection'), (route) =>
+      route.fulfill(
+        json({
+          id: 'insp-1',
+          title: 'Annahme-Check',
+          items: [{ id: 'item-1', label_snapshot: 'Warnweste', passed: null, notes: null }],
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/inv-compact-2'), (route) =>
+      route.fulfill(
+        json({
+          id: 'inv-compact-2',
+          status: 'ISSUED',
+          invoice_number: 'RE-2026-0029',
+          date: '2026-06-15T00:00:00.000Z',
+          due_date: '2026-06-29T00:00:00.000Z',
+          total_net: '80.00',
+          total_tax: '16.00',
+          total_gross: '96.00',
+          tax_mode: 'STANDARD',
+          workshop_order_id: 'wo-1',
+          customer: {
+            id: 'cust-1',
+            type: 'PRIVATE',
+            first_name: 'Max',
+            last_name: 'Mustermann',
+            company_name: null,
+            email: 'max@example.com',
+            phone: null,
+          },
+          items: [],
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/invoices/inv-compact-2/settlement'), (route) =>
+      route.fulfill(
+        json({
+          invoiceId: 'inv-compact-2',
+          invoiceStatus: 'ISSUED',
+          rksvMode: 'REQUIRED_EXTERNAL_KASSE',
+          payment: null,
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/invoices/inv-compact-2/credit-notes'), (route) =>
+      route.fulfill(
+        json({
+          originalInvoiceId: 'inv-compact-2',
+          coverageStatus: 'NONE',
+          creditedGross: '0.00',
+          remainingGross: '96.00',
+          creditNotes: [],
+        }),
+      ),
+    )
+  })
+
+  for (const viewport of [
+    { name: '375', width: 375, height: 667 },
+    { name: '390', width: 390, height: 844 },
+    { name: '1280', width: 1280, height: 800 },
+  ] as const) {
+    test(`WHEN purchase-orders, vendors, and purchase-bills are opened at ${viewport.name}px in DE and EN THEN subtitles are absent while row data stays`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+
+      for (const language of ['de', 'en'] as const) {
+        const f = language === 'de' ? deFinance : enFinance
+
+        await page.goto('/purchase-orders')
+        await page.waitForLoadState('networkidle')
+        await ensureUiLanguage(page, language)
+        await expect(page.getByRole('heading', { level: 1, name: f.purchaseOrders.list.title })).toBeVisible()
+        await expect(page.getByText(f.purchaseOrders.list.subtitle)).toHaveCount(0)
+        await expect(page.getByText('Bosch Automotive')).toBeVisible()
+        await testInfo.attach(`aut-1036-po-list-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+
+        await page.goto('/vendors')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByRole('heading', { level: 1, name: f.vendors.list.title })).toBeVisible()
+        await expect(page.getByText(f.vendors.list.subtitle)).toHaveCount(0)
+        await expect(page.getByText('Bosch Automotive')).toBeVisible()
+        await testInfo.attach(`aut-1036-vendors-list-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+
+        await page.goto('/purchase-bills')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByRole('heading', { level: 1, name: f.purchaseBills.list.title })).toBeVisible()
+        await expect(page.getByText(f.purchaseBills.list.subtitle)).toHaveCount(0)
+        await testInfo.attach(`aut-1036-purchase-bills-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+      }
+    })
+
+    test(`WHEN team, import history, check-in, save-view dialog, pick drawer, and invoice billing card open at ${viewport.name}px in DE and EN THEN helper sentences are absent while distinctive data stays`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+
+      for (const language of ['de', 'en'] as const) {
+        const c = language === 'de' ? deCommon : enCommon
+        const s = language === 'de' ? deSettings : enSettings
+        const w = language === 'de' ? deWorkshop : enWorkshop
+
+        await page.goto('/settings?tab=team')
+        await page.waitForLoadState('networkidle')
+        await ensureUiLanguage(page, language)
+        await expect(page.getByText(s.team.description)).toHaveCount(0)
+        await expect(page.getByText('owner@autocore.test')).toBeVisible()
+        await testInfo.attach(`aut-1036-settings-team-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+
+        await page.goto('/settings?tab=data-import')
+        await page.waitForLoadState('networkidle')
+        await page.getByRole('tab', { name: s.dataImport.view.history }).click()
+        await expect(page.getByText(s.dataImport.history.description)).toHaveCount(0)
+        await testInfo.attach(`aut-1036-import-history-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+
+        await page.goto('/workshop/orders/wo-1/check-in')
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByText('Warnweste')).toBeVisible()
+        await expect(page.getByText(w.checkIn.inspection.description)).toHaveCount(0)
+        await testInfo.attach(`aut-1036-check-in-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+
+        await page.goto('/purchase-orders')
+        await page.waitForLoadState('networkidle')
+        const saveAria = c.savedViews.saveAria.replace('{{title}}', (language === 'de' ? deFinance : enFinance).purchaseOrders.list.saveViewTitle)
+        await page.getByRole('button', { name: saveAria }).click()
+        const saveDialog = page.getByRole('dialog', { name: c.savedViews.title })
+        await expect(saveDialog).toBeVisible()
+        await expect(saveDialog.getByText(c.savedViews.description)).toHaveCount(0)
+        await testInfo.attach(`aut-1036-save-view-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+        await page.keyboard.press('Escape')
+
+        await page.goto('/workshop/pick-list')
+        await page.waitForLoadState('networkidle')
+        await page.getByText('WO-2026-0001').click()
+        await expect(page.getByText(w.pick.drawer.title)).toBeVisible()
+        await expect(page.getByText(w.pick.drawer.description)).toHaveCount(0)
+        await expect(page.getByText(w.pick.drawer.chooseTote)).toHaveCount(0)
+        await testInfo.attach(`aut-1036-pick-drawer-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+        await page.keyboard.press('Escape')
+
+        await page.goto('/sales/invoices/inv-compact-2')
+        await page.waitForLoadState('networkidle')
+        await expect(
+          page.getByText(language === 'de' ? 'Volle EUR-Abrechnung (€ 96,00)' : 'Full EUR settlement (€ 96,00)'),
+        ).toBeVisible()
+        await expect(
+          page.getByText(language === 'de' ? /für die Werkstattrechnung/ : /for the workshop invoice/),
+        ).toHaveCount(0)
+        await testInfo.attach(`aut-1036-invoice-settlement-${language}-${viewport.name}`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        })
+      }
+    })
+  }
+})
+
+
 

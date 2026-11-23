@@ -32,7 +32,6 @@ export function WorkshopCheckInInspectionChecklist({ orderId, onRevisionConflict
   const checklistLabels = useMemo<InspectionChecklistViewLabels>(
     () => ({
       sectionAriaLabel: t('checkIn.inspection.sectionLabel'),
-      description: t('checkIn.inspection.description'),
       passButton: t('checkIn.inspection.pass'),
       failButton: t('checkIn.inspection.fail'),
       passAriaLabel: (label) => t('checkIn.inspection.passAria', { label }),

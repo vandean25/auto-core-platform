@@ -78,6 +78,7 @@ describe('WorkshopCheckInInspectionChecklist save errors', () => {
 
     await waitFor(() => expect(onRevisionConflict).toHaveBeenCalledTimes(1))
     expect(refetchRecord).toHaveBeenCalled()
+    expect(screen.queryByText('checkIn.inspection.description')).not.toBeInTheDocument()
     expect(refetchInspection).toHaveBeenCalled()
     expect(toastError).not.toHaveBeenCalled()
   })

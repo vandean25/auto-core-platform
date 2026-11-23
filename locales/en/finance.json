@@ -196,7 +196,7 @@
   "settlement": {
     "title": "Settlement",
     "fiscalOff": "Fiscal settlement disabled.",
-    "fullSettlement": "Full EUR settlement ({{amount}}) for the workshop invoice.",
+    "fullSettlement": "Full EUR settlement ({{amount}})",
     "openReceiptHint": "The same provider receipt id is read with GET before any new sign. Use Reconcile to finish this attempt.",
     "externalKasseHint": "ACP is not the Registrierkasse. Record the external Kasse receipt number (1–40) and date when you confirm settlement.",
     "receiptLabel": "Receipt {{number}}",
