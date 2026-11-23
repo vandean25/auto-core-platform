@@ -190,7 +190,12 @@ async function persistSaleTransactionsWithValuation(
     transactionCreations.map((entry) => ({
       itemId: entry.item_id,
       siteId: entry.site_id,
-      quantity: entry.quantity,
+      quantity:
+        typeof entry.quantity === 'string' ||
+        typeof entry.quantity === 'number' ||
+        entry.quantity instanceof Prisma.Decimal
+          ? entry.quantity
+          : entry.quantity.toFixed(),
       type: entry.type,
       costBasis: null,
     })),

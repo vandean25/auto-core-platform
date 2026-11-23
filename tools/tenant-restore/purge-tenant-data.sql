@@ -95,6 +95,7 @@ VALUES
   ('inspection_source_connections'),
   ('inspection_support_events'),
   ('inspector_evidence_revisions'),
+  ('inventory_valuations'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
   ('purchase_orders'),
@@ -380,6 +381,9 @@ VALUES
   ('inventory_transactions', 'stock_transfers', 'tenant_id,stock_transfer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_valuations', 'catalog_items', 'tenant_id,catalog_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('inventory_valuations', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('inventory_valuations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('invoice_brand_asset_references', 'document_brand_assets', 'tenant_id,legal_entity_id,asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('invoice_brand_asset_references', 'invoices', 'tenant_id,legal_entity_id,invoice_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('invoice_brand_asset_references', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -1046,6 +1050,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_fitments"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."inventory_valuations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspector_evidence_revisions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

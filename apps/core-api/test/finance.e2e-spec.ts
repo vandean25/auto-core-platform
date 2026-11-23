@@ -104,6 +104,7 @@ describe('FinanceModule (e2e)', () => {
   afterAll(async () => {
     // Cleanup
     await prisma.inventoryTransaction.deleteMany();
+    await prisma.inventoryValuation.deleteMany();
     await prisma.inventoryStock.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();

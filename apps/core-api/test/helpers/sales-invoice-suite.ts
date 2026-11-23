@@ -100,6 +100,7 @@ export async function disposeSalesInvoiceSuite({
   tenantId,
 }: Pick<SalesInvoiceSuite, 'app' | 'basePrisma' | 'prisma' | 'tenantId'>) {
   await prisma.inventoryTransaction.deleteMany();
+  await prisma.inventoryValuation.deleteMany();
   await prisma.inventoryStock.deleteMany();
   await prisma.storageLocation.deleteMany();
   await deleteDocumentBrandRows(basePrisma, prisma, tenantId);
