@@ -5,7 +5,7 @@ description: "Read a tax invoice, download the PDF, and know when the number is 
 
 Open **Invoices** in the sidebar (`/sales/invoices`) to browse drafts and finalized tax invoices. Scrolling loads more rows (up to **2,000** loaded). Save filters as a **sidebar view** like [workshop orders](/en/workflows/workshop-orders), then open from **Favorites** or **Ctrl+K**. You can also open an invoice from a [sales order](/en/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Find a sales order to invoice** (which opens the sales order list).
 
-The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
+The header shows the invoice number or a stable draft number (e.g. `RE-D-1042`) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**. Draft numbers stay the same across saves and reloads until the invoice is issued.
 
 Top-right: **Download PDF**. That generates the PDF and downloads it. If the server queues it, the toast says generation is in the background — try Download PDF again shortly.
 
