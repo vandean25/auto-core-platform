@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 5;
+export const PERMISSION_CATALOGUE_VERSION = 6;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -62,6 +62,16 @@ const DEFINITIONS = [
   ['api_key.read', 'API-Schlüssel ansehen', 'View API keys'],
   ['api_key.revoke', 'API-Schlüssel widerrufen', 'Revoke API key'],
   ['audit.read', 'Änderungsprotokoll ansehen', 'View audit log'],
+  [
+    'bank_reconciliation.import',
+    'Kontoauszug importieren',
+    'Import bank statement',
+  ],
+  [
+    'bank_reconciliation.read',
+    'Banktransaktionen ansehen',
+    'View bank transactions',
+  ],
   ['bay.create', 'Hebebühne anlegen', 'Create bay'],
   ['bay.delete', 'Hebebühne löschen', 'Delete bay'],
   ['bay.read', 'Hebebühnen ansehen', 'View bays'],

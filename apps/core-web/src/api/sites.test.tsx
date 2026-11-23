@@ -232,6 +232,7 @@ function makeAuthSession(tenantId: string, userId = 'user-1'): AuthSession {
     defaultLocale: 'de',
     formatLocale: 'de-AT',
     effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+    bankReconciliationEnabled: false,
   }
 }
 

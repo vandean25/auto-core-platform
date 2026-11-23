@@ -100,4 +100,7 @@ export class AuthSessionResponseDto {
 
   @ApiProperty({ type: EffectiveCapabilitiesDto, nullable: true })
   effectiveCapabilities!: EffectiveCapabilitiesDto | null;
+
+  @ApiProperty()
+  bankReconciliationEnabled!: boolean;
 }

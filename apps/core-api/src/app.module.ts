@@ -29,6 +29,7 @@ import { SalesModule } from './sales/sales.module.js';
 import { CustomerModule } from './customer/customer.module.js';
 import { CustomerConsentModule } from './customer-consent/customer-consent.module.js';
 import { FinanceModule } from './finance/finance.module.js';
+import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module.js';
 import { BrandModule } from './brand/brand.module.js';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module.js';
 import { WorkshopModule } from './workshop/workshop.module.js';
@@ -101,6 +102,7 @@ import { SchedulerModule } from './scheduler/scheduler.module.js';
     CustomerConsentModule,
     CustomerModule,
     FinanceModule,
+    BankReconciliationModule,
     BrandModule,
     SalesOrderModule,
     WorkshopModule,

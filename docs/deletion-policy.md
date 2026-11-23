@@ -82,6 +82,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
 | Payment | No | Status transitions only; no hard delete. Tenant purge may remove rows with the tenant. |
+| BankStatementImport | No | Append-only statement import summary (`file_sha256` deduplication). Raw XML is discarded after processing; rows are retained for auditability and removed only with tenant purge. |
+| BankTransaction | No | Immutable imported bank statement line (`UNMATCHED` / `MATCHED` / `IGNORED`); never hard-deleted through ordinary APIs. Removed only with tenant purge. |
 | FiscalReceipt | No | Immutable `request_body` and stored `response_body`; no hard delete. |
 | FiscalRegister | No | No hard delete in this slice; decommission in fiskaly is a later change. |
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |

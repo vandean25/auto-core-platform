@@ -16,6 +16,7 @@ import { MCP_TOOL_TABLE, OPERATION_TABLE } from './operation-table.js';
 import type { LegacyRole } from './operation-types.js';
 import { PermissionGuard } from './permission.guard.js';
 import { EffectiveCapabilitiesService } from '../common/country-pack/effective-capabilities.guard.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   PermissionResolver,
   isMcpToolAllowed,
@@ -149,8 +150,14 @@ function contextOf(route: RegisteredRoute, request: object): ExecutionContext {
 /** The guards the app runs today for a route: the global API key and session guards, then the route's own. */
 async function buildLegacyGuards(routes: readonly RegisteredRoute[]) {
   const reflector = new Reflector();
-  const tenantContext = { setAuthenticatedUser: () => undefined };
   let current: AuthenticatedUser = memberUser('OWNER');
+  const tenantContext = {
+    setAuthenticatedUser: (user: AuthenticatedUser) => {
+      current = user;
+    },
+    getAuthenticatedUser: () => current,
+    getTenantId: () => Promise.resolve(TENANT_ID),
+  };
   const jwt = new JwtAuthGuard(
     reflector,
     { authenticateBearerToken: () => Promise.resolve(current) } as never,
@@ -183,6 +190,15 @@ async function buildLegacyGuards(routes: readonly RegisteredRoute[]) {
       ...routeGuardTypes,
       { provide: Reflector, useValue: reflector },
       { provide: TenantContextService, useValue: tenantContext },
+      {
+        provide: PrismaService,
+        useValue: {
+          financeSettings: {
+            findFirst: () =>
+              Promise.resolve({ bank_reconciliation_enabled: true }),
+          },
+        },
+      },
       {
         provide: EffectiveCapabilitiesService,
         useValue: {

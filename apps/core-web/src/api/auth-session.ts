@@ -39,6 +39,7 @@ const e2eAuthSession: AuthSession = {
   defaultLocale: 'de',
   formatLocale: 'de-AT',
   effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+  bankReconciliationEnabled: false,
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {

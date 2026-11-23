@@ -411,6 +411,63 @@ describe('FinanceModule (e2e)', () => {
     ).toBeNull();
   });
 
+  // AUT-1002 Scenario 5: non-admin rejected (403, no audit entry); allowed change writes AuditLog with old/new values
+  it('rejects non-admin changing bank_reconciliation_enabled with 403 and no audit entry, and audits allowed change', async () => {
+    const beforeAuditCount = await prisma.auditLog.count({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'FinanceSettings',
+        action: 'UPDATE',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.SALES!)
+      .send({ bank_reconciliation_enabled: true })
+      .expect(403);
+
+    const afterRejectedAuditCount = await prisma.auditLog.count({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'FinanceSettings',
+        action: 'UPDATE',
+      },
+    });
+    expect(afterRejectedAuditCount).toBe(beforeAuditCount);
+
+    const allowedRes = await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ bank_reconciliation_enabled: true })
+      .expect(200);
+    expect(allowedRes.body.bank_reconciliation_enabled).toBe(true);
+
+    const auditEntry = await prisma.auditLog.findFirst({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'FinanceSettings',
+        action: 'UPDATE',
+      },
+      orderBy: { occurred_at: 'desc' },
+    });
+    expect(auditEntry).not.toBeNull();
+    expect(
+      (
+        auditEntry?.before as {
+          bank_reconciliation_enabled?: boolean;
+        } | null
+      )?.bank_reconciliation_enabled,
+    ).toBe(false);
+    expect(
+      (
+        auditEntry?.after as {
+          bank_reconciliation_enabled?: boolean;
+        } | null
+      )?.bank_reconciliation_enabled,
+    ).toBe(true);
+  });
+
   // AUT-1008 Scenarios 2, 3, 4, 6 & Anti-criterion 2
   describe('Invoice numbering (AUT-1008)', () => {
     const originalWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;

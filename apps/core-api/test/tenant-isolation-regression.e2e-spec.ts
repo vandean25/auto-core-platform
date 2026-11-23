@@ -26,6 +26,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
   let tenantAId: string;
   let tenantBId: string;
   let adminHeaderA: string;
+  let adminHeaderB: string;
   let techHeaderA: string;
 
   const prefix = `e2e-tenant-iso-${Date.now()}`;
@@ -62,6 +63,7 @@ describe('Tenant Isolation Regression (e2e)', () => {
 
     const authService = app.get(AuthService);
     adminHeaderA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
+    adminHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
     techHeaderA = await createMemberBearer(
       prisma,
       authService,
@@ -1251,6 +1253,80 @@ describe('Tenant Isolation Regression (e2e)', () => {
         });
         await tenantBPrisma.laborOperation.deleteMany({
           where: { id: opB.id },
+        });
+      }
+    });
+
+    it('AUT-1002: tenant B lists empty bank transactions after tenant A imports a statement', async () => {
+      const entityA = await runWithTenantContext(tenantAId, () =>
+        tenantAPrisma.legalEntity.findFirstOrThrow({
+          where: { tenant_id: tenantAId, is_active: true },
+        }),
+      );
+      const ibanA = 'AT611904300234573201';
+      await runWithTenantContext(tenantAId, async () => {
+        await tenantAPrisma.legalEntity.update({
+          where: { id: entityA.id },
+          data: { iban: ibanA },
+        });
+        await tenantAPrisma.financeSettings.upsert({
+          where: { tenant_id: tenantAId },
+          update: { bank_reconciliation_enabled: true },
+          create: {
+            tenant_id: tenantAId,
+            workshop_order_prefix: 'WO-2026-',
+            bank_reconciliation_enabled: true,
+          },
+        });
+      });
+      await runWithTenantContext(tenantBId, () =>
+        tenantBPrisma.financeSettings.upsert({
+          where: { tenant_id: tenantBId },
+          update: { bank_reconciliation_enabled: true },
+          create: {
+            tenant_id: tenantBId,
+            workshop_order_prefix: 'WO-2026-',
+            bank_reconciliation_enabled: true,
+          },
+        }),
+      );
+
+      const xml = Buffer.from(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt><Stmt><Id>ISO-STMT-1</Id><Acct><Id><IBAN>${ibanA}</IBAN></Id></Acct>
+    <Ntry><Amt Ccy="EUR">420.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-11-10</Dt></BookgDt><AcctSvcrRef>${prefix}-BANK-REF-1</AcctSvcrRef></Ntry>
+  </Stmt></BkToCstmrStmt>
+</Document>`,
+        'utf8',
+      );
+
+      try {
+        await request(app.getHttpServer())
+          .post('/api/bank-reconciliation/imports')
+          .set('Authorization', adminHeaderA)
+          .attach('file', xml, 'iso.xml')
+          .expect(200);
+
+        const resA = await request(app.getHttpServer())
+          .get('/api/bank-reconciliation/transactions')
+          .set('Authorization', adminHeaderA)
+          .expect(200);
+        expect(resA.body.data.length).toBeGreaterThanOrEqual(1);
+
+        const resB = await request(app.getHttpServer())
+          .get('/api/bank-reconciliation/transactions')
+          .set('Authorization', adminHeaderB)
+          .expect(200);
+        expect(resB.body.data).toEqual([]);
+      } finally {
+        await runWithTenantContext(tenantAId, async () => {
+          await tenantAPrisma.bankTransaction.deleteMany({
+            where: { tenant_id: tenantAId },
+          });
+          await tenantAPrisma.bankStatementImport.deleteMany({
+            where: { tenant_id: tenantAId },
+          });
         });
       }
     });

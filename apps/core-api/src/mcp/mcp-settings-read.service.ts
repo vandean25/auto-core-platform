@@ -157,33 +157,44 @@ export class McpSettingsReadService {
   async getTenantSettings() {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.findSiteId();
-    const [decisionApplyMode, voice, catalog, tyre, site, legalEntities] =
-      await Promise.all([
-        this.decisionLiveApply.resolveEffectiveMode(tenantId),
-        this.prisma.voiceTranslationSettings.findFirst({
-          where: { tenant_id: tenantId },
-          select: VOICE_SELECT,
-        }),
-        this.prisma.catalogProviderSettings.findFirst({
-          where: { tenant_id: tenantId },
-          select: CATALOG_SELECT,
-        }),
-        this.prisma.tyreStorageSettings.findFirst({
-          where: { tenant_id: tenantId },
-          select: TYRE_STORAGE_SELECT,
-        }),
-        siteId
-          ? this.prisma.site.findFirst({
-              where: { id: siteId, tenant_id: tenantId },
-              select: { timezone: true },
-            })
-          : Promise.resolve(null),
-        this.prisma.legalEntity.findMany({
-          where: { tenant_id: tenantId, is_active: true },
-          orderBy: { name: 'asc' },
-          select: { id: true, name: true },
-        }),
-      ]);
+    const [
+      decisionApplyMode,
+      voice,
+      catalog,
+      tyre,
+      financeSettings,
+      site,
+      legalEntities,
+    ] = await Promise.all([
+      this.decisionLiveApply.resolveEffectiveMode(tenantId),
+      this.prisma.voiceTranslationSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: VOICE_SELECT,
+      }),
+      this.prisma.catalogProviderSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: CATALOG_SELECT,
+      }),
+      this.prisma.tyreStorageSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: TYRE_STORAGE_SELECT,
+      }),
+      this.prisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: { bank_reconciliation_enabled: true },
+      }),
+      siteId
+        ? this.prisma.site.findFirst({
+            where: { id: siteId, tenant_id: tenantId },
+            select: { timezone: true },
+          })
+        : Promise.resolve(null),
+      this.prisma.legalEntity.findMany({
+        where: { tenant_id: tenantId, is_active: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true },
+      }),
+    ]);
 
     const brandingRows = await this.prisma.documentBrandProfile.findMany({
       where: {
@@ -202,6 +213,8 @@ export class McpSettingsReadService {
       voice,
       catalog,
       tyre,
+      bankReconciliationEnabled:
+        financeSettings?.bank_reconciliation_enabled ?? false,
       legalEntities: legalEntities.map((entity) => ({
         entity,
         branding: brandingByEntity.get(entity.id) ?? null,

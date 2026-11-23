@@ -11,6 +11,7 @@ const session: AuthSession = {
   activeRole: 'ADMIN', activeSiteId: 'synthetic-site', memberships: [],
   locale: null, effectiveLocale: 'de', defaultLocale: 'de', formatLocale: 'de-AT',
   effectiveCapabilities: capabilities,
+  bankReconciliationEnabled: false,
 }
 
 describe('selectEffectiveCapabilities', () => {

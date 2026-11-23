@@ -93,6 +93,7 @@ export type AuthSession = {
   defaultLocale: DisplayLanguage;
   formatLocale: string;
   effectiveCapabilities: CountryCapabilities | null;
+  bankReconciliationEnabled: boolean;
 };
 
 const USER_ACCESS_SELECT = {
@@ -224,34 +225,43 @@ export class AuthSessionService {
     session: AuthSession,
     userId: string,
   ): Promise<AuthSession> {
-    if (!session.activeSiteId) {
-      return session;
-    }
     const tenantId = session.activeTenant.id;
-    const membership = await this.systemPrisma.siteMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        site_id: session.activeSiteId,
-        is_active: true,
-        tenantMember: { tenant_id: tenantId, is_active: true },
-        site: {
-          tenant_id: tenantId,
-          id: session.activeSiteId,
-          is_active: true,
-          legal_entity: { tenant_id: tenantId, is_active: true },
-        },
-      },
-      select: {
-        site: { select: { legal_entity: { select: { country_iso: true } } } },
-      },
-    });
+    const [membership, financeSettings] = await Promise.all([
+      session.activeSiteId
+        ? this.systemPrisma.siteMembership.findFirst({
+            where: {
+              tenant_id: tenantId,
+              user_id: userId,
+              site_id: session.activeSiteId,
+              is_active: true,
+              tenantMember: { tenant_id: tenantId, is_active: true },
+              site: {
+                tenant_id: tenantId,
+                id: session.activeSiteId,
+                is_active: true,
+                legal_entity: { tenant_id: tenantId, is_active: true },
+              },
+            },
+            select: {
+              site: {
+                select: { legal_entity: { select: { country_iso: true } } },
+              },
+            },
+          })
+        : Promise.resolve(null),
+      this.systemPrisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+        select: { bank_reconciliation_enabled: true },
+      }),
+    ]);
     return {
       ...session,
       effectiveCapabilities: membership
         ? resolveCountryPack(membership.site.legal_entity.country_iso)
             .capabilities
         : null,
+      bankReconciliationEnabled:
+        financeSettings?.bank_reconciliation_enabled ?? false,
     };
   }
 
@@ -457,6 +467,7 @@ export class AuthSessionService {
       defaultLocale,
       formatLocale,
       effectiveCapabilities: null,
+      bankReconciliationEnabled: false,
       effectiveLocale: resolveUserLanguage(user.locale, defaultLocale),
     };
 
