@@ -9,15 +9,18 @@ import type { TouchSensorOptions } from '@dnd-kit/core'
 
 const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: 5 } }
 
+export const DND_GRIP_HANDLE_ATTR = 'data-dnd-grip-handle'
+
 export function isGripHandleTouch({
-  activeNode,
   event,
 }: {
-  activeNode: { activatorNode: { current: HTMLElement | null } }
+  activeNode?: unknown
   event: Event
 }): boolean {
-  const activator = activeNode.activatorNode.current
-  return Boolean(activator && event.target instanceof Node && activator.contains(event.target))
+  const target = event.target
+  const element =
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  return Boolean(element?.closest(`[${DND_GRIP_HANDLE_ATTR}]`))
 }
 
 const TOUCH_SENSOR_OPTIONS: TouchSensorOptions = {

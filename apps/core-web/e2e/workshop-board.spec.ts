@@ -1142,7 +1142,8 @@ test.describe('AUT-1035: Workshop board touch drag-and-drop', () => {
     const tracker = await setupTouchBoard(page)
     await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
 
-    const card = page.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    const sourceColumn = page.getByTestId(`board-column-${MECHANIC_1_ID}`)
+    const card = sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
     const grip = card.getByRole('button', { name: workshopOrderMoveAria('WO-2026-0101') })
     const targetColumn = page.getByTestId(`board-column-${MECHANIC_2_ID}`)
     await expect(grip).toBeVisible()
@@ -1160,8 +1161,12 @@ test.describe('AUT-1035: Workshop board touch drag-and-drop', () => {
           response.url().includes('/api/workshop/board/assign') &&
           response.request().method() === 'PATCH',
       )
-      // Immediate move after touchStart (no 250ms wait) — only succeeds when grip bypasses delay.
+      const touchStartAt = Date.now()
       await touch.start(startPoint)
+      // Grip touches bypass the 250ms TouchSensor delay, so the card enters drag state immediately.
+      await expect(card).toHaveClass(/invisible/, { timeout: 200 })
+      expect(Date.now() - touchStartAt).toBeLessThan(250)
+
       await touch.move(startPoint, endPoint, 10)
       await touch.end()
       await assignPromise

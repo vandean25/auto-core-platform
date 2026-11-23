@@ -88,6 +88,7 @@ export function WorkshopOrderCardContent({
         <button
           ref={setActivatorNodeRef}
           type="button"
+          data-dnd-grip-handle="true"
           aria-label={t('orderCard.move', { orderNumber: order.orderNumber })}
           className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab touch-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
