@@ -313,6 +313,7 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
   async function setupTouchPlanner(page: import('@playwright/test').Page) {
     let rescheduleCalls = 0
     let lastRescheduleBody: Record<string, unknown> | null = null
+    const bookings = touchPlannerPayload.bookings.map((booking) => ({ ...booking }))
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/settings'), async (route) => {
       await route.fulfill({
@@ -332,7 +333,7 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(touchPlannerPayload),
+        body: JSON.stringify({ ...touchPlannerPayload, bookings }),
       })
     })
 
@@ -348,6 +349,17 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
       if (route.request().method() === 'PATCH') {
         rescheduleCalls += 1
         lastRescheduleBody = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+        const nextBayId = (lastRescheduleBody['bayId'] as string | undefined) ?? BAY_2_ID
+        const nextStart =
+          (lastRescheduleBody['scheduledStartAt'] as string | undefined) ?? '2026-08-21T08:00:00.000Z'
+        const nextEnd =
+          (lastRescheduleBody['scheduledEndAt'] as string | undefined) ?? '2026-08-21T09:00:00.000Z'
+        const booking = bookings.find((entry) => entry.orderId === ORDER_ID)
+        if (booking) {
+          booking.bayId = nextBayId
+          booking.scheduledStartAt = nextStart
+          booking.scheduledEndAt = nextEnd
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -355,9 +367,9 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
             id: ORDER_ID,
             order_number: 'WO-2026-0301',
             status: 'SCHEDULED',
-            bay_id: lastRescheduleBody['bayId'] ?? BAY_2_ID,
-            scheduled_start_at: lastRescheduleBody['scheduledStartAt'] ?? '2026-08-21T08:00:00.000Z',
-            scheduled_end_at: lastRescheduleBody['scheduledEndAt'] ?? '2026-08-21T09:00:00.000Z',
+            bay_id: nextBayId,
+            scheduled_start_at: nextStart,
+            scheduled_end_at: nextEnd,
           }),
         })
         return
@@ -424,6 +436,16 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
 
     expect(tracker.getRescheduleCalls()).toBe(1)
     expect(tracker.getLastRescheduleBody()).toMatchObject({ bayId: BAY_2_ID })
+
+    const bay1Row = page
+      .locator('div.relative')
+      .filter({ has: page.locator(`[data-testid^="planner-slot-${BAY_1_ID}__"]`) })
+    const bay2Row = page
+      .locator('div.relative')
+      .filter({ has: page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`) })
+    await expect(bay2Row.getByTestId(`planner-booking-${ORDER_ID}`)).toBeVisible()
+    await expect(bay1Row.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(0)
+
     await testInfo.attach('aut-1035-planner-touch-longpress-375', {
       body: await page.screenshot(),
       contentType: 'image/png',
@@ -442,6 +464,8 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
 
     await booking.tap()
     await expect(page).toHaveURL(new RegExp(`/workshop/orders/${ORDER_ID}$`))
+    await expect(page.getByRole('heading', { name: 'WO-2026-0301' })).toBeVisible()
+    await expect(page.getByText('Max Mustermann', { exact: true })).toBeVisible()
     expect(tracker.getRescheduleCalls()).toBe(0)
     await testInfo.attach('aut-1035-planner-touch-tap-375', {
       body: await page.screenshot(),
