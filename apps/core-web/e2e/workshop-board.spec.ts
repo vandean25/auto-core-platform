@@ -1119,7 +1119,7 @@ test.describe('AUT-1035: Workshop board touch drag-and-drop', () => {
     try {
       await touch.swipe(
         { x: cardBox.x + cardBox.width / 3, y: cardBox.y + cardBox.height / 2 },
-        { x: cardBox.x + cardBox.width / 3, y: cardBox.y - 220 },
+        { x: cardBox.x + cardBox.width / 3, y: cardBox.y + cardBox.height / 2 - 80 },
         8,
       )
     } finally {
@@ -1128,7 +1128,11 @@ test.describe('AUT-1035: Workshop board touch drag-and-drop', () => {
 
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore)
     expect(tracker.getAssignCalls()).toBe(0)
-    await expect(sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    const cardAfterSwipe = sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    await expect(cardAfterSwipe).toBeVisible()
+    const cardBoxAfter = (await cardAfterSwipe.boundingBox())!
+    expect(cardBoxAfter.y).toBeGreaterThanOrEqual(0)
+    expect(cardBoxAfter.y + cardBoxAfter.height).toBeLessThanOrEqual(600)
     await testInfo.attach('aut-1035-board-touch-swipe-375', {
       body: await page.screenshot(),
       contentType: 'image/png',
