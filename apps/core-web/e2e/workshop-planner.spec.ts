@@ -407,7 +407,7 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
     await new AutoCorePage(page, P.page.title).navigate('/workshop/planner?date=2026-08-21')
 
     const booking = page.getByTestId(`planner-booking-${ORDER_ID}`)
-    const targetSlot = page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`).nth(2)
+    const targetSlot = page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`).nth(0)
     await expect(booking).toBeVisible()
     await expect(targetSlot).toBeVisible()
 
@@ -445,6 +445,8 @@ test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
       .filter({ has: page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`) })
     await expect(bay2Row.getByTestId(`planner-booking-${ORDER_ID}`)).toBeVisible()
     await expect(bay1Row.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(0)
+    // Wait for DragOverlay dropAnimation to finish so no ghost block remains in the screenshot.
+    await expect(page.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(1)
 
     await testInfo.attach('aut-1035-planner-touch-longpress-375', {
       body: await page.screenshot(),

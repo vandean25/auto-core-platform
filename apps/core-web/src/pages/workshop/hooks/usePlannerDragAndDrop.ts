@@ -19,7 +19,7 @@ export function usePlannerDragAndDrop(params: {
   performReschedule: (orderId: string, bayId: string, startIso: string, durationMs: number) => void
 }) {
   const [activeBookingId, setActiveBookingId] = React.useState<string | null>(null)
-  const sensors = useDndSensors()
+  const sensors = useDndSensors({ enableKeyboard: false })
 
   const activeBooking = activeBookingId
     ? params.bookings.find((booking) => booking.orderId === activeBookingId) ?? null

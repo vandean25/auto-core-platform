@@ -25,10 +25,13 @@ const TOUCH_SENSOR_OPTIONS: TouchSensorOptions = {
   bypassActivationConstraint: isGripHandleTouch,
 }
 
-export function useDndSensors() {
-  return useSensors(
-    useSensor(MouseSensor, MOUSE_SENSOR_OPTIONS),
-    useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS),
-    useSensor(KeyboardSensor),
-  )
+export interface UseDndSensorsOptions {
+  enableKeyboard?: boolean
+}
+
+export function useDndSensors({ enableKeyboard = true }: UseDndSensorsOptions = {}) {
+  const mouseSensor = useSensor(MouseSensor, MOUSE_SENSOR_OPTIONS)
+  const touchSensor = useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS)
+  const keyboardSensor = useSensor(KeyboardSensor)
+  return useSensors(mouseSensor, touchSensor, enableKeyboard ? keyboardSensor : null)
 }

@@ -514,7 +514,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(page.getByTestId('board-column-emp-mech-001')).not.toContainText('WO-2026-0002')
   })
 
-  test('Drag-and-drop assigns an unassigned card to the column under the cursor', async ({ page }) => {
+  test('Drag-and-drop assigns an unassigned card to the column under the cursor', async ({ page }, testInfo) => {
     const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
     const MECHANIC_ID_2 = 'emp-mech-002'
     const mockMechanic2 = createMockEmployee({
@@ -609,6 +609,10 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(targetColumn).toContainText('WO-2026-0002')
     await expect(targetColumn.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
     await expect(page.getByTestId('board-column-unassigned')).not.toContainText('WO-2026-0002')
+    await testInfo.attach('aut-1035-board-mouse-drag', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
 
   async function setupDragBoard(page: import('@playwright/test').Page, assignStatus: number) {
@@ -714,7 +718,7 @@ test.describe('Blueprint: Workshop Board', () => {
     await expectNoAxeViolationsForRules(page, ['target-size'])
   })
 
-  test('Keyboard drag announces the order number and column, not the order id', async ({ page }) => {
+  test('Keyboard drag announces the order number and column, not the order id', async ({ page }, testInfo) => {
     const corePage = new AutoCorePage(page, DE_WORKSHOP.board.title)
     const MECHANIC_ID_2 = 'emp-mech-002'
     const mockMechanic2 = createMockEmployee({
@@ -804,6 +808,10 @@ test.describe('Blueprint: Workshop Board', () => {
     expect(assignPayload.orderId).toBe(ORDER_ID_2)
     expect(assignPayload.mechanicId).toBe(MECHANIC_ID)
     await expect(page.getByTestId('board-column-emp-mech-001')).toContainText('WO-2026-0002')
+    await testInfo.attach('aut-1035-board-keyboard-drag', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
 
   test('WHEN /workshop/board is opened at 375px THEN Mechaniker/Hebebühne controls sit on one row without overflow', async ({ page }, testInfo) => {

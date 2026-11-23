@@ -49,7 +49,7 @@ function getCustomerName(order: BoardOrder, dealerStockLabel: string): string {
   return `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
 }
 
-// The pointer and touch sensors start a drag from any element inside the card, so the Assign
+// The mouse and touch sensors start a drag from any element inside the card, so the Assign
 // trigger and its menu stop those events before they reach the draggable root.
 function stopEventFromStartingDrag(event: SyntheticEvent) {
   event.stopPropagation()
@@ -135,6 +135,7 @@ export function WorkshopOrderCardContent({
                 aria-label={t('orderCard.assignAria', { orderNumber: order.orderNumber })}
                 className="ml-auto min-h-11 min-w-11 px-3"
                 disabled={isMoving}
+                onMouseDown={stopEventFromStartingDrag}
                 onPointerDown={stopEventFromStartingDrag}
                 onTouchStart={stopEventFromStartingDrag}
               >
@@ -144,6 +145,7 @@ export function WorkshopOrderCardContent({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
+              onMouseDown={stopEventFromStartingDrag}
               onPointerDown={stopEventFromStartingDrag}
               onTouchStart={stopEventFromStartingDrag}
             >
