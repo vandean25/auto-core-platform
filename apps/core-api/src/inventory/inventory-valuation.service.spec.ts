@@ -218,10 +218,10 @@ describe('InventoryValuationService', () => {
       );
     });
 
-    it('seeds an unseeded valuation row from historical journal before applying the first live booking', async () => {
-      mockPrisma.site.findMany
-        .mockResolvedValueOnce([{ id: SITE_ID, legal_entity_id: LEGAL_ENTITY_ID }])
-        .mockResolvedValueOnce([{ id: SITE_ID, legal_entity_id: LEGAL_ENTITY_ID }]);
+    it('applies only the new booking on an unseeded valuation row without scanning historical InventoryTransaction rows', async () => {
+      mockPrisma.site.findMany.mockResolvedValueOnce([
+        { id: SITE_ID, legal_entity_id: LEGAL_ENTITY_ID },
+      ]);
       mockPrisma.inventoryValuation.findMany
         .mockResolvedValueOnce([{ id: 'val-new' }])
         .mockResolvedValueOnce([
@@ -235,16 +235,6 @@ describe('InventoryValuationService', () => {
             last_booking_seq: null,
           },
         ]);
-      mockPrisma.inventoryTransaction.findMany.mockResolvedValueOnce([
-        {
-          seq: BigInt(5),
-          site_id: SITE_ID,
-          item_id: ITEM_ID,
-          quantity: new Decimal(10),
-          type: TransactionType.PURCHASE_RECEIPT,
-          cost_basis: new Decimal('10.0000'),
-        },
-      ]);
 
       const prepared = await service.prepareAndLockBatch(mockPrisma, TENANT_ID, [
         {
@@ -257,12 +247,14 @@ describe('InventoryValuationService', () => {
       ]);
       await prepared.commit(new Map([[0, BigInt(12)]]));
 
+      expect(mockPrisma.inventoryTransaction.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.inventoryTransaction.findFirst).not.toHaveBeenCalled();
       expect(mockPrisma.inventoryValuation.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'val-new', tenant_id: TENANT_ID },
           data: expect.objectContaining({
-            average_unit_cost: new Decimal('15'),
-            valued_quantity: new Decimal('20'),
+            average_unit_cost: new Decimal('20'),
+            valued_quantity: new Decimal('10'),
             last_booking_seq: BigInt(12),
           }),
         }),

@@ -3,7 +3,6 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import {
   InvoiceStatus,
@@ -40,8 +39,7 @@ export class InvoiceFinalizationService {
   constructor(
     private readonly atpService: AtpService,
     private readonly snapshotCommit: InvoiceSnapshotCommitService,
-    @Optional()
-    private readonly inventoryValuationService?: InventoryValuationService,
+    private readonly inventoryValuationService: InventoryValuationService,
   ) {}
 
   /**

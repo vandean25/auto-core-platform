@@ -160,84 +160,6 @@ async function lockAndLoadValuations(
   });
 }
 
-async function seedUnseededValuations(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  lockedRows: readonly ValuationRowSnapshot[],
-): Promise<Map<string, { state: ValuationState; lastSeq: bigint }>> {
-  const unseededRows = lockedRows.filter(
-    (row) => row.last_booking_seq === null,
-  );
-  if (unseededRows.length === 0) {
-    return new Map();
-  }
-
-  const legalEntityIds = [
-    ...new Set(unseededRows.map((row) => row.legal_entity_id)),
-  ];
-  const catalogItemIds = [
-    ...new Set(unseededRows.map((row) => row.catalog_item_id)),
-  ];
-  const unseededKeySet = new Set(
-    unseededRows.map((row) =>
-      valuationKey(row.legal_entity_id, row.catalog_item_id),
-    ),
-  );
-
-  const sites = await tx.site.findMany({
-    where: { tenant_id: tenantId, legal_entity_id: { in: legalEntityIds } },
-    select: { id: true, legal_entity_id: true },
-  });
-  const siteIds = sites.map((site) => site.id);
-  if (siteIds.length === 0) {
-    return new Map();
-  }
-
-  const legalEntityBySite = new Map(
-    sites.map((site) => [site.id, site.legal_entity_id]),
-  );
-  const transactions = await tx.inventoryTransaction.findMany({
-    where: {
-      tenant_id: tenantId,
-      site_id: { in: siteIds },
-      item_id: { in: catalogItemIds },
-    },
-    orderBy: [{ seq: 'asc' }],
-    select: {
-      seq: true,
-      site_id: true,
-      item_id: true,
-      quantity: true,
-      type: true,
-      cost_basis: true,
-    },
-  });
-
-  const seeded = new Map<string, { state: ValuationState; lastSeq: bigint }>();
-  for (const row of transactions) {
-    if (isTransferTransactionType(row.type)) continue;
-    const legalEntityId = legalEntityBySite.get(row.site_id);
-    if (!legalEntityId) continue;
-    const key = valuationKey(legalEntityId, row.item_id);
-    if (!unseededKeySet.has(key)) continue;
-
-    const current = seeded.get(key) ?? {
-      state: emptyState(),
-      lastSeq: row.seq,
-    };
-    const step = applyValuationStep(current.state, {
-      type: row.type,
-      quantity: row.quantity,
-      costBasis: row.cost_basis,
-    });
-    current.state = step.state;
-    current.lastSeq = row.seq;
-    seeded.set(key, current);
-  }
-
-  return seeded;
-}
-
 function maxBookingSeq(
   current: bigint | null,
   indices: readonly number[],
@@ -290,7 +212,6 @@ export class InventoryValuationService {
       nonTransferIndices,
     );
     const lockedRows = await lockAndLoadValuations(tx, tenantId, sortedKeys);
-    const seededByKey = await seedUnseededValuations(tx, tenantId, lockedRows);
 
     const rowByKey = new Map(
       lockedRows.map((row) => [
@@ -301,7 +222,7 @@ export class InventoryValuationService {
     const stateByKey = new Map<string, ValuationState>(
       [...rowByKey.entries()].map(([key, row]) => [
         key,
-        seededByKey.get(key)?.state ?? {
+        {
           averageUnitCost: row.average_unit_cost
             ? new Decimal(row.average_unit_cost)
             : null,
@@ -341,7 +262,7 @@ export class InventoryValuationService {
           const nextState = stateByKey.get(key);
           if (!row || !nextState) return null;
           const maxSeq = maxBookingSeq(
-            row.last_booking_seq ?? seededByKey.get(key)?.lastSeq ?? null,
+            row.last_booking_seq,
             indicesByKey.get(key) ?? [],
             maxSeqByIndex,
           );

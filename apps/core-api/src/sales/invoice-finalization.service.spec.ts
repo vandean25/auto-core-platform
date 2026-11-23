@@ -48,6 +48,7 @@ describe('InvoiceFinalizationService', () => {
     },
     inventoryTransaction: {
       createMany: jest.fn(),
+      createManyAndReturn: jest.fn().mockResolvedValue([{ seq: BigInt(1) }]),
     },
     invoice: {
       updateMany: jest.fn(),
@@ -59,11 +60,25 @@ describe('InvoiceFinalizationService', () => {
     },
   };
 
+  const inventoryValuationService = {
+    prepareAndLockBatch: jest.fn().mockResolvedValue({
+      stampedCostBasisByIndex: [],
+      commit: jest.fn().mockResolvedValue(undefined),
+    }),
+  } as never;
+
   beforeEach(() => {
-    service = new InvoiceFinalizationService(atpService, snapshotCommit);
+    service = new InvoiceFinalizationService(
+      atpService,
+      snapshotCommit,
+      inventoryValuationService,
+    );
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
     tx.$queryRaw.mockResolvedValue([]);
+    tx.inventoryTransaction.createManyAndReturn.mockResolvedValue([
+      { seq: BigInt(1) },
+    ]);
     jest.mocked(atpService.deductOnHandForSale).mockResolvedValue(undefined);
   });
 
