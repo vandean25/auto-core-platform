@@ -49,7 +49,7 @@ function getCustomerName(order: BoardOrder, dealerStockLabel: string): string {
   return `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
 }
 
-// The pointer and touch sensors start a drag from any element inside the card, so the Assign
+// The mouse and touch sensors start a drag from any element inside the card, so the Assign
 // trigger and its menu stop those events before they reach the draggable root.
 function stopEventFromStartingDrag(event: SyntheticEvent) {
   event.stopPropagation()
@@ -78,8 +78,8 @@ export function WorkshopOrderCardContent({
       className={cn(
         'relative rounded-md border bg-card shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
-        isDragging && 'shadow-lg ring-2 ring-muted-foreground/30',
-        isPlaceholder && 'invisible',
+        isDragging && 'shadow-lg ring-2 ring-muted-foreground/30 touch-none',
+        isPlaceholder && 'invisible touch-none',
       )}
       {...dragListeners}
     >
@@ -88,8 +88,9 @@ export function WorkshopOrderCardContent({
         <button
           ref={setActivatorNodeRef}
           type="button"
+          data-dnd-grip-handle="true"
           aria-label={t('orderCard.move', { orderNumber: order.orderNumber })}
-          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab touch-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
         >
           <GripVertical className="h-4 w-4" aria-hidden="true" />
@@ -135,6 +136,7 @@ export function WorkshopOrderCardContent({
                 aria-label={t('orderCard.assignAria', { orderNumber: order.orderNumber })}
                 className="ml-auto min-h-11 min-w-11 px-3"
                 disabled={isMoving}
+                onMouseDown={stopEventFromStartingDrag}
                 onPointerDown={stopEventFromStartingDrag}
                 onTouchStart={stopEventFromStartingDrag}
               >
@@ -144,6 +146,7 @@ export function WorkshopOrderCardContent({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
+              onMouseDown={stopEventFromStartingDrag}
               onPointerDown={stopEventFromStartingDrag}
               onTouchStart={stopEventFromStartingDrag}
             >

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { DE_WORKSHOP } from './helpers/de-workshop'
 import { createMockBay } from './utils/mock-factories'
+import { TouchGestureClient } from './utils/touch-gestures'
 
 const P = DE_WORKSHOP.planner
 
@@ -256,5 +257,253 @@ test.describe('Blueprint: Workshop Planner', () => {
     await expect(
       page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '07:30') }),
     ).toHaveCount(0)
+  })
+})
+
+test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {
+  test.use({ hasTouch: true })
+
+  const BAY_1_ID = 'bay-planner-001'
+  const BAY_2_ID = 'bay-planner-002'
+  const ORDER_ID = 'order-planner-touch-1'
+
+  const touchPlannerPayload = {
+    timezone: 'Europe/Vienna',
+    slotMinutes: 60,
+    range: {
+      from: '2026-08-21T05:30:00.000Z',
+      to: '2026-08-22T05:30:00.000Z',
+    },
+    bays: [
+      createMockBay({ id: BAY_1_ID, name: 'Planner Bay 01', isActive: true, sortOrder: 1 }),
+      createMockBay({ id: BAY_2_ID, name: 'Planner Bay 02', isActive: true, sortOrder: 2 }),
+      createMockBay({ id: 'bay-planner-003', name: 'Planner Bay 03', isActive: true, sortOrder: 3 }),
+      createMockBay({ id: 'bay-planner-004', name: 'Planner Bay 04', isActive: true, sortOrder: 4 }),
+      createMockBay({ id: 'bay-planner-005', name: 'Planner Bay 05', isActive: true, sortOrder: 5 }),
+      createMockBay({ id: 'bay-planner-006', name: 'Planner Bay 06', isActive: true, sortOrder: 6 }),
+    ],
+    openings: [
+      { weekday: 1, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 2, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 3, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 4, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 5, isClosed: false, openTime: '07:30', closeTime: '17:00' },
+      { weekday: 6, isClosed: false, openTime: '08:00', closeTime: '12:00' },
+      { weekday: 7, isClosed: true, openTime: '07:30', closeTime: '17:00' },
+    ],
+    holidays: [],
+    employeesAway: [],
+    bookings: [
+      {
+        orderId: ORDER_ID,
+        orderNumber: 'WO-2026-0301',
+        status: 'SCHEDULED',
+        occupancyKind: 'BOOKING',
+        bayId: BAY_1_ID,
+        mechanicId: null,
+        mechanicName: null,
+        scheduledStartAt: '2026-08-21T06:00:00.000Z',
+        scheduledEndAt: '2026-08-21T07:00:00.000Z',
+        vehicle: { make: 'VW', model: 'Golf', plate: 'W-301AA' },
+        customerName: 'Max Mustermann',
+      },
+    ],
+  }
+
+  async function setupTouchPlanner(page: import('@playwright/test').Page) {
+    let rescheduleCalls = 0
+    let lastRescheduleBody: Record<string, unknown> | null = null
+    const bookings = touchPlannerPayload.bookings.map((booking) => ({ ...booking }))
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/settings'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timezone: touchPlannerPayload.timezone,
+          slotMinutes: touchPlannerPayload.slotMinutes,
+          holidayCountryIso: 'AT',
+          holidaySubdivisionCode: null,
+          openingHours: touchPlannerPayload.openings,
+        }),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/planner'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...touchPlannerPayload, bookings }),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mechanics: [], bays: touchPlannerPayload.bays }),
+      })
+    })
+
+    await page.route(new RegExp(`.*/api/workshop/orders/${ORDER_ID}(\\?.*)?$`), async (route) => {
+      if (route.request().method() === 'PATCH') {
+        rescheduleCalls += 1
+        lastRescheduleBody = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+        const nextBayId = (lastRescheduleBody['bayId'] as string | undefined) ?? BAY_2_ID
+        const nextStart =
+          (lastRescheduleBody['scheduledStartAt'] as string | undefined) ?? '2026-08-21T08:00:00.000Z'
+        const nextEnd =
+          (lastRescheduleBody['scheduledEndAt'] as string | undefined) ?? '2026-08-21T09:00:00.000Z'
+        const booking = bookings.find((entry) => entry.orderId === ORDER_ID)
+        if (booking) {
+          booking.bayId = nextBayId
+          booking.scheduledStartAt = nextStart
+          booking.scheduledEndAt = nextEnd
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: ORDER_ID,
+            order_number: 'WO-2026-0301',
+            status: 'SCHEDULED',
+            bay_id: nextBayId,
+            scheduled_start_at: nextStart,
+            scheduled_end_at: nextEnd,
+          }),
+        })
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: ORDER_ID,
+          order_number: 'WO-2026-0301',
+          status: 'SCHEDULED',
+          customer: { id: 'cust-1', first_name: 'Max', last_name: 'Mustermann' },
+          vehicle: { id: 'veh-1', make: 'VW', model: 'Golf', year: 2020, plate: 'W-301AA' },
+          tasks: [],
+        }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem('acp:sidebar-collapsed', 'true')
+      window.localStorage.setItem('workshop-planner-view', 'day')
+    })
+
+    return {
+      getRescheduleCalls: () => rescheduleCalls,
+      getLastRescheduleBody: () => lastRescheduleBody,
+    }
+  }
+
+  test('WHEN a user on a touch device long-presses a scheduled booking and moves it to another bay THEN it reschedules', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const tracker = await setupTouchPlanner(page)
+    await new AutoCorePage(page, P.page.title).navigate('/workshop/planner?date=2026-08-21')
+
+    const booking = page.getByTestId(`planner-booking-${ORDER_ID}`)
+    const targetSlot = page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`).nth(0)
+    await expect(booking).toBeVisible()
+    await expect(targetSlot).toBeVisible()
+
+    const bookingBox = (await booking.boundingBox())!
+    const targetBox = (await targetSlot.boundingBox())!
+    const startPoint = { x: bookingBox.x + bookingBox.width / 2, y: bookingBox.y + bookingBox.height / 2 }
+    const endPoint = { x: targetBox.x + targetBox.width / 2, y: targetBox.y + targetBox.height / 2 }
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      await touch.start(startPoint)
+      // Wait for 250ms TouchSensor activation (DragOverlay renders a second block with opacity-60).
+      await expect(page.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(2, { timeout: 2000 })
+
+      const patchPromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/workshop/orders/${ORDER_ID}`) &&
+          response.request().method() === 'PATCH',
+      )
+      await touch.move(startPoint, endPoint, 10)
+      await touch.end()
+      await patchPromise
+    } finally {
+      await touch.dispose()
+    }
+
+    expect(tracker.getRescheduleCalls()).toBe(1)
+    expect(tracker.getLastRescheduleBody()).toMatchObject({ bayId: BAY_2_ID })
+
+    const bay1Row = page
+      .locator('div.relative')
+      .filter({ has: page.locator(`[data-testid^="planner-slot-${BAY_1_ID}__"]`) })
+    const bay2Row = page
+      .locator('div.relative')
+      .filter({ has: page.locator(`[data-testid^="planner-slot-${BAY_2_ID}__"]`) })
+    await expect(bay2Row.getByTestId(`planner-booking-${ORDER_ID}`)).toBeVisible()
+    await expect(bay1Row.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(0)
+    // Wait for DragOverlay dropAnimation to finish so no ghost block remains in the screenshot.
+    await expect(page.getByTestId(`planner-booking-${ORDER_ID}`)).toHaveCount(1)
+
+    await testInfo.attach('aut-1035-planner-touch-longpress-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN a user taps a scheduled booking THEN it opens the order detail without rescheduling', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const tracker = await setupTouchPlanner(page)
+    await new AutoCorePage(page, P.page.title).navigate('/workshop/planner?date=2026-08-21')
+
+    const booking = page.getByTestId(`planner-booking-${ORDER_ID}`)
+    await expect(booking).toBeVisible()
+
+    await booking.tap()
+    await expect(page).toHaveURL(new RegExp(`/workshop/orders/${ORDER_ID}$`))
+    await expect(page.getByRole('heading', { name: 'WO-2026-0301' })).toBeVisible()
+    await expect(page.getByText('Max Mustermann', { exact: true })).toBeVisible()
+    expect(tracker.getRescheduleCalls()).toBe(0)
+    await testInfo.attach('aut-1035-planner-touch-tap-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN a user swipes quickly over the planner without holding THEN it scrolls and does not reschedule', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 500 })
+    const tracker = await setupTouchPlanner(page)
+    await new AutoCorePage(page, P.page.title).navigate('/workshop/planner?date=2026-08-21')
+
+    const booking = page.getByTestId(`planner-booking-${ORDER_ID}`)
+    await expect(booking).toBeVisible()
+
+    const bookingBox = (await booking.boundingBox())!
+    const scrollBefore = await page.evaluate(() => window.scrollY)
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      await touch.swipe(
+        { x: bookingBox.x + bookingBox.width / 2, y: bookingBox.y + bookingBox.height / 2 },
+        { x: bookingBox.x + bookingBox.width / 2, y: bookingBox.y - 220 },
+        8,
+      )
+    } finally {
+      await touch.dispose()
+    }
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore)
+    expect(tracker.getRescheduleCalls()).toBe(0)
+    await testInfo.attach('aut-1035-planner-touch-swipe-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
 })

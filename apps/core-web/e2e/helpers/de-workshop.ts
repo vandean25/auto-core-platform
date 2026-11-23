@@ -9,6 +9,7 @@ export const DE_WORKSHOP = {
     emptyColumn: deWorkshop.board.emptyColumn,
     emptyResources: deWorkshop.board.emptyResources,
     assignError: deWorkshop.board.assignError,
+    technicianAssigned: deWorkshop.orderDetail.toast.technicianAssigned,
     a11y: deWorkshop.board.a11y,
   },
   orderCard: deWorkshop.orderCard,

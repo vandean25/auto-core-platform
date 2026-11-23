@@ -1,14 +1,11 @@
 import * as React from 'react'
 import {
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import type { PlannerBooking } from '@/api/workshop'
 import { resolvePlannerDragReschedule } from '@/features/workshop/planner/planner-drag-reschedule'
+import { useDndSensors } from '@/hooks/useDndSensors'
 import type { components } from '@/api/generated/openapi'
 
 type WorkshopOpeningHour = components['schemas']['WorkshopOpeningHourDto']
@@ -22,7 +19,7 @@ export function usePlannerDragAndDrop(params: {
   performReschedule: (orderId: string, bayId: string, startIso: string, durationMs: number) => void
 }) {
   const [activeBookingId, setActiveBookingId] = React.useState<string | null>(null)
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
+  const sensors = useDndSensors({ enableKeyboard: false })
 
   const activeBooking = activeBookingId
     ? params.bookings.find((booking) => booking.orderId === activeBookingId) ?? null
