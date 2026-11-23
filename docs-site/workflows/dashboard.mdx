@@ -3,7 +3,7 @@ title: "Dashboard und Suche"
 description: "Gespeicherte Listenfilter in Widgets verwandeln und mit Strg+K zu Teilen, Kunden, Fahrzeugen, Aufträgen oder Rechnungen springen."
 ---
 
-**Dashboard** ist ein Kommandoboard, das Sie selbst bauen — kein festes Report-Paket. Untertitel: Bauen Sie Ihre Kommandozentrale aus gespeicherten Tabellenfiltern.
+**Dashboard** ist ein Kommandoboard, das Sie selbst bauen — kein festes Report-Paket.
 
 Leerer Dashboard-Text: **Noch keine Widgets vorhanden.** Wie Sie Widgets hinzufügen, steht im Hinweis hinter dem Info-Symbol daneben.
 
@@ -11,16 +11,23 @@ Dieser Button gibt es bei Kunden, Fahrzeugen, Kundenaufträgen, Werkstattaufträ
 
 ### Gespeicherte Ansichten (Favoriten)
 
-Werkstattaufträge und Rechnungen (und andere Listen mit **Als Seitenleisten-Ansicht speichern**) merken sich Filter und Sortierung pro Benutzer:
+Listen mit **Als Seitenleisten-Ansicht speichern** merken sich Filter und Sortierung auf dem Server (pro Benutzer und Mandant). In der Seitenleiste unter **Favoriten** gibt es Abschnitte **Persönlich** und **Team**; geteilte Ansichten tragen das Badge **Team**.
 
 <Steps>
   <Step title="Ansicht speichern">
     Tabelle filtern, dann **Als Seitenleisten-Ansicht speichern** — Name vergeben. Die Ansicht erscheint unter **Favoriten** in der Seitenleiste.
   </Step>
-  <Step title="Wieder öffnen">
-    Favorit anklicken oder **Strg+K** → Gruppe **Gespeicherte Ansichten** / **Ansichten verwalten** (Umbenennen, Entfernen).
+  <Step title="Team-Ansicht">
+    Über das **Ansichten**-Menü an der Liste oder **Strg+K → Gespeicherte Ansichten** wählen Sie **Mit Team teilen** bzw. **Teilen aufheben**. Team-Ansichten können Sie mit **Als eigene Ansicht speichern** duplizieren.
+  </Step>
+  <Step title="Wieder öffnen und verwalten">
+    Favorit anklicken, Listen-**Ansichten**-Menü (auch am Smartphone) oder **Strg+K** → **Gespeicherte Ansichten** / **Ansichten verwalten** (öffnen, umbenennen, entfernen, teilen).
   </Step>
 </Steps>
+
+<Tip>
+Frühere Ansichten, die nur im Browser lagen, übernimmt ACP einmalig beim ersten Laden nach dem Update (Toast mit der Anzahl übernommener Ansichten).
+</Tip>
 
 <Steps>
   <Step title="Liste so filtern, wie Sie arbeiten">
@@ -46,16 +53,19 @@ Geben Sie mindestens zwei Zeichen ein (bei einer reinen Ziffernfolge, z. B. eine
 
 ### Suchgruppen
 
-Die Ergebnisse erscheinen nach Typ gruppiert:
+Die Ergebnisse erscheinen nach Typ gruppiert (sichtbare Gruppen hängen von Ihrer Rolle ab):
 
 | Gruppe | Beispiel |
 | --- | --- |
-| **Kunden** | Name, Firma, E-Mail, Telefon |
-| **Fahrzeuge** | Kennzeichen, FIN, Marke/Modell |
+| **Kunden** | Name, Firma, E-Mail, Telefon; **Alte Kundennr. (Vorsystem)** exakt oder als Präfix |
+| **Fahrzeuge** | Kennzeichen, FIN, Marke/Modell; **Alte Fahrzeugnr. (Vorsystem)** exakt oder als Präfix |
 | **Fahrzeugbestand** | Händler-Bestandsfahrzeuge am Standort |
 | **Werkstattaufträge** | Auftragsnummer, Kennzeichen, Kunde |
-| **Rechnungen** | Rechnungsnummer |
-| **Teile** | SKU oder Beschreibung → Bestandsjournal des Teils |
+| **Termine**, **Kostenvoranschläge**, **Kundenaufträge**, **Fahrzeugverkäufe** | Nummer, Kunde, Kennzeichen |
+| **Rechnungen**, **Gutschriften** | Belegnummer |
+| **Teile**, **Arbeitswerte** | SKU, Beschreibung, Arbeitswert-Code |
+| **Lieferanten**, **Bestellungen**, **Eingangsrechnungen** | Name, Nummer |
+| **Mitarbeiter**, **Benutzer**, **Firmen**, **Standorte** | Name, Kürzel (nach Rolle) |
 
 ### Navigation und Anlegen
 
@@ -76,10 +86,23 @@ Mit einem Präfix am Anfang der Eingabe suchen Sie nur in einem Typ (Hilfetext s
 | `k:` | Kunden |
 | `fz:` | Fahrzeuge und Fahrzeugbestand |
 | `a:` | Werkstattaufträge |
+| `tm:` | Termine |
+| `kv:` | Kostenvoranschläge |
+| `ka:` | Kundenaufträge |
+| `vk:` | Fahrzeugverkäufe |
 | `r:` | Rechnungen |
+| `g:` | Gutschriften |
 | `t:` | Teile |
+| `aw:` | Arbeitswerte |
+| `l:` | Lieferanten |
+| `b:` | Bestellungen |
+| `er:` | Eingangsrechnungen |
+| `m:` | Mitarbeiter |
+| `u:` | Benutzer |
+| `f:` | Firmen (Rechtsträger) |
+| `s:` | Standorte |
 
-Beispiel: `r:RE-2026` findet Rechnungen mit dieser Nummer.
+Beispiel: `r:RE-2026` findet Rechnungen mit dieser Nummer. Import-IDs aus Altsystemen (z. B. incadea) finden Sie mit `k:` oder `fz:` bei exakter Nummer oder Präfix — nicht bei Teilstrings mitten in der Nummer.
 
 ### Zuletzt geöffnet
 

@@ -64,8 +64,8 @@ When you **finalize** a tax invoice, ACP assigns `RE-` plus the current year plu
   <Accordion title="What this tab does not show">
     Sales order prefixes (`SO-…`) and workshop order prefixes (`WO-…`) live on the same finance record in the database. They are not fields on this tab. Fiscal year start month is also not on this screen.
   </Accordion>
-  <Accordion title="Who sees this">
-    Settings is tenant-wide. There is no separate finance login. Changes apply to this workshop tenant only.
+  <Accordion title="Who can save">
+    **OWNER** and **ADMIN** see **Save Changes** and can edit the lock date and invoice numbering. **SALES** and **TECH** can read the tab; fields and save are disabled for them. When you save only prefix or **Next Number**, an existing **Lock Date** stays unchanged if you do not touch the date field.
   </Accordion>
 </AccordionGroup>
 

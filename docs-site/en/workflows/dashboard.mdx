@@ -3,7 +3,7 @@ title: "Dashboard and search"
 description: "Turn saved list filters into widgets, and jump to parts, customers, vehicles, jobs, or invoices with Ctrl+K."
 ---
 
-**Dashboard** is a command board you build, not a fixed report pack. Subtitle: build your command center from saved table filters.
+**Dashboard** is a command board you build, not a fixed report pack.
 
 Empty dashboard copy: **No widgets configured yet.** How to add widgets is behind the info icon next to it.
 
@@ -11,16 +11,23 @@ That button is on Customers, Vehicles, Sales Orders, Workshop Orders, **Invoices
 
 ### Saved views (favorites)
 
-Workshop orders and invoices (and other lists with **Save as sidebar view**) remember filters and sort order per user:
+Lists with **Save as sidebar view** store filters and sort on the server (per user and tenant). Under **Favorites** in the sidebar you see **Personal** and **Team** sections; shared views show a **Team** badge.
 
 <Steps>
   <Step title="Save a view">
     Filter the table, then **Save as sidebar view** and name it. The view appears under **Favorites** in the sidebar.
   </Step>
-  <Step title="Open again">
-    Click the favorite or **Ctrl+K** → **Saved views** / **Manage views** (rename, remove).
+  <Step title="Team view">
+    From the list **Views** menu or **Ctrl+K → Saved views**, use **Share with team** or **Stop sharing**. Others can **Save as my view** to copy a team view.
+  </Step>
+  <Step title="Open and manage">
+    Click a favorite, the list **Views** menu (including on phones), or **Ctrl+K** → **Saved views** / **Manage views** (open, rename, remove, share).
   </Step>
 </Steps>
+
+<Tip>
+Views that lived only in the browser are imported once on first load after the update (toast with how many views were imported).
+</Tip>
 
 <Steps>
   <Step title="Filter a list the way you work">
@@ -46,16 +53,19 @@ Type at least two characters (a digits-only query, such as a phone number withou
 
 ### Search groups
 
-Results are grouped by type:
+Results are grouped by type (visible groups depend on your role):
 
 | Group | Examples |
 | --- | --- |
-| **Customers** | Name, company, email, phone |
-| **Vehicles** | Plate, VIN, make/model |
+| **Customers** | Name, company, email, phone; **legacy customer no. (source system)** exact or prefix |
+| **Vehicles** | Plate, VIN, make/model; **legacy vehicle no. (source system)** exact or prefix |
 | **Vehicle stock** | Dealer stock vehicles at the site |
 | **Workshop orders** | Order number, plate, customer |
-| **Invoices** | Invoice number |
-| **Parts** | SKU or description → part stock ledger |
+| **Appointments**, **estimates**, **sales orders**, **vehicle sales** | Number, customer, plate |
+| **Invoices**, **credit notes** | Document number |
+| **Parts**, **labor operations** | SKU, description, labor code |
+| **Vendors**, **purchase orders**, **purchase bills** | Name, number |
+| **Employees**, **users**, **legal entities**, **sites** | Name, short code (by role) |
 
 ### Navigate and create
 
@@ -76,10 +86,23 @@ Start the query with a prefix to search one type only (help text appears in the 
 | `k:` | Customers |
 | `fz:` | Vehicles and vehicle stock |
 | `a:` | Workshop orders |
+| `tm:` | Appointments |
+| `kv:` | Estimates |
+| `ka:` | Sales orders |
+| `vk:` | Vehicle sales |
 | `r:` | Invoices |
+| `g:` | Credit notes |
 | `t:` | Parts |
+| `aw:` | Labor operations |
+| `l:` | Vendors |
+| `b:` | Purchase orders |
+| `er:` | Purchase bills |
+| `m:` | Employees |
+| `u:` | Users |
+| `f:` | Legal entities |
+| `s:` | Sites |
 
-Example: `r:RE-2026` finds invoices with that number.
+Example: `r:RE-2026` finds invoices with that number. Legacy import IDs (e.g. from incadea) work with `k:` or `fz:` on an exact ID or prefix — not on arbitrary substrings in the middle.
 
 ### Recently opened
 
