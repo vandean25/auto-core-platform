@@ -6,6 +6,10 @@ import {
   type InvoiceItem,
 } from '@prisma/client';
 import type { AtpService } from '../../inventory/atp.service.js';
+import type {
+  InventoryValuationService,
+  PreparedValuationBatch,
+} from '../../inventory/inventory-valuation.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -30,6 +34,7 @@ export interface SaleInventoryDeductionParams {
   invoiceItems: InvoiceItem[];
   invoiceNumber: string;
   atpService: AtpService;
+  inventoryValuationService?: InventoryValuationService;
 }
 
 export async function processSaleInventoryDeduction({
@@ -39,6 +44,7 @@ export async function processSaleInventoryDeduction({
   invoiceItems,
   invoiceNumber,
   atpService,
+  inventoryValuationService,
 }: SaleInventoryDeductionParams): Promise<void> {
   const uniqueCatalogItemIds = [
     ...new Set(
@@ -144,6 +150,13 @@ export async function processSaleInventoryDeduction({
       left.catalog_item_id.localeCompare(right.catalog_item_id) ||
       left.locationId.localeCompare(right.locationId),
   );
+  const preparedValuation = await prepareSaleValuationBatch(
+    tx,
+    tenantId,
+    transactionCreations,
+    inventoryValuationService,
+  );
+
   await lockSaleStockRows(tx, tenantId, stockUpdates);
 
   for (const update of stockUpdates) {
@@ -159,10 +172,66 @@ export async function processSaleInventoryDeduction({
   }
 
   if (transactionCreations.length > 0) {
+    await persistSaleTransactionsWithValuation(
+      tx,
+      transactionCreations,
+      preparedValuation,
+    );
+  }
+}
+
+async function prepareSaleValuationBatch(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  transactionCreations: readonly Prisma.InventoryTransactionCreateManyInput[],
+  inventoryValuationService?: InventoryValuationService,
+): Promise<PreparedValuationBatch | null> {
+  if (transactionCreations.length === 0 || !inventoryValuationService) {
+    return null;
+  }
+  return inventoryValuationService.prepareAndLockBatch(
+    tx,
+    tenantId,
+    transactionCreations.map((entry) => ({
+      itemId: entry.item_id,
+      siteId: entry.site_id,
+      quantity:
+        typeof entry.quantity === 'string' ||
+        typeof entry.quantity === 'number' ||
+        entry.quantity instanceof Prisma.Decimal
+          ? entry.quantity
+          : entry.quantity.toFixed(),
+      type: entry.type,
+      costBasis: null,
+    })),
+  );
+}
+
+async function persistSaleTransactionsWithValuation(
+  tx: Prisma.TransactionClient,
+  transactionCreations: Prisma.InventoryTransactionCreateManyInput[],
+  preparedValuation: PreparedValuationBatch | null,
+): Promise<void> {
+  if (!preparedValuation) {
     await tx.inventoryTransaction.createMany({
       data: transactionCreations,
     });
+    return;
   }
+
+  const stampedCreations = transactionCreations.map((entry, index) => ({
+    ...entry,
+    cost_basis: preparedValuation.stampedCostBasisByIndex[index] ?? null,
+  }));
+  const created = await tx.inventoryTransaction.createManyAndReturn({
+    data: stampedCreations,
+    select: { seq: true },
+  });
+  const maxSeqByIndex = new Map<number, bigint>();
+  created.forEach((row, index) => {
+    maxSeqByIndex.set(index, row.seq);
+  });
+  await preparedValuation.commit(maxSeqByIndex);
 }
 
 async function lockSaleStockRows(

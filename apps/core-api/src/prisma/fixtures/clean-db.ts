@@ -56,6 +56,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     clean: (p) => p.purchaseOrderSequence.deleteMany(),
   },
   { table: 'inventory_stocks', clean: (p) => p.inventoryStock.deleteMany() },
+  {
+    table: 'inventory_valuations',
+    clean: (p) => p.inventoryValuation.deleteMany(),
+  },
   { table: 'credit_note_items', clean: (p) => p.creditNoteItem.deleteMany() },
   { table: 'invoice_items', clean: (p) => p.invoiceItem.deleteMany() },
   { table: 'credit_notes', clean: (p) => p.creditNote.deleteMany() },

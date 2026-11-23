@@ -92,6 +92,13 @@ describe('InvoiceFinalizationService span', () => {
     });
   });
 
+  const inventoryValuationService = {
+    prepareAndLockBatch: jest.fn(async () => ({
+      stampedCostBasisByIndex: [],
+      commit: jest.fn(async () => undefined),
+    })),
+  } as never;
+
   it('runs under invoice.finalize with only the invoice id, and records the finalized outcome', async () => {
     tx.invoice.findFirst
       .mockResolvedValueOnce({
@@ -105,7 +112,11 @@ describe('InvoiceFinalizationService span', () => {
         items: [],
         customer: { id: 'customer-1' },
       });
-    const service = new InvoiceFinalizationService(atpService, snapshotCommit);
+    const service = new InvoiceFinalizationService(
+      atpService,
+      snapshotCommit,
+      inventoryValuationService,
+    );
 
     await service.finalizeInTransaction(tx as never, 'tenant-1', draftInvoice as never);
 
@@ -125,7 +136,11 @@ describe('InvoiceFinalizationService span', () => {
   });
 
   it('records a 4xx business rejection as rejected and rethrows it', async () => {
-    const service = new InvoiceFinalizationService(atpService, snapshotCommit);
+    const service = new InvoiceFinalizationService(
+      atpService,
+      snapshotCommit,
+      inventoryValuationService,
+    );
 
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
@@ -139,7 +154,11 @@ describe('InvoiceFinalizationService span', () => {
 
   it('records a database failure as failed at the step that broke', async () => {
     tx.invoice.findFirst.mockRejectedValueOnce(new Error('connection lost'));
-    const service = new InvoiceFinalizationService(atpService, snapshotCommit);
+    const service = new InvoiceFinalizationService(
+      atpService,
+      snapshotCommit,
+      inventoryValuationService,
+    );
 
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', draftInvoice as never),

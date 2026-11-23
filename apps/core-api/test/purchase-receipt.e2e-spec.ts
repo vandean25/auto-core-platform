@@ -50,6 +50,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
     // Clean up test data
     await prisma.inventoryTransaction.deleteMany();
+    await prisma.inventoryValuation.deleteMany();
     await prisma.inventoryStock.deleteMany();
     await prisma.purchaseOrderItem.deleteMany();
     await prisma.purchaseOrder.deleteMany();

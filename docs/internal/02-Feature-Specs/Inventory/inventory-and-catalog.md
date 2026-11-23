@@ -36,13 +36,15 @@ tags:
 | `CatalogItem` | Master definition of a salable/usable part. | Contains pricing, linked generic `Brand`, and `supersession` chains. |
 | `StorageLocation` | Physical or logical place where items live. | Supports a hierarchy (`parent_id`). |
 | `InventoryStock` | Materialized cache of stock levels. | Unique constraint on `[catalog_item_id, location_id]`. |
-| `InventoryTransaction` | Immutable append-only ledger of stock movements. | The true source of stock levels. Tied to `TransactionType`. |
+| `InventoryTransaction` | Immutable append-only ledger of stock movements. | The true source of stock levels. Tied to `TransactionType`. `cost_basis` is stored with 4 decimal places (`Decimal(12, 4)`). |
+| `InventoryValuation` | Per-legal-entity moving-average unit cost (`gleitender Durchschnitt`) and valued quantity per article. | Unique constraint on `[tenant_id, legal_entity_id, catalog_item_id]`. Updated in the same DB transaction as `InventoryTransaction` with row locking. |
 
 ### Deletion Policy Impact
 
 > Governed by `docs/deletion-policy.md`.
 - `InventoryTransaction`: **Forbidden**. Under no circumstances can a transaction be deleted. Immutable audit trail.
 - `InventoryStock`: **No**. Derived operational cache; managed by ledger operations.
+- `InventoryValuation`: **No**. Derived per-legal-entity valuation state; managed atomically by ledger operations.
 - `CatalogItem`: **No (current API)**. Inventory ledger and historical documents depend on item identity. Use supersession/inactive approach.
 - `StorageLocation`: **Conditional (soft delete)**. Allow only when no child locations and no stock exists. Soft-delete via `deletedAt` timestamp.
 

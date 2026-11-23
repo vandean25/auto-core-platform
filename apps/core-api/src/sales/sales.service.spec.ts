@@ -12,6 +12,7 @@ import { FinanceService } from '../finance/finance.service.js';
 import { AtpService } from '../inventory/atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SalesService } from './sales.service.js';
+import { InventoryValuationService } from '../inventory/inventory-valuation.service.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 
@@ -87,6 +88,15 @@ describe('SalesService', () => {
           useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
         InvoiceFinalizationService,
+        {
+          provide: InventoryValuationService,
+          useValue: {
+            prepareAndLockBatch: jest.fn().mockResolvedValue({
+              stampedCostBasisByIndex: [],
+              commit: jest.fn().mockResolvedValue(undefined),
+            }),
+          },
+        },
         {
           provide: InvoiceSnapshotCommitService,
           useValue: {

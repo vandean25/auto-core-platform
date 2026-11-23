@@ -5,6 +5,7 @@ import { LedgerService, RecordTransactionParams } from './ledger.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { InventoryValuationService } from './inventory-valuation.service.js';
 
 describe('LedgerService', () => {
   let service: LedgerService;
@@ -14,6 +15,7 @@ describe('LedgerService', () => {
     getSiteId: jest.Mock;
     listAuthorizedSiteIds: jest.Mock;
   };
+  let mockValuationService: { prepareAndLockBatch: jest.Mock };
 
   const TENANT_ID = 'tenant-uuid-123';
   const ITEM_ID = 'item-uuid-1';
@@ -22,11 +24,13 @@ describe('LedgerService', () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      $transaction: jest.fn((cb: (tx: any) => any) => cb(mockPrisma)),
       storageLocation: {
         findMany: jest.fn(),
       },
       inventoryTransaction: {
         createMany: jest.fn(),
+        createManyAndReturn: jest.fn((_, ..._rest) => Promise.resolve([])),
         findMany: jest.fn(),
       },
       inventoryStock: {
@@ -36,6 +40,12 @@ describe('LedgerService', () => {
         updateMany: jest.fn(),
       },
     };
+    mockPrisma.inventoryTransaction.createManyAndReturn.mockImplementation(
+      ({ data }: { data: unknown[] }) =>
+        Promise.resolve(
+          data.map((_, index) => ({ seq: BigInt(index + 1) })),
+        ),
+    );
 
     mockTenantContext = {
       getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
@@ -44,6 +54,24 @@ describe('LedgerService', () => {
       getSiteId: jest.fn().mockResolvedValue(SITE_ID),
       listAuthorizedSiteIds: jest.fn().mockResolvedValue([SITE_ID]),
     };
+    mockValuationService = {
+      prepareAndLockBatch: jest.fn(
+        async (
+          _tx: unknown,
+          _tenantId: string,
+          bookings: Array<{
+            costBasis?: number | string | Prisma.Decimal | null;
+          }>,
+        ) => ({
+          stampedCostBasisByIndex: bookings.map((b) =>
+            b.costBasis !== undefined && b.costBasis !== null
+              ? new Prisma.Decimal(b.costBasis.toString())
+              : null,
+          ),
+          commit: jest.fn().mockResolvedValue(undefined),
+        }),
+      ),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,6 +79,10 @@ describe('LedgerService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantContextService, useValue: mockTenantContext },
         { provide: SiteContextService, useValue: mockSiteContext },
+        {
+          provide: InventoryValuationService,
+          useValue: mockValuationService,
+        },
       ],
     }).compile();
 
@@ -194,7 +226,10 @@ describe('LedgerService', () => {
       ];
 
       await expect(service.recordTransactions(params)).resolves.not.toThrow();
-      expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledWith({
+      expect(
+        mockPrisma.inventoryTransaction.createManyAndReturn,
+      ).toHaveBeenCalledWith({
+        select: { seq: true },
         data: [
           expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -250,7 +285,10 @@ describe('LedgerService', () => {
 
       await service.recordTransactions(params);
 
-      expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledWith({
+      expect(
+        mockPrisma.inventoryTransaction.createManyAndReturn,
+      ).toHaveBeenCalledWith({
+        select: { seq: true },
         data: [
           {
             tenant_id: TENANT_ID,
@@ -310,7 +348,10 @@ describe('LedgerService', () => {
         },
       ]);
 
-      expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledWith({
+      expect(
+        mockPrisma.inventoryTransaction.createManyAndReturn,
+      ).toHaveBeenCalledWith({
+        select: { seq: true },
         data: [
           expect.objectContaining({
             parts_reservation_id: 'reservation-null-cost',
@@ -366,7 +407,10 @@ describe('LedgerService', () => {
       await service.recordTransactions(params);
 
       // Inventory transactions are both logged individually
-      expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledWith({
+      expect(
+        mockPrisma.inventoryTransaction.createManyAndReturn,
+      ).toHaveBeenCalledWith({
+        select: { seq: true },
         data: expect.arrayContaining([
           expect.objectContaining({ quantity: new Prisma.Decimal('10') }),
           expect.objectContaining({ quantity: new Prisma.Decimal('5') }),
@@ -514,7 +558,9 @@ describe('LedgerService', () => {
           ]),
         },
         inventoryTransaction: {
-          createMany: jest.fn().mockResolvedValue({ count: 1 }),
+          createManyAndReturn: jest
+            .fn()
+            .mockResolvedValue([{ seq: BigInt(1) }]),
         },
         inventoryStock: {
           findMany: jest
@@ -544,7 +590,7 @@ describe('LedgerService', () => {
       await service.recordTransactions(params, mockTx);
 
       expect(mockTx.storageLocation.findMany).toHaveBeenCalled();
-      expect(mockTx.inventoryTransaction.createMany).toHaveBeenCalled();
+      expect(mockTx.inventoryTransaction.createManyAndReturn).toHaveBeenCalled();
       expect(mockTx.inventoryStock.createMany).toHaveBeenCalled();
       expect(mockPrisma.storageLocation.findMany).not.toHaveBeenCalled();
     });

@@ -16,6 +16,7 @@ import {
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
 import { AtpService } from '../inventory/atp.service.js';
+import { InventoryValuationService } from '../inventory/inventory-valuation.service.js';
 import {
   assertInvoiceHasSourceDocument,
   InvoiceSnapshotCommitService,
@@ -38,6 +39,7 @@ export class InvoiceFinalizationService {
   constructor(
     private readonly atpService: AtpService,
     private readonly snapshotCommit: InvoiceSnapshotCommitService,
+    private readonly inventoryValuationService: InventoryValuationService,
   ) {}
 
   /**
@@ -99,6 +101,7 @@ export class InvoiceFinalizationService {
             invoiceItems: invoice.items,
             invoiceNumber,
             atpService: this.atpService,
+            inventoryValuationService: this.inventoryValuationService,
           });
 
           span.setAttribute('step', 'transition_invoice');
