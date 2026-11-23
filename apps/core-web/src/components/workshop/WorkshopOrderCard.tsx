@@ -78,8 +78,8 @@ export function WorkshopOrderCardContent({
       className={cn(
         'relative rounded-md border bg-card shadow-sm border-l-4 p-3 cursor-grab active:cursor-grabbing select-none transition-shadow',
         borderColor,
-        isDragging && 'shadow-lg ring-2 ring-muted-foreground/30',
-        isPlaceholder && 'invisible',
+        isDragging && 'shadow-lg ring-2 ring-muted-foreground/30 touch-none',
+        isPlaceholder && 'invisible touch-none',
       )}
       {...dragListeners}
     >
@@ -89,7 +89,7 @@ export function WorkshopOrderCardContent({
           ref={setActivatorNodeRef}
           type="button"
           aria-label={t('orderCard.move', { orderNumber: order.orderNumber })}
-          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-muted-foreground cursor-grab touch-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
         >
           <GripVertical className="h-4 w-4" aria-hidden="true" />

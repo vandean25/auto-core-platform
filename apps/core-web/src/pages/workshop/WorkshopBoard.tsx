@@ -3,11 +3,6 @@ import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
@@ -16,6 +11,7 @@ import { WorkshopOrderCardOverlay } from '@/components/workshop/WorkshopOrderCar
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 import { useBoardActive, useWorkshopResources } from '@/api/workshop'
+import { useDndSensors } from '@/hooks/useDndSensors'
 import { createWorkshopBoardAnnouncements } from './workshop-board-announcements'
 import { WorkshopBoardColumn } from './WorkshopBoardColumn'
 import { WorkshopBoardEmptyResources } from './WorkshopBoardEmptyResources'
@@ -44,11 +40,7 @@ export default function WorkshopBoard() {
   const { data: boardData, isLoading: boardLoading } = useBoardActive()
   const { assign: performBoardAssign, pendingMoves } = useWorkshopBoardAssignment(viewMode)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(TouchSensor),
-    useSensor(KeyboardSensor),
-  )
+  const sensors = useDndSensors()
 
   const quickAssignTargets = React.useMemo(
     () => buildQuickAssignTargets(resourcesData),

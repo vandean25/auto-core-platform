@@ -14,6 +14,7 @@ import {
   createMockEmployee,
   createMockBay,
 } from './utils/mock-factories'
+import { TouchGestureClient } from './utils/touch-gestures'
 
 /**
  * Blueprint: Workshop Board
@@ -822,5 +823,374 @@ test.describe('Blueprint: Workshop Board', () => {
     expect(bayBox.height).toBeGreaterThanOrEqual(43.5)
     await expectNoPageScroll(page)
     await testInfo.attach('aut-953-board-375', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+})
+
+test.describe('AUT-1035: Workshop board touch drag-and-drop', () => {
+  test.use({ hasTouch: true })
+
+  const MECHANIC_1_ID = 'emp-mech-001'
+  const MECHANIC_2_ID = 'emp-mech-002'
+  const ORDER_1_ID = 'ws-touch-001'
+  const ORDER_2_ID = 'ws-touch-002'
+
+  function createTouchBoardData(extraMechanicsCount = 0) {
+    const mechanics = [
+      createMockEmployee({
+        id: MECHANIC_1_ID,
+        name: 'Alex Novak',
+        role: 'MECHANIC',
+        isActive: true,
+        sortOrder: 1,
+      }),
+      createMockEmployee({
+        id: MECHANIC_2_ID,
+        name: 'Grok Bot',
+        role: 'MECHANIC',
+        isActive: true,
+        sortOrder: 2,
+      }),
+      ...Array.from({ length: extraMechanicsCount }, (_, index) =>
+        createMockEmployee({
+          id: `emp-mech-extra-${index + 1}`,
+          name: `Extra Mech ${index + 1}`,
+          role: 'MECHANIC',
+          isActive: true,
+          sortOrder: index + 3,
+        }),
+      ),
+    ]
+
+    const orders = [
+      {
+        id: ORDER_1_ID,
+        orderNumber: 'WO-2026-0101',
+        status: 'INTAKE',
+        customer: {
+          id: 'cust-t1',
+          type: 'PRIVATE',
+          firstName: 'John',
+          lastName: 'Doe',
+          companyName: null,
+        },
+        vehicle: {
+          id: 'veh-t1',
+          make: 'Skoda',
+          model: 'Octavia',
+          year: 2020,
+          plate: 'SK-2020-OCT',
+        },
+        mechanicId: MECHANIC_1_ID,
+        bayId: null,
+        stagingLocationId: null,
+        partsStatus: 'READY',
+        tasks: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: ORDER_2_ID,
+        orderNumber: 'WO-2026-0102',
+        status: 'SCHEDULED',
+        customer: {
+          id: 'cust-t2',
+          type: 'PRIVATE',
+          firstName: 'Maria',
+          lastName: 'Müller',
+          companyName: null,
+        },
+        vehicle: {
+          id: 'veh-t2',
+          make: 'VW',
+          model: 'Golf',
+          year: 2022,
+          plate: 'VW-2022-GLF',
+        },
+        mechanicId: null,
+        bayId: null,
+        stagingLocationId: null,
+        partsStatus: 'NO_PARTS',
+        tasks: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]
+
+    return { mechanics, orders }
+  }
+
+  async function setupTouchBoard(
+    page: import('@playwright/test').Page,
+    options?: { extraMechanicsCount?: number },
+  ) {
+    const { mechanics, orders } = createTouchBoardData(options?.extraMechanicsCount ?? 0)
+    let boardOrders = structuredClone(orders)
+    let assignCalls = 0
+    let lastAssignPayload: Record<string, unknown> | null = null
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mechanics, bays: [] }),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/active'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: boardOrders }),
+      })
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'), async (route) => {
+      assignCalls += 1
+      const body = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+      lastAssignPayload = body
+      boardOrders = boardOrders.map((order) =>
+        order.id === body['orderId']
+          ? { ...order, mechanicId: (body['mechanicId'] as string | null) ?? null, bayId: null }
+          : order,
+      )
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: body['orderId'],
+          mechanicId: body['mechanicId'] ?? null,
+          bayId: body['bayId'] ?? null,
+          updatedAt: new Date().toISOString(),
+        }),
+      })
+    })
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem('acp:sidebar-collapsed', 'true')
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+
+    return {
+      getAssignCalls: () => assignCalls,
+      getLastAssignPayload: () => lastAssignPayload,
+    }
+  }
+
+  test('WHEN a user on a touch device long-presses an order card (~250 ms) and moves it to another column THEN the order moves to that column and the toast appears', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const tracker = await setupTouchBoard(page)
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const card = page
+      .getByTestId(`board-column-${MECHANIC_1_ID}`)
+      .getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    const targetColumn = page.getByTestId(`board-column-${MECHANIC_2_ID}`)
+    await expect(card).toBeVisible()
+    await expect(targetColumn).toBeVisible()
+
+    const cardBox = (await card.boundingBox())!
+    const targetBox = (await targetColumn.boundingBox())!
+    const startPoint = { x: cardBox.x + cardBox.width / 3, y: cardBox.y + cardBox.height / 2 }
+    const endPoint = { x: targetBox.x + targetBox.width / 2, y: targetBox.y + 60 }
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      await touch.start(startPoint)
+      // Wait for the 250ms TouchSensor activation to put the source card into placeholder state.
+      await expect(card).toHaveClass(/invisible/, { timeout: 2000 })
+
+      const assignPromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/workshop/board/assign') &&
+          response.request().method() === 'PATCH',
+      )
+      await touch.move(startPoint, endPoint, 10)
+      await touch.end()
+      await assignPromise
+    } finally {
+      await touch.dispose()
+    }
+
+    expect(tracker.getAssignCalls()).toBe(1)
+    expect(tracker.getLastAssignPayload()).toMatchObject({
+      orderId: ORDER_1_ID,
+      mechanicId: MECHANIC_2_ID,
+    })
+    await expect(targetColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    await expect(page.getByText(DE_WORKSHOP.board.technicianAssigned)).toBeVisible()
+    await testInfo.attach('aut-1035-board-touch-longpress-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN the target column is horizontally scrolled out of view THEN dragging to the edge auto-scrolls and the drop succeeds', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 768 })
+    const tracker = await setupTouchBoard(page, { extraMechanicsCount: 4 })
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const card = page
+      .getByTestId(`board-column-${MECHANIC_1_ID}`)
+      .getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    const targetColumn = page.getByTestId('board-column-unassigned')
+    await expect(card).toBeVisible()
+
+    const scrollRegion = page.getByTestId('horizontal-scroll-area').getByRole('region')
+    const scrollBox = (await scrollRegion.boundingBox())!
+    const cardBox = (await card.boundingBox())!
+    const startPoint = { x: cardBox.x + cardBox.width / 3, y: cardBox.y + cardBox.height / 2 }
+    const rightEdgePoint = { x: scrollBox.x + scrollBox.width - 12, y: scrollBox.y + 120 }
+
+    // Target column starts scrolled out of view to the right.
+    const initialTargetBox = await targetColumn.boundingBox()
+    expect(initialTargetBox && initialTargetBox.x >= scrollBox.x + scrollBox.width).toBe(true)
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      await touch.start(startPoint)
+      await expect(card).toHaveClass(/invisible/, { timeout: 2000 })
+      await touch.move(startPoint, rightEdgePoint, 10)
+
+      // Wait for dnd-kit auto-scroll to bring the off-screen target column into the scroll viewport.
+      await expect
+        .poll(async () => {
+          const box = await targetColumn.boundingBox()
+          return box ? box.x + box.width / 2 < scrollBox.x + scrollBox.width : false
+        })
+        .toBe(true)
+
+      const visibleTargetBox = (await targetColumn.boundingBox())!
+      const dropPoint = {
+        x: Math.min(visibleTargetBox.x + visibleTargetBox.width / 2, scrollBox.x + scrollBox.width - 20),
+        y: visibleTargetBox.y + 80,
+      }
+
+      const assignPromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/workshop/board/assign') &&
+          response.request().method() === 'PATCH',
+      )
+      await touch.move(rightEdgePoint, dropPoint, 6)
+      await touch.end()
+      await assignPromise
+    } finally {
+      await touch.dispose()
+    }
+
+    expect(tracker.getAssignCalls()).toBe(1)
+    expect(tracker.getLastAssignPayload()).toMatchObject({
+      orderId: ORDER_1_ID,
+      mechanicId: null,
+    })
+    await expect(targetColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    await testInfo.attach('aut-1035-board-touch-autoscroll-1024', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN a user swipes quickly over the board without holding THEN the board scrolls and no drag starts', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 600 })
+    const tracker = await setupTouchBoard(page, { extraMechanicsCount: 4 })
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const sourceColumn = page.getByTestId(`board-column-${MECHANIC_1_ID}`)
+    const card = sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    await expect(card).toBeVisible()
+
+    const cardBox = (await card.boundingBox())!
+    const scrollBefore = await page.evaluate(() => window.scrollY)
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      await touch.swipe(
+        { x: cardBox.x + cardBox.width / 3, y: cardBox.y + cardBox.height / 2 },
+        { x: cardBox.x + cardBox.width / 3, y: cardBox.y - 220 },
+        8,
+      )
+    } finally {
+      await touch.dispose()
+    }
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore)
+    expect(tracker.getAssignCalls()).toBe(0)
+    await expect(sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    await testInfo.attach('aut-1035-board-touch-swipe-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN a user touches the grip button THEN the drag starts without the long-press delay', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const tracker = await setupTouchBoard(page)
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const card = page.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    const grip = card.getByRole('button', { name: workshopOrderMoveAria('WO-2026-0101') })
+    const targetColumn = page.getByTestId(`board-column-${MECHANIC_2_ID}`)
+    await expect(grip).toBeVisible()
+    await expect(targetColumn).toBeVisible()
+
+    const gripBox = (await grip.boundingBox())!
+    const targetBox = (await targetColumn.boundingBox())!
+    const startPoint = { x: gripBox.x + gripBox.width / 2, y: gripBox.y + gripBox.height / 2 }
+    const endPoint = { x: targetBox.x + targetBox.width / 2, y: targetBox.y + 60 }
+
+    const touch = await TouchGestureClient.create(page)
+    try {
+      const assignPromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/workshop/board/assign') &&
+          response.request().method() === 'PATCH',
+      )
+      // Immediate move after touchStart (no 250ms wait) — only succeeds when grip bypasses delay.
+      await touch.start(startPoint)
+      await touch.move(startPoint, endPoint, 10)
+      await touch.end()
+      await assignPromise
+    } finally {
+      await touch.dispose()
+    }
+
+    expect(tracker.getAssignCalls()).toBe(1)
+    expect(tracker.getLastAssignPayload()).toMatchObject({
+      orderId: ORDER_1_ID,
+      mechanicId: MECHANIC_2_ID,
+    })
+    await expect(targetColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    await testInfo.attach('aut-1035-board-touch-grip-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('WHEN a user taps an order card THEN no assign mutation is sent', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const tracker = await setupTouchBoard(page)
+    await new AutoCorePage(page, DE_WORKSHOP.board.title).navigate('/workshop/board')
+
+    const sourceColumn = page.getByTestId(`board-column-${MECHANIC_1_ID}`)
+    const card = sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)
+    await expect(card).toBeVisible()
+
+    await card.tap()
+
+    expect(tracker.getAssignCalls()).toBe(0)
+    await expect(sourceColumn.getByTestId(`workshop-order-card-${ORDER_1_ID}`)).toBeVisible()
+    await testInfo.attach('aut-1035-board-touch-tap-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
 })

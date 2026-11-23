@@ -68,7 +68,7 @@ vi.mock('@dnd-kit/core', () => {
   return {
     DndContext,
     DragOverlay,
-    PointerSensor: function PointerSensor() {},
+    MouseSensor: function MouseSensor() {},
     TouchSensor: function TouchSensor() {},
     KeyboardSensor: function KeyboardSensor() {},
     useSensor: () => ({}),
