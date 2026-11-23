@@ -90,17 +90,49 @@ function handleOpeningTag(stack: XmlNode[], tagContent: string): void {
   }
 }
 
+function stripXmlDelimitedBlock(
+  xml: string,
+  open: string,
+  close: string,
+  label: string,
+): string {
+  let result = '';
+  let cursor = 0;
+  while (cursor < xml.length) {
+    const start = xml.indexOf(open, cursor);
+    if (start < 0) {
+      result += xml.slice(cursor);
+      break;
+    }
+    const end = xml.indexOf(close, start + open.length);
+    if (end < 0) {
+      throw new BadRequestException(`Malformed XML: unclosed ${label}.`);
+    }
+    result += xml.slice(cursor, start);
+    cursor = end + close.length;
+  }
+  return result;
+}
+
 function parseXmlDocument(xml: string): XmlNode {
   if (/<!(?:DOCTYPE|ENTITY)\b/i.test(xml)) {
     throw new BadRequestException(
       'XML DOCTYPE and ENTITY declarations are not permitted.',
     );
   }
-  const cleaned = xml
-    .replace(/^\uFEFF/, '')
-    .replace(/<\?[\s\S]*?\?>/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .trim();
+  const withoutBom = xml.startsWith('\uFEFF') ? xml.slice(1) : xml;
+  const withoutComments = stripXmlDelimitedBlock(
+    withoutBom,
+    '<!--',
+    '-->',
+    'comment',
+  );
+  const cleaned = stripXmlDelimitedBlock(
+    withoutComments,
+    '<?',
+    '?>',
+    'processing instruction',
+  ).trim();
   if (!cleaned) {
     throw new BadRequestException('Bank statement XML is empty.');
   }
