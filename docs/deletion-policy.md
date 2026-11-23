@@ -36,6 +36,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | StorageLocation | Conditional (soft delete) | Allow only when no child locations and no stock exists; soft-delete via `deletedAt`. **Block** while outstanding `StockTransfer` qty references this location as **source** (including in-transit remaining) **or as frozen dest** (`dest_location_id` on a line with `shipped_qty > received_qty + returned_qty`), even if dest on-hand is already zero. **Block disable / soft-delete / hard-delete** while any non-`SOLD` dealer vehicle (`IN_STOCK`/`RESERVED`/`IN_PREP`) has `Vehicle.location_id` = this lot (move or sell first). `VehicleLot` FK is `onDelete: Restrict` (live code is `SetNull`). System `in_transit` locations: no direct delete, no disable; removed only internally when a pristine site is hard-deleted. |
 | InventoryStock | No | Derived operational state; managed by ledger operations. |
 | InventoryTransaction | No | Immutable audit trail; never deleted. Includes transfer ship/receive/return pairs (`movement_group_id`). |
+| InventoryValuation | No | Derived per-legal-entity moving-average valuation (`average_unit_cost`, `valued_quantity`); maintained atomically in the same transaction as `InventoryTransaction` writes. Removed only with tenant purge. |
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | AgentActionLog | No | Append-only agent action trace ledger; no update/delete API. |
 | DecisionShadowLog | No | Append-only shadow decision log; no update/delete API. |

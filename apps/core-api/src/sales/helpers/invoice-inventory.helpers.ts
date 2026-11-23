@@ -6,6 +6,7 @@ import {
   type InvoiceItem,
 } from '@prisma/client';
 import type { AtpService } from '../../inventory/atp.service.js';
+import type { InventoryValuationService } from '../../inventory/inventory-valuation.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -30,6 +31,7 @@ export interface SaleInventoryDeductionParams {
   invoiceItems: InvoiceItem[];
   invoiceNumber: string;
   atpService: AtpService;
+  inventoryValuationService?: InventoryValuationService;
 }
 
 export async function processSaleInventoryDeduction({
@@ -39,6 +41,7 @@ export async function processSaleInventoryDeduction({
   invoiceItems,
   invoiceNumber,
   atpService,
+  inventoryValuationService,
 }: SaleInventoryDeductionParams): Promise<void> {
   const uniqueCatalogItemIds = [
     ...new Set(
@@ -159,10 +162,52 @@ export async function processSaleInventoryDeduction({
   }
 
   if (transactionCreations.length > 0) {
+    await persistSaleTransactionsWithValuation(
+      tx,
+      tenantId,
+      transactionCreations,
+      inventoryValuationService,
+    );
+  }
+}
+
+async function persistSaleTransactionsWithValuation(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  transactionCreations: Prisma.InventoryTransactionCreateManyInput[],
+  inventoryValuationService?: InventoryValuationService,
+): Promise<void> {
+  if (!inventoryValuationService) {
     await tx.inventoryTransaction.createMany({
       data: transactionCreations,
     });
+    return;
   }
+
+  const prepared = await inventoryValuationService.prepareAndLockBatch(
+    tx,
+    tenantId,
+    transactionCreations.map((entry) => ({
+      itemId: entry.item_id,
+      siteId: entry.site_id,
+      quantity: entry.quantity,
+      type: entry.type,
+      costBasis: null,
+    })),
+  );
+  const stampedCreations = transactionCreations.map((entry, index) => ({
+    ...entry,
+    cost_basis: prepared.stampedCostBasisByIndex[index] ?? null,
+  }));
+  const created = await tx.inventoryTransaction.createManyAndReturn({
+    data: stampedCreations,
+    select: { seq: true },
+  });
+  const maxSeqByIndex = new Map<number, bigint>();
+  created.forEach((row, index) => {
+    maxSeqByIndex.set(index, row.seq);
+  });
+  await prepared.commit(maxSeqByIndex);
 }
 
 async function lockSaleStockRows(

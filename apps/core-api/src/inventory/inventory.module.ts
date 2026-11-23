@@ -15,6 +15,7 @@ import { GuardedPriceOpsJobService } from './guarded-price/guarded-price-ops-job
 import { InventoryPriceOperationsController } from './inventory-price-operations.controller.js';
 import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
+import { InventoryValuationService } from './inventory-valuation.service.js';
 
 @Module({
   imports: [PrismaModule, AuditModule, DashboardRealtimeModule],
@@ -32,11 +33,13 @@ import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtim
     GuardedPriceOpsJobService,
     InventoryPatchBodyPipe,
     LedgerService,
+    InventoryValuationService,
     LocationService,
     AtpService,
   ],
   exports: [
     LedgerService,
+    InventoryValuationService,
     LocationService,
     AtpService,
     InventoryService,

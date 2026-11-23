@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TransactionType, LocationType, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { InventoryValuationService } from './inventory-valuation.service.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -88,6 +89,8 @@ export class LedgerService {
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    @Inject(InventoryValuationService)
+    private readonly valuationService: InventoryValuationService,
   ) {}
 
   /**
@@ -134,7 +137,26 @@ export class LedgerService {
       options?.allowedLocationTypes,
     );
 
-    await this.persistTransactions(tx, tenantId, paramsArray, locationSiteIds);
+    const preparedValuation = await this.valuationService.prepareAndLockBatch(
+      tx,
+      tenantId,
+      paramsArray.map((params) => ({
+        itemId: params.itemId,
+        siteId: this.getLocationSiteId(locationSiteIds, params.locationId),
+        quantity: params.quantity,
+        type: params.type,
+        costBasis: params.costBasis,
+      })),
+    );
+
+    const maxSeqByIndex = await this.persistTransactions(
+      tx,
+      tenantId,
+      paramsArray,
+      locationSiteIds,
+      preparedValuation.stampedCostBasisByIndex,
+    );
+    await preparedValuation.commit(maxSeqByIndex);
 
     const aggregatedDeltas = this.aggregateStockDeltas(paramsArray);
     await this.applyStockUpdates(
@@ -194,33 +216,40 @@ export class LedgerService {
     tenantId: string,
     paramsArray: RecordTransactionParams[],
     locationSiteIds: LocationSiteIds,
-  ): Promise<void> {
-    const transactionsData = paramsArray.map((params) => ({
-      tenant_id: tenantId,
-      site_id: this.getLocationSiteId(locationSiteIds, params.locationId),
-      item_id: params.itemId,
-      location_id: params.locationId,
-      quantity: new Decimal(params.quantity.toString()),
-      type: params.type,
-      reference_id: params.referenceId,
-      ...(params.partsReservationId !== undefined && {
-        parts_reservation_id: params.partsReservationId,
-      }),
-      ...(params.movementGroupId !== undefined && {
-        movement_group_id: params.movementGroupId,
-      }),
-      ...(params.stockTransferId !== undefined && {
-        stock_transfer_id: params.stockTransferId,
-      }),
-      cost_basis:
-        params.costBasis !== undefined && params.costBasis !== null
-          ? new Decimal(params.costBasis.toString())
-          : null,
-    }));
-
-    await tx.inventoryTransaction.createMany({
-      data: transactionsData,
+    stampedCostBasisByIndex: readonly (Decimal | null)[],
+  ): Promise<Map<number, bigint>> {
+    const transactionsData = paramsArray.map((params, index) => {
+      const costBasis = stampedCostBasisByIndex[index] ?? null;
+      return {
+        tenant_id: tenantId,
+        site_id: this.getLocationSiteId(locationSiteIds, params.locationId),
+        item_id: params.itemId,
+        location_id: params.locationId,
+        quantity: new Decimal(params.quantity.toString()),
+        type: params.type,
+        reference_id: params.referenceId,
+        ...(params.partsReservationId !== undefined && {
+          parts_reservation_id: params.partsReservationId,
+        }),
+        ...(params.movementGroupId !== undefined && {
+          movement_group_id: params.movementGroupId,
+        }),
+        ...(params.stockTransferId !== undefined && {
+          stock_transfer_id: params.stockTransferId,
+        }),
+        cost_basis: costBasis,
+      };
     });
+
+    const created = await tx.inventoryTransaction.createManyAndReturn({
+      data: transactionsData,
+      select: { seq: true },
+    });
+    const maxSeqByIndex = new Map<number, bigint>();
+    created.forEach((row, index) => {
+      maxSeqByIndex.set(index, row.seq);
+    });
+    return maxSeqByIndex;
   }
 
   /**
