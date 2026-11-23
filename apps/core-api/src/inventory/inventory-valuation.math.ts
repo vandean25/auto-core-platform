@@ -127,7 +127,7 @@ export function applyValuationStep(
 
   // Outbound (quantity < 0)
   const stampedCostBasis = isOutboundCostStampedType(booking.type)
-    ? current.averageUnitCost
+    ? (current.averageUnitCost ?? incomingCost)
     : incomingCost;
   const rawRemaining = current.valuedQuantity.add(quantity);
   const nextQty = rawRemaining.lte(0) ? ZERO : roundQuantity(rawRemaining);

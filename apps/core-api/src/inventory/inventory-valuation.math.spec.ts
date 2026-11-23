@@ -68,6 +68,24 @@ describe('inventory-valuation.math', () => {
     expect(workshop.stampedCostBasis?.toFixed(4)).toBe('15.2500');
   });
 
+  it('keeps caller-supplied costBasis on outbound SALE_ISSUE and WORKSHOP_CONSUMPTION when average is null', () => {
+    const workshop = applyValuationStep(emptyState(), {
+      type: TransactionType.WORKSHOP_CONSUMPTION,
+      quantity: -2,
+      costBasis: '14.50',
+    });
+    expect(workshop.stampedCostBasis?.toFixed(2)).toBe('14.50');
+    expect(workshop.isUnvaluedGap).toBe(false);
+
+    const saleWithoutCost = applyValuationStep(emptyState(), {
+      type: TransactionType.SALE_ISSUE,
+      quantity: -1,
+      costBasis: null,
+    });
+    expect(saleWithoutCost.stampedCostBasis).toBeNull();
+    expect(saleWithoutCost.isUnvaluedGap).toBe(true);
+  });
+
   it('freezes the last average at zero and restarts cleanly on the next valued receipt', () => {
     const initial: ValuationState = {
       averageUnitCost: new Decimal('15.0000'),

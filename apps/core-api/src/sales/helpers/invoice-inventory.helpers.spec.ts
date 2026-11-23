@@ -11,6 +11,7 @@ describe('invoice-inventory.helpers', () => {
     },
     inventoryTransaction: {
       createMany: jest.fn(),
+      createManyAndReturn: jest.fn(),
     },
   };
 
@@ -339,5 +340,60 @@ describe('invoice-inventory.helpers', () => {
 
     expect(tx.inventoryStock.findMany).not.toHaveBeenCalled();
     expect(tx.inventoryTransaction.createMany).not.toHaveBeenCalled();
+  });
+
+  it('locks valuation rows before locking sale stock rows to match LedgerService lock order', async () => {
+    const events: string[] = [];
+    const mockValuationService = {
+      prepareAndLockBatch: jest.fn(async () => {
+        events.push('lock-valuation');
+        return {
+          stampedCostBasisByIndex: [new Prisma.Decimal('12.5000')],
+          commit: jest.fn(async () => {
+            events.push('commit-valuation');
+          }),
+        };
+      }),
+    };
+    tx.$queryRaw.mockImplementation(async () => {
+      events.push('lock-stock');
+      return [];
+    });
+    jest.mocked(atpService.deductOnHandForSale).mockImplementation(async () => {
+      events.push('deduct-stock');
+    });
+    tx.inventoryTransaction.createManyAndReturn.mockImplementation(async () => {
+      events.push('insert-transactions');
+      return [{ seq: BigInt(42) }];
+    });
+    tx.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-1',
+        quantity_on_hand: new Prisma.Decimal('3'),
+        quantity_reserved: new Prisma.Decimal('0'),
+      },
+    ]);
+
+    await processSaleInventoryDeduction({
+      ...baseParams,
+      inventoryValuationService: mockValuationService as never,
+      invoiceItems: [
+        {
+          catalog_item_id: 'catalog-1',
+          description: 'Filter',
+          quantity: new Prisma.Decimal('2'),
+        } as never,
+      ],
+    });
+
+    expect(events).toEqual([
+      'lock-valuation',
+      'lock-stock',
+      'deduct-stock',
+      'insert-transactions',
+      'commit-valuation',
+    ]);
   });
 });
