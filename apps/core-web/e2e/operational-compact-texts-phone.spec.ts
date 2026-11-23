@@ -859,7 +859,7 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
     await page.route(AutoCorePage.apiRouteMatcher('/api/imports'), (route) =>
       route.fulfill(json({ data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } })),
     )
-    await page.route(AutoCorePage.apiRouteMatcher('/api/locations'), (route) =>
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
       route.fulfill(json([{ id: 'tote-1', code: 'TOTE-01', name: 'Box 1', type: 'staging_tote' }])),
     )
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), (route) =>
@@ -911,6 +911,7 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
           id: 'wo-1',
           order_number: 'WO-2026-0001',
           status: 'INTAKE',
+          stagingLocationId: 'tote-1',
           createdAt: '2026-06-15T00:00:00.000Z',
           customer: { id: 'c-1', first_name: 'Max', last_name: 'Mustermann' },
           vehicle: { id: 'v-1', make: 'Audi', model: 'A4', year: 2020, plate: 'W-1' },
@@ -1032,6 +1033,8 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
     { name: '390', width: 390, height: 844 },
     { name: '1280', width: 1280, height: 800 },
   ] as const) {
+    const attachForAllSurfaces = viewport.name !== '390'
+
     test(`WHEN purchase-orders, vendors, and purchase-bills are opened at ${viewport.name}px in DE and EN THEN subtitles are absent while row data stays`, async ({
       page,
     }, testInfo) => {
@@ -1046,35 +1049,42 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
         await expect(page.getByRole('heading', { level: 1, name: f.purchaseOrders.list.title })).toBeVisible()
         await expect(page.getByText(f.purchaseOrders.list.subtitle)).toHaveCount(0)
         await expect(page.getByText('Bosch Automotive')).toBeVisible()
-        await testInfo.attach(`aut-1036-po-list-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-po-list-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
 
         await page.goto('/vendors')
         await page.waitForLoadState('networkidle')
         await expect(page.getByRole('heading', { level: 1, name: f.vendors.list.title })).toBeVisible()
         await expect(page.getByText(f.vendors.list.subtitle)).toHaveCount(0)
         await expect(page.getByText('Bosch Automotive')).toBeVisible()
-        await testInfo.attach(`aut-1036-vendors-list-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-vendors-list-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
 
         await page.goto('/purchase-bills')
         await page.waitForLoadState('networkidle')
         await expect(page.getByRole('heading', { level: 1, name: f.purchaseBills.list.title })).toBeVisible()
         await expect(page.getByText(f.purchaseBills.list.subtitle)).toHaveCount(0)
-        await testInfo.attach(`aut-1036-purchase-bills-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-purchase-bills-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
       }
     })
 
     test(`WHEN team, import history, check-in, save-view dialog, pick drawer, and invoice billing card open at ${viewport.name}px in DE and EN THEN helper sentences are absent while distinctive data stays`, async ({
       page,
     }, testInfo) => {
+      test.setTimeout(60_000)
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
 
       for (const language of ['de', 'en'] as const) {
@@ -1087,28 +1097,34 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
         await ensureUiLanguage(page, language)
         await expect(page.getByText(s.team.description)).toHaveCount(0)
         await expect(page.getByText('owner@autocore.test')).toBeVisible()
-        await testInfo.attach(`aut-1036-settings-team-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-settings-team-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
 
         await page.goto('/settings?tab=data-import')
         await page.waitForLoadState('networkidle')
         await page.getByRole('tab', { name: s.dataImport.view.history }).click()
         await expect(page.getByText(s.dataImport.history.description)).toHaveCount(0)
-        await testInfo.attach(`aut-1036-import-history-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-import-history-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
 
         await page.goto('/workshop/orders/wo-1/check-in')
         await page.waitForLoadState('networkidle')
         await expect(page.getByText('Warnweste')).toBeVisible()
         await expect(page.getByText(w.checkIn.inspection.description)).toHaveCount(0)
-        await testInfo.attach(`aut-1036-check-in-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-check-in-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
 
         await page.goto('/purchase-orders')
         await page.waitForLoadState('networkidle')
@@ -1117,16 +1133,19 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
         const saveDialog = page.getByRole('dialog', { name: c.savedViews.title })
         await expect(saveDialog).toBeVisible()
         await expect(saveDialog.getByText(c.savedViews.description)).toHaveCount(0)
-        await testInfo.attach(`aut-1036-save-view-${language}-${viewport.name}`, {
-          body: await page.screenshot({ fullPage: true }),
-          contentType: 'image/png',
-        })
+        if (attachForAllSurfaces) {
+          await testInfo.attach(`aut-1036-save-view-${language}-${viewport.name}`, {
+            body: await page.screenshot({ fullPage: true }),
+            contentType: 'image/png',
+          })
+        }
         await page.keyboard.press('Escape')
 
         await page.goto('/workshop/pick-list')
         await page.waitForLoadState('networkidle')
         await page.getByText('WO-2026-0001').click()
         await expect(page.getByText(w.pick.drawer.title)).toBeVisible()
+        await expect(page.getByRole('combobox')).toContainText('TOTE-01 - Box 1')
         await expect(page.getByText(w.pick.drawer.description)).toHaveCount(0)
         await expect(page.getByText(w.pick.drawer.chooseTote)).toHaveCount(0)
         await testInfo.attach(`aut-1036-pick-drawer-${language}-${viewport.name}`, {

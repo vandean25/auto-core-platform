@@ -27,6 +27,10 @@ export const INTERACTION_BASELINES = [
     identities: (document) =>
       (document.entries ?? []).map((entry) => `${entry.operationId}::${entry.owningHook}`),
   },
+  {
+    file: `${CORE_WEB_SRC}/interaction/guards/compact-copy-allowlist.json`,
+    identities: (document) => document.allowed ?? [],
+  },
 ]
 
 function countEntries(items) {
