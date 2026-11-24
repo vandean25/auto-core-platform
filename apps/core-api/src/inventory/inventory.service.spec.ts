@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+import { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import { InventoryService } from './inventory.service.js';
 import { AtpService } from './atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -25,6 +26,7 @@ describe('InventoryService', () => {
       providers: [
         InventoryService,
         AtpService,
+        { provide: ScopeContextSnapshotService, useValue: {} },
         { provide: PrismaService, useValue: mockPrismaService },
         {
           provide: TenantContextService,

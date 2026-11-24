@@ -1,4 +1,6 @@
 import request from 'supertest';
+import { SCOPE_CONTEXT_HEADER } from '../src/auth/scope-context/scope-context.constants.js';
+import { mintListScopeContext } from './helpers/list-scope-context.js';
 import {
   createSalesInvoiceSuite,
   disposeSalesInvoiceSuite,
@@ -8,18 +10,14 @@ import {
 describe('Invoice numbering concurrency (e2e)', () => {
   let suite: SalesInvoiceSuite;
   const originalWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;
-
   beforeAll(async () => {
     process.env.INVOICE_BRANDING_WRITER_ENABLED = 'true';
     suite = await createSalesInvoiceSuite();
   });
 
   afterAll(async () => {
-    if (originalWriterFlag === undefined) {
-      delete process.env.INVOICE_BRANDING_WRITER_ENABLED;
-    } else {
-      process.env.INVOICE_BRANDING_WRITER_ENABLED = originalWriterFlag;
-    }
+    if (originalWriterFlag === undefined) delete process.env.INVOICE_BRANDING_WRITER_ENABLED;
+    else process.env.INVOICE_BRANDING_WRITER_ENABLED = originalWriterFlag;
     await disposeSalesInvoiceSuite(suite);
   });
 
@@ -75,11 +73,13 @@ describe('Invoice numbering concurrency (e2e)', () => {
       expect(body.invoice_number).toBeNull();
     }
 
+    const { scopeContext } = await mintListScopeContext(app, authToken);
     for (let read = 0; read < 2; read += 1) {
       const listRes = await request(app.getHttpServer())
         .get('/api/sales/invoices')
         .query({ pagination: 'cursor', limit: 100 })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, scopeContext)
         .expect(200);
       for (const { body } of drafts) {
         const expected = {

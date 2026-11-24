@@ -1,5 +1,8 @@
 import type { ListCursorEndpointId } from './list-cursor.constants.js';
-import { LIST_CURSOR_VERSION } from './list-cursor.constants.js';
+import {
+  LIST_CURSOR_VERSION,
+  UNSCOPED_LIST_CURSOR_VERSION,
+} from './list-cursor.constants.js';
 import {
   deserializeSortValueFromCursor,
   encodeListCursor,
@@ -30,6 +33,7 @@ export type KeysetListPageRequest = {
   endpoint: ListCursorEndpointId;
   tenantId: string;
   siteId: string;
+  scopeContextDigest?: string;
   filterHashInput: Record<string, unknown>;
   sortField: string;
   sortDirection: KeysetSortDirection;
@@ -53,13 +57,16 @@ function buildKeysetNextCursor<TRecord extends { id: string }>(
 ): string {
   const secondary = request.sortConfig.secondary;
   return encodeListCursor({
-    v: LIST_CURSOR_VERSION,
+    v: request.scopeContextDigest
+      ? LIST_CURSOR_VERSION
+      : UNSCOPED_LIST_CURSOR_VERSION,
     ep: request.endpoint,
     sort: request.sortField,
     dir: direction,
     fh: filterHash,
     tid: request.tenantId,
     sid: request.siteId,
+    scopeContextDigest: request.scopeContextDigest,
     sv: serializeSortValueForCursor(
       readSortValue(last, request.sortConfig.prismaField),
     ),
@@ -91,6 +98,7 @@ export async function fetchKeysetListPage<TRecord extends { id: string }, TRow>(
     endpoint: request.endpoint,
     tenantId: request.tenantId,
     siteId: request.siteId,
+    scopeContextDigest: request.scopeContextDigest,
     filterHash,
     sortField: request.sortField,
     sortDirection: request.sortDirection,

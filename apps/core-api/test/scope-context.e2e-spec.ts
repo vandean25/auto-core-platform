@@ -282,7 +282,7 @@ describe('scope context (AUT-937 e2e)', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('echo without enforcement', async () => {
+  it('echoes only a validated scope context', async () => {
     const token = ownerToken();
     const handshakeRes = await handshake(token).expect(HttpStatus.OK);
     const scopeContext = handshakeRes.body.scopeContext as string;
@@ -326,24 +326,23 @@ describe('scope context (AUT-937 e2e)', () => {
     ];
 
     for (const target of echoTargets) {
-      const withoutHeader = await request(app.getHttpServer())
-        .get(target.path)
-        .query(target.query)
-        .set('Authorization', `Bearer ${token}`);
-      expect(withoutHeader.status).toBe(HttpStatus.OK);
+      const call = () =>
+        request(app.getHttpServer())
+          .get(target.path)
+          .query(target.query)
+          .set('Authorization', `Bearer ${token}`);
+      const missing = await call().expect(428);
+      expect(missing.body.code).toBe('CONTEXT_REQUIRED');
+      const invalid = await call()
+        .set(SCOPE_CONTEXT_HEADER, 'invalid-context')
+        .expect(412);
+      expect(invalid.body.code).toBe('CONTEXT_MISMATCH');
+      expect(invalid.body.scopeContextDigest).toBeUndefined();
 
-      if (target.digestKey === 'meta') {
-        expect(withoutHeader.body.meta?.scopeContextDigest).toBeUndefined();
-      } else {
-        expect(withoutHeader.body.scopeContextDigest).toBeUndefined();
-      }
-
-      const withValid = await request(app.getHttpServer())
-        .get(target.path)
-        .query(target.query)
-        .set('Authorization', `Bearer ${token}`)
+      const withValid = await call()
         .set(SCOPE_CONTEXT_HEADER, scopeContext)
-        .expect(HttpStatus.OK);
+        .expect(HttpStatus.OK)
+        .expect('Cache-Control', 'private, no-store');
 
       if (target.digestKey === 'meta') {
         expect(withValid.body.meta.scopeContextDigest).toBe(expectedDigest);
@@ -352,13 +351,5 @@ describe('scope context (AUT-937 e2e)', () => {
       }
     }
 
-    const invalidEcho = await request(app.getHttpServer())
-      .get('/api/inventory')
-      .query({ pagination: 'cursor', limit: '10' })
-      .set('Authorization', `Bearer ${token}`)
-      .set(SCOPE_CONTEXT_HEADER, 'not-a-valid-scope-context')
-      .expect(HttpStatus.OK);
-
-    expect(invalidEcho.body.meta.scopeContextDigest).toBeUndefined();
   });
 });

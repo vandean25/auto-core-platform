@@ -1,5 +1,6 @@
 /** Versioned opaque list cursor payload (ADR-0035). */
-export const LIST_CURSOR_VERSION = 1 as const;
+export const LIST_CURSOR_VERSION = 2 as const;
+export const UNSCOPED_LIST_CURSOR_VERSION = 1 as const;
 
 /** Stable endpoint identifiers bound into every cursor. */
 export const LIST_CURSOR_ENDPOINT = {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InventoryService } from './inventory.service.js';
 import { InventoryController } from './inventory.controller.js';
+import { ScopeContextModule } from '../auth/scope-context/scope-context.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { LedgerService } from './ledger.service.js';
 import { LocationService } from './location.service.js';
@@ -18,7 +19,12 @@ import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtim
 import { InventoryValuationService } from './inventory-valuation.service.js';
 
 @Module({
-  imports: [PrismaModule, AuditModule, DashboardRealtimeModule],
+  imports: [
+    ScopeContextModule,
+    PrismaModule,
+    AuditModule,
+    DashboardRealtimeModule,
+  ],
   controllers: [
     LocationController,
     InventoryPriceOperationsController,

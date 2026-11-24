@@ -13728,7 +13728,9 @@ export interface operations {
                 location: string;
                 search: string;
             };
-            header?: never;
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -13913,7 +13915,10 @@ export interface operations {
                 sortDirection?: "asc" | "desc";
                 sortField?: "sku" | "name" | "price";
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -15138,7 +15143,10 @@ export interface operations {
                 /** @description Cursor mode only: `invoice_number` or `date` (default). */
                 sortField?: "invoice_number" | "date";
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -15249,7 +15257,9 @@ export interface operations {
             query?: {
                 search?: string;
             };
-            header?: never;
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -19018,7 +19028,9 @@ export interface operations {
                 search: string;
                 stock_status: string;
             };
-            header?: never;
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -19049,7 +19061,10 @@ export interface operations {
                 sortField?: string;
                 stock_status?: "ON_ORDER" | "IN_STOCK" | "RESERVED" | "IN_PREP" | "SOLD";
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };

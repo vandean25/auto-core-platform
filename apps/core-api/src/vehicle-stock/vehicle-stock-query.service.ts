@@ -12,6 +12,7 @@ import {
   VehiclePurchaseStatus,
   VehicleStockStatus,
 } from '@prisma/client';
+import { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -217,6 +218,19 @@ export function buildVehicleListWhere(
   return { vehicleWhere, draftWhere };
 }
 
+function vehicleStockCursorWhere(
+  params: { search?: string; stock_status?: string },
+  tenantId: string,
+  siteId: string,
+) {
+  const stockStatus = parseStockStatus(params.stock_status);
+  if (shouldIncludeDrafts(stockStatus)) {
+    throw listCursorStockFilterRequiredException();
+  }
+  return buildVehicleListWhere(tenantId, siteId, stockStatus, params.search)
+    .vehicleWhere;
+}
+
 export function mapDraftVehiclePurchase(
   purchase: Prisma.VehiclePurchaseGetPayload<object>,
 ) {
@@ -357,6 +371,7 @@ export class VehicleStockQueryService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly scopeContext: ScopeContextSnapshotService,
   ) {}
 
   async list(params: {
@@ -404,74 +419,70 @@ export class VehicleStockQueryService {
     };
   }
 
-  async listWithCursor(params: {
-    search?: string;
-    stock_status?: string;
-    limit?: number;
-    sortField?: string;
-    sortDirection?: 'asc' | 'desc';
-    cursor?: string;
-  }) {
-    const scope = await this.vehicleStockCursorScope(params);
-    const { field, direction, config } = resolveVehicleStockCursorSort(
-      params.sortField,
-      params.sortDirection,
-    );
-    const limit = parseVehicleStockCursorLimit(params.limit);
-    return fetchKeysetListPage(
-      {
-        endpoint: VEHICLE_STOCK_CURSOR_ENDPOINT,
-        tenantId: scope.tenantId,
-        siteId: scope.siteId,
-        filterHashInput: vehicleStockListFilterContext(params),
-        sortField: field,
-        sortDirection: direction,
-        sortConfig: config,
-        cursor: params.cursor,
-        limit,
-        baseWhere: scope.vehicleWhere,
-      },
-      {
-        findMany: (where, orderBy, take) =>
-          this.prisma.vehicle.findMany({
-            where: where,
-            include: VEHICLE_LIST_INCLUDE,
-            orderBy: orderBy,
-            take,
-          }),
-        mapRow: mapStockVehicle,
-        readSortValue: readVehicleSortValue,
+  listWithCursor(
+    params: {
+      search?: string;
+      stock_status?: string;
+      limit?: number;
+      sortField?: string;
+      sortDirection?: 'asc' | 'desc';
+      cursor?: string;
+    },
+    scopeContextHeader?: string,
+  ) {
+    return this.scopeContext.read(
+      scopeContextHeader,
+      { id: 'VehicleStockController.list' },
+      ({ tx, tenantId, siteId, scopeContextDigest }) => {
+        const baseWhere = vehicleStockCursorWhere(params, tenantId, siteId);
+        const { field, direction, config } = resolveVehicleStockCursorSort(
+          params.sortField,
+          params.sortDirection,
+        );
+        const limit = parseVehicleStockCursorLimit(params.limit);
+        return fetchKeysetListPage(
+          {
+            endpoint: VEHICLE_STOCK_CURSOR_ENDPOINT,
+            tenantId,
+            siteId,
+            scopeContextDigest,
+            filterHashInput: vehicleStockListFilterContext(params),
+            sortField: field,
+            sortDirection: direction,
+            sortConfig: config,
+            cursor: params.cursor,
+            limit,
+            baseWhere,
+          },
+          {
+            findMany: (where, orderBy, take) =>
+              tx.vehicle.findMany({
+                where,
+                include: VEHICLE_LIST_INCLUDE,
+                orderBy,
+                take,
+              }),
+            mapRow: mapStockVehicle,
+            readSortValue: readVehicleSortValue,
+          },
+        );
       },
     );
   }
 
-  async cappedListCount(params: { search?: string; stock_status?: string }) {
-    const scope = await this.vehicleStockCursorScope(params);
-    return cappedVehicleListCount(this.prisma, scope.vehicleWhere);
-  }
-
-  private async vehicleStockCursorScope(params: {
-    search?: string;
-    stock_status?: string;
-  }) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    const stockStatus = parseStockStatus(params.stock_status);
-    if (shouldIncludeDrafts(stockStatus)) {
-      throw listCursorStockFilterRequiredException();
-    }
-    const { vehicleWhere } = buildVehicleListWhere(
-      tenantId,
-      siteId,
-      stockStatus,
-      params.search,
+  cappedListCount(
+    params: { search?: string; stock_status?: string },
+    scopeContextHeader?: string,
+  ) {
+    return this.scopeContext.read(
+      scopeContextHeader,
+      { id: 'VehicleStockController.cappedCount' },
+      ({ tx, tenantId, siteId }) =>
+        cappedVehicleListCount(
+          tx,
+          vehicleStockCursorWhere(params, tenantId, siteId),
+        ),
     );
-    return {
-      tenantId,
-      siteId,
-      stockStatus,
-      vehicleWhere,
-    };
   }
 
   async listGewaehrleistungDue(query: GewaehrleistungDueListQueryDto) {

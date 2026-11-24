@@ -1,3 +1,4 @@
+import type { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import {
   VehicleInventoryRole,
@@ -78,6 +79,7 @@ describe('VehicleStockQueryService', () => {
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
+      {} as ScopeContextSnapshotService,
     );
   });
 
@@ -269,7 +271,7 @@ describe('VehicleStockQueryService', () => {
         .mockResolvedValueOnce({
           id: 'vehicle-1',
           ledger_entries: [],
-        sales: [],
+          sales: [],
         });
       prisma.storageLocation.findFirst.mockResolvedValue({ id: 'lot-next' });
       prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
@@ -379,7 +381,7 @@ describe('VehicleStockQueryService', () => {
           inventory_role: VehicleInventoryRole.USED,
           stock_status: VehicleStockStatus.RESERVED,
           ledger_entries: [],
-        sales: [],
+          sales: [],
         });
       prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
 
