@@ -1,0 +1,27 @@
+{
+  "invoice": {
+    "numPages": 2,
+    "pages": [
+      {
+        "width": 595.92,
+        "height": 842.88,
+        "text": "Rechnung RE-2026-0042AutoCore Demo GmbHHauptstraße 11010 WienUID: ATU12345678Demo BankIBAN: AT611904300234573201BIC: BKAUATWWHandelsgericht Wien, FN 123456aoffice@example.com+43 1 234567Rechnungsnummer: RE-2026-0042Rechnungsdatum: 07.04.2026Fällig am: 21.04.2026RECHNUNGSEMPFÄNGERAda LovelaceKundenstraße 21020 WienATFAHRZEUG:Demo City (2020)Kennzeichen: W-12345AFIN: VIN00000000000001Beschreibung Menge Einzelpreis GesamtBremsenservice vorne 1 € 100,00 € 100,00UMSATZSTEUER-AUFSCHLÜSSELUNG20 % USt (Netto € 100,00): € 20,00Netto: € 100,00Umsatzsteuer: € 20,00Brutto: € 120,00AutoCore Demo GmbHAutoCore Demo GmbH · UID: ATU12345678 Rechnung RE-2026-0042 · 1 / 2"
+      },
+      {
+        "width": 595.92,
+        "height": 842.88,
+        "text": "ANMERKUNGENZahlbar innerhalb von 14 Tagen.AutoCore Demo GmbHAutoCore Demo GmbH · UID: ATU12345678 Rechnung RE-2026-0042 · 2 / 2"
+      }
+    ]
+  },
+  "workshopOrder": {
+    "numPages": 1,
+    "pages": [
+      {
+        "width": 595.92,
+        "height": 842.88,
+        "text": "ArbeitskarteAuftrag: WO-PDF-42INTERNES DOKUMENTKUNDETest Fahrer1010 WienTelefon: +431234567E-Mail: driver@example.comFAHRZEUGVW Golf (2020)FIN: VIN-FIXTURE-001Kennzeichen: W-4242KILOMETERSTAND45000 kmTANKFÜLLUNG80%GEMELDETES PROBLEM / KUNDENBEANSTANDUNGQuietschende BremsenAUFGABEN & ARBEITENBremsenprüfungMechanikernotizen:Beläge prüfenTYP ART.-NR. BESCHREIBUNG MENGEPART PAD-01 Bremsbelagsatz 1INTERNE NOTIZENInterner HinweisUnterschrift Mechaniker: ___________________________ Datum: ________________Arbeitskarte WO-PDF-42 Seite 1 von 1"
+      }
+    ]
+  }
+}

@@ -16,6 +16,10 @@ import type {
   SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
 import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
+import {
+  persistPendingAgentProposal,
+  type PersistPendingAgentProposalInput,
+} from './agent-proposal-persistence.util.js';
 import { AgentProposalSubmitPayloadNormalizer } from './agent-proposal-submit-payload-normalizer.service.js';
 
 /** Extra fields only server-side callers (e.g. the workshop command) may attach. */
@@ -74,30 +78,11 @@ export class AgentProposalSubmissionService {
     return toAgentProposalResponseDto(created);
   }
 
-  async persistPendingAction(input: {
-    action_type: string;
-    payload_json: unknown;
-    preview_json: unknown;
-    tier: AgentPolicyTier;
-    trace_id: string;
-    created_by_agent?: string;
-    command_id?: string;
-  }): Promise<AgentProposalResponseDto> {
+  async persistPendingAction(
+    input: PersistPendingAgentProposalInput,
+  ): Promise<AgentProposalResponseDto> {
     const tenantId = await this.tenantContext.getTenantId();
-    const created = await this.prisma.agentProposal.create({
-      data: {
-        tenant_id: tenantId,
-        trace_id: input.trace_id,
-        action_type: input.action_type,
-        payload_json: input.payload_json as Prisma.InputJsonValue,
-        preview_json: input.preview_json as Prisma.InputJsonValue,
-        tier: input.tier,
-        status: AgentProposalStatus.PENDING,
-        created_by_agent: input.created_by_agent ?? null,
-        command_id: input.command_id ?? null,
-      },
-    });
-    return toAgentProposalResponseDto(created);
+    return persistPendingAgentProposal(this.prisma, tenantId, input);
   }
 
   async submitPendingAction(

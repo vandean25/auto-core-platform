@@ -24,21 +24,9 @@ RUN npm run build
 RUN test -d dist/locales
 RUN test -f dist/locales/de/seedMaster.json
 
-# Pinned by digest: v1.65.1-noble ships Node 26.13.0 upstream; purge it locally and copy exact .nvmrc Node from builder (AUT-673, AUT-981, AUT-993).
-FROM mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579 AS worker
-
-RUN DEBIAN_FRONTEND=noninteractive apt-get purge -y nodejs \
-    && rm -f /etc/apt/sources.list.d/nodesource.list \
-    && rm -f /usr/bin/node /usr/bin/npm /usr/bin/npx /usr/bin/corepack \
-    && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-    && rm -rf /usr/lib/node_modules
-
-COPY --from=builder /usr/local/bin/node /usr/local/bin/node
-COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-
-ENV PATH="/usr/local/bin:${PATH}"
+# Slimmer Chromium-only worker image (AUT-1038): starts from the exact .nvmrc Node 26.13.1-slim digest
+# instead of the multi-browser Playwright image (which bundles Firefox, WebKit, and full Chromium).
+FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS worker
 
 COPY .nvmrc /usr/local/etc/nvmrc
 COPY apps/core-api/scripts/verify-pdf-worker-node.sh /usr/local/bin/verify-pdf-worker-node.sh
@@ -48,18 +36,25 @@ RUN chmod +x /usr/local/bin/verify-pdf-worker-node.sh \
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
+ENV ACP_WORKER_MODE=pdf
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 COPY package.json package-lock.json ./
 COPY apps/core-api/package.json ./apps/core-api/
 COPY apps/core-web/package.json ./apps/core-web/
 
-RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --workspace=core-api --include-workspace-root=false && npm cache clean --force
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --workspace=core-api --include-workspace-root=false \
+    && npm cache clean --force \
+    && ./node_modules/.bin/playwright install-deps chromium \
+    && ./node_modules/.bin/playwright install chromium --only-shell \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
 
 COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
 COPY apps/core-api/scripts/pdf-worker-image-smoke.mjs ./apps/core-api/scripts/pdf-worker-image-smoke.mjs
+COPY apps/core-api/scripts/pdf-worker-image-golden.json ./apps/core-api/scripts/pdf-worker-image-golden.json
 
 WORKDIR /usr/src/app/apps/core-api
 

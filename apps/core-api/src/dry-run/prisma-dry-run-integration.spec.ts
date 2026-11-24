@@ -47,9 +47,7 @@ describe('Prisma Dry-Run Integration', () => {
     mockDashboardRealtime = {
       emitEntityUpdated: jest.fn(),
     };
-    prismaService = new PrismaService(
-      mockDashboardRealtime as unknown as DashboardRealtimeService,
-    );
+    prismaService = new PrismaService(mockDashboardRealtime);
   });
 
   afterAll(async () => {

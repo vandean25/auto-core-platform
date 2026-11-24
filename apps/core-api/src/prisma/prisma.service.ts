@@ -119,7 +119,7 @@ export class PrismaService
 
   constructor(
     @Inject(DashboardRealtimeService)
-    dashboardRealtime: DashboardRealtimeService,
+    dashboardRealtime: Pick<DashboardRealtimeService, 'emitEntityUpdated'>,
   ) {
     const pool = getSharedRuntimePool();
     const adapter = new PrismaPg(pool);

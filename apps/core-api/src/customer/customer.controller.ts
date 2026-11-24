@@ -10,8 +10,11 @@ import {
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { CustomerService } from './customer.service.js';
+import { CustomerActivityService } from './activity/customer-activity.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
+import { CustomerActivityQueryDto } from './dto/customer-activity-query.dto.js';
+import { CustomerActivityResponseDto } from './dto/customer-activity-response.dto.js';
 import { CustomerDetailResponseDto } from './dto/customer-detail-response.dto.js';
 import { CustomerResponseDto } from './dto/customer-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
@@ -24,7 +27,10 @@ import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 @Controller('customers')
 export class CustomerController {
-  constructor(private readonly customerService: CustomerService) {}
+  constructor(
+    private readonly customerService: CustomerService,
+    private readonly customerActivityService: CustomerActivityService,
+  ) {}
 
   @Post()
   @DryRunSupported()
@@ -109,6 +115,15 @@ export class CustomerController {
         pageCount: 1,
       },
     };
+  }
+
+  @Get(':id/activity')
+  @ApiOkResponse({ type: CustomerActivityResponseDto })
+  getActivity(
+    @Param('id') id: string,
+    @Query() query: CustomerActivityQueryDto,
+  ) {
+    return this.customerActivityService.getActivity(id, query);
   }
 
   @Get(':id')
