@@ -99,14 +99,6 @@ test.describe('UI language switch (AUT-718)', () => {
     await expectSamePageInstance(page)
     await testInfo.attach('language-menu-closed-en', { body: await page.screenshot(), contentType: 'image/png' })
 
-    await page.reload()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(mainNavigation(page, enNav.aria.mainNavigation)).toBeVisible()
-    await expect(page.getByRole('link', { name: enNav.modules.customers, exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1, name: enCommon.dashboard.title })).toBeVisible()
-    await expect(page.getByText(enCommon.dashboard.description)).toHaveCount(0)
-
-    await markPage(page)
     await switchLanguage(page, 'de')
 
     await expect(mainNavigation(page, DE_SHELL.mainNavigation)).toBeVisible()
@@ -114,6 +106,21 @@ test.describe('UI language switch (AUT-718)', () => {
     await expect(page.getByRole('heading', { level: 1, name: deCommon.dashboard.title })).toBeVisible()
     await expect(page.getByText(deCommon.dashboard.description)).toHaveCount(0)
     await expectSamePageInstance(page)
+    await testInfo.attach('language-menu-switched-back-de', { body: await page.screenshot(), contentType: 'image/png' })
+
+    await switchLanguage(page, 'en')
+    await expect(mainNavigation(page, enNav.aria.mainNavigation)).toBeVisible()
+    await expect(page.getByRole('link', { name: enNav.modules.customers, exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: enNav.search.openAria })).toBeVisible()
+    await expectSamePageInstance(page)
+    await testInfo.attach('language-menu-switched-back-en', { body: await page.screenshot(), contentType: 'image/png' })
+
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(mainNavigation(page, enNav.aria.mainNavigation)).toBeVisible()
+    await expect(page.getByRole('link', { name: enNav.modules.customers, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: enCommon.dashboard.title })).toBeVisible()
+    await expect(page.getByText(enCommon.dashboard.description)).toHaveCount(0)
   })
 
   test('switches a page whose locale bundle loads lazily, without a reload', async ({ page }) => {

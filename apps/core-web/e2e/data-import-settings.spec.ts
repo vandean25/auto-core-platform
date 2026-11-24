@@ -83,14 +83,16 @@ test('AUT-1037: import history shows its empty message only after a successful e
 
   result = 'populated'
   await openHistory()
-  await expect(page.getByText('customers.csv', { exact: true })).toBeVisible()
+  await expect(page.getByText('customers.csv', { exact: true })).toBeInViewport({ ratio: 1 })
   await expect(empty).toHaveCount(0)
+  await testInfo.attach('import-history-populated-375', { body: await page.screenshot(), contentType: 'image/png' })
 
   result = 'error'
   await openHistory()
-  await expect(page.getByText(history.loadFailed)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(history.loadFailed, { exact: true })).toBeInViewport({ ratio: 1, timeout: 15_000 })
   await expect(empty).toHaveCount(0)
   await expect(page.getByText(DE_COMMON.dataTable.noResults, { exact: true })).toHaveCount(0)
+  await testInfo.attach('import-history-load-failed-375', { body: await page.screenshot(), contentType: 'image/png' })
 })
 
 async function installImportMocks(
