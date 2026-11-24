@@ -64,7 +64,7 @@ export async function loadBankTransaction(
 export function loadBankInvoices(
   db: Database,
   scope: { access: Access; transfer: BankTransaction },
-  ids?: string[],
+  lookup: { ids: string[] } | { afterId: string | undefined; pageSize: number },
 ) {
   const { access, transfer } = scope;
   const ownership = {
@@ -72,13 +72,22 @@ export function loadBankInvoices(
     legal_entity_id: transfer.legal_entity_id,
     site_id: { in: access.siteIds },
   };
+  const selection =
+    'ids' in lookup
+      ? { id: { in: lookup.ids } }
+      : {
+          id: lookup.afterId ? { gt: lookup.afterId } : undefined,
+          status: InvoiceStatus.ISSUED,
+          total_gross: { gt: 0 },
+          payments: { none: { ...ownership, status: { in: PENDING } } },
+        };
   return db.invoice.findMany({
+    orderBy: { id: 'asc' },
+    take: 'pageSize' in lookup ? lookup.pageSize : undefined,
     where: {
       ...ownership,
       currency: 'EUR',
-      ...(ids
-        ? { id: { in: ids } }
-        : { status: InvoiceStatus.ISSUED, total_gross: { gt: 0 } }),
+      ...selection,
     },
     select: {
       id: true,
@@ -87,6 +96,7 @@ export function loadBankInvoices(
       customer_id: true,
       invoice_number: true,
       total_gross: true,
+      date: true,
       updatedAt: true,
       credit_notes: {
         where: { ...ownership, status: CreditNoteStatus.FINALIZED },

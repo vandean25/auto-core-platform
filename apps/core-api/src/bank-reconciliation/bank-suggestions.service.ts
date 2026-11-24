@@ -19,6 +19,7 @@ import {
 import { isAllocatableCredit } from './bank-outstanding.js';
 
 const SUGGESTION_LIMIT = 3;
+const CANDIDATE_PAGE_SIZE = 200;
 
 export function settledTransferPayments(
   db: Prisma.TransactionClient,
@@ -48,7 +49,11 @@ export function unallocatedAmount(
 
 export async function invoiceMatchEvidence(
   db: Prisma.TransactionClient,
-  scope: { transfer: BankTransaction; siteIds: string[] },
+  scope: {
+    transfer: BankTransaction;
+    siteIds: string[];
+    availableAmount: Prisma.Decimal;
+  },
   invoices: readonly BankInvoice[],
 ) {
   const { transfer, siteIds } = scope;
@@ -76,7 +81,7 @@ export async function invoiceMatchEvidence(
     invoices.map((invoice) => [
       invoice.id,
       scoreBankMatch(
-        transfer,
+        { ...transfer, availableAmount: scope.availableAmount },
         {
           number: invoice.invoice_number ?? '',
           name: names.get(invoice.customer_id) ?? '',
@@ -148,13 +153,45 @@ export class BankSuggestionsService {
     );
     if (!available.gt(0)) return { data: [] };
 
-    const invoices = await loadBankInvoices(this.prisma, { transfer, access });
-    const evidence = await invoiceMatchEvidence(
-      this.prisma,
-      { transfer, siteIds: access.siteIds },
-      invoices,
-    );
-    const data = invoices.flatMap((invoice) => {
+    const evidenceScope = {
+      transfer,
+      siteIds: access.siteIds,
+      availableAmount: available,
+    };
+    let afterId: string | undefined;
+    let best: BankSuggestionsDto['data'] = [];
+    do {
+      const invoices = await loadBankInvoices(
+        this.prisma,
+        { transfer, access },
+        {
+          afterId,
+          pageSize: CANDIDATE_PAGE_SIZE,
+        },
+      );
+      if (!invoices.length) break;
+      const page = await this.rankPage(invoices, evidenceScope);
+      best = [...best, ...page]
+        .sort(
+          (a, b) => b.score - a.score || a.invoiceId.localeCompare(b.invoiceId),
+        )
+        .slice(0, SUGGESTION_LIMIT);
+      afterId =
+        invoices.length === CANDIDATE_PAGE_SIZE
+          ? invoices.at(-1)?.id
+          : undefined;
+    } while (afterId);
+
+    return { data: best };
+  }
+
+  private async rankPage(
+    invoices: BankInvoice[],
+    scope: Parameters<typeof invoiceMatchEvidence>[1],
+  ) {
+    const evidence = await invoiceMatchEvidence(this.prisma, scope, invoices);
+    const available = scope.availableAmount;
+    return invoices.flatMap((invoice) => {
       const balance = outstanding(invoice);
       const match = evidence.get(invoice.id);
       if (!balance.gt(0) || !match?.score) return [];
@@ -171,9 +208,5 @@ export class BankSuggestionsService {
         },
       ];
     });
-    data.sort(
-      (a, b) => b.score - a.score || a.invoiceId.localeCompare(b.invoiceId),
-    );
-    return { data: data.slice(0, SUGGESTION_LIMIT) };
   }
 }

@@ -11,7 +11,10 @@ import {
 import type { BankTransaction, Payment } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { lockFinanceSettings } from '../finance/fiscal-lock.helpers.js';
+import {
+  lockFinanceSettings,
+  lockFinanceSettingsAndAssertOpen,
+} from '../finance/fiscal-lock.helpers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import type {
@@ -98,6 +101,24 @@ function invoiceRevision(invoice: BankInvoice, excludePayment?: string) {
   });
 }
 
+async function assertInvoicePeriodsOpen(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  invoices: readonly BankInvoice[],
+) {
+  let earliest: Date | undefined;
+  for (const { date } of invoices) {
+    if (!earliest || date < earliest) earliest = date;
+  }
+  // The cutoff is tenant-wide, so the earliest invoice covers the entire split.
+  if (earliest) {
+    await lockFinanceSettingsAndAssertOpen(
+      tx,
+      tenantId,
+      new Date(earliest.toISOString().slice(0, 10)),
+    );
+  }
+}
 function actionResponse(context: ActionContext): BankTransactionActionDto {
   const { transfer, payments, access } = context;
   return {
@@ -269,15 +290,18 @@ export class BankAllocationService {
       throw bankMatchConflict();
     }
 
-    const invoices = await loadBankInvoices(
-      tx,
-      context,
-      command.allocations.map(({ invoiceId }) => invoiceId),
-    );
+    const invoices = await loadBankInvoices(tx, context, {
+      ids: command.allocations.map(({ invoiceId }) => invoiceId),
+    });
     const plan = buildAllocationPlan(context, command, invoices);
+    await assertInvoicePeriodsOpen(tx, access.tenantId, invoices);
     const evidence = await invoiceMatchEvidence(
       tx,
-      { transfer, siteIds: access.siteIds },
+      {
+        transfer,
+        siteIds: access.siteIds,
+        availableAmount: unallocatedAmount(transfer, context.payments),
+      },
       invoices,
     );
     await lockSitesAndAssertActive(
@@ -356,12 +380,11 @@ export class BankAllocationService {
     ) {
       throw new NotFoundException();
     }
-    const invoices = await loadBankInvoices(
-      tx,
-      context,
-      selected.map(({ invoice_id }) => invoice_id),
-    );
+    const invoices = await loadBankInvoices(tx, context, {
+      ids: selected.map(({ invoice_id }) => invoice_id),
+    });
     assertAllBankInvoices(invoices.length, selected.length);
+    await assertInvoicePeriodsOpen(tx, access.tenantId, invoices);
     const invoicesById = new Map(
       invoices.map((invoice) => [invoice.id, invoice]),
     );

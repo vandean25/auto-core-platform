@@ -30,12 +30,13 @@ export async function bankFixture(prisma: PrismaService, tenantId: string) {
           bank_reconciliation_enabled: enabled,
         },
       }),
-    invoice: (number: string, gross = 120) =>
+    invoice: (number: string, gross = 120, id?: string) =>
       prisma.invoice.create({
         data: {
           ...ownership,
           site_id: site.id,
           customer_id: customer.id,
+          id,
           invoice_number: number,
           status: 'ISSUED',
           date,

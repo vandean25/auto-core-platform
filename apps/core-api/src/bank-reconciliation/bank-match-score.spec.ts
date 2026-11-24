@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { scoreBankMatch } from './bank-match-score.js';
 
 const transfer = {
-  amount: new Prisma.Decimal(100),
+  availableAmount: new Prisma.Decimal(100),
   reference_text: 'Payment RE-2026-123',
   remitter_name: 'Max Muster',
   remitter_iban_last4: '0123',

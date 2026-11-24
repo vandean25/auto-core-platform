@@ -12,8 +12,8 @@ type MatchReason = { code: ReasonCode; value: string };
 type Candidate = { number: string; name: string; outstanding: Prisma.Decimal };
 type TransferEvidence = Pick<
   BankTransaction,
-  'amount' | 'reference_text' | 'remitter_name' | 'remitter_iban_last4'
->;
+  'reference_text' | 'remitter_name' | 'remitter_iban_last4'
+> & { availableAmount: Prisma.Decimal };
 
 const WEIGHTS: Record<ReasonCode, number> = {
   AMOUNT_EXACT: 20,
@@ -48,10 +48,10 @@ export function scoreBankMatch(
   knownIban: boolean,
 ) {
   const reasons: MatchReason[] = [];
-  if (transfer.amount.equals(candidate.outstanding)) {
+  if (transfer.availableAmount.equals(candidate.outstanding)) {
     reasons.push({
       code: BANK_MATCH_REASON.AMOUNT_EXACT,
-      value: candidate.outstanding.toFixed(2),
+      value: transfer.availableAmount.toFixed(2),
     });
   }
   if (

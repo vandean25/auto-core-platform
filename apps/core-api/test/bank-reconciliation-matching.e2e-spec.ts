@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -45,6 +46,11 @@ describe('Bank reconciliation matching (e2e)', () => {
 
   afterAll(async () => teardownTestApp(app, base));
 
+  const listSuggestions = (id: string, header = admin) =>
+    request(app.getHttpServer())
+      .get(`${path(id)}/suggestions`)
+      .set('Authorization', header);
+
   const confirm = (id: string, invoiceId: string, transactionVersion = 1) =>
     request(app.getHttpServer())
       .post(`${path(id)}/confirm`)
@@ -61,10 +67,7 @@ describe('Bank reconciliation matching (e2e)', () => {
     await fixture.invoice('RE-RANK-OTHER');
     const invoice = await fixture.invoice('RE-RANK');
     const transfer = await fixture.transfer('Payment RE-RANK');
-    const response = await request(app.getHttpServer())
-      .get(`${path(transfer.id)}/suggestions`)
-      .set('Authorization', admin)
-      .expect(200);
+    const response = await listSuggestions(transfer.id).expect(200);
     expect(response.body.data[0]).toMatchObject({
       invoiceId: invoice.id,
       reasons: expect.arrayContaining([
@@ -72,6 +75,143 @@ describe('Bank reconciliation matching (e2e)', () => {
         { code: 'INVOICE_NO_IN_REFERENCE', value: 'RE-RANK' },
       ]),
     });
+  });
+
+  it('uses the transfer remainder for exact matches and confirm audit evidence', async () => {
+    const first = await fixture.invoice('RE-REMAINDER-FIRST', 41);
+    const exact = await fixture.invoice('RE-REMAINDER-EXACT', 79);
+    const original = await fixture.invoice('RE-REMAINDER-ORIGINAL', 120);
+    const transfer = await fixture.transfer(
+      'RE-REMAINDER-EXACT RE-REMAINDER-ORIGINAL',
+    );
+    await confirm(transfer.id, first.id).expect(200);
+    const response = await listSuggestions(transfer.id).expect(200);
+    expect(response.body.data[0]).toMatchObject({
+      invoiceId: exact.id,
+      suggestedAmount: '79.00',
+      reasons: expect.arrayContaining([
+        { code: 'AMOUNT_EXACT', value: '79.00' },
+      ]),
+    });
+    expect(
+      response.body.data.find(
+        (match: { invoiceId: string }) => match.invoiceId === original.id,
+      )?.reasons,
+    ).not.toContainEqual({ code: 'AMOUNT_EXACT', value: '120.00' });
+
+    await confirm(transfer.id, exact.id, 2).expect(200);
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: {
+        tenant_id: fixture.ownership.tenant_id,
+        entity_type: 'BankTransaction',
+        entity_id: transfer.id,
+        after: { path: ['version'], equals: 3 },
+      },
+    });
+    expect(audit.after).toMatchObject({
+      version: 3,
+      allocations: [
+        {
+          invoiceId: exact.id,
+          evidence: expect.arrayContaining([
+            { code: 'AMOUNT_EXACT', value: '79.00' },
+          ]),
+        },
+      ],
+    });
+  });
+
+  it.each(['confirm', 'undo'] as const)(
+    'rejects %s in a closed fiscal period without changing the allocation',
+    async (operation) => {
+      const invoice = await fixture.invoice(`RE-FISCAL-${operation}`);
+      const transfer = await fixture.transfer(invoice.invoice_number!);
+      if (operation === 'undo')
+        await confirm(transfer.id, invoice.id).expect(200);
+      const state = async () => ({
+        invoice: await prisma.invoice.findFirstOrThrow({
+          where: { ...fixture.ownership, id: invoice.id },
+          select: {
+            status: true,
+            payments: { select: { id: true, status: true } },
+          },
+        }),
+        transfer: await prisma.bankTransaction.findFirstOrThrow({
+          where: { ...fixture.ownership, id: transfer.id },
+          select: { status: true, version: true },
+        }),
+      });
+      const previous = await state();
+      const lockDate = new Date(invoice.date.toISOString().slice(0, 10));
+      const where = { tenant_id: fixture.ownership.tenant_id };
+      await prisma.financeSettings.update({
+        where,
+        data: { lock_date: lockDate },
+      });
+      try {
+        const attempt =
+          operation === 'confirm'
+            ? confirm(transfer.id, invoice.id)
+            : undo(transfer.id);
+        const result = await attempt.expect(422);
+        expect(result.body.code).toBe('FISCAL_PERIOD_LOCKED');
+        expect(await state()).toEqual(previous);
+      } finally {
+        await prisma.financeSettings.update({
+          where,
+          data: { lock_date: null },
+        });
+      }
+    },
+  );
+
+  it('excludes an invoice with an unresolved fiscal settlement from suggestions', async () => {
+    const invoice = await fixture.invoice('RE-PENDING');
+    const transfer = await fixture.transfer('RE-PENDING');
+    await prisma.payment.create({
+      data: {
+        ...fixture.ownership,
+        site_id: fixture.site.id,
+        invoice_id: invoice.id,
+        status: 'PENDING',
+        method: 'CARD',
+        amount: 120,
+        currency: 'EUR',
+        idempotency_key: 'pending-fixture',
+        request_hash: 'pending-fixture',
+      },
+    });
+    const response = await listSuggestions(transfer.id).expect(200);
+    expect(
+      response.body.data.map((match: { invoiceId: string }) => match.invoiceId),
+    ).not.toContain(invoice.id);
+  });
+
+  it('retains the strongest suggestion from a later candidate page', async () => {
+    const exact = await fixture.invoice(
+      'RE-LATE-PAGE',
+      123,
+      'f' + randomUUID().slice(1),
+    );
+    await prisma.invoice.createMany({
+      data: Array.from({ length: 200 }, (_, index) => ({
+        ...fixture.ownership,
+        id: '0' + randomUUID().slice(1),
+        site_id: fixture.site.id,
+        customer_id: exact.customer_id,
+        invoice_number: `RE-PAGE-CANDIDATE-${index}`,
+        status: 'ISSUED',
+        date: fixture.date,
+        due_date: fixture.date,
+        total_gross: 123,
+        total_net: 100,
+        total_tax: 23,
+      })),
+    });
+    const transfer = await fixture.transfer('RE-LATE-PAGE', 123);
+    const response = await listSuggestions(transfer.id).expect(200);
+    expect(response.body.data).toHaveLength(3);
+    expect(response.body.data[0]).toMatchObject({ invoiceId: exact.id });
   });
 
   it('leaves the invoice untouched when importing a transfer and viewing suggestions', async () => {
@@ -94,10 +234,7 @@ describe('Bank reconciliation matching (e2e)', () => {
     const transfer = await prisma.bankTransaction.findFirstOrThrow({
       where: { ...fixture.ownership, bank_ref: 'IMPORT-MATCH' },
     });
-    await request(app.getHttpServer())
-      .get(`${path(transfer.id)}/suggestions`)
-      .set('Authorization', admin)
-      .expect(200);
+    await listSuggestions(transfer.id).expect(200);
     expect(
       await prisma.invoice.findFirst({
         where: { ...fixture.ownership, id: invoice.id },
@@ -208,10 +345,6 @@ describe('Bank reconciliation matching (e2e)', () => {
   it('hides all routes when disabled and preserves the admin grant when enabled', async () => {
     const invoice = await fixture.invoice('RE-GRANT');
     const transfer = await fixture.transfer('RE-GRANT');
-    const suggestions = (header: string) =>
-      request(app.getHttpServer())
-        .get(`${path(transfer.id)}/suggestions`)
-        .set('Authorization', header);
     const ignore = (header: string, expectedVersion = 1) =>
       request(app.getHttpServer())
         .post(`${path(transfer.id)}/ignore`)
@@ -219,17 +352,21 @@ describe('Bank reconciliation matching (e2e)', () => {
         .send({ expectedVersion, reason: 'Unrelated transfer' });
     await fixture.enable(false);
     try {
-      await suggestions(admin).expect(404);
-      await suggestions(sales).expect(404);
+      await listSuggestions(transfer.id).expect(404);
+      await listSuggestions(transfer.id, sales).expect(404);
       await confirm(transfer.id, invoice.id).expect(404);
       await undo(transfer.id, 1).expect(404);
       await ignore(admin).expect(404);
     } finally {
       await fixture.enable(true);
     }
-    await suggestions(sales).expect(403);
+    await listSuggestions(transfer.id, sales).expect(403);
+    await confirm(transfer.id, invoice.id)
+      .set('Authorization', sales)
+      .expect(403);
+    await undo(transfer.id, 1).set('Authorization', sales).expect(403);
     await ignore(sales).expect(403);
-    await suggestions(admin).expect(200);
+    await listSuggestions(transfer.id).expect(200);
     const ignored = await ignore(admin).expect(200);
     expect(ignored.body).toMatchObject({
       status: 'IGNORED',
@@ -345,10 +482,7 @@ describe('Bank reconciliation matching (e2e)', () => {
       data: { legal_entity_id: entity.id, site_id: site.id },
     });
     const transfer = await fixture.transfer('RE-FOREIGN-ENTITY');
-    const suggestions = await request(app.getHttpServer())
-      .get(`${path(transfer.id)}/suggestions`)
-      .set('Authorization', admin)
-      .expect(200);
+    const suggestions = await listSuggestions(transfer.id).expect(200);
     expect(
       suggestions.body.data.map(
         (candidate: { invoiceId: string }) => candidate.invoiceId,
@@ -406,10 +540,7 @@ describe('Bank reconciliation matching (e2e)', () => {
       },
     });
     const transfer = await fixture.transfer('LEGACY-MATCH', 100);
-    const result = await request(app.getHttpServer())
-      .get(`${path(transfer.id)}/suggestions`)
-      .set('Authorization', admin)
-      .expect(200);
+    const result = await listSuggestions(transfer.id).expect(200);
     expect(result.body.data).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ invoiceId: legacy.id }),

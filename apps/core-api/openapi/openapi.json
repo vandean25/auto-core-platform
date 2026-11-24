@@ -42666,6 +42666,7 @@
           },
           "payment": {
             "nullable": true,
+            "description": "The most recent individual payment. Its amount is the value of that payment.",
             "type": "object",
             "allOf": [
               {
@@ -42674,6 +42675,7 @@
             ]
           },
           "bankPayments": {
+            "description": "Bank allocation history. Sum SETTLED entries for the active bank payment total.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BankPaymentHistoryItemDto"

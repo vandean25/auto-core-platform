@@ -12816,7 +12816,9 @@ export interface components {
             rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
             /** @example Europe/Vienna */
             siteTimezone?: string;
+            /** @description The most recent individual payment. Its amount is the value of that payment. */
             payment?: components["schemas"]["SettlementPaymentSummaryDto"] | null;
+            /** @description Bank allocation history. Sum SETTLED entries for the active bank payment total. */
             bankPayments?: components["schemas"]["BankPaymentHistoryItemDto"][];
         };
         RecordSettlementDto: {
