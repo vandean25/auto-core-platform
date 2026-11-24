@@ -69,4 +69,51 @@ describe('PlaywrightBrowserService', () => {
     await jest.advanceTimersByTimeAsync(15_000);
     await rejection;
   });
+
+  it('WHEN Chromium warm-up is started THEN it does not block the caller and a job calling getBrowser() during warm-up shares the launch and completes', async () => {
+    let resolveLaunch!: (browser: Browser) => void;
+    const launchPromise = new Promise<Browser>((resolve) => {
+      resolveLaunch = resolve;
+    });
+    const browser: Partial<Browser> = {
+      isConnected: jest.fn().mockReturnValue(true),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockReturnValue(launchPromise);
+
+    // Must return synchronously / immediately without awaiting Chromium launch.
+    const warmUpPromise = service.warmUp();
+    expect(launchSpy).toHaveBeenCalledTimes(1);
+
+    let settled = false;
+    const jobBrowserPromise = service.getBrowser().then((resolved) => {
+      settled = true;
+      return resolved;
+    });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolveLaunch(asBrowser(browser));
+    await expect(jobBrowserPromise).resolves.toBe(browser);
+    await expect(warmUpPromise).resolves.toBeUndefined();
+    expect(launchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('WHEN Chromium warm-up fails THEN it does not reject and a subsequent getBrowser() call retries', async () => {
+    const liveBrowser: Partial<Browser> = {
+      isConnected: jest.fn().mockReturnValue(true),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const launchSpy = jest
+      .spyOn(chromium, 'launch')
+      .mockRejectedValueOnce(new Error('transient launch failure'))
+      .mockResolvedValueOnce(asBrowser(liveBrowser));
+
+    await expect(service.warmUp()).resolves.toBeUndefined();
+    await expect(service.getBrowser()).resolves.toBe(liveBrowser);
+    expect(launchSpy).toHaveBeenCalledTimes(2);
+  });
 });

@@ -10,7 +10,26 @@ import {
   PageContainerWithBreadcrumbs,
 } from '@/components/layout/PageBreadcrumbs'
 
-vi.mock('@/api/customers')
+vi.mock('@/api/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/customers')>()
+  return {
+    ...actual,
+    useCustomer: vi.fn(),
+    useUpdateCustomer: vi.fn(),
+    useCustomerActivity: vi.fn(() => ({
+      data: {
+        pages: [{ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }],
+        pageParams: [undefined],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    })),
+  }
+})
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
