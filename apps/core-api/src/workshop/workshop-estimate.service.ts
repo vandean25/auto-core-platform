@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { WorkshopEstimateService as WorkshopEstimateServiceRuntime } from './workshop-estimate.runtime.js';
 
-/** Stable Nest entry path; implementation lives in workshop-estimate.runtime.ts for repowise. */
+/** Stable Nest entry path; implementation lives in workshop-estimate.runtime.ts */
 @Injectable()
 export class WorkshopEstimateService extends WorkshopEstimateServiceRuntime {}
 

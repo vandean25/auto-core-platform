@@ -20,7 +20,7 @@ import { SiteLifecycleService } from './site-lifecycle.service.js';
 import { SiteMembershipService } from './site-membership.service.js';
 import { SiteSessionService } from './site-session.service.js';
 
-/** Facade wiring for {@link SiteService}; kept out of site.service.ts for repowise. */
+/** Facade wiring for {@link SiteService}; kept out of site.service.ts. */
 @Injectable()
 export class SiteServiceRuntime {
   private readonly directory: SiteDirectoryService;
