@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { MODULE_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import type { Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AgentPolicyTier, AgentProposalStatus } from '@prisma/client';
+import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PdfWorkerController } from './pdf-worker.controller.js';
 import { PdfWorkerModule } from './pdf-worker.module.js';
@@ -158,6 +161,81 @@ describe('PDF worker bootstrap module graph and lazy Sentry (AUT-1038)', () => {
 
     const controller = moduleRef.get(PdfWorkerController);
     expect(controller).toBeInstanceOf(PdfWorkerController);
+    await moduleRef.close();
+  });
+
+  it('WHEN DecisionDocumentSortApplier persists a PROPOSE-tier suggestion THEN PdfWorkerModule provides AgentProposalService.persistPendingAction', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const createProposal = jest.fn().mockResolvedValue({
+      id: 'prop-1',
+      tenant_id: 'tenant-1',
+      trace_id: 'trace-1',
+      action_type: 'document.sort',
+      tier: AgentPolicyTier.PROPOSE,
+      status: AgentProposalStatus.PENDING,
+      payload_json: {
+        document_brand_asset_id: 'asset-1',
+        document_sort_type: 'Rechnung',
+      },
+      preview_json: {
+        heuristic_type: 'Sonstiges',
+        suggested_type: 'Rechnung',
+      },
+      created_by_agent: null,
+      command_id: null,
+      decided_by: null,
+      decided_at: null,
+      reason: null,
+      expires_at: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [PdfWorkerModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue({ agentProposal: { create: createProposal } })
+      .overrideProvider(TenantContextService)
+      .useValue({ getTenantId: jest.fn().mockResolvedValue('tenant-1') })
+      .compile();
+
+    const agentProposals = moduleRef.get(AgentProposalService);
+    const result = await agentProposals.persistPendingAction({
+      action_type: 'document.sort',
+      payload_json: {
+        document_brand_asset_id: 'asset-1',
+        document_sort_type: 'Rechnung',
+      },
+      preview_json: {
+        heuristic_type: 'Sonstiges',
+        suggested_type: 'Rechnung',
+      },
+      tier: AgentPolicyTier.PROPOSE,
+      trace_id: 'trace-1',
+    });
+
+    expect(createProposal).toHaveBeenCalledWith({
+      data: {
+        tenant_id: 'tenant-1',
+        trace_id: 'trace-1',
+        action_type: 'document.sort',
+        payload_json: {
+          document_brand_asset_id: 'asset-1',
+          document_sort_type: 'Rechnung',
+        },
+        preview_json: {
+          heuristic_type: 'Sonstiges',
+          suggested_type: 'Rechnung',
+        },
+        tier: AgentPolicyTier.PROPOSE,
+        status: AgentProposalStatus.PENDING,
+        created_by_agent: null,
+        command_id: null,
+      },
+    });
+    expect(result.id).toBe('prop-1');
+    expect(result.status).toBe(AgentProposalStatus.PENDING);
     await moduleRef.close();
   });
 });

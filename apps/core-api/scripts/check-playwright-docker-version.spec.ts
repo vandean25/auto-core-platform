@@ -292,6 +292,7 @@ describe('Production image version pins (AUT-167)', () => {
     expect(workflow).toMatch(/--target worker/);
     expect(workflow).toMatch(/--target api/);
     expect(workflow).toMatch(/pdf-worker-image-smoke\.mjs/);
+    expect(workflow).toMatch(/1300000000/);
   });
 
   it('requires Node 26 in the root engine declaration', () => {

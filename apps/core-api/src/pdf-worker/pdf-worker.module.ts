@@ -44,6 +44,7 @@ import { WorkshopEstimatePdfService } from '../workshop/workshop-estimate-pdf.se
 import { WorkshopPdfRenderer } from '../workshop/workshop-pdf.renderer.js';
 import { WorkshopPdfService } from '../workshop/workshop-pdf.service.js';
 import { PdfWorkerController } from './pdf-worker.controller.js';
+import { WorkerAgentProposalService } from './worker-agent-proposal.service.js';
 import { WorkerPrismaModule } from './worker-prisma.module.js';
 
 @Module({
@@ -105,7 +106,7 @@ import { WorkerPrismaModule } from './worker-prisma.module.js';
     },
     {
       provide: AgentProposalService,
-      useValue: {},
+      useClass: WorkerAgentProposalService,
     },
   ],
 })
