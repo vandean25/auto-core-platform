@@ -143,7 +143,7 @@ function DiscoveryBannerHeader({ count, hasFinal, expanded, onMarkAllSeen, onTog
             {t('bulk.adjustPrice.discovery.markAllSeen')}
           </Button>
         ) : null}
-        <Button type="button" variant="outline" size="sm" className="min-h-11 md:min-h-8" onClick={onToggleExpanded}>
+        <Button type="button" variant="outline" size="sm" className="min-h-11 md:min-h-8" aria-expanded={expanded} onClick={onToggleExpanded}>
           {expanded ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
           {expanded ? t('bulk.adjustPrice.discovery.hideDetails') : t('bulk.adjustPrice.discovery.showDetails')}
         </Button>
@@ -214,7 +214,7 @@ export function InventoryPriceOperationsPanel({ enabled, onNewPreview }: PanelPr
         onToggleExpanded={() => setExpanded((prev) => !prev)}
       />
       {expanded ? (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-2 max-md:max-h-32 max-md:overflow-y-auto">
           <ul className="space-y-2">
             {visibleOperations.map((op) => (
               <PriceOperationRow

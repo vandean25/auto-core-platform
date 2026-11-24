@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { BookOpen, Check, ExternalLink, Keyboard, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
@@ -43,12 +43,51 @@ function initialsFor(email: string | null) {
   return letters.toUpperCase()
 }
 
+type UserLanguageItemsProps = {
+  selection: ReturnType<typeof useUiLanguage>
+  onSelected: () => void
+}
+
+function UserLanguageItems({ selection, onSelected }: UserLanguageItemsProps) {
+  const { language, setLanguage, isSwitching, switchError, labels } = selection
+
+  const chooseLanguage = async (next: UiLanguage, event: Event) => {
+    event.preventDefault()
+    if (await setLanguage(next)) onSelected()
+  }
+
+  return (
+    <>
+      <DropdownMenuLabel>{labels.section}</DropdownMenuLabel>
+      {(['de', 'en'] as const).map((option) => (
+        <DropdownMenuItem
+          key={option}
+          className="max-sm:min-h-11"
+          disabled={isSwitching}
+          onSelect={(event) => void chooseLanguage(option, event)}
+          data-testid={`language-option-${option}`}
+        >
+          <span className="flex-1">{labels[option]}</span>
+          {language === option ? <Check aria-hidden="true" /> : null}
+        </DropdownMenuItem>
+      ))}
+      {isSwitching ? <p className="px-2 py-1.5 text-xs text-muted-foreground">{labels.pending}</p> : null}
+      {switchError ? (
+        <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
+          {labels.error}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 /** Account menu in the sidebar footer: UI language, theme, help and sign out. */
 export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const { t } = useTranslation('nav')
   const { t: tCommon } = useTranslation('common')
   const { isMobile } = useSidebar()
-  const { language, setLanguage, isSwitching, switchError, labels } = useUiLanguage()
+  const [open, setOpen] = useState(false)
+  const languageSelection = useUiLanguage()
   const { theme = 'system', setTheme } = useTheme()
   const singleKeyShortcuts = useSingleKeyShortcutsEnabled()
   const shortcutsLabelId = useId()
@@ -56,16 +95,10 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
   const initials = initialsFor(userEmail)
   const accountLabel = userEmail ?? tCommon('profile.menuLabel')
 
-  const chooseLanguage = async (next: UiLanguage, event: Event) => {
-    // Keep the menu open while the language switches.
-    event.preventDefault()
-    await setLanguage(next)
-  }
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
             <SidebarDropdownButton
               icon={initials ? initials : <UserRound />}
@@ -79,29 +112,7 @@ export function NavUser({ userEmail, onSignOut }: NavUserProps) {
             sideOffset={4}
             className="min-w-56 rounded-lg"
           >
-            <DropdownMenuLabel>{labels.section}</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isSwitching}
-              onSelect={(event) => void chooseLanguage('de', event)}
-              data-testid="language-option-de"
-            >
-              <span className="flex-1">{labels.de}</span>
-              {language === 'de' ? <Check aria-hidden="true" /> : null}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isSwitching}
-              onSelect={(event) => void chooseLanguage('en', event)}
-              data-testid="language-option-en"
-            >
-              <span className="flex-1">{labels.en}</span>
-              {language === 'en' ? <Check aria-hidden="true" /> : null}
-            </DropdownMenuItem>
-            {isSwitching ? <p className="px-2 py-1.5 text-xs text-muted-foreground">{labels.pending}</p> : null}
-            {switchError ? (
-              <p role="alert" className="px-2 py-1.5 text-xs text-destructive">
-                {labels.error}
-              </p>
-            ) : null}
+            <UserLanguageItems selection={languageSelection} onSelected={() => setOpen(false)} />
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t('user.theme.section')}</DropdownMenuLabel>

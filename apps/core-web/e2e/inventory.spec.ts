@@ -7,8 +7,30 @@ import { e2eCappedCountBody, e2eCursorPageBody, mockCursorList, requestedBlocks 
 import { createMockInventoryItem, createMockListResponse } from './utils/mock-factories';
 import { expectNoPageScroll, pageOverflow } from './utils/phone-layout';
 import { REALTIME_RESYNC_MIN_INTERVAL_MS } from '../src/features/realtime/resync-interval';
+import type { InventoryPriceOperationDto } from '../src/api/inventory-price-operations';
 
 const RUN_SEEDED_SMOKE_TESTS = process.env.E2E_LIVE_BACKEND === 'true';
+
+function priceOperation(sku: string): InventoryPriceOperationDto {
+  const acceptedAt = new Date().toISOString();
+  return {
+    key: sku,
+    itemId: sku,
+    sku,
+    state: 'APPLIED',
+    kind: 'UPDATE',
+    expectedRevision: 4,
+    retail_price: '101.00',
+    basis_retail_price: '100.00',
+    acceptedAt,
+    finalAt: acceptedAt,
+    errorCode: null,
+  };
+}
+
+function priceDiscoveryPage(data: InventoryPriceOperationDto[]) {
+  return { data, meta: { limit: 50, hasNextPage: false, nextCursor: null } };
+}
 
 /**
  * Inventory — Smoke Tests (seed-based)
@@ -354,6 +376,30 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
   test.describe('at 375px', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
+    test('AUT-1037: recent prices leave room for the parts list and keep fence work reachable', async ({ page }, testInfo) => {
+      const bulk = DE_INVENTORY.bulk.adjustPrice;
+      const completed = Array.from({ length: 7 }, (_, index) => priceOperation(`Earlier ${index}`));
+      const unresolved: InventoryPriceOperationDto = {
+        ...priceOperation('Needs resolution'),
+        state: 'ACCEPTED',
+        acceptedAt: new Date(Date.now() - 300_000).toISOString(),
+        finalAt: null,
+      };
+      await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), (route) =>
+        route.fulfill({ json: priceDiscoveryPage([...completed, unresolved]) }),
+      );
+      await openParts(page, items.slice(0, 1));
+
+      const panel = page.getByRole('region', { name: bulk.discovery.panelHeading });
+      await expect(panel).toBeVisible();
+      await expect(page.locator('li[data-table-row="true"]').first()).toBeInViewport();
+      await testInfo.attach('inventory-price-panel-375', { body: await page.screenshot(), contentType: 'image/png' });
+      const fence = panel.getByRole('button', { name: bulk.markNotApplied });
+      await fence.scrollIntoViewIfNeeded();
+      await expect(fence).toBeInViewport({ ratio: 1 });
+      expect((await fence.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    });
+
     test('WHEN the viewport is 375px THEN rows are selectable through a visible 44px control without long-press', async ({ page }) => {
       await openParts(page);
 
@@ -557,6 +603,52 @@ test.describe('Inventory — multi-select (AUT-886)', () => {
       expect(box.x + box.width).toBeLessThanOrEqual(375);
       expect(await pageOverflow(page)).toBe(0);
     });
+  });
+
+  test('AUT-1037: a confirmed price change joins earlier operations as soon as the apply dialog closes', async ({ page }, testInfo) => {
+    const bulk = DE_INVENTORY.bulk.adjustPrice;
+    const item = createMockInventoryItem({ id: 'changed', sku: 'Changed part', price: 100, revision: 4 });
+    const previous = priceOperation('Previous change');
+    let applied: InventoryPriceOperationDto | undefined;
+    let releaseDiscovery!: () => void;
+    const discoveryGate = new Promise<void>((resolve) => { releaseDiscovery = resolve; });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), async (route) => {
+      if (applied) await discoveryGate;
+      await route.fulfill({ json: priceDiscoveryPage(applied ? [applied, previous] : [previous]) });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/changed'), async (route) => {
+      if (route.request().method() === 'PATCH') {
+        applied = { ...priceOperation(item.sku), key: route.request().headers()['idempotency-key'], itemId: item.id };
+        await route.fulfill({ json: { ...item, retail_price: 101, revision: 5 } });
+        return;
+      }
+      await route.fulfill({ json: item });
+    });
+    await openParts(page, [item]);
+
+    const panel = page.getByRole('region', { name: bulk.discovery.panelHeading });
+    await expect(panel.getByText(previous.sku)).toBeVisible();
+    await page.getByRole('checkbox', { name: selectRow }).first().check();
+    await page.getByRole('toolbar', { name: DE_COMMON.dataTable.actionBar.label }).getByRole('button', { name: bulk.action }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(bulk.percentLabel).fill('1');
+    await dialog.getByRole('button', { name: bulk.preview }).click();
+    const discoveryRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/inventory/price-operations');
+    await dialog.getByRole('button', { name: bulk.confirm }).click();
+    await discoveryRequest;
+    try {
+      await expect(dialog.getByRole('button', { name: bulk.submitting })).toBeDisabled();
+    } finally {
+      releaseDiscovery();
+    }
+    await expect(dialog).toBeHidden();
+    await expect(panel.getByText(item.sku)).toBeVisible();
+    await expect(panel.getByText(previous.sku)).toBeVisible();
+    await testInfo.attach('inventory-latest-applied-price', { body: await page.screenshot(), contentType: 'image/png' });
+
+    await page.reload();
+    await expect(panel.getByText(item.sku)).toBeVisible();
+    await expect(panel.getByText(previous.sku)).toBeVisible();
   });
 
   test('AUT-1030: WHEN bulk guarded price changes apply with a conflict THEN applied rows show the new price without Liste aktualisieren and stay identical after refresh', async ({

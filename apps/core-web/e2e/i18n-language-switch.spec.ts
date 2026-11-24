@@ -29,9 +29,8 @@ async function switchLanguage(page: Page, language: 'de' | 'en') {
   await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click()
   await page.getByTestId(`language-option-${language}`).click()
   await expect(page.locator('html')).toHaveAttribute('lang', language)
-  // The menu stays open while the switch runs (the choice is not a navigation), so close it again.
-  await page.keyboard.press('Escape')
   await expect(page.getByRole('menu')).toBeHidden()
+  await expect(page.getByRole('button', { name: DE_SHELL.user.accountEmail })).toBeFocused()
 }
 
 function mainNavigation(page: Page, name: string) {
@@ -78,7 +77,7 @@ const workshopOrder = createMockWorkshopOrder({
 })
 
 test.describe('UI language switch (AUT-718)', () => {
-  test('switches sidebar, page copy and buttons to English without a reload and survives a reload', async ({ page }) => {
+  test('AUT-1037: switches the UI language, closes the account menu and can switch back', async ({ page }, testInfo) => {
     await page.goto('/dashboard')
     await expect(page.locator('html')).toHaveAttribute('lang', 'de')
     await expect(mainNavigation(page, DE_SHELL.mainNavigation)).toBeVisible()
@@ -98,6 +97,7 @@ test.describe('UI language switch (AUT-718)', () => {
     await expect(page.getByRole('button', { name: enNav.search.openAria })).toBeVisible()
     await expect(page.getByRole('button', { name: deNav.search.openAria })).toHaveCount(0)
     await expectSamePageInstance(page)
+    await testInfo.attach('language-menu-closed-en', { body: await page.screenshot(), contentType: 'image/png' })
 
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')

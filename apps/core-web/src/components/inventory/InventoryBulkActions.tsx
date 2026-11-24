@@ -6,7 +6,6 @@ import {
   fenceResultToStatus,
   freezePriceIntents,
   isDefiniteFailureStatus,
-  markPriceOperationsSeen,
   removeFrozenIntents,
   useExecuteGuardedPriceChanges,
   useFenceInventoryPriceOperation,
@@ -407,9 +406,7 @@ export function BulkPriceDialog({ items, open, onOpenChange, onDone, onPartial }
       onPartial(remainingIds)
       return false
     }
-    const keys = nextOutcomes.map((entry) => entry.key)
-    markPriceOperationsSeen(keys)
-    removeFrozenIntents(keys)
+    removeFrozenIntents(nextOutcomes.map((entry) => entry.key))
     toast.success(t('bulk.adjustPrice.success', { count: nextOutcomes.length }))
     onOpenChange(false)
     onDone()

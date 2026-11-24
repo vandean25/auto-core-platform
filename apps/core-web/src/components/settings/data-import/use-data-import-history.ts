@@ -108,6 +108,8 @@ export function useDataImportHistory(openJob: (jobId: string) => void) {
     columns,
     rows,
     pageCount,
+    isEmpty: !jobsQuery.isError && jobsQuery.data?.meta.total === 0,
+    hasUsableData: rows.length > 0 || (!jobsQuery.isError && jobsQuery.data !== undefined),
     isLoading: jobsQuery.isLoading,
     isError: jobsQuery.isError,
     rowBehaviour,

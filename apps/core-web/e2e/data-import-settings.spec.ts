@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { DE_SETTINGS } from './helpers/de-settings'
+import { DE_COMMON, DE_SETTINGS } from './helpers/de-settings'
 import { createMockFinanceSettings, createMockListResponse } from './utils/mock-factories'
 import { captureDocScreenshot } from './utils/doc-screenshot'
 
@@ -58,6 +58,40 @@ async function installSettingsShellMocks(page: Page) {
     })
   })
 }
+
+test('AUT-1037: import history shows its empty message only after a successful empty load', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await installSettingsShellMocks(page)
+  await installImportMocks(page, {})
+  const history = DE_SETTINGS.dataImport.history
+  let result: 'empty' | 'populated' | 'error' = 'empty'
+  const jobsRoute = AutoCorePage.apiRouteMatcher('/api/imports')
+  await page.route(jobsRoute, (route) => {
+    if (result === 'error') return route.fulfill({ status: 500, json: {} })
+    const data = result === 'populated' ? [createMockImportJob()] : []
+    return route.fulfill({ json: { data, meta: { total: data.length, page: 1, limit: 20 } } })
+  })
+
+  const openHistory = async () => {
+    await page.goto('/settings?tab=data-import')
+    await page.getByRole('tab', { name: DE_SETTINGS.dataImport.view.history }).click()
+  }
+  await openHistory()
+  const empty = page.getByText(history.empty, { exact: true })
+  await expect(empty).toBeInViewport({ ratio: 1 })
+  await testInfo.attach('import-history-empty-375', { body: await page.screenshot(), contentType: 'image/png' })
+
+  result = 'populated'
+  await openHistory()
+  await expect(page.getByText('customers.csv', { exact: true })).toBeVisible()
+  await expect(empty).toHaveCount(0)
+
+  result = 'error'
+  await openHistory()
+  await expect(page.getByText(history.loadFailed)).toBeVisible({ timeout: 15_000 })
+  await expect(empty).toHaveCount(0)
+  await expect(page.getByText(DE_COMMON.dataTable.noResults, { exact: true })).toHaveCount(0)
+})
 
 async function installImportMocks(
   page: Page,

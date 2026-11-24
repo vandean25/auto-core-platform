@@ -14,16 +14,18 @@ export function useUiLanguage() {
   const setLanguage = useCallback(
     async (next: UiLanguage) => {
       if (next === language) {
-        return
+        return true
       }
       setIsSwitching(true)
       setSwitchError(false)
       try {
         await changeUiLanguage(next)
         writeStoredUiLanguage(next)
+        return true
       } catch {
         setSwitchError(true)
         await changeUiLanguage(language)
+        return false
       } finally {
         setIsSwitching(false)
       }

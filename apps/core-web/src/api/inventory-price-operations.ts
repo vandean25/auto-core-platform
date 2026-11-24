@@ -358,15 +358,21 @@ export function useExecuteGuardedPriceChanges() {
     mutationFn: async (intents: FrozenGuardedPriceIntent[]): Promise<GuardedPriceItemOutcome[]> => {
       return await runInBatches(intents, executeGuardedPatch)
     },
-    onSuccess: (outcomes) => {
+    onSuccess: async (outcomes) => {
       patchAppliedInventoryPrices(
         queryClient,
         outcomes
           .filter((outcome) => outcome.status === 'APPLIED')
           .map((outcome) => ({ itemId: outcome.itemId, price: outcome.appliedPrice ?? outcome.targetPrice })),
       )
-      void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
-      void queryClient.invalidateQueries({ queryKey: priceOpsKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: inventoryKeys.all,
+        predicate: ({ queryKey }) => queryKey[1] !== priceOpsKeys.all[1],
+      })
+      const discovery = { queryKey: priceOpsKeys.discovery(), exact: true }
+      // An in-flight first load may have started before the mutation applied.
+      await queryClient.cancelQueries(discovery)
+      await queryClient.invalidateQueries(discovery)
     },
   })
 }

@@ -28,6 +28,8 @@ export function DataImportHistoryView({ onOpenJob }: { onOpenJob: (jobId: string
         data={history.rows}
         pageCount={history.pageCount}
         isLoading={history.isLoading}
+        isError={history.isError}
+        hasUsableData={history.hasUsableData}
         columnFilters={history.columnFilters}
         setColumnFilters={history.setColumnFilters}
         sorting={history.sorting}
@@ -36,7 +38,7 @@ export function DataImportHistoryView({ onOpenJob }: { onOpenJob: (jobId: string
         setPagination={history.setPagination}
         rowBehaviour={history.rowBehaviour}
         enableCsvExport={false}
-        emptyState={history.isError ? undefined : { message: t('dataImport.history.empty') }}
+        emptyState={history.isEmpty ? { message: t('dataImport.history.empty') } : undefined}
       />
 
       <DataImportUndoDialog
