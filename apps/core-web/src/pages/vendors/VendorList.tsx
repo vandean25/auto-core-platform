@@ -96,7 +96,6 @@ export default function VendorList() {
             <div className={PAGE_HEADER_ROW}>
                 <div className="min-w-0 max-sm:w-full">
                     <h1 className="text-2xl font-semibold tracking-tight">{t('vendors.list.title')}</h1>
-                    <p className="text-muted-foreground">{t('vendors.list.subtitle')}</p>
                 </div>
                 <Button className="max-sm:min-h-11" onClick={() => setIsDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" /> {t('vendors.list.create')}

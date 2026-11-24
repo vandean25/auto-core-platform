@@ -15,7 +15,6 @@ export function DataImportHistoryView({ onOpenJob }: { onOpenJob: (jobId: string
     <div className="space-y-4">
       <div>
         <h3 className="text-base font-medium">{t('dataImport.history.title')}</h3>
-        <p className="text-sm text-muted-foreground">{t('dataImport.history.description')}</p>
       </div>
 
       {history.isError ? (

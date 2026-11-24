@@ -16,7 +16,7 @@ export type InspectionChecklistData = {
 
 export type InspectionChecklistViewLabels = {
   sectionAriaLabel: string;
-  description: string;
+  description?: string;
   passButton: string;
   failButton: string;
   passAriaLabel: (itemLabel: string) => string;
@@ -146,7 +146,9 @@ export function WorkshopTaskInspectionChecklistView({
     >
       <div>
         <h3 className="text-sm font-semibold">{checklist.title}</h3>
-        <p className="text-xs text-muted-foreground">{resolvedLabels.description}</p>
+        {resolvedLabels.description ? (
+          <p className="text-xs text-muted-foreground">{resolvedLabels.description}</p>
+        ) : null}
       </div>
       <ul className="space-y-2">
         {checklist.items.map((item) => (

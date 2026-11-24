@@ -27,7 +27,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -312,9 +311,6 @@ function WorkshopOrderPickDrawerBody({
               <Package className='h-4 w-4' />
               {t('pick.drawer.title')}
             </SheetTitle>
-            <SheetDescription className='text-sm text-muted-foreground'>
-              {t('pick.drawer.description')}
-            </SheetDescription>
             <div className='mt-2 flex flex-wrap items-center gap-2'>
               {order ? (
                 <Badge variant='outline'>
@@ -418,11 +414,11 @@ function WorkshopOrderPickDrawerBody({
               </PopoverContent>
             </Popover>
           )}
-          <p className='text-xs text-muted-foreground'>
-            {selectedTote
-              ? t('pick.drawer.selectedTote', { code: selectedTote.code })
-              : t('pick.drawer.chooseTote')}
-          </p>
+          {selectedTote ? (
+            <p className='text-xs text-muted-foreground'>
+              {t('pick.drawer.selectedTote', { code: selectedTote.code })}
+            </p>
+          ) : null}
         </div>
 
         <Separator />
@@ -544,7 +540,7 @@ export function WorkshopOrderPickDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side='right' className='w-full sm:max-w-3xl p-0 flex h-full flex-col'>
+      <SheetContent side='right' aria-describedby={undefined} className='w-full sm:max-w-3xl p-0 flex h-full flex-col'>
         <WorkshopOrderPickDrawerBody
           key={drawerStateKey}
           orderId={orderId}

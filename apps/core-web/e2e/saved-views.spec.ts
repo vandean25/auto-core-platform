@@ -417,7 +417,7 @@ test.describe('Save-view dialog layout and close control (AUT-880 / AUT-950)', (
 
       const dialog = page.getByRole('dialog', { name: common.savedViews.title })
       await expect(dialog).toBeVisible()
-      await expect(dialog.getByText(common.savedViews.description)).toBeVisible()
+      await expect(dialog.getByText(common.savedViews.description)).toHaveCount(0)
 
       const closeButton = dialog.getByRole('button', { name: common.actions.close })
       const closeBox = await closeButton.boundingBox()

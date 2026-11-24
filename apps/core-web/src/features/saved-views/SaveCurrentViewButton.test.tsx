@@ -219,6 +219,7 @@ describe('SaveCurrentViewButton without filters', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /speichern/ }))
       const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).queryByText(/Geben Sie dieser Ansicht einen Namen/)).not.toBeInTheDocument()
       fireEvent.click(within(dialog).getByRole('button', { name: 'Speichern' }))
 
       await waitFor(() => expect(fetchWithAuth).toHaveBeenCalledWith('/api/saved-views', expect.objectContaining({

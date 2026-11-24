@@ -196,7 +196,7 @@
   "settlement": {
     "title": "Abrechnung",
     "fiscalOff": "Fiskalische Abrechnung deaktiviert.",
-    "fullSettlement": "Volle EUR-Abrechnung ({{amount}}) für die Werkstattrechnung.",
+    "fullSettlement": "Volle EUR-Abrechnung ({{amount}})",
     "openReceiptHint": "Dieselbe Kassen-Beleg-ID wird vor jeder neuen Signierung per GET gelesen. Nutzen Sie „Abgleichen“, um diesen Versuch abzuschließen.",
     "externalKasseHint": "ACP ist nicht die Registrierkasse. Erfassen Sie bei der Bestätigung der Abrechnung die externe Kassen-Belegnummer (1–40) und das Datum.",
     "receiptLabel": "Beleg {{number}}",

@@ -78,6 +78,8 @@ describe('TeamSettingsTab', () => {
     )
 
     expect(screen.getByText(deSettings.team.title)).toBeInTheDocument()
+    expect(screen.queryByText(deSettings.team.description)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'owner@autocore.test' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: deSettings.team.inviteButton })).toBeInTheDocument()
     expect(vi.mocked(useTenantMembers)).toHaveBeenCalledWith({
       includeInactive: true,

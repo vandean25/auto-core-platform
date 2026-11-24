@@ -65,3 +65,19 @@ describe('role without invoice permissions (AUT-852)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+describe('compact settlement card (AUT-1036)', () => {
+  it('shows the settlement type and EUR amount without the explanatory sentence', () => {
+    render(
+      <InvoiceSettlementPanel
+        totalGross={96}
+        payment={null}
+        rksvMode="REQUIRED_EXTERNAL_KASSE"
+      />,
+    )
+
+    expect(screen.getByText('Volle EUR-Abrechnung (€ 96,00)')).toBeInTheDocument()
+    expect(screen.queryByText(/für die Werkstattrechnung/)).not.toBeInTheDocument()
+  })
+})
+

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -78,11 +77,10 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
             </Button>
           </DialogTrigger>
         </TooltipHint>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" aria-describedby={undefined}>
         <form onSubmit={handleSave}>
           <DialogHeader>
             <DialogTitle>{t('savedViews.title')}</DialogTitle>
-            <DialogDescription>{t('savedViews.description')}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
