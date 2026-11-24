@@ -55,6 +55,8 @@ test.describe("Custom fields (AUT-1043)", () => {
 
     await page.goto("/settings");
     await expect(page.getByRole("tab", { name: "Finanzen" })).toBeVisible();
+    await page.getByRole("tab", { name: "Team" }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole("tab", { name: "Datenimport" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Eigene Felder" })).toHaveCount(0);
     await testInfo.attach("custom-fields-flag-off-settings-de", {
       body: await page.screenshot(),
@@ -331,6 +333,7 @@ test.describe("Custom fields (AUT-1043)", () => {
     await expect(section.getByText("Ansprechpartner")).toBeVisible();
     await expect(section.getByText("Hr. Huber")).toBeVisible();
     await expect(section.getByText("Flottennummer")).toHaveCount(0);
+    await section.scrollIntoViewIfNeeded();
 
     await testInfo.attach("custom-fields-customer-archived-de", {
       body: await page.screenshot(),

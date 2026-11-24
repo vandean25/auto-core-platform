@@ -35,9 +35,17 @@ describe('art9-guard', () => {
     ['Bevorzugter Ansprechpartner', 'bevorzugter_ansprechpartner'],
     ['Winterreifen-Größe', 'winterreifen_groesse'],
     ['Leasinggeber', 'leasinggeber'],
+    ['Terrasse', 'terrasse'],
+    ['Kundname', 'kundname'],
   ])('allows normal workshop field %s', (label, key) => {
     const result = checkArt9FieldSafety(label, key);
     expect(result.status).toBe('OK');
     expect(result.matchedKeywords).toEqual([]);
+  });
+
+  it('blocks DNA-Test when dna appears as a bounded token', () => {
+    const result = checkArt9FieldSafety('DNA-Test', 'dna_test');
+    expect(result.status).toBe('BLOCKED');
+    expect(result.matchedKeywords).toContain('dna');
   });
 });

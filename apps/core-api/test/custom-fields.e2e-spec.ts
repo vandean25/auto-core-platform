@@ -530,6 +530,26 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       },
     });
 
+    await prismaA.customer.update({
+      where: { id: customerId },
+      data: {
+        salutation: 'MR',
+        block_reason: 'Offene Rechnung',
+        legacy_restricted_reason: 'Altbestand',
+        payment_terms_text: '14 Tage netto',
+      },
+    });
+    const contactPoint = await prismaA.customerContactPoint.create({
+      data: {
+        tenant_id: tenantAId,
+        customer_id: customerId,
+        channel: 'EMAIL',
+        encrypted_address: 'enc:max@example.com',
+        address_fingerprint: `fp-${Date.now()}`,
+        is_current: true,
+      },
+    });
+
     const art15Res = await request(app.getHttpServer())
       .get(`/api/customers/${customerId}/art15-export`)
       .set(auth(adminToken))
@@ -539,29 +559,57 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       art15Res.body.vehicles.map((v: { id: string }) => v.id),
     ).not.toContain(partyVehicle.id);
     expect(JSON.stringify(art15Res.body)).not.toContain('OWNER-ONLY');
+    expect(Array.isArray(art15Res.body.contact_points)).toBe(true);
+    expect(art15Res.body.contact_points).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: contactPoint.id, channel: 'EMAIL' }),
+      ]),
+    );
+    expect(Array.isArray(art15Res.body.consent_events)).toBe(true);
+    expect(Array.isArray(art15Res.body.sales_orders)).toBe(true);
+    expect(Array.isArray(art15Res.body.workshop_orders)).toBe(true);
+    expect(Array.isArray(art15Res.body.invoices)).toBe(true);
 
     await request(app.getHttpServer())
       .post(`/api/customers/${customerId}/erase`)
       .set(auth(adminToken))
       .expect(201);
 
-    const [dbCustomer, dbVehicle, dbPartyVehicle] = await Promise.all([
-      prismaA.customer.findFirst({
-        where: { id: customerId, tenant_id: tenantAId },
-        select: { custom_fields: true, first_name: true },
-      }),
-      prismaA.vehicle.findFirst({
-        where: { id: vehicleId, tenant_id: tenantAId },
-        select: { custom_fields: true },
-      }),
-      prismaA.vehicle.findFirst({
-        where: { id: partyVehicle.id, tenant_id: tenantAId },
-        select: { custom_fields: true },
-      }),
-    ]);
+    const [dbCustomer, dbContactPoint, dbVehicle, dbPartyVehicle] =
+      await Promise.all([
+        prismaA.customer.findFirst({
+          where: { id: customerId, tenant_id: tenantAId },
+          select: {
+            custom_fields: true,
+            first_name: true,
+            salutation: true,
+            block_reason: true,
+            legacy_restricted_reason: true,
+            payment_terms_text: true,
+          },
+        }),
+        prismaA.customerContactPoint.findFirst({
+          where: { id: contactPoint.id, tenant_id: tenantAId },
+          select: { encrypted_address: true, is_current: true },
+        }),
+        prismaA.vehicle.findFirst({
+          where: { id: vehicleId, tenant_id: tenantAId },
+          select: { custom_fields: true },
+        }),
+        prismaA.vehicle.findFirst({
+          where: { id: partyVehicle.id, tenant_id: tenantAId },
+          select: { custom_fields: true },
+        }),
+      ]);
 
     expect(dbCustomer?.custom_fields).toEqual({});
     expect(dbCustomer?.first_name).toBe('Anonymisiert');
+    expect(dbCustomer?.salutation).toBeNull();
+    expect(dbCustomer?.block_reason).toBeNull();
+    expect(dbCustomer?.legacy_restricted_reason).toBeNull();
+    expect(dbCustomer?.payment_terms_text).toBeNull();
+    expect(dbContactPoint?.encrypted_address).toBe('ERASED');
+    expect(dbContactPoint?.is_current).toBe(false);
     expect(dbVehicle?.custom_fields).toEqual({});
     expect(dbPartyVehicle?.custom_fields).toEqual({ stellplatz: 'OWNER-ONLY' });
   });

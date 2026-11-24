@@ -77,4 +77,44 @@ describe('CustomFieldsSettingsTab', () => {
       ).toBeInTheDocument()
     })
   })
+
+  it('shows customer personal-data review hint when personal_data is unchecked for CUSTOMER', async () => {
+    mockFetchJsonWithAuth.mockResolvedValue([])
+
+    renderTab()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Eigenes Feld/i }))
+
+    const checkbox = await screen.findByRole('checkbox', {
+      name: /Personenbezogene Daten/i,
+    })
+    expect(checkbox).toBeChecked()
+    fireEvent.click(checkbox)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/dieses Kundenfeld wirklich keinen Personenbezug hat/i),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows loadFailed message with retry button when loading definitions fails', async () => {
+    mockFetchJsonWithAuth
+      .mockRejectedValueOnce(new Error('HTTP 500'))
+      .mockResolvedValueOnce([])
+
+    renderTab()
+
+    expect(
+      await screen.findByText('Eigene Felder konnten nicht geladen werden.'),
+    ).toBeInTheDocument()
+    const retryButton = screen.getByRole('button', { name: /Erneut versuchen/i })
+    fireEvent.click(retryButton)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Noch keine eigenen Felder angelegt.'),
+      ).toBeInTheDocument()
+    })
+  })
 })

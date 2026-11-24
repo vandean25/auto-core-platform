@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { SettingsSectionHeading } from './SettingsSectionHeading'
-import { SettingsTabLoadingState } from './settings-tab-shared'
+import { SettingsLoadFailedState, SettingsTabLoadingState } from './settings-tab-shared'
 import { CustomFieldDefinitionDialog } from './CustomFieldDefinitionDialog'
 
 export function CustomFieldsSettingsTab() {
@@ -24,7 +24,12 @@ export function CustomFieldsSettingsTab() {
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<CustomFieldDefinition | null>(null)
 
-  const { data: definitions = [], isLoading } = useCustomFieldDefinitions(entity, {
+  const {
+    data: definitions = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useCustomFieldDefinitions(entity, {
     includeArchived: true,
   })
   const updateMutation = useUpdateCustomFieldDefinition()
@@ -118,6 +123,11 @@ export function CustomFieldsSettingsTab() {
 
       {isLoading ? (
         <SettingsTabLoadingState className="py-10" />
+      ) : isError ? (
+        <SettingsLoadFailedState
+          message={t('settings:customFields.loadFailed')}
+          onRetry={() => void refetch()}
+        />
       ) : definitions.length === 0 ? (
         <Empty className="py-10">
           <EmptyDescription>{t('settings:customFields.empty')}</EmptyDescription>

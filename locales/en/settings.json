@@ -1555,6 +1555,7 @@
       "purpose": "Purpose (required)",
       "purposePlaceholder": "Why is this field collected?",
       "personalData": "Personal data (Art. 15 / erasure)",
+      "customerPersonalReviewHint": "Please verify that this customer field truly contains no personal data (e.g. via the link to the customer).",
       "vehiclePersonalReviewHint": "Please verify that this vehicle field truly contains no personal data (e.g. via plate number or owner link).",
       "art9Confirm": "I explicitly confirm that no special-category personal data (GDPR Art. 9) will be stored in this field.",
       "created": "Custom field created.",

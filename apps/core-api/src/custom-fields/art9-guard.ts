@@ -79,18 +79,27 @@ function normalizeForArt9(value: string): string {
     .replace(/ö/g, 'oe')
     .replace(/ü/g, 'ue')
     .replace(/ß/g, 'ss')
-    .replace(/[\s-]+/g, '_');
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function findMatchedKeywords(
   candidates: string[],
   keywords: readonly string[],
+  matchWholeToken: boolean,
 ): string[] {
   const matched = new Set<string>();
   for (const candidate of candidates) {
     if (!candidate) continue;
     for (const kw of keywords) {
-      if (candidate.includes(kw)) {
+      const pattern = matchWholeToken
+        ? new RegExp(`(?:^|_)${escapeRegExp(kw)}(?:_|$)`)
+        : new RegExp(`(?:^|_)${escapeRegExp(kw)}`);
+      if (pattern.test(candidate)) {
         matched.add(kw);
       }
     }
@@ -107,12 +116,12 @@ export function checkArt9FieldSafety(
     key ? normalizeForArt9(key) : '',
   ];
 
-  const blocked = findMatchedKeywords(candidates, ART9_BLOCKED_KEYWORDS);
+  const blocked = findMatchedKeywords(candidates, ART9_BLOCKED_KEYWORDS, true);
   if (blocked.length > 0) {
     return { status: 'BLOCKED', matchedKeywords: blocked };
   }
 
-  const warned = findMatchedKeywords(candidates, ART9_WARNING_KEYWORDS);
+  const warned = findMatchedKeywords(candidates, ART9_WARNING_KEYWORDS, false);
   if (warned.length > 0) {
     return { status: 'WARNING', matchedKeywords: warned };
   }

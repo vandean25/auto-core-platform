@@ -222,10 +222,14 @@ export function CustomFieldDefinitionDialog({
                 {t('settings:customFields.dialog.personalData')}
               </Label>
             </div>
-            {entity === 'VEHICLE' && !personalData && (
+            {!personalData && (
               <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-muted/50 p-2.5 text-xs text-foreground">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
-                <span>{t('settings:customFields.dialog.vehiclePersonalReviewHint')}</span>
+                <span>
+                  {entity === 'VEHICLE'
+                    ? t('settings:customFields.dialog.vehiclePersonalReviewHint')
+                    : t('settings:customFields.dialog.customerPersonalReviewHint')}
+                </span>
               </div>
             )}
           </div>

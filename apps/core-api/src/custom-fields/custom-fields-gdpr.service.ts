@@ -70,7 +70,16 @@ export class CustomFieldsGdprService {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
 
-    const [customer, vehicles, definitions] = await Promise.all([
+    const [
+      customer,
+      vehicles,
+      definitions,
+      contactPoints,
+      consentEvents,
+      salesOrders,
+      workshopOrders,
+      invoices,
+    ] = await Promise.all([
       this.prisma.customer.findFirst({
         where: { id: customerId, tenant_id: tenantId },
       }),
@@ -83,6 +92,86 @@ export class CustomFieldsGdprService {
       this.prisma.customFieldDefinition.findMany({
         where: { tenant_id: tenantId },
         orderBy: [{ sort_order: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.customerContactPoint.findMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        select: {
+          id: true,
+          channel: true,
+          is_current: true,
+          transport_validity: true,
+          created_at: true,
+          updated_at: true,
+        },
+        orderBy: { created_at: 'asc' },
+      }),
+      this.prisma.customerConsent.findMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        select: {
+          id: true,
+          channel: true,
+          purpose: true,
+          status: true,
+          basis: true,
+          sequence: true,
+          occurred_at: true,
+          recorded_at: true,
+          source: true,
+          text_version: true,
+          text_language: true,
+          revoked_at: true,
+        },
+        orderBy: [{ occurred_at: 'asc' }, { sequence: 'asc' }],
+      }),
+      this.prisma.salesOrder.findMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        select: {
+          id: true,
+          order_number: true,
+          status: true,
+          total_amount: true,
+          notes: true,
+          vehicle_id: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.workshopOrder.findMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        select: {
+          id: true,
+          order_number: true,
+          status: true,
+          purpose: true,
+          vehicle_id: true,
+          odometer: true,
+          reported_issue: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.invoice.findMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        select: {
+          id: true,
+          invoice_number: true,
+          draft_number: true,
+          status: true,
+          date: true,
+          due_date: true,
+          currency: true,
+          total_net: true,
+          total_tax: true,
+          total_gross: true,
+          notes: true,
+          vehicle_id: true,
+          sales_order_id: true,
+          workshop_order_id: true,
+        },
+        orderBy: { date: 'asc' },
       }),
     ]);
 
@@ -107,6 +196,10 @@ export class CustomFieldsGdprService {
         id: customer.id,
         type: customer.type,
         company_name: customer.company_name,
+        salutation: customer.salutation,
+        title: customer.title,
+        title_suffix: customer.title_suffix,
+        letter_salutation: customer.letter_salutation,
         first_name: customer.first_name,
         last_name: customer.last_name,
         email: customer.email,
@@ -116,6 +209,16 @@ export class CustomFieldsGdprService {
         address_zip: customer.address_zip,
         address_city: customer.address_city,
         address_country: customer.address_country,
+        preferred_language: customer.preferred_language,
+        contact_email_ok: customer.contact_email_ok,
+        block_level: customer.block_level,
+        block_reason: customer.block_reason,
+        legacy_restricted_at: customer.legacy_restricted_at,
+        legacy_restricted_reason: customer.legacy_restricted_reason,
+        payment_terms_days: customer.payment_terms_days,
+        payment_terms_text: customer.payment_terms_text,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
         custom_fields: this.mapCustomFieldEntries(
           customer.custom_fields,
           customerDefs,
@@ -130,6 +233,11 @@ export class CustomFieldsGdprService {
         plate: v.plate,
         custom_fields: this.mapCustomFieldEntries(v.custom_fields, vehicleDefs),
       })),
+      contact_points: contactPoints,
+      consent_events: consentEvents,
+      sales_orders: salesOrders,
+      workshop_orders: workshopOrders,
+      invoices,
     };
   }
 
@@ -165,12 +273,24 @@ export class CustomFieldsGdprService {
           address_street: null,
           address_zip: null,
           address_city: null,
+          salutation: null,
           title: null,
           title_suffix: null,
           letter_salutation: null,
+          block_reason: null,
+          legacy_restricted_reason: null,
+          payment_terms_text: null,
           contact_email_ok: false,
           custom_fields: {},
         }),
+      });
+
+      await tx.customerContactPoint.updateMany({
+        where: { tenant_id: tenantId, customer_id: customerId },
+        data: {
+          encrypted_address: 'ERASED',
+          is_current: false,
+        },
       });
 
       await tx.vehicle.updateMany({

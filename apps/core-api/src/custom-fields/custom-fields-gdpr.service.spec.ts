@@ -71,6 +71,31 @@ describe('CustomFieldsGdprService', () => {
           },
         ]),
       },
+      customerContactPoint: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'cp-1', channel: 'EMAIL', is_current: true, transport_validity: 'VALID' },
+        ]),
+      },
+      customerConsent: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'consent-1', channel: 'EMAIL', purpose: 'SERVICE', status: 'GRANTED', sequence: 1 },
+        ]),
+      },
+      salesOrder: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'so-1', order_number: 'SO-2026-001', status: 'CONFIRMED' },
+        ]),
+      },
+      workshopOrder: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'wo-1', order_number: 'WO-2026-001', status: 'COMPLETED' },
+        ]),
+      },
+      invoice: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'inv-1', invoice_number: 'RE-2026-001', status: 'FINALIZED' },
+        ]),
+      },
     };
 
     const service = new CustomFieldsGdprService(
@@ -104,6 +129,11 @@ describe('CustomFieldsGdprService', () => {
         value: 'B4',
       }),
     ]);
+    expect(pkg.contact_points).toHaveLength(1);
+    expect(pkg.consent_events).toHaveLength(1);
+    expect(pkg.sales_orders).toHaveLength(1);
+    expect(pkg.workshop_orders).toHaveLength(1);
+    expect(pkg.invoices).toHaveLength(1);
     expect(prisma.vehicle.findMany).toHaveBeenCalledWith({
       where: {
         tenant_id: tenantId,
@@ -112,10 +142,13 @@ describe('CustomFieldsGdprService', () => {
     });
   });
 
-  it('clears custom_fields on customer and owned vehicles during erasure', async () => {
+  it('clears custom_fields, free-text fields, and contact-point addresses during erasure', async () => {
     const prisma = {
       customer: {
         findFirst: jest.fn().mockResolvedValue({ id: customerId }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      customerContactPoint: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       vehicle: {
@@ -141,9 +174,19 @@ describe('CustomFieldsGdprService', () => {
     expect(prisma.customer.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: customerId, tenant_id: tenantId },
-        data: expect.objectContaining({ custom_fields: {} }),
+        data: expect.objectContaining({
+          custom_fields: {},
+          salutation: null,
+          block_reason: null,
+          legacy_restricted_reason: null,
+          payment_terms_text: null,
+        }),
       }),
     );
+    expect(prisma.customerContactPoint.updateMany).toHaveBeenCalledWith({
+      where: { tenant_id: tenantId, customer_id: customerId },
+      data: { encrypted_address: 'ERASED', is_current: false },
+    });
     expect(prisma.vehicle.updateMany).toHaveBeenCalledWith({
       where: { tenant_id: tenantId, customer_id: customerId },
       data: { custom_fields: {} },
@@ -164,6 +207,11 @@ describe('CustomFieldsGdprService', () => {
       customer: { findFirst: jest.fn().mockResolvedValue(null) },
       vehicle: { findMany: jest.fn().mockResolvedValue([]) },
       customFieldDefinition: { findMany: jest.fn().mockResolvedValue([]) },
+      customerContactPoint: { findMany: jest.fn().mockResolvedValue([]) },
+      customerConsent: { findMany: jest.fn().mockResolvedValue([]) },
+      salesOrder: { findMany: jest.fn().mockResolvedValue([]) },
+      workshopOrder: { findMany: jest.fn().mockResolvedValue([]) },
+      invoice: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const service = new CustomFieldsGdprService(
       prisma as never,

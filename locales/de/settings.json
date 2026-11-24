@@ -1555,6 +1555,7 @@
       "purpose": "Zweckbindung (Pflichtfeld)",
       "purposePlaceholder": "Wofür wird dieses Feld benötigt?",
       "personalData": "Personenbezogene Daten (Art. 15 / Löschung)",
+      "customerPersonalReviewHint": "Bitte prüfen Sie, ob dieses Kundenfeld wirklich keinen Personenbezug hat (z. B. über die Zuordnung zum Kunden).",
       "vehiclePersonalReviewHint": "Bitte prüfen Sie, ob dieses Fahrzeugfeld wirklich keinen Personenbezug hat (z. B. über das Kennzeichen oder den Halter).",
       "art9Confirm": "Ich bestätige ausdrücklich, dass in diesem Feld keine besonderen Kategorien personenbezogener Daten (Art. 9 DSGVO) gespeichert werden.",
       "created": "Eigenes Feld angelegt.",
