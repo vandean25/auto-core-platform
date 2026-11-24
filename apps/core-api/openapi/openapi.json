@@ -4931,6 +4931,156 @@
         ]
       }
     },
+    "/api/bank-reconciliation/transactions/{id}/suggestions": {
+      "get": {
+        "operationId": "BankReconciliationController_listSuggestions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankSuggestionsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
+    "/api/bank-reconciliation/transactions/{id}/confirm": {
+      "post": {
+        "operationId": "BankReconciliationController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmBankTransactionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankTransactionActionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
+    "/api/bank-reconciliation/transactions/{id}/undo": {
+      "post": {
+        "operationId": "BankReconciliationController_undo",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoBankTransactionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankTransactionActionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
+    "/api/bank-reconciliation/transactions/{id}/ignore": {
+      "post": {
+        "operationId": "BankReconciliationController_ignore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IgnoreBankTransactionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankTransactionActionDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
     "/api/bank-reconciliation/imports": {
       "post": {
         "operationId": "BankReconciliationController_importStatement",
@@ -25435,6 +25585,229 @@
           "meta"
         ]
       },
+      "BankMatchReasonDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "AMOUNT_EXACT",
+              "INVOICE_NO_IN_REFERENCE",
+              "IBAN_SEEN_BEFORE",
+              "NAME_SIMILAR"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "value"
+        ]
+      },
+      "BankSuggestionDto": {
+        "type": "object",
+        "properties": {
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceNumber": {
+            "type": "string"
+          },
+          "outstandingAmount": {
+            "type": "string"
+          },
+          "suggestedAmount": {
+            "type": "string"
+          },
+          "remainingInvoiceAmount": {
+            "type": "string"
+          },
+          "unallocatedTransferAmount": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankMatchReasonDto"
+            }
+          }
+        },
+        "required": [
+          "invoiceId",
+          "invoiceNumber",
+          "outstandingAmount",
+          "suggestedAmount",
+          "remainingInvoiceAmount",
+          "unallocatedTransferAmount",
+          "score",
+          "reasons"
+        ]
+      },
+      "BankSuggestionsDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankSuggestionDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ConfirmBankAllocationDto": {
+        "type": "object",
+        "properties": {
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "example": "120.00",
+            "pattern": "^(?:0|[1-9][0-9]{0,7})(?:\\.[0-9]{1,2})?$"
+          }
+        },
+        "required": [
+          "invoiceId",
+          "amount"
+        ]
+      },
+      "ConfirmBankTransactionDto": {
+        "type": "object",
+        "properties": {
+          "transactionVersion": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Allocate the available amount up to the invoice balance. Supply either invoiceId or allocations."
+          },
+          "allocations": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfirmBankAllocationDto"
+            }
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "RULES"
+            ],
+            "default": "MANUAL"
+          }
+        },
+        "required": [
+          "transactionVersion"
+        ]
+      },
+      "BankAllocationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "invoiceId",
+          "amount"
+        ]
+      },
+      "BankTransactionActionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UNMATCHED",
+              "MATCHED",
+              "IGNORED"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "unallocatedAmount": {
+            "type": "string"
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankAllocationDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "version",
+          "unallocatedAmount",
+          "allocations"
+        ]
+      },
+      "UndoBankTransactionDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "allocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Reverse this allocation. Without an ID, reverse the latest confirmation or restore an ignored transaction."
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "IgnoreBankTransactionDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 240
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "reason"
+        ]
+      },
       "BankStatementImportResponseDto": {
         "type": "object",
         "properties": {
@@ -42235,6 +42608,40 @@
           "fiscalReceipts"
         ]
       },
+      "BankPaymentHistoryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "BANK_TRANSFER"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SETTLED",
+              "REVERSED"
+            ]
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "status",
+          "amount",
+          "currency"
+        ]
+      },
       "SettlementResponseDto": {
         "type": "object",
         "properties": {
@@ -42265,6 +42672,12 @@
                 "$ref": "#/components/schemas/SettlementPaymentSummaryDto"
               }
             ]
+          },
+          "bankPayments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankPaymentHistoryItemDto"
+            }
           }
         },
         "required": [

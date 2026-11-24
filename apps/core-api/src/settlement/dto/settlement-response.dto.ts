@@ -64,6 +64,23 @@ export class SettlementPaymentSummaryDto {
   fiscalReceipts!: FiscalReceiptSummaryDto[];
 }
 
+class BankPaymentHistoryItemDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: ['BANK_TRANSFER'] })
+  method!: string;
+
+  @ApiProperty({ enum: ['SETTLED', 'REVERSED'] })
+  status!: string;
+
+  @ApiProperty()
+  amount!: string;
+
+  @ApiProperty()
+  currency!: string;
+}
+
 export class SettlementResponseDto {
   @ApiProperty()
   invoiceId!: string;
@@ -81,4 +98,7 @@ export class SettlementResponseDto {
 
   @ApiPropertyOptional({ type: SettlementPaymentSummaryDto, nullable: true })
   payment!: SettlementPaymentSummaryDto | null;
+
+  @ApiPropertyOptional({ type: [BankPaymentHistoryItemDto] })
+  bankPayments?: BankPaymentHistoryItemDto[];
 }

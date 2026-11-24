@@ -161,6 +161,8 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'external_id_mappings',
     clean: (p) => p.externalIdMapping.deleteMany(),
   },
+  { table: 'fiscal_receipts', clean: (p) => p.fiscalReceipt.deleteMany() },
+  { table: 'payments', clean: (p) => p.payment.deleteMany() },
   {
     table: 'bank_transactions',
     clean: (p) => p.bankTransaction.deleteMany(),
@@ -169,8 +171,6 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'bank_statement_imports',
     clean: (p) => p.bankStatementImport.deleteMany(),
   },
-  { table: 'fiscal_receipts', clean: (p) => p.fiscalReceipt.deleteMany() },
-  { table: 'payments', clean: (p) => p.payment.deleteMany() },
   {
     table: 'invoices',
     clean: async (p) => {

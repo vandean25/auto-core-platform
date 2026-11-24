@@ -16,6 +16,7 @@ import {
   createTestTenant,
   runWithTenantContext,
 } from './tenant-test-utils.js';
+import { bankFixture } from './support/bank-reconciliation-fixture.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Tenant Isolation Regression (e2e)', () => {
@@ -70,6 +71,33 @@ describe('Tenant Isolation Regression (e2e)', () => {
       tenantA,
       'TECH',
     );
+  });
+
+  it('excludes and rejects another tenant’s invoice with the same reference and amount', async () => {
+    const bankA = await bankFixture(tenantAPrisma, tenantAId);
+    const bankB = await bankFixture(tenantBPrisma, tenantBId);
+    await bankA.enable(true);
+    const localInvoice = await bankA.invoice('RE-ISOLATION');
+    const foreignInvoice = await bankB.invoice('RE-ISOLATION');
+    const transfer = await bankA.transfer('RE-ISOLATION');
+    const path = `/api/bank-reconciliation/transactions/${transfer.id}`;
+    const response = await request(app.getHttpServer())
+      .get(`${path}/suggestions`)
+      .set('Authorization', adminHeaderA)
+      .expect(200);
+    expect(
+      response.body.data.map(
+        (candidate: { invoiceId: string }) => candidate.invoiceId,
+      ),
+    ).toEqual([localInvoice.id]);
+    await request(app.getHttpServer())
+      .post(`${path}/confirm`)
+      .set('Authorization', adminHeaderA)
+      .send({
+        invoiceId: foreignInvoice.id,
+        transactionVersion: transfer.version,
+      })
+      .expect(404);
   });
 
   async function cleanupTestEntities() {

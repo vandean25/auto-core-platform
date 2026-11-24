@@ -492,6 +492,7 @@ enum PaymentStatus {
 enum PaymentMethod {
   CASH
   CARD
+  BANK_TRANSFER
 }
 
 enum FiscalReceiptState {
@@ -589,32 +590,37 @@ model FiscalRegister {
 }
 
 model Payment {
-  id                      String          @id @default(uuid())
+  id                      String           @id @default(uuid())
   tenant_id               String
-  tenant                  Tenant          @relation(fields: [tenant_id], references: [id])
+  tenant                  Tenant           @relation(fields: [tenant_id], references: [id])
   invoice_id              String
-  invoice                 Invoice         @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
+  invoice                 Invoice          @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
   site_id                 String
-  site                    Site            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  site                    Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   legal_entity_id         String
-  legal_entity            LegalEntity     @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity            LegalEntity      @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
   recorded_by_user_id     String?
-  recorded_by_user        User?           @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
+  recorded_by_user        User?            @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
   status                  PaymentStatus
   method                  PaymentMethod
-  amount                  Decimal         @db.Decimal(10, 2)
+  amount                  Decimal          @db.Decimal(10, 2)
   currency                String
   idempotency_key         String
   request_hash            String
   external_receipt_number String?
-  external_receipt_date   DateTime?       @db.Date
+  external_receipt_date   DateTime?        @db.Date
+  bank_transaction_id     String?
+  bank_transaction        BankTransaction? @relation(fields: [tenant_id, bank_transaction_id], references: [tenant_id, id], onDelete: Restrict)
+  bank_confirm_version    Int?
+  bank_invoice_revision   String?
   fiscal_receipts         FiscalReceipt[]
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
   @@unique([tenant_id, idempotency_key])
   @@unique([tenant_id, id])
   @@index([tenant_id, invoice_id, status])
+  @@index([tenant_id, bank_transaction_id, status])
   @@map("payments")
 }
 
@@ -672,6 +678,7 @@ model BankTransaction {
   remitter_iban_last4       String?
   reference_text            String?
   bank_ref                  String
+  payments                  Payment[]
   status                    BankTransactionStatus @default(UNMATCHED)
   version                   Int                   @default(1)
   createdAt                 DateTime              @default(now())

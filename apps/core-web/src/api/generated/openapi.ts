@@ -1489,6 +1489,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bank-reconciliation/transactions/{id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BankReconciliationController_listSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank-reconciliation/transactions/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["BankReconciliationController_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank-reconciliation/transactions/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["BankReconciliationController_undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank-reconciliation/transactions/{id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["BankReconciliationController_ignore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bank-reconciliation/imports": {
         parameters: {
             query?: never;
@@ -7696,6 +7760,73 @@ export interface components {
             data: components["schemas"]["AccountingExportReadinessDocumentDto"][];
             meta: components["schemas"]["AccountingExportReadinessMetaDto"];
         };
+        BankMatchReasonDto: {
+            /** @enum {string} */
+            code: "AMOUNT_EXACT" | "INVOICE_NO_IN_REFERENCE" | "IBAN_SEEN_BEFORE" | "NAME_SIMILAR";
+            value: string;
+        };
+        BankSuggestionDto: {
+            /** Format: uuid */
+            invoiceId: string;
+            invoiceNumber: string;
+            outstandingAmount: string;
+            suggestedAmount: string;
+            remainingInvoiceAmount: string;
+            unallocatedTransferAmount: string;
+            score: number;
+            reasons: components["schemas"]["BankMatchReasonDto"][];
+        };
+        BankSuggestionsDto: {
+            data: components["schemas"]["BankSuggestionDto"][];
+        };
+        ConfirmBankAllocationDto: {
+            /** Format: uuid */
+            invoiceId: string;
+            /** @example 120.00 */
+            amount: string;
+        };
+        ConfirmBankTransactionDto: {
+            transactionVersion: number;
+            /**
+             * Format: uuid
+             * @description Allocate the available amount up to the invoice balance. Supply either invoiceId or allocations.
+             */
+            invoiceId?: string;
+            allocations?: components["schemas"]["ConfirmBankAllocationDto"][];
+            /**
+             * @default MANUAL
+             * @enum {string}
+             */
+            source: "MANUAL" | "RULES";
+        };
+        BankAllocationDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            amount: string;
+        };
+        BankTransactionActionDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "UNMATCHED" | "MATCHED" | "IGNORED";
+            version: number;
+            unallocatedAmount: string;
+            allocations: components["schemas"]["BankAllocationDto"][];
+        };
+        UndoBankTransactionDto: {
+            expectedVersion: number;
+            /**
+             * Format: uuid
+             * @description Reverse this allocation. Without an ID, reverse the latest confirmation or restore an ignored transaction.
+             */
+            allocationId?: string;
+        };
+        IgnoreBankTransactionDto: {
+            expectedVersion: number;
+            reason: string;
+        };
         BankStatementImportResponseDto: {
             /** Format: uuid */
             importId: string;
@@ -12669,6 +12800,15 @@ export interface components {
             externalReceiptDate?: string | null;
             fiscalReceipts: components["schemas"]["FiscalReceiptSummaryDto"][];
         };
+        BankPaymentHistoryItemDto: {
+            id: string;
+            /** @enum {string} */
+            method: "BANK_TRANSFER";
+            /** @enum {string} */
+            status: "SETTLED" | "REVERSED";
+            amount: string;
+            currency: string;
+        };
         SettlementResponseDto: {
             invoiceId: string;
             invoiceStatus: string;
@@ -12677,6 +12817,7 @@ export interface components {
             /** @example Europe/Vienna */
             siteTimezone?: string;
             payment?: components["schemas"]["SettlementPaymentSummaryDto"] | null;
+            bankPayments?: components["schemas"]["BankPaymentHistoryItemDto"][];
         };
         RecordSettlementDto: {
             /** Format: uuid */
@@ -16239,6 +16380,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountingExportReadinessResponseDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_listSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankSuggestionsDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmBankTransactionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankTransactionActionDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoBankTransactionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankTransactionActionDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_ignore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IgnoreBankTransactionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankTransactionActionDto"];
                 };
             };
         };
