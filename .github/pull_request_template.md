@@ -1,6 +1,8 @@
 ## Summary
 <!-- What changed and why? -->
 
+Docs: <updated pages> | n/a – <reason>
+
 ## Screenshots
 <!-- Required when apps/core-web/src/**/*.tsx changes (excluding tests): `Screenshots: Playwright attachments – <attachment names>` (named testInfo.attach screenshots from the e2e tests; the reviewer opens them from the CI artifact), or `Screenshots: n/a – <reason>`. Do not commit screenshots. -->
 
