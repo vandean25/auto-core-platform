@@ -27,6 +27,7 @@ describe('Customer activity timeline (e2e)', () => {
   let techTokenA: string;
   let tokenB: string;
   let customerAId: string;
+  let customerAEmail: string;
   let customerBId: string;
   let siteAId: string;
   let legalEntityAId: string;
@@ -99,6 +100,7 @@ describe('Customer activity timeline (e2e)', () => {
       },
     });
     customerAId = customerA.id;
+    customerAEmail = customerA.email!;
 
     const customerB = await prismaB.customer.create({
       data: {
@@ -393,5 +395,96 @@ describe('Customer activity timeline (e2e)', () => {
     const fullIds = (full.body.data as Array<{ id: string }>).map((i) => i.id);
     expect(allIds).toEqual(fullIds);
     expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it('excludes outbox mails tied to another customer or order even when sharing recipient_email', async () => {
+    const customerA2 = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Berta',
+        last_name: 'Zweit',
+        email: null,
+        type: 'PRIVATE',
+      },
+    });
+    const vehicleA2 = await prismaA.vehicle.create({
+      data: {
+        tenant_id: tenantAId,
+        customer_id: customerA2.id,
+        make: 'Audi',
+        model: 'A4',
+        year: 2023,
+        plate: 'W-1039A2',
+        vin: `WAUZZZ8K9DA${Date.now().toString().slice(-6)}`,
+      },
+    });
+    const workshopOrderA2 = await prismaA.workshopOrder.create({
+      data: {
+        tenant_id: tenantAId,
+        site_id: siteAId,
+        customer_id: customerA2.id,
+        vehicle_id: vehicleA2.id,
+        order_number: `WO-1039-A2-${Date.now()}`,
+        status: 'INTAKE',
+        odometer: 12000,
+        fuel_level: 80,
+      },
+    });
+
+    await prismaA.notificationOutbox.create({
+      data: {
+        tenant_id: tenantAId,
+        event_type: 'WORKSHOP_ORDER_READY',
+        idempotency_key: `aut1039-other-order-${Date.now()}`,
+        channel: 'EMAIL',
+        recipient_kind: 'CUSTOMER',
+        recipient_email: customerAEmail,
+        workshop_order_id: workshopOrderA2.id,
+        template_id: 'workshop_order_ready',
+        subject: 'OTHER_CUSTOMER_ORDER_MAIL_MUST_NOT_LEAK',
+        status: 'ACCEPTED',
+      },
+    });
+
+    await prismaA.notificationOutbox.create({
+      data: {
+        tenant_id: tenantAId,
+        event_type: 'WORKSHOP_ORDER_READY',
+        idempotency_key: `aut1039-other-source-${Date.now()}`,
+        channel: 'EMAIL',
+        recipient_kind: 'CUSTOMER',
+        recipient_email: customerAEmail,
+        source_entity_type: 'Customer',
+        source_entity_id: customerA2.id,
+        template_id: 'customer_welcome',
+        subject: 'OTHER_CUSTOMER_SOURCE_MAIL_MUST_NOT_LEAK',
+        status: 'ACCEPTED',
+      },
+    });
+
+    await prismaA.notificationOutbox.create({
+      data: {
+        tenant_id: tenantAId,
+        event_type: 'WORKSHOP_ORDER_READY',
+        idempotency_key: `aut1039-unlinked-${Date.now()}`,
+        channel: 'EMAIL',
+        recipient_kind: 'CUSTOMER',
+        recipient_email: customerAEmail,
+        template_id: 'general_notice',
+        subject: 'UNLINKED_ADDRESS_MAIL_SHOULD_APPEAR',
+        status: 'ACCEPTED',
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/customers/${customerAId}/activity?types=email`)
+      .set('Authorization', `Bearer ${salesTokenA}`)
+      .expect(200);
+
+    const serialized = JSON.stringify(res.body);
+    expect(serialized).toContain('UNLINKED_ADDRESS_MAIL_SHOULD_APPEAR');
+    expect(serialized).not.toContain('OTHER_CUSTOMER_ORDER_MAIL_MUST_NOT_LEAK');
+    expect(serialized).not.toContain(workshopOrderA2.id);
+    expect(serialized).not.toContain('OTHER_CUSTOMER_SOURCE_MAIL_MUST_NOT_LEAK');
   });
 });

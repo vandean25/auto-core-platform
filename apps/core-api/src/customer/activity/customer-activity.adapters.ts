@@ -259,6 +259,26 @@ function createNotificationOutboxAdapter(
             channel: NotificationChannel.EMAIL,
             recipient_kind: NotificationRecipientKind.CUSTOMER,
             OR: customerMatchers,
+            AND: [
+              {
+                OR: [
+                  { workshop_order_id: null },
+                  {
+                    workshop_order: {
+                      customer_id: ctx.customerId,
+                      site_id: { in: [...ctx.authorizedSiteIds] },
+                    },
+                  },
+                ],
+              },
+              {
+                OR: [
+                  { source_entity_type: null },
+                  { source_entity_type: { not: 'Customer' } },
+                  { source_entity_id: ctx.customerId },
+                ],
+              },
+            ],
           },
           keyset,
         ),

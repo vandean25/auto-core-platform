@@ -327,4 +327,43 @@ describe('CustomerActivityService', () => {
       ['loaner_booking', '/workshop/loaner-vehicles'],
     ]);
   });
+
+  it('constrains email outbox query so workshop_order and Customer source_entity_type belong to this customer and authorized sites', async () => {
+    const prisma = createMockPrisma();
+    prisma.customer.findFirst.mockResolvedValue({
+      id: 'cust-1',
+      email: 'shared@example.com',
+    });
+
+    const service = createService(prisma, 'SALES');
+    await service.getActivity('cust-1', { types: 'email' });
+
+    expect(prisma.notificationOutbox.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: 'tenant-1',
+          AND: [
+            {
+              OR: [
+                { workshop_order_id: null },
+                {
+                  workshop_order: {
+                    customer_id: 'cust-1',
+                    site_id: { in: ['site-1'] },
+                  },
+                },
+              ],
+            },
+            {
+              OR: [
+                { source_entity_type: null },
+                { source_entity_type: { not: 'Customer' } },
+                { source_entity_id: 'cust-1' },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+  });
 });
