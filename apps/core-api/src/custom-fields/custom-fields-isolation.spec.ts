@@ -70,4 +70,66 @@ describe('Custom fields secondary-use isolation (Anti-criterion 3)', () => {
     expect(draft).not.toHaveProperty('custom_fields');
     expect(JSON.stringify(draft)).not.toContain('custom_fields');
   });
+
+  it('strips custom_fields from customer and vehicle in normalizeWorkshopOrder and executeSearchWorkshop', async () => {
+    const { normalizeWorkshopOrder } = await import(
+      '../workshop/workshop-order.helpers.js'
+    );
+    const { executeSearchWorkshop } = await import(
+      '../workshop/workshop-intake-query.helpers.js'
+    );
+
+    const normalized = normalizeWorkshopOrder({
+      id: 'wo-1',
+      customer: { id: 'c-1', custom_fields: { flottennummer: 'FL-1' } },
+      vehicle: {
+        id: 'v-1',
+        custom_fields: { stellplatz: 'B4' },
+        identity_resolution_generation: null,
+        identity_resolution_token: null,
+      },
+      tasks: [],
+      loaner_bookings: [],
+    } as never);
+
+    expect(normalized.customer).not.toHaveProperty('custom_fields');
+    expect(normalized.vehicle).not.toHaveProperty('custom_fields');
+
+    const prisma = {
+      vehicle: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'v-1',
+            custom_fields: { stellplatz: 'B4' },
+            customer: { id: 'c-1', custom_fields: { flottennummer: 'FL-1' } },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      customer: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'c-1',
+            custom_fields: { flottennummer: 'FL-1' },
+            vehicles: [{ id: 'v-1', custom_fields: { stellplatz: 'B4' } }],
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    };
+
+    const searchRes = await executeSearchWorkshop(
+      prisma as never,
+      'tenant-1',
+      'Golf',
+    );
+    expect(searchRes.data.vehicles[0]).not.toHaveProperty('custom_fields');
+    expect(searchRes.data.vehicles[0].customer).not.toHaveProperty(
+      'custom_fields',
+    );
+    expect(searchRes.data.customers[0]).not.toHaveProperty('custom_fields');
+    expect(searchRes.data.customers[0].vehicles?.[0]).not.toHaveProperty(
+      'custom_fields',
+    );
+  });
 });

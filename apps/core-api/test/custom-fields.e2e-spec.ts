@@ -164,6 +164,34 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       },
     });
     expect(audit).not.toBeNull();
+
+    await request(app.getHttpServer())
+      .patch(`/api/custom-fields/definitions/${createRes.body.id}`)
+      .set(auth(adminToken))
+      .send({ purpose: 'Flottenabrechnung aktualisiert' })
+      .expect(200);
+
+    const updateAudit = await prismaA.auditLog.findFirst({
+      where: {
+        tenant_id: tenantAId,
+        entity_type: 'CustomFieldDefinition',
+        entity_id: createRes.body.id,
+        action: 'UPDATE',
+      },
+    });
+    expect(updateAudit).not.toBeNull();
+    expect(updateAudit?.actor_user_id).toBeTruthy();
+    expect(updateAudit?.diff_json).toEqual(
+      expect.objectContaining({
+        changedFields: ['purpose'],
+        diff: expect.objectContaining({
+          purpose: {
+            before: 'Flottenabrechnung',
+            after: 'Flottenabrechnung aktualisiert',
+          },
+        }),
+      }),
+    );
   });
 
   it('Scenario 3: WHEN an advisor edits the value inline THEN it is saved and validated by type', async () => {

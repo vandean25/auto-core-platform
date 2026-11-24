@@ -52,14 +52,18 @@ export function getNavigationSection(context: NavAccessContext): QuickActionSect
 }
 
 /** One deep link per settings tab the role may open. Tabs the sidebar already links are left out. */
-export function getSettingsSection(context: NavAccessContext, navigation: QuickActionSection): QuickActionSection {
+export function getSettingsSection(
+  context: NavAccessContext,
+  navigation: QuickActionSection,
+  customFieldsEnabled = false,
+): QuickActionSection {
   // Same rule as the settings page: only owners and admins manage the admin-only tabs.
   const canManage = context.activeRole === 'ADMIN' || context.activeRole === 'OWNER'
   const linked = new Set(navigation.items.map((item) => item.href))
 
   return {
     heading: i18n.t('nav:modules.settings'),
-    items: getVisibleTabs(canManage)
+    items: getVisibleTabs(canManage, customFieldsEnabled)
       .map((tab) => ({
         href: `/settings?tab=${tab}`,
         icon: Settings,
@@ -187,11 +191,12 @@ export function getPaletteSections(
   query: string,
   intakePrefill?: WorkshopIntakePrefill | null,
   savedViews: readonly SavedView[] = [],
+  customFieldsEnabled = false,
 ): QuickActionSection[] {
   if (!canOfferPaletteSections(context, query)) return []
 
   const navigation = getNavigationSection(context)
-  const settings = query ? [getSettingsSection(context, navigation)] : []
+  const settings = query ? [getSettingsSection(context, navigation, customFieldsEnabled)] : []
   // Saved views show once the user types, so an empty palette stays short.
   const savedViewsSection = getSavedViewsSection(query ? savedViews : [], navigation)
   return filterQuickActionSections(

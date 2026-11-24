@@ -327,21 +327,37 @@ export class CustomFieldsService {
     );
   }
 
+  async loadVisibilityDefs(
+    entity: CustomFieldEntity,
+  ): Promise<Array<{ key: string }> | null> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const enabled = await this.isEnabledForTenant(tenantId);
+    if (!enabled) {
+      return null;
+    }
+
+    return this.prisma.customFieldDefinition.findMany({
+      where: { tenant_id: tenantId, entity, archived: false },
+      select: { key: true },
+    });
+  }
+
+  projectVisibleCustomFieldsWithDefs(
+    rawValues: unknown,
+    activeDefs: ReadonlyArray<{ key: string }> | null,
+  ): Record<string, CustomFieldScalar> | undefined {
+    if (activeDefs === null) {
+      return undefined;
+    }
+
+    return filterVisibleCustomFieldValues(rawValues, activeDefs);
+  }
+
   async projectVisibleCustomFields(
     entity: CustomFieldEntity,
     rawValues: unknown,
   ): Promise<Record<string, CustomFieldScalar> | undefined> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const enabled = await this.isEnabledForTenant(tenantId);
-    if (!enabled) {
-      return undefined;
-    }
-
-    const activeDefs = await this.prisma.customFieldDefinition.findMany({
-      where: { tenant_id: tenantId, entity, archived: false },
-      select: { key: true },
-    });
-
-    return filterVisibleCustomFieldValues(rawValues, activeDefs);
+    const activeDefs = await this.loadVisibilityDefs(entity);
+    return this.projectVisibleCustomFieldsWithDefs(rawValues, activeDefs);
   }
 }

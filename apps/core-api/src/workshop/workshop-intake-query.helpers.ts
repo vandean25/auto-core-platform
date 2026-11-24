@@ -10,6 +10,7 @@ import {
   type WorkshopOrderWithRelations,
 } from './workshop-order.helpers.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import {
   customerNameTermWhere,
   splitSearchTerms,
@@ -356,10 +357,17 @@ export async function executeSearchWorkshop(
 
   return {
     data: {
-      vehicles: vehicles.map(stripVehicleIdentityResolutionState),
+      vehicles: vehicles.map((vehicle) => ({
+        ...omitCustomFields(stripVehicleIdentityResolutionState(vehicle)),
+        customer: vehicle.customer
+          ? omitCustomFields(vehicle.customer)
+          : vehicle.customer,
+      })),
       customers: customers.map((customer) => ({
-        ...customer,
-        vehicles: customer.vehicles?.map(stripVehicleIdentityResolutionState),
+        ...omitCustomFields(customer),
+        vehicles: customer.vehicles?.map((vehicle) =>
+          omitCustomFields(stripVehicleIdentityResolutionState(vehicle)),
+        ),
       })),
     },
     meta: {

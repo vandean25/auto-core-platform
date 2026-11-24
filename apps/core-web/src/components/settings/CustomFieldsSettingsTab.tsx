@@ -108,6 +108,7 @@ export function CustomFieldsSettingsTab() {
             type="button"
             variant={entity === item ? 'default' : 'outline'}
             size="sm"
+            className="max-sm:min-h-11 max-sm:min-w-11"
             onClick={() => setEntity(item)}
           >
             {t(`settings:customFields.entities.${item}`)}
@@ -156,6 +157,7 @@ export function CustomFieldsSettingsTab() {
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="max-sm:min-h-11 max-sm:min-w-11"
                   disabled={index === 0 || reorderMutation.isPending}
                   onClick={() => handleMove(index, -1)}
                   aria-label={t('settings:customFields.actions.moveUp')}
@@ -166,6 +168,7 @@ export function CustomFieldsSettingsTab() {
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="max-sm:min-h-11 max-sm:min-w-11"
                   disabled={index === definitions.length - 1 || reorderMutation.isPending}
                   onClick={() => handleMove(index, 1)}
                   aria-label={t('settings:customFields.actions.moveDown')}
@@ -176,6 +179,7 @@ export function CustomFieldsSettingsTab() {
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="max-sm:min-h-11 max-sm:min-w-11"
                   onClick={() => {
                     setEditing(def)
                     setDialogOpen(true)
@@ -188,6 +192,7 @@ export function CustomFieldsSettingsTab() {
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="max-sm:min-h-11 max-sm:min-w-11"
                   onClick={() => handleArchiveToggle(def)}
                   aria-label={
                     def.archived

@@ -48,17 +48,17 @@ export class VehicleService {
     @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
 
-  private async maskVehicleCustomFields<T extends { custom_fields?: unknown }>(
-    vehicle: T,
-  ): Promise<T> {
-    if (!this.customFields) {
+  private maskVehicleCustomFieldsWithDefs<
+    T extends { custom_fields?: unknown },
+  >(vehicle: T, activeDefs: ReadonlyArray<{ key: string }> | null): T {
+    if (!this.customFields || activeDefs === null) {
       const rest = { ...vehicle };
       delete rest.custom_fields;
       return rest;
     }
-    const visible = await this.customFields.projectVisibleCustomFields(
-      CustomFieldEntity.VEHICLE,
+    const visible = this.customFields.projectVisibleCustomFieldsWithDefs(
       vehicle.custom_fields,
+      activeDefs,
     );
     if (visible === undefined) {
       const rest = { ...vehicle };
@@ -66,6 +66,15 @@ export class VehicleService {
       return rest;
     }
     return { ...vehicle, custom_fields: visible };
+  }
+
+  private async maskVehicleCustomFields<T extends { custom_fields?: unknown }>(
+    vehicle: T,
+  ): Promise<T> {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+      : null;
+    return this.maskVehicleCustomFieldsWithDefs(vehicle, activeDefs);
   }
 
   async getPickerlDueData(
@@ -174,10 +183,13 @@ export class VehicleService {
       pageSize,
       authorizedSiteIds,
     });
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+      : null;
     return {
       ...response,
-      data: await Promise.all(
-        (response.data ?? []).map((row) => this.maskVehicleCustomFields(row)),
+      data: (response.data ?? []).map((row) =>
+        this.maskVehicleCustomFieldsWithDefs(row, activeDefs),
       ),
     };
   }

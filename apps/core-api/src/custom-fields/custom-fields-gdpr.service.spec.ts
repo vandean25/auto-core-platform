@@ -115,12 +115,6 @@ describe('CustomFieldsGdprService', () => {
       vehicle: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      customerConsentUnsubscribeToken: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-      customerCommunicationState: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
       $transaction: jest.fn().mockImplementation(async (fn) => fn(prisma)),
     };
     const auditService = {

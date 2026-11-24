@@ -135,6 +135,47 @@ describe('CustomFieldsService', () => {
       }),
       prisma,
     );
+
+    const existing = {
+      ...created,
+      archived: false,
+      personal_data: true,
+      retention_class: 'PARENT_OBJECT',
+      options: null,
+      sort_order: 0,
+    };
+    const updatedRow = {
+      ...existing,
+      label: 'Flotten-Nr.',
+      purpose: 'Neue Flottenabrechnung',
+    };
+    prisma.customFieldDefinition.findFirst.mockResolvedValueOnce(existing);
+    prisma.customFieldDefinition.update.mockResolvedValueOnce(updatedRow);
+
+    await service.updateDefinition(created.id, {
+      label: 'Flotten-Nr.',
+      purpose: 'Neue Flottenabrechnung',
+    });
+
+    expect(auditService.recordTenantMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'CustomFieldDefinition',
+        entityId: created.id,
+        action: AuditLogAction.UPDATE,
+        actorUserId: userId,
+        diff: expect.objectContaining({
+          changedFields: expect.arrayContaining(['label', 'purpose']),
+          diff: expect.objectContaining({
+            label: { before: 'Flottennummer', after: 'Flotten-Nr.' },
+            purpose: {
+              before: 'Flottenabrechnung',
+              after: 'Neue Flottenabrechnung',
+            },
+          }),
+        }),
+      }),
+      prisma,
+    );
   });
 
   it('exports the field catalogue CSV with purpose and personal_data flag', async () => {
@@ -160,5 +201,44 @@ describe('CustomFieldsService', () => {
     expect(lines[1]).toBe(
       'CUSTOMER,flottennummer,Flottennummer,TEXT,Flottenabrechnung,true,PARENT_OBJECT,false',
     );
+  });
+
+  it('loads visibility definitions once and projects multiple rows in memory', async () => {
+    const { service, prisma } = makeMocks('ADMIN');
+    prisma.customFieldDefinition.findMany.mockResolvedValue([
+      { key: 'flottennummer' },
+    ]);
+
+    const defs = await service.loadVisibilityDefs(CustomFieldEntity.CUSTOMER);
+    expect(prisma.tenant.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.customFieldDefinition.findMany).toHaveBeenCalledTimes(1);
+
+    expect(
+      service.projectVisibleCustomFieldsWithDefs(
+        { flottennummer: 'FL-1', archived_key: 'OLD' },
+        defs,
+      ),
+    ).toEqual({ flottennummer: 'FL-1' });
+    expect(
+      service.projectVisibleCustomFieldsWithDefs(
+        { flottennummer: 'FL-2' },
+        defs,
+      ),
+    ).toEqual({ flottennummer: 'FL-2' });
+
+    prisma.tenant.findFirst.mockResolvedValueOnce({
+      custom_fields_enabled: false,
+    });
+    const disabledDefs = await service.loadVisibilityDefs(
+      CustomFieldEntity.CUSTOMER,
+    );
+    expect(disabledDefs).toBeNull();
+    expect(
+      service.projectVisibleCustomFieldsWithDefs(
+        { flottennummer: 'FL-1' },
+        disabledDefs,
+      ),
+    ).toBeUndefined();
+    expect(prisma.customFieldDefinition.findMany).toHaveBeenCalledTimes(1);
   });
 });

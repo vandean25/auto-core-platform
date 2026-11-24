@@ -185,13 +185,6 @@ export class CustomFieldsGdprService {
         data: { custom_fields: {} },
       });
 
-      await tx.customerConsentUnsubscribeToken.deleteMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
-      });
-      await tx.customerCommunicationState.deleteMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
-      });
-
       await this.auditService.recordTenantMutation(
         {
           entityType: 'Customer',

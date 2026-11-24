@@ -64,6 +64,10 @@ test.describe("Custom fields (AUT-1043)", () => {
     await page.goto("/customers/cust-1");
     await expect(page.getByRole("heading", { name: "Erika Musterfrau" })).toBeVisible();
     await expect(page.getByTestId("custom-fields-section-customer")).toHaveCount(0);
+    await testInfo.attach("custom-fields-flag-off-customer-de", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
   });
 
   test("flag ON shows Eigene Felder in Settings at desktop and 375px", async ({ page }, testInfo) => {
@@ -240,8 +244,10 @@ test.describe("Custom fields (AUT-1043)", () => {
     });
 
     await page.goto("/vehicles/veh-1");
-    await expect(page.getByTestId("custom-fields-section-vehicle")).toBeVisible();
+    const section = page.getByTestId("custom-fields-section-vehicle");
+    await expect(section).toBeVisible();
     await expect(page.getByText("B4")).toBeVisible();
+    await section.scrollIntoViewIfNeeded();
     await testInfo.attach("custom-fields-vehicle-de", {
       body: await page.screenshot(),
       contentType: "image/png",

@@ -150,17 +150,17 @@ export class CustomerService {
     @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
 
-  private async maskCustomerCustomFields<T extends { custom_fields?: unknown }>(
-    customer: T,
-  ): Promise<T> {
-    if (!this.customFields) {
+  private maskCustomerCustomFieldsWithDefs<
+    T extends { custom_fields?: unknown },
+  >(customer: T, activeDefs: ReadonlyArray<{ key: string }> | null): T {
+    if (!this.customFields || activeDefs === null) {
       const rest = { ...customer };
       delete rest.custom_fields;
       return rest;
     }
-    const visible = await this.customFields.projectVisibleCustomFields(
-      CustomFieldEntity.CUSTOMER,
+    const visible = this.customFields.projectVisibleCustomFieldsWithDefs(
       customer.custom_fields,
+      activeDefs,
     );
     if (visible === undefined) {
       const rest = { ...customer };
@@ -168,6 +168,15 @@ export class CustomerService {
       return rest;
     }
     return { ...customer, custom_fields: visible };
+  }
+
+  private async maskCustomerCustomFields<T extends { custom_fields?: unknown }>(
+    customer: T,
+  ): Promise<T> {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+      : null;
+    return this.maskCustomerCustomFieldsWithDefs(customer, activeDefs);
   }
 
   async create(createCustomerDto: CreateCustomerDto) {
@@ -227,8 +236,11 @@ export class CustomerService {
           orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
         };
     const result = await queryTenantCustomers(this.prisma, tenantId, query);
-    const maskedData = await Promise.all(
-      result.data.map((row) => this.maskCustomerCustomFields(row)),
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+      : null;
+    const maskedData = result.data.map((row) =>
+      this.maskCustomerCustomFieldsWithDefs(row, activeDefs),
     );
     return { ...result, data: maskedData };
   }
