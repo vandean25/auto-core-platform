@@ -553,6 +553,10 @@ test.describe('Customer activity timeline (AUT-1039)', () => {
     const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(hasHorizontalOverflow).toBe(false);
 
+    await openLink.scrollIntoViewIfNeeded();
+    await expect(invoicesChip).toBeInViewport();
+    await expect(openLink).toBeInViewport();
+
     await testInfo.attach('customer-activity-mobile-de-375', {
       body: await page.screenshot(),
       contentType: 'image/png',

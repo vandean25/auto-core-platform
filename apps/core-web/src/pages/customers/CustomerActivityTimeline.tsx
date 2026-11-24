@@ -26,6 +26,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDateTime } from '@/lib/format'
+import { formatStatusLabel, translateEnumWithGenericFallback } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import {
   ACTIVITY_FILTER_CHIPS,
@@ -70,26 +71,73 @@ const TYPE_ICONS: Record<CustomerActivityType, typeof Wrench> = {
 }
 
 function ActivityStatusBadge({ status }: { status: unknown }) {
+  useTranslation('enums')
   if (typeof status !== 'string' || status.length === 0) {
     return null
   }
   if (Object.hasOwn(statusClassMap, status)) {
     return <StatusBadge status={status} />
   }
-  return <Badge variant='outline'>{status}</Badge>
+  return <Badge variant='outline'>{formatStatusLabel(status)}</Badge>
 }
 
 function ActivitySummaryText({ item }: { item: CustomerActivityItem }) {
-  const parts = buildActivitySummaryParts(item.summary, formatCurrency)
+  useTranslation('enums')
+  const parts = buildActivitySummaryParts(
+    item.summary,
+    formatCurrency,
+    (templateId) => translateEnumWithGenericFallback('emailTemplate', templateId),
+  )
   if (parts.length === 0) {
     return null
   }
   return <p className='text-xs text-muted-foreground'>{parts.join(' · ')}</p>
 }
 
+function formatConsentTitle(item: CustomerActivityItem): string {
+  const purpose = item.summary.purpose
+  const channel = item.summary.channel
+  if (typeof purpose !== 'string' || purpose.length === 0) {
+    return item.title
+  }
+  const purposeLabel = translateEnumWithGenericFallback('consentPurpose', purpose)
+  if (typeof channel === 'string' && channel.length > 0) {
+    return `${purposeLabel} (${translateEnumWithGenericFallback('consentChannel', channel)})`
+  }
+  return purposeLabel
+}
+
+function formatEmailTitle(item: CustomerActivityItem, fallbackLabel: string): string {
+  const subject = item.summary.subject
+  if (typeof subject === 'string' && subject.length > 0) {
+    return subject
+  }
+  const templateId = item.summary.template_id
+  if (typeof templateId === 'string' && templateId.length > 0) {
+    return translateEnumWithGenericFallback('emailTemplate', templateId)
+  }
+  return item.title.length > 0 ? item.title : fallbackLabel
+}
+
+function formatActivityTitle(item: CustomerActivityItem, emailFallback: string): string {
+  if (item.type === 'consent') {
+    return formatConsentTitle(item)
+  }
+  if (item.type === 'audit') {
+    const action = typeof item.summary.action === 'string' ? item.summary.action : item.title
+    return action.length > 0 ? formatStatusLabel(action) : item.title
+  }
+  if (item.type === 'email') {
+    return formatEmailTitle(item, emailFallback)
+  }
+  return item.title
+}
+
 function ActivityTimelineRow({ item }: { item: CustomerActivityItem }) {
   const { t } = useTranslation('customers')
+  useTranslation('enums')
   const Icon = TYPE_ICONS[item.type]
+  const displayTitle = formatActivityTitle(item, t('activity.types.email'))
 
   return (
     <li className='flex flex-col gap-2 rounded-md border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between'>
@@ -108,7 +156,7 @@ function ActivityTimelineRow({ item }: { item: CustomerActivityItem }) {
             </time>
             <ActivityStatusBadge status={item.summary.status} />
           </div>
-          <p className='truncate text-sm font-medium text-foreground'>{item.title}</p>
+          <p className='truncate text-sm font-medium text-foreground'>{displayTitle}</p>
           <ActivitySummaryText item={item} />
         </div>
       </div>

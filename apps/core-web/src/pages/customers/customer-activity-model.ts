@@ -46,13 +46,14 @@ export function toggleActivityChip(
 export function buildActivitySummaryParts(
   summary: Record<string, unknown>,
   formatAmount: (value: number) => string,
+  formatTemplateId?: (templateId: string) => string,
 ): string[] {
   const parts: string[] = []
   const textKeys = ['vehicle', 'template_id', 'reason', 'actor_email'] as const
   for (const key of textKeys) {
     const val = summary[key]
     if (typeof val === 'string' && val.length > 0) {
-      parts.push(val)
+      parts.push(key === 'template_id' && formatTemplateId ? formatTemplateId(val) : val)
     }
   }
   const amount =

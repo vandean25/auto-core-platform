@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { fetchWithAuth } from '@/api/client'
 import * as customersApi from '@/api/customers'
 import { formatDate } from '@/lib/format'
+import { formatStatusLabel } from '@/lib/i18n'
 import {
   resetIntentPrefetchScheduler,
   scheduleDetailPrefetch,
@@ -897,6 +898,68 @@ describe('CustomerDetail characterization', () => {
       expect(screen.getByText(deCustomers.activity.loadFailed)).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: deCustomers.activity.retry }))
       expect(refetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders localized enum labels for consent, audit, and email items instead of raw wire values', () => {
+      asMock(customersApi.useCustomerActivity).mockReturnValue({
+        data: {
+          pages: [
+            {
+              data: [
+                {
+                  id: 'con-1',
+                  type: 'consent',
+                  occurred_at: '2026-11-05T12:00:00.000Z',
+                  title: 'NEWSLETTER (EMAIL)',
+                  ref_id: 'con-1',
+                  ref_link: '/customers/12345678-aaaa-bbbb?tab=consent',
+                  summary: { purpose: 'NEWSLETTER', channel: 'EMAIL', status: 'GRANTED' },
+                },
+                {
+                  id: 'aud-1',
+                  type: 'audit',
+                  occurred_at: '2026-11-05T11:00:00.000Z',
+                  title: 'UPDATE',
+                  ref_id: 'aud-1',
+                  ref_link: null,
+                  summary: { action: 'UPDATE', actor_email: 'admin@example.com' },
+                },
+                {
+                  id: 'mail-1',
+                  type: 'email',
+                  occurred_at: '2026-11-05T10:00:00.000Z',
+                  title: '',
+                  ref_id: 'mail-1',
+                  ref_link: null,
+                  summary: { subject: 'Ihr Fahrzeug ist abholbereit', template_id: 'customer.order_ready', status: 'SENT' },
+                },
+              ],
+              meta: { nextCursor: null, hasNextPage: false, limit: 25 },
+            },
+          ],
+          pageParams: [undefined],
+        },
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: vi.fn(),
+      })
+
+      renderDetail(baseCustomer())
+
+      expect(screen.getByText('Newsletter (E-Mail)')).toBeInTheDocument()
+      expect(screen.getAllByTestId('status').map((el) => el.textContent)).toContain('GRANTED')
+      expect(formatStatusLabel('GRANTED')).toBe('Erteilt')
+      expect(formatStatusLabel('SOFT_OPT_IN')).toBe('Bestandskunden-Ausnahme')
+      expect(screen.queryByText('NEWSLETTER (EMAIL)')).not.toBeInTheDocument()
+
+      expect(screen.getByText('Aktualisiert')).toBeInTheDocument()
+      expect(screen.queryByText('UPDATE')).not.toBeInTheDocument()
+
+      expect(screen.getByText('Auftrag abholbereit')).toBeInTheDocument()
+      expect(screen.queryByText('customer.order_ready')).not.toBeInTheDocument()
     })
   })
 })

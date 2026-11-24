@@ -90,6 +90,8 @@
     "EXECUTED": "Executed",
     "FAILED": "Failed",
     "EXPIRED": "Expired",
+    "GRANTED": "Granted",
+    "SOFT_OPT_IN": "Soft opt-in",
     "REVOKED": "Revoked",
     "AUTO": "Auto",
     "PROPOSE": "Propose",
@@ -401,5 +403,31 @@
     "WARRANTY_PROVIDER": "Warranty provider",
     "SERVICE_CONTRACT": "Service contract",
     "PREVIOUS_OWNER": "Previous owner"
+  },
+  "consentPurpose": {
+    "ORDER_COMMUNICATION": "Order communication",
+    "INVOICE_DELIVERY": "Invoice delivery",
+    "PICKERL_REMINDER": "Pickerl reminder",
+    "SERVICE_REMINDER": "Service reminder",
+    "REVIEW_REQUEST": "Review request",
+    "SEASONAL_OFFERS": "Seasonal offers",
+    "NEWSLETTER": "Newsletter",
+    "generic": "Consent"
+  },
+  "consentChannel": {
+    "EMAIL": "Email",
+    "SMS": "SMS",
+    "PHONE": "Phone",
+    "POST": "Mail",
+    "generic": "Channel"
+  },
+  "emailTemplate": {
+    "customer": {
+      "estimate_sent": "Estimate sent",
+      "estimate_approval_confirmed": "Estimate approval confirmed",
+      "order_ready": "Order ready for pickup"
+    },
+    "workshop_order_ready": "Order ready for pickup",
+    "generic": "Email template"
   }
 }

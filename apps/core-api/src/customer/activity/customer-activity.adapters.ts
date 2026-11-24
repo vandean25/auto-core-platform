@@ -279,7 +279,7 @@ function createNotificationOutboxAdapter(
         id: row.id,
         type: 'email',
         occurred_at: row.createdAt.toISOString(),
-        title: row.subject ?? row.template_id ?? 'E-Mail',
+        title: row.subject ?? row.template_id ?? '',
         ref_id: row.id,
         ref_link: row.workshop_order_id
           ? `/workshop/orders/${row.workshop_order_id}`

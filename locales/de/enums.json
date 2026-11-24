@@ -90,6 +90,8 @@
     "EXECUTED": "Ausgeführt",
     "FAILED": "Fehlgeschlagen",
     "EXPIRED": "Abgelaufen",
+    "GRANTED": "Erteilt",
+    "SOFT_OPT_IN": "Bestandskunden-Ausnahme",
     "REVOKED": "Widerrufen",
     "AUTO": "Automatisch",
     "PROPOSE": "Vorschlag",
@@ -401,5 +403,31 @@
     "WARRANTY_PROVIDER": "Garantiegeber",
     "SERVICE_CONTRACT": "Servicevertrag",
     "PREVIOUS_OWNER": "Altbesitzer"
+  },
+  "consentPurpose": {
+    "ORDER_COMMUNICATION": "Auftragskommunikation",
+    "INVOICE_DELIVERY": "Rechnungsversand",
+    "PICKERL_REMINDER": "Pickerl-Erinnerung",
+    "SERVICE_REMINDER": "Service-Erinnerung",
+    "REVIEW_REQUEST": "Bewertungsanfrage",
+    "SEASONAL_OFFERS": "Saisonale Angebote",
+    "NEWSLETTER": "Newsletter",
+    "generic": "Einwilligung"
+  },
+  "consentChannel": {
+    "EMAIL": "E-Mail",
+    "SMS": "SMS",
+    "PHONE": "Telefon",
+    "POST": "Post",
+    "generic": "Kanal"
+  },
+  "emailTemplate": {
+    "customer": {
+      "estimate_sent": "Kostenvoranschlag gesendet",
+      "estimate_approval_confirmed": "Freigabe des Kostenvoranschlags bestätigt",
+      "order_ready": "Auftrag abholbereit"
+    },
+    "workshop_order_ready": "Auftrag abholbereit",
+    "generic": "E-Mail-Vorlage"
   }
 }
