@@ -138,6 +138,14 @@ describe('PDF worker bootstrap module graph and lazy Sentry (AUT-1038)', () => {
     expect(source).not.toMatch(/AppModule/);
     expect(source).toContain('PdfWorkerModule');
     expect(source).toMatch(/import\(['"]\.\/instrument\.js['"]\)/);
+
+    const mainSource = readFileSync(
+      join(import.meta.dirname, '../main.ts'),
+      'utf8',
+    );
+    expect(mainSource).not.toMatch(/^import\s+['"]\.\/instrument\.js['"]/m);
+    expect(mainSource).not.toMatch(/ApiRootModule/);
+    expect(mainSource).toMatch(/ACP_WORKER_MODE/);
   });
 
   it('WHEN PdfWorkerModule is compiled THEN all worker controllers and dependencies resolve without missing providers', async () => {

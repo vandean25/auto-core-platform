@@ -1,14 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import {
-  createGlobalValidationPipes,
-  GlobalExceptionFilter,
-  PlaywrightBrowserService,
-} from './common/index.js';
-import { configureHttpSecurity } from './common/http/http-security.js';
-import {
-  HttpLoggingInterceptor,
-  LogLevelService,
-} from './common/logging/index.js';
+import { PlaywrightBrowserService } from './common/index.js';
+import { configureCoreHttpApp } from './common/http/configure-core-http-app.js';
+import { LogLevelService } from './common/logging/index.js';
 import { validateEnv } from './config/env.js';
 import { PdfWorkerModule } from './pdf-worker/pdf-worker.module.js';
 import {
@@ -27,11 +20,7 @@ async function bootstrap() {
     logger: LogLevelService.getInitialNestLogLevels(),
   });
 
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(...createGlobalValidationPipes());
-  app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalInterceptors(new HttpLoggingInterceptor());
-  configureHttpSecurity(app, {
+  configureCoreHttpApp(app, {
     frontendUrl: env.FRONTEND_URL,
     nodeEnv: env.NODE_ENV,
   });

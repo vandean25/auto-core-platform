@@ -36,6 +36,7 @@ RUN chmod +x /usr/local/bin/verify-pdf-worker-node.sh \
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
+ENV ACP_WORKER_MODE=pdf
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
@@ -60,7 +61,7 @@ RUN verify-pdf-worker-node.sh
 
 EXPOSE 3000
 
-CMD ["node", "dist/worker-main.js"]
+CMD ["node", "dist/main.js"]
 
 FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS api
 

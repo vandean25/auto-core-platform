@@ -275,14 +275,15 @@ describe('Production image version pins (AUT-167)', () => {
     expect(apiPin?.[1]).toBe(expected);
   });
 
-  it('installs Chromium-only Playwright headless shell and boots worker-main.js in the worker stage (AUT-1038)', () => {
+  it('installs Chromium-only Playwright headless shell and boots in pdf worker mode (AUT-1038)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
     const { worker } = splitDockerStages(dockerfile);
 
     expect(worker).toMatch(/playwright install-deps chromium/);
     expect(worker).toMatch(/playwright install chromium --only-shell/);
     expect(worker).not.toMatch(/firefox|webkit/);
-    expect(worker).toMatch(/CMD \["node", "dist\/worker-main\.js"\]/);
+    expect(worker).toMatch(/ENV ACP_WORKER_MODE=pdf/);
+    expect(worker).toMatch(/CMD \["node", "dist\/main\.js"\]/);
   });
 
   it('declares a CI job that builds api and pdf-worker images and runs Node 26 smoke', () => {
