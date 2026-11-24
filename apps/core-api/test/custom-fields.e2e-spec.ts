@@ -181,7 +181,7 @@ describe('Custom fields (AUT-1043 e2e)', () => {
     });
     expect(updateAudit).not.toBeNull();
     expect(updateAudit?.actor_user_id).toBeTruthy();
-    expect(updateAudit?.diff_json).toEqual(
+    expect(updateAudit?.diff).toEqual(
       expect.objectContaining({
         changedFields: ['purpose'],
         diff: expect.objectContaining({
