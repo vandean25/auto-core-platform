@@ -481,9 +481,11 @@ describe('Pickerl Due (e2e)', () => {
     });
 
     it('records a phone contact, shows latest on list, writes audit log, and creates no outbox row (Scenarios 1, 2, 7 & Anti-criterion 4)', async () => {
-      const outboxBefore = await basePrisma.notificationOutbox.count({
-        where: { tenant_id: tenantId },
-      });
+      const outboxBefore = await runWithTenantContext(tenantId, () =>
+        basePrisma.notificationOutbox.count({
+          where: { tenant_id: tenantId },
+        }),
+      );
 
       const firstAt = new Date(Date.now() - 3_600_000).toISOString();
       await request(app.getHttpServer())
@@ -523,19 +525,23 @@ describe('Pickerl Due (e2e)', () => {
       expect(new Date(row.last_contacted_at).toISOString()).toBe(secondAt);
       expect(row.last_contact_by).toBeTruthy();
 
-      const auditEntry = await basePrisma.auditLog.findFirst({
-        where: {
-          tenant_id: tenantId,
-          entity_type: 'PickerlContactLog',
-          entity_id: secondRes.body.id,
-        },
-      });
+      const auditEntry = await runWithTenantContext(tenantId, () =>
+        basePrisma.auditLog.findFirst({
+          where: {
+            tenant_id: tenantId,
+            entity_type: 'PickerlContactLog',
+            entity_id: secondRes.body.id,
+          },
+        }),
+      );
       expect(auditEntry).toBeTruthy();
       expect(auditEntry?.occurred_at).toBeTruthy();
 
-      const outboxAfter = await basePrisma.notificationOutbox.count({
-        where: { tenant_id: tenantId },
-      });
+      const outboxAfter = await runWithTenantContext(tenantId, () =>
+        basePrisma.notificationOutbox.count({
+          where: { tenant_id: tenantId },
+        }),
+      );
       expect(outboxAfter).toBe(outboxBefore);
     });
 
@@ -609,13 +615,15 @@ describe('Pickerl Due (e2e)', () => {
         })
         .expect(201);
 
-      const auditEntry = await basePrisma.auditLog.findFirst({
-        where: {
-          tenant_id: tenantId,
-          entity_type: 'PickerlContactLog',
-          entity_id: res.body.id,
-        },
-      });
+      const auditEntry = await runWithTenantContext(tenantId, () =>
+        basePrisma.auditLog.findFirst({
+          where: {
+            tenant_id: tenantId,
+            entity_type: 'PickerlContactLog',
+            entity_id: res.body.id,
+          },
+        }),
+      );
       expect(auditEntry?.source).toBe('PICKERL_MARKETING_CALL_WITHOUT_CONSENT');
     });
 

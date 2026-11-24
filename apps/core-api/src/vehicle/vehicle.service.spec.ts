@@ -31,6 +31,7 @@ describe('VehicleService', () => {
     externalIdMapping: { findMany: jest.Mock };
     vehicleParty: { findMany: jest.Mock; create: jest.Mock };
     workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
+    pickerlContactLog: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let tenantContext: { getTenantId: jest.Mock };
