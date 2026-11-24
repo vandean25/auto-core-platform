@@ -268,7 +268,11 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await consentedRow.getByRole('button', { name: 'Kontakt erfassen' }).click()
     await page.getByLabel('Kunde widerruft Einwilligung').click()
     await page.getByRole('button', { name: 'Speichern' }).click()
-    await expect(page.getByRole('link', { name: '+43660111222' })).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(
+      consentedRow.getByText('Keine Telefon-Einwilligung – nicht zu Werbezwecken anrufen'),
+    ).toBeVisible()
+    await expect(consentedRow.getByRole('link', { name: '+43660111222' })).toHaveCount(0)
     await testInfo.attach('pickerl-due-consent-revoked-de', {
       body: await page.screenshot(),
       contentType: 'image/png',

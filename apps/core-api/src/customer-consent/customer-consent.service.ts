@@ -548,6 +548,14 @@ export class CustomerConsentService {
             return;
           }
 
+          const controller = await tx.legalEntity.findFirst({
+            where: {
+              tenant_id: tokenRow.tenant_id,
+              id: tokenRow.controller_legal_entity_id,
+            },
+            select: { country_iso: true },
+          });
+
           await stampProofChainRetainUntil(tx, {
             tenantId: tokenRow.tenant_id,
             controllerLegalEntityId: tokenRow.controller_legal_entity_id,
@@ -555,6 +563,7 @@ export class CustomerConsentService {
             channel: tokenRow.channel,
             purposes: [...MARKETING_CONSENT_PURPOSES],
             cessationAt: now,
+            countryIso: controller?.country_iso,
           });
 
           await tx.customerCommunicationState.update({
@@ -838,14 +847,24 @@ export class CustomerConsentService {
       return result;
     }
 
+    const controllerId = await resolveControllerLegalEntityId(
+      this.prisma,
+      tenantId,
+    );
+
     const [states, consents] = await Promise.all([
       this.prisma.customerCommunicationState.findMany({
-        where: { tenant_id: tenantId, customer_id: { in: uniqueIds } },
+        where: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerId,
+          customer_id: { in: uniqueIds },
+        },
         select: { customer_id: true, processing_status: true },
       }),
       this.prisma.customerConsent.findMany({
         where: {
           tenant_id: tenantId,
+          controller_legal_entity_id: controllerId,
           customer_id: { in: uniqueIds },
           channel: 'PHONE',
           purpose: { in: ['PICKERL_REMINDER', 'SERVICE_REMINDER'] },

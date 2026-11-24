@@ -12,10 +12,12 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
   function buildService(mocks: {
     findMany: jest.Mock;
     lock: jest.Mock;
+    countryIso?: string;
   }) {
     const auditService = {
       recordTenantMutation: jest.fn().mockResolvedValue(undefined),
     };
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       customerCommunicationState: {
         upsert: jest.fn().mockResolvedValue({ id: 'state-1' }),
@@ -43,13 +45,18 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
               source: 'UNSUBSCRIBE',
               revoked_at: new Date('2026-01-01'),
             }),
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            updateMany,
           },
           customerConsentUnsubscribeToken: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           },
           customerCommunicationState: {
             update: jest.fn().mockResolvedValue({}),
+          },
+          legalEntity: {
+            findFirst: jest
+              .fn()
+              .mockResolvedValue({ country_iso: mocks.countryIso ?? 'AT' }),
           },
           $executeRaw: jest.fn(),
         };
@@ -90,7 +97,7 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
       .spyOn(serviceInternals, 'ensureCommunicationStateRow')
       .mockResolvedValue(undefined);
 
-    return { service, prisma, auditService };
+    return { service, prisma, auditService, updateMany };
   }
 
   it('locks communication state before loading the ledger', async () => {
@@ -168,5 +175,41 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
 
     expect(findMany).toHaveBeenCalled();
     expect(auditService.recordTenantMutation).toHaveBeenCalled();
+  });
+
+  it('stamps 5-year retain_until when controller legal entity is in DE', async () => {
+    const before = new Date();
+    const { service, updateMany } = buildService({
+      countryIso: 'DE',
+      lock: jest.fn(async () => ({
+        id: 'state-1',
+        revision: 1,
+        processing_status: 'ACTIVE' as const,
+      })),
+      findMany: jest.fn(async () => [
+        {
+          purpose: 'NEWSLETTER' as const,
+          channel: 'EMAIL' as const,
+          status: 'GRANTED' as const,
+          sequence: 1,
+          basis: 'CONSENT',
+          text_version: 'v1',
+          text_snapshot: 'Wording',
+          evidence: null,
+        },
+      ]),
+    });
+
+    await service.withdrawMarketingByUnsubscribeToken(rawToken);
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { retain_until: expect.any(Date) },
+      }),
+    );
+    const stamped = updateMany.mock.calls[0][0].data.retain_until as Date;
+    expect(stamped.getUTCFullYear()).toBeGreaterThanOrEqual(
+      before.getUTCFullYear() + 5,
+    );
   });
 });
