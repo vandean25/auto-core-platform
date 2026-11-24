@@ -155,7 +155,7 @@ function ActivityTimelineBody({
 
   if (isLoading) {
     return (
-      <div className='space-y-3' aria-label={t('activity.loading')}>
+      <div role='status' className='space-y-3' aria-label={t('activity.loading')}>
         <Skeleton className='h-20 w-full' />
         <Skeleton className='h-20 w-full' />
         <Skeleton className='h-20 w-full' />
@@ -265,7 +265,7 @@ export function CustomerActivityTimeline({ customerId }: { customerId: string })
     setSearchParams(next, { replace: true })
   }
 
-  const items = data?.pages.flatMap((page) => page.data) ?? []
+  const items = data?.pages.flatMap((page) => (Array.isArray(page?.data) ? page.data : [])) ?? []
 
   return (
     <div className='space-y-4'>

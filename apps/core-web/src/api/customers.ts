@@ -242,7 +242,7 @@ export function useCustomerActivity(customerId: string, types: readonly Customer
         enabled: !!customerId,
         ...infiniteListQueryOptions(),
         getNextPageParam: (lastPage) =>
-            lastPage.meta.hasNextPage ? (lastPage.meta.nextCursor ?? undefined) : undefined,
+            lastPage?.meta?.hasNextPage ? (lastPage.meta.nextCursor ?? undefined) : undefined,
         queryFn: async ({ pageParam }) => {
             const params = new URLSearchParams()
             params.set('limit', '25')

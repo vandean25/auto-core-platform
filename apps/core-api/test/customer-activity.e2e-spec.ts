@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -49,7 +50,22 @@ describe('Customer activity timeline (e2e)', () => {
     tenantBId = tenantB.tenantId;
 
     salesTokenA = createTestAuthToken(authService, tenantA, { role: 'SALES' });
-    techTokenA = createTestAuthToken(authService, tenantA, { role: 'TECH' });
+    const techUserA = await basePrisma.user.create({
+      data: {
+        firebaseUid: `e2e-tech-${Date.now()}`,
+        email: `tech-1039-${Date.now()}@example.com`,
+      },
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId: tenantAId,
+      userId: techUserA.id,
+      role: 'TECH',
+    });
+    techTokenA = createTestAuthToken(authService, tenantA, {
+      sub: techUserA.firebaseUid ?? undefined,
+      email: techUserA.email ?? undefined,
+      role: 'TECH',
+    });
     tokenB = createTestAuthToken(authService, tenantB, { role: 'SALES' });
 
     prismaA = createTenantAwarePrisma(basePrisma, tenantAId);
