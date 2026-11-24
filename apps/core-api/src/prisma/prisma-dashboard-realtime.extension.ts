@@ -184,7 +184,7 @@ function emitAfterQuery(dashboardRealtime: RealtimeEmitter, operation: string) {
 }
 
 export function createDashboardRealtimeExtension(
-  dashboardRealtime: DashboardRealtimeService,
+  dashboardRealtime: RealtimeEmitter,
 ) {
   return Prisma.defineExtension({
     name: 'dashboard-realtime',

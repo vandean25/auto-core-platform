@@ -478,6 +478,15 @@ jobs:
       - name: PDF worker Playwright smoke (built image)
         run: docker run --rm acp-pdf-worker:ci node scripts/pdf-worker-image-smoke.mjs
 
+      - name: Assert pdf-worker image content size under 1.3 GB
+        run: |
+          SIZE_BYTES=$(docker save acp-pdf-worker:ci | gzip -1 | wc -c)
+          echo "acp-pdf-worker:ci compressed content size: ${SIZE_BYTES} bytes ($((SIZE_BYTES / 1000000)) MB)"
+          if [ "${SIZE_BYTES}" -ge 1300000000 ]; then
+            echo "Expected pdf-worker image content size < 1300000000 bytes (1.3 GB), got ${SIZE_BYTES}"
+            exit 1
+          fi
+
       - name: Build api image
         run: docker build -f apps/core-api/Dockerfile --target api -t acp-api:ci .
 
