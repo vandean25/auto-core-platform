@@ -42,6 +42,7 @@ export const inventoryKeys = {
     cappedCount: (filters: InventoryCursorFilters) => [...inventoryKeys.all, 'capped-count', filters] as const,
     detail: (itemId: string) => [...inventoryKeys.all, 'detail', itemId] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
+    adjustmentValuation: (itemId: string, locationId: string) => [...inventoryKeys.all, 'adjustment-valuation', itemId, locationId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
 }
 
@@ -219,11 +220,49 @@ export function useReceiveInventoryStock(itemId: string) {
     })
 }
 
+export type StockAdjustmentReason =
+    | 'INVENTORY_COUNT'
+    | 'BREAKAGE'
+    | 'SHRINKAGE'
+    | 'FOUND'
+    | 'BOOKING_ERROR'
+    | 'OTHER'
+
+export type StockAdjustmentValueSource = 'AVG' | 'LAST_EK' | 'MANUAL'
+
+export type AdjustmentValuation = {
+    unitCost: string | null
+    valueSource: StockAdjustmentValueSource
+    canOverrideValue: boolean
+}
+
+export function useAdjustmentValuation(itemId: string, locationId: string, enabled = true) {
+    return useQuery<AdjustmentValuation>({
+        queryKey: inventoryKeys.adjustmentValuation(itemId, locationId),
+        queryFn: async () => {
+            const params = new URLSearchParams({ locationId })
+            const response = await fetchWithAuth(`/api/inventory/${itemId}/adjustment-valuation?${params.toString()}`)
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to fetch adjustment valuation')
+            }
+            return response.json()
+        },
+        enabled: enabled && Boolean(itemId) && Boolean(locationId),
+    })
+}
+
 export function useAdjustInventoryStock(itemId: string) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationKey: [...inventoryKeys.all, 'adjust-stock'],
-        mutationFn: async (data: { locationId: string; quantity: number; reason: string }) => {
+        mutationFn: async (data: {
+            locationId: string
+            quantity: number
+            reason: StockAdjustmentReason
+            note?: string
+            unitCost?: number
+            overrideReason?: string
+        }) => {
             const response = await fetchWithAuth(`/api/inventory/${itemId}/adjust`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -234,6 +273,26 @@ export function useAdjustInventoryStock(itemId: string) {
             }
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
+        },
+    })
+}
+
+export function useReverseInventoryTransaction(itemId: string) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationKey: [...inventoryKeys.all, 'reverse-transaction'],
+        mutationFn: async (transactionId: string) => {
+            const response = await fetchWithAuth(`/api/inventory/transactions/${transactionId}/reverse`, {
+                method: 'POST',
+            })
+            if (!response.ok) {
+                throw await parseApiError(response, 'Failed to reverse transaction')
+            }
+            return response.json() as Promise<InventoryTransaction>
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [...inventoryKeys.all, 'history', itemId] })
             queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
         },
     })

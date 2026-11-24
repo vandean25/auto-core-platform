@@ -62,6 +62,14 @@ export function formatInventoryTransactionType(type: string): string {
   return translateEnum('inventoryTransactionType', type)
 }
 
+export function formatStockAdjustmentReason(reason: string): string {
+  return translateEnum('stockAdjustmentReason', reason)
+}
+
+export function formatStockAdjustmentValueSource(source: string): string {
+  return translateEnum('stockAdjustmentValueSource', source)
+}
+
 export function formatAttendanceEventType(type: string): string {
   return translateEnum('attendanceEventType', type)
 }

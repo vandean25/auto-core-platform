@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 7;
+export const PERMISSION_CATALOGUE_VERSION = 8;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -549,6 +549,11 @@ const DEFINITIONS = [
   ['site.read', 'Standorte ansehen', 'View sites'],
   ['site.update', 'Standort ändern', 'Edit site'],
   ['stock.adjust', 'Bestand korrigieren', 'Adjust stock'],
+  [
+    'stock.adjust.override_value',
+    'Korrekturwert manuell überschreiben',
+    'Override stock adjustment value',
+  ],
   ['stock.history.read', 'Lagerbewegungen ansehen', 'View stock history'],
   ['stock.item.create', 'Artikel anlegen', 'Create item'],
   ['stock.item.update', 'Artikel ändern', 'Edit item'],

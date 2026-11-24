@@ -859,6 +859,75 @@
         ]
       }
     },
+    "/api/inventory/{id}/adjustment-valuation": {
+      "get": {
+        "operationId": "InventoryController_getAdjustmentValuation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locationId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdjustmentValuationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/transactions/{transactionId}/reverse": {
+      "post": {
+        "operationId": "InventoryController_reverseTransaction",
+        "parameters": [
+          {
+            "name": "transactionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryTransactionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
     "/api/inventory/{id}/adjust": {
       "post": {
         "operationId": "InventoryController_adjustStock",
@@ -20153,6 +20222,25 @@
           "WORKSHOP_CONSUMPTION"
         ]
       },
+      "StockAdjustmentReason": {
+        "type": "string",
+        "enum": [
+          "INVENTORY_COUNT",
+          "BREAKAGE",
+          "SHRINKAGE",
+          "FOUND",
+          "BOOKING_ERROR",
+          "OTHER"
+        ]
+      },
+      "StockAdjustmentValueSource": {
+        "type": "string",
+        "enum": [
+          "AVG",
+          "LAST_EK",
+          "MANUAL"
+        ]
+      },
       "InventoryTransactionItemDto": {
         "type": "object",
         "properties": {
@@ -20200,6 +20288,46 @@
             "nullable": true
           },
           "cost_basis": {
+            "type": "string",
+            "nullable": true
+          },
+          "extended_value": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StockAdjustmentReason"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "value_source": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StockAdjustmentValueSource"
+              }
+            ]
+          },
+          "override_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "reversal_of_transaction_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "reversed_by_transaction_id": {
             "type": "string",
             "nullable": true
           },
@@ -20284,9 +20412,65 @@
         "type": "object",
         "properties": {}
       },
+      "AdjustmentValuationResponseDto": {
+        "type": "object",
+        "properties": {
+          "unitCost": {
+            "type": "string",
+            "nullable": true
+          },
+          "valueSource": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StockAdjustmentValueSource"
+              }
+            ]
+          },
+          "canOverrideValue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "unitCost",
+          "valueSource",
+          "canOverrideValue"
+        ]
+      },
       "AdjustInventoryStockDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StockAdjustmentReason"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "unitCost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "overrideReason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "locationId",
+          "quantity",
+          "reason"
+        ]
       },
       "CatalogItemResponseDto": {
         "type": "object",

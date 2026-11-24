@@ -11,6 +11,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  purgeTestInventoryTransactions,
   resolveTestMainSiteId,
   runWithTenantContext,
   seedTestTenantMember,
@@ -103,7 +104,7 @@ describe('FinanceModule (e2e)', () => {
 
   afterAll(async () => {
     // Cleanup
-    await prisma.inventoryTransaction.deleteMany();
+    await purgeTestInventoryTransactions(prisma, tenantId);
     await prisma.inventoryValuation.deleteMany();
     await prisma.inventoryStock.deleteMany();
     await prisma.invoiceItem.deleteMany();

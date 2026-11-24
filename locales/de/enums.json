@@ -143,6 +143,19 @@
     "INITIAL_BALANCE": "Anfangsbestand",
     "WORKSHOP_CONSUMPTION": "Werkstattverbrauch"
   },
+  "stockAdjustmentReason": {
+    "INVENTORY_COUNT": "Inventurdifferenz",
+    "BREAKAGE": "Bruch/Beschädigung",
+    "SHRINKAGE": "Schwund/Diebstahl",
+    "FOUND": "Fund",
+    "BOOKING_ERROR": "Fehlbuchung",
+    "OTHER": "Sonstiges"
+  },
+  "stockAdjustmentValueSource": {
+    "AVG": "Gleitender Durchschnitt",
+    "LAST_EK": "Letzter Einkaufspreis",
+    "MANUAL": "Manueller Wert"
+  },
   "attendanceEventType": {
     "CLOCK_IN": "Kommen",
     "PAUSE": "Pause",

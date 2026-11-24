@@ -9,6 +9,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  purgeTestInventoryTransactions,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -29,7 +30,7 @@ describe('Location Hierarchy (e2e)', () => {
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     // Clean up
-    await prisma.inventoryTransaction.deleteMany();
+    await purgeTestInventoryTransactions(app.get(PrismaService), tenantId);
     await prisma.inventoryStock.deleteMany();
     await prisma.storageLocation.deleteMany();
   });

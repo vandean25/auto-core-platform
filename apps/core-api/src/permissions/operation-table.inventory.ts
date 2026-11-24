@@ -57,7 +57,18 @@ export const INVENTORY_OPERATIONS: OperationTable = {
   'InventoryController.receiveStock': op('stock.receive', ADMINS, 'site', [
     'fiscal_lock',
   ]),
-  'InventoryController.adjustStock': op('stock.adjust', ADMINS, 'site', [
+  'InventoryController.getAdjustmentValuation': op(
+    'stock.adjust',
+    ADMINS,
+    'site',
+  ),
+  'InventoryController.adjustStock': {
+    ...op(['stock.adjust', 'stock.adjust.override_value'], ADMINS, 'site', [
+      'fiscal_lock',
+    ]),
+    selectedByInput: true,
+  },
+  'InventoryController.reverseTransaction': op('stock.adjust', ADMINS, 'site', [
     'fiscal_lock',
   ]),
   'InventoryController.updateItem': op('stock.item.update', ADMINS, 'site'),

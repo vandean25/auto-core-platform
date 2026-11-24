@@ -483,6 +483,23 @@ export async function createTestTenant(
   };
 }
 
+export async function purgeTestInventoryTransactions(
+  prisma: PrismaService,
+  tenantId: string,
+): Promise<void> {
+  await runWithTenantContext(tenantId, async () => {
+    await prisma.$transaction(async (tx) => {
+      await enableLegacyMigrationPurgeFlag(tx);
+      await tx.inventoryTransaction.deleteMany({
+        where: { tenant_id: tenantId, reversal_of_transaction_id: { not: null } },
+      });
+      await tx.inventoryTransaction.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+    });
+  });
+}
+
 export async function cleanupTestTenantGraph(
   prisma: PrismaService,
   tenantId: string,
@@ -524,7 +541,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.vehiclePurchase.deleteMany({});
   await tenantPrisma.purchaseInvoiceLine.deleteMany({});
   await tenantPrisma.purchaseInvoice.deleteMany({});
-  await tenantPrisma.inventoryTransaction.deleteMany({});
+  await purgeTestInventoryTransactions(prisma, tenantId);
   await tenantPrisma.stockTransferCommand.deleteMany({});
   await tenantPrisma.stockTransferLine.deleteMany({});
   await tenantPrisma.stockTransfer.deleteMany({});
@@ -617,6 +634,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.catalogProviderSettings.deleteMany({});
   await tenantPrisma.customer.deleteMany({});
   await tenantPrisma.inventoryPriceOperation.deleteMany({});
+  await tenantPrisma.vendorArticle.deleteMany({});
   await tenantPrisma.catalogItem.deleteMany({});
   await tenantPrisma.revenueGroup.deleteMany({});
   await tenantPrisma.vendor.deleteMany({});

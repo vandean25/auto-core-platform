@@ -24,6 +24,8 @@
     "finance:accountingExportReadiness.blockers.",
     "finance:accountingExportReadiness.documentKind.",
     "enums:inventoryTransactionType.",
+    "enums:stockAdjustmentReason.",
+    "enums:stockAdjustmentValueSource.",
     "enums:attendanceEventType.",
     "enums:attendanceSource.",
     "hr:workSchedule.weekdays.",

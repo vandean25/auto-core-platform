@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TransactionType } from '@prisma/client';
+import {
+  StockAdjustmentReason,
+  StockAdjustmentValueSource,
+  TransactionType,
+} from '@prisma/client';
 
 export class AvailabilityCheckResultDto {
   @ApiProperty()
@@ -96,6 +100,40 @@ export class InventoryTransactionResponseDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   cost_basis?: string | null;
 
+  @ApiProperty({ type: String, required: false, nullable: true })
+  extended_value?: string | null;
+
+  @ApiProperty({
+    enum: StockAdjustmentReason,
+    enumName: 'StockAdjustmentReason',
+    required: false,
+    nullable: true,
+  })
+  reason?: StockAdjustmentReason | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  note?: string | null;
+
+  @ApiProperty({
+    enum: StockAdjustmentValueSource,
+    enumName: 'StockAdjustmentValueSource',
+    required: false,
+    nullable: true,
+  })
+  value_source?: StockAdjustmentValueSource | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  override_reason?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  created_by_user_id?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  reversal_of_transaction_id?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  reversed_by_transaction_id?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 
@@ -104,6 +142,20 @@ export class InventoryTransactionResponseDto {
 
   @ApiProperty({ type: InventoryTransactionLocationDto })
   location!: InventoryTransactionLocationDto;
+}
+
+export class AdjustmentValuationResponseDto {
+  @ApiProperty({ type: String, nullable: true })
+  unitCost!: string | null;
+
+  @ApiProperty({
+    enum: StockAdjustmentValueSource,
+    enumName: 'StockAdjustmentValueSource',
+  })
+  valueSource!: StockAdjustmentValueSource;
+
+  @ApiProperty()
+  canOverrideValue!: boolean;
 }
 
 export class CatalogItemResponseDto {

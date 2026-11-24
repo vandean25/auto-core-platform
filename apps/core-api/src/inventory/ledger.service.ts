@@ -1,9 +1,16 @@
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { TransactionType, LocationType, Prisma } from '@prisma/client';
+import {
+  TransactionType,
+  LocationType,
+  Prisma,
+  StockAdjustmentReason,
+  StockAdjustmentValueSource,
+} from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { InventoryValuationService } from './inventory-valuation.service.js';
+import { computeExtendedValue } from './inventory-valuation.math.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -19,6 +26,12 @@ export interface RecordTransactionParams {
   type: TransactionType;
   referenceId?: string;
   costBasis?: number | Decimal | null;
+  reason?: StockAdjustmentReason | null;
+  note?: string | null;
+  valueSource?: StockAdjustmentValueSource | null;
+  overrideReason?: string | null;
+  createdByUserId?: string | null;
+  reversalOfTransactionId?: string | null;
   partsReservationId?: string | null;
   movementGroupId?: string | null;
   stockTransferId?: string | null;
@@ -237,6 +250,24 @@ export class LedgerService {
         ...(params.stockTransferId !== undefined && {
           stock_transfer_id: params.stockTransferId,
         }),
+        ...(params.reason !== undefined && {
+          reason: params.reason,
+        }),
+        ...(params.note !== undefined && {
+          note: params.note,
+        }),
+        ...(params.valueSource !== undefined && {
+          value_source: params.valueSource,
+        }),
+        ...(params.overrideReason !== undefined && {
+          override_reason: params.overrideReason,
+        }),
+        ...(params.createdByUserId !== undefined && {
+          created_by_user_id: params.createdByUserId,
+        }),
+        ...(params.reversalOfTransactionId !== undefined && {
+          reversal_of_transaction_id: params.reversalOfTransactionId,
+        }),
         cost_basis: costBasis,
       };
     });
@@ -369,7 +400,7 @@ export class LedgerService {
       this.tenantContext.getTenantId(),
       this.siteContext.getSiteId(),
     ]);
-    return await this.prisma.inventoryTransaction.findMany({
+    const rows = await this.prisma.inventoryTransaction.findMany({
       where: {
         tenant_id: tenantId,
         site_id: siteId,
@@ -382,6 +413,15 @@ export class LedgerService {
         type: true,
         reference_id: true,
         cost_basis: true,
+        reason: true,
+        note: true,
+        value_source: true,
+        override_reason: true,
+        created_by_user_id: true,
+        reversal_of_transaction_id: true,
+        reversed_by: {
+          select: { id: true },
+        },
         createdAt: true,
         item: {
           select: {
@@ -395,10 +435,30 @@ export class LedgerService {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }],
     });
+
+    return rows.map((row) => ({
+      id: row.id,
+      quantity: row.quantity,
+      type: row.type,
+      reference_id: row.reference_id,
+      cost_basis: row.cost_basis,
+      extended_value:
+        row.cost_basis !== null && row.cost_basis !== undefined
+          ? computeExtendedValue(row.quantity, row.cost_basis).toString()
+          : null,
+      reason: row.reason ?? null,
+      note: row.note ?? null,
+      value_source: row.value_source ?? null,
+      override_reason: row.override_reason ?? null,
+      created_by_user_id: row.created_by_user_id ?? null,
+      reversal_of_transaction_id: row.reversal_of_transaction_id ?? null,
+      reversed_by_transaction_id: row.reversed_by?.[0]?.id ?? null,
+      createdAt: row.createdAt,
+      item: row.item,
+      location: row.location,
+    }));
   }
 
   /**

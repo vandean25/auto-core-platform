@@ -344,6 +344,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inventory/{id}/adjustment-valuation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InventoryController_getAdjustmentValuation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/transactions/{transactionId}/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InventoryController_reverseTransaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory/{id}/adjust": {
         parameters: {
             query?: never;
@@ -6235,6 +6267,10 @@ export interface components {
         };
         /** @enum {string} */
         TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE" | "WORKSHOP_CONSUMPTION";
+        /** @enum {string} */
+        StockAdjustmentReason: "INVENTORY_COUNT" | "BREAKAGE" | "SHRINKAGE" | "FOUND" | "BOOKING_ERROR" | "OTHER";
+        /** @enum {string} */
+        StockAdjustmentValueSource: "AVG" | "LAST_EK" | "MANUAL";
         InventoryTransactionItemDto: {
             sku: string;
             name: string;
@@ -6248,6 +6284,14 @@ export interface components {
             type: components["schemas"]["TransactionType"];
             reference_id?: string | null;
             cost_basis?: string | null;
+            extended_value?: string | null;
+            reason?: components["schemas"]["StockAdjustmentReason"] | null;
+            note?: string | null;
+            value_source?: components["schemas"]["StockAdjustmentValueSource"] | null;
+            override_reason?: string | null;
+            created_by_user_id?: string | null;
+            reversal_of_transaction_id?: string | null;
+            reversed_by_transaction_id?: string | null;
             /** Format: date-time */
             createdAt: string;
             item: components["schemas"]["InventoryTransactionItemDto"];
@@ -6269,7 +6313,20 @@ export interface components {
             cost_price: number;
         };
         ReceiveInventoryStockDto: Record<string, never>;
-        AdjustInventoryStockDto: Record<string, never>;
+        AdjustmentValuationResponseDto: {
+            unitCost: string | null;
+            valueSource: components["schemas"]["StockAdjustmentValueSource"];
+            canOverrideValue: boolean;
+        };
+        AdjustInventoryStockDto: {
+            /** Format: uuid */
+            locationId: string;
+            quantity: number;
+            reason: components["schemas"]["StockAdjustmentReason"];
+            note?: string;
+            unitCost?: number;
+            overrideReason?: string;
+        };
         CatalogItemResponseDto: {
             id: string;
             sku: string;
@@ -14060,6 +14117,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    InventoryController_getAdjustmentValuation: {
+        parameters: {
+            query: {
+                locationId: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdjustmentValuationResponseDto"];
+                };
+            };
+        };
+    };
+    InventoryController_reverseTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryTransactionResponseDto"];
+                };
             };
         };
     };

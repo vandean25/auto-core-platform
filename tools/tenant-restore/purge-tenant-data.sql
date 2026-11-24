@@ -387,10 +387,12 @@ VALUES
   ('inventory_stocks', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'catalog_items', 'item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_transactions', 'inventory_transactions', 'reversal_of_transaction_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'parts_reservations', 'parts_reservation_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'stock_transfers', 'tenant_id,stock_transfer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_transactions', 'users', 'created_by_user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'catalog_items', 'tenant_id,catalog_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -877,6 +879,9 @@ SET "superseded_by_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."storage_locations"
 SET "parent_id" = NULL
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+UPDATE public."inventory_transactions"
+SET "reversal_of_transaction_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."agent_action_logs"
 SET "reverted_by_log_id" = NULL
