@@ -70,6 +70,12 @@ export class CustomFieldsGdprService {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
 
+    const tenantSites = await this.prisma.site.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true },
+    });
+    const tenantSiteIds = tenantSites.map((s) => s.id);
+
     const [
       customer,
       vehicles,
@@ -124,7 +130,11 @@ export class CustomFieldsGdprService {
         orderBy: [{ occurred_at: 'asc' }, { sequence: 'asc' }],
       }),
       this.prisma.salesOrder.findMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
+        where: {
+          tenant_id: tenantId,
+          customer_id: customerId,
+          OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
+        },
         select: {
           id: true,
           order_number: true,
@@ -138,7 +148,11 @@ export class CustomFieldsGdprService {
         orderBy: { createdAt: 'asc' },
       }),
       this.prisma.workshopOrder.findMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
+        where: {
+          tenant_id: tenantId,
+          customer_id: customerId,
+          OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
+        },
         select: {
           id: true,
           order_number: true,

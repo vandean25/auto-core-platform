@@ -96,6 +96,9 @@ describe('CustomFieldsGdprService', () => {
           { id: 'inv-1', invoice_number: 'RE-2026-001', status: 'FINALIZED' },
         ]),
       },
+      site: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]),
+      },
     };
 
     const service = new CustomFieldsGdprService(
@@ -212,6 +215,7 @@ describe('CustomFieldsGdprService', () => {
       salesOrder: { findMany: jest.fn().mockResolvedValue([]) },
       workshopOrder: { findMany: jest.fn().mockResolvedValue([]) },
       invoice: { findMany: jest.fn().mockResolvedValue([]) },
+      site: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const service = new CustomFieldsGdprService(
       prisma as never,

@@ -79,12 +79,9 @@ function normalizeForArt9(value: string): string {
     .replace(/ö/g, 'oe')
     .replace(/ü/g, 'ue')
     .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join('_');
 }
 
 function findMatchedKeywords(
@@ -95,11 +92,12 @@ function findMatchedKeywords(
   const matched = new Set<string>();
   for (const candidate of candidates) {
     if (!candidate) continue;
+    const padded = `_${candidate}_`;
     for (const kw of keywords) {
-      const pattern = matchWholeToken
-        ? new RegExp(`(?:^|_)${escapeRegExp(kw)}(?:_|$)`)
-        : new RegExp(`(?:^|_)${escapeRegExp(kw)}`);
-      if (pattern.test(candidate)) {
+      const hit = matchWholeToken
+        ? padded.includes(`_${kw}_`)
+        : padded.includes(`_${kw}`);
+      if (hit) {
         matched.add(kw);
       }
     }
