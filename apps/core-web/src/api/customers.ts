@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
     Customer,
     NormalizedCustomer,
@@ -10,6 +10,7 @@ import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { isCustomerUpdateOptimisticEligible } from '@/features/interaction/customer-vehicle-update-eligibility'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
+import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
 import { optimisticMutationOptions } from '@/lib/optimistic-mutation'
 import { patchRecordInCache, restoreRecordFields } from '@/lib/optimistic-record-patch'
 
@@ -18,6 +19,8 @@ export const customerKeys = {
     lists: () => [...customerKeys.all, 'list'] as const,
     list: (queryParams?: DataTableQueryParams) => [...customerKeys.lists(), queryParams] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
+    activity: (id: string, types?: readonly string[]) =>
+        [...customerKeys.detail(id), 'activity', ...(types && types.length > 0 ? [types.join(',')] : [])] as const,
 }
 
 type CustomerListResponse = {
@@ -198,6 +201,62 @@ export function useDeleteCustomer() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: customerKeys.all })
+        },
+    })
+}
+
+export type CustomerActivityType =
+    | 'workshop_order'
+    | 'sales_order'
+    | 'invoice'
+    | 'credit_note'
+    | 'email'
+    | 'consent'
+    | 'vehicle_notice'
+    | 'loaner_booking'
+    | 'audit'
+
+export type CustomerActivityItem = {
+    id: string
+    type: CustomerActivityType
+    occurred_at: string
+    title: string
+    ref_id: string
+    ref_link: string | null
+    summary: Record<string, unknown>
+}
+
+export type CustomerActivityResponse = {
+    data: CustomerActivityItem[]
+    meta: {
+        nextCursor: string | null
+        hasNextPage: boolean
+        limit: number
+    }
+}
+
+export function useCustomerActivity(customerId: string, types: readonly CustomerActivityType[] = []) {
+    return useInfiniteQuery<CustomerActivityResponse>({
+        queryKey: customerKeys.activity(customerId, types),
+        initialPageParam: undefined as string | undefined,
+        enabled: !!customerId,
+        ...infiniteListQueryOptions(),
+        getNextPageParam: (lastPage) =>
+            lastPage.meta.hasNextPage ? (lastPage.meta.nextCursor ?? undefined) : undefined,
+        queryFn: async ({ pageParam }) => {
+            const params = new URLSearchParams()
+            params.set('limit', '25')
+            if (typeof pageParam === 'string' && pageParam.length > 0) {
+                params.set('cursor', pageParam)
+            }
+            if (types.length > 0) {
+                params.set('types', types.join(','))
+            }
+            const response = await fetchWithAuth(`/api/customers/${customerId}/activity?${params.toString()}`)
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to fetch customer activity')
+            }
+            return response.json()
         },
     })
 }

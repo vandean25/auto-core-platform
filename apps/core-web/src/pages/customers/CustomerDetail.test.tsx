@@ -27,6 +27,18 @@ vi.mock('@/api/customers', async (importOriginal) => {
     ...actual,
     useCustomer: vi.fn(),
     useUpdateCustomer: vi.fn(),
+    useCustomerActivity: vi.fn(() => ({
+      data: {
+        pages: [{ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }],
+        pageParams: [undefined],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    })),
   }
 })
 vi.mock('react-router-dom', async () => {
@@ -298,6 +310,7 @@ describe('CustomerDetail', () => {
     expect(screen.getByText('John Doe')).toBeInTheDocument()
     expect(screen.getByText('john.doe@example.com')).toBeInTheDocument()
     expect(screen.getByText('+43 123 456789')).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: deCustomers.detail.tabs.activeOrders }), { button: 0 })
     expect(screen.getByText(/SO-2026-0001/i)).toBeInTheDocument()
     expect(screen.getByText(/WO-2026-0001/i)).toBeInTheDocument()
   })
@@ -534,6 +547,7 @@ describe('CustomerDetail characterization', () => {
 
     it('lists non-invoiced sales and workshop orders newest first with numbers, labels, status and totals', () => {
       renderDetail(orderCustomer())
+      openTab(detail.tabs.activeOrders)
 
       const rows = within(screen.getByRole('tabpanel')).getAllByRole('button')
       expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
@@ -560,6 +574,7 @@ describe('CustomerDetail characterization', () => {
 
     it('shows the empty state when every order is invoiced or there are none', () => {
       renderDetail(baseCustomer({ sales_orders: [{ id: 'so-done', order_number: 'SO-DONE', status: 'INVOICED', total_amount: 1, createdAt: '2026-03-01T10:00:00.000Z' }] }))
+      openTab(detail.tabs.activeOrders)
 
       expect(screen.getByText(detail.tables.noActiveOrders)).toBeInTheDocument()
     })
@@ -569,12 +584,14 @@ describe('CustomerDetail characterization', () => {
       delete customer.sales_orders
       delete customer.workshop_orders
       renderDetail(customer as TestCustomer)
+      openTab(detail.tabs.activeOrders)
 
       expect(screen.getByText(detail.tables.noActiveOrders)).toBeInTheDocument()
     })
 
     it('opens the sales order or workshop order on click', () => {
       renderDetail(orderCustomer())
+      openTab(detail.tabs.activeOrders)
 
       fireEvent.click(screen.getByRole('button', { name: fill(detail.aria.openSalesOrder, { number: 'SO-1' }) }))
       expect(mockNavigate).toHaveBeenLastCalledWith('/sales-orders/so-old')
@@ -584,6 +601,7 @@ describe('CustomerDetail characterization', () => {
 
     it('opens an order with Enter and Space but ignores other keys', () => {
       renderDetail(orderCustomer())
+      openTab(detail.tabs.activeOrders)
       const salesRow = screen.getByRole('button', { name: fill(detail.aria.openSalesOrder, { number: 'SO-1' }) })
       const serviceRow = screen.getByRole('button', { name: fill(detail.aria.openServiceOrder, { number: 'WO-1' }) })
 
@@ -810,6 +828,75 @@ describe('CustomerDetail characterization', () => {
         vehicleId: 'veh-2',
         vehicleDescription: '2018 BMW 320d',
       })
+    })
+  })
+
+  describe('activity tab (default)', () => {
+    it('selects the Verlauf tab by default and renders timeline items with record links', () => {
+      asMock(customersApi.useCustomerActivity).mockReturnValue({
+        data: {
+          pages: [
+            {
+              data: [
+                {
+                  id: 'inv-1',
+                  type: 'invoice',
+                  occurred_at: '2026-11-05T10:00:00.000Z',
+                  title: 'RE-2026-0001',
+                  ref_id: 'inv-1',
+                  ref_link: '/sales/invoices/inv-1',
+                  summary: { status: 'FINALIZED', total_gross: 240 },
+                },
+              ],
+              meta: { nextCursor: null, hasNextPage: false, limit: 25 },
+            },
+          ],
+          pageParams: [undefined],
+        },
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: vi.fn(),
+      })
+
+      renderDetail(baseCustomer())
+
+      expect(screen.getByRole('tab', { name: deCustomers.detail.tabs.activity })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByText('RE-2026-0001')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: deCustomers.activity.openRecord })).toHaveAttribute('href', '/sales/invoices/inv-1')
+    })
+
+    it('toggles the Rechnungen filter chip and passes invoice,credit_note to useCustomerActivity', () => {
+      renderDetail(baseCustomer())
+
+      const invoicesChip = screen.getByRole('button', { name: deCustomers.activity.filters.invoices })
+      expect(invoicesChip).toHaveAttribute('aria-pressed', 'false')
+
+      fireEvent.click(invoicesChip)
+
+      expect(invoicesChip).toHaveAttribute('aria-pressed', 'true')
+      expect(customersApi.useCustomerActivity).toHaveBeenLastCalledWith('12345678-aaaa-bbbb', ['invoice', 'credit_note'])
+    })
+
+    it('renders error state with retry button when activity fetch fails', () => {
+      const refetch = vi.fn()
+      asMock(customersApi.useCustomerActivity).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch,
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        fetchNextPage: vi.fn(),
+      })
+
+      renderDetail(baseCustomer())
+
+      expect(screen.getByText(deCustomers.activity.loadFailed)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: deCustomers.activity.retry }))
+      expect(refetch).toHaveBeenCalledTimes(1)
     })
   })
 })

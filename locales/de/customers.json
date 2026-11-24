@@ -70,6 +70,7 @@
     "updateFailed": "Kunde konnte nicht aktualisiert werden",
     "noVehicleForService": "Kein Fahrzeug vorhanden. Legen Sie zuerst ein Fahrzeug an, um einen Werkstattauftrag zu erstellen.",
     "tabs": {
+      "activity": "Verlauf",
       "overview": "Übersicht",
       "orders": "Aufträge",
       "activeOrders": "Aktive Aufträge",
@@ -232,5 +233,37 @@
     "country": "Land",
     "cancel": "Abbrechen",
     "save": "Speichern"
+  },
+  "activity": {
+    "loading": "Verlauf wird geladen…",
+    "loadFailed": "Der Verlauf konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "retry": "Erneut versuchen",
+    "empty": "Noch keine Aktivitäten für diesen Kunden vorhanden.",
+    "emptyFiltered": "Keine Einträge für die ausgewählten Filter.",
+    "resetFilters": "Filter zurücksetzen",
+    "loadMore": "Mehr laden",
+    "loadingMore": "Weitere Einträge werden geladen…",
+    "openRecord": "Eintrag öffnen",
+    "filterLabel": "Nach Typ filtern",
+    "filters": {
+      "orders": "Aufträge",
+      "invoices": "Rechnungen",
+      "emails": "E-Mails",
+      "consents": "Einwilligungen",
+      "vehicleNotices": "Fahrzeughinweise",
+      "loanerBookings": "Leihwagen",
+      "audit": "Änderungsprotokoll"
+    },
+    "types": {
+      "workshop_order": "Werkstattauftrag",
+      "sales_order": "Kundenauftrag",
+      "invoice": "Rechnung",
+      "credit_note": "Gutschrift",
+      "email": "E-Mail",
+      "consent": "Einwilligung",
+      "vehicle_notice": "Fahrzeughinweis",
+      "loaner_booking": "Leihwagen",
+      "audit": "Änderungsprotokoll"
+    }
   }
 }
