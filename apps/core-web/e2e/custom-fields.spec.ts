@@ -259,42 +259,46 @@ test.describe("Custom fields (AUT-1043)", () => {
       window.localStorage.setItem("e2e-custom-fields-enabled", "true");
     });
 
+    const allDefs = [
+      {
+        id: "def-1",
+        entity: "CUSTOMER",
+        key: "flottennummer",
+        label: "Flottennummer",
+        type: "TEXT",
+        options: null,
+        purpose: "Flottenabrechnung",
+        personal_data: true,
+        retention_class: "PARENT_OBJECT",
+        archived: true,
+        sort_order: 0,
+        createdAt: "2026-11-24T00:00:00.000Z",
+        updatedAt: "2026-11-24T00:00:00.000Z",
+      },
+      {
+        id: "def-2",
+        entity: "CUSTOMER",
+        key: "ansprechpartner",
+        label: "Ansprechpartner",
+        type: "TEXT",
+        options: null,
+        purpose: "Kundenbetreuung",
+        personal_data: true,
+        retention_class: "PARENT_OBJECT",
+        archived: false,
+        sort_order: 1,
+        createdAt: "2026-11-24T00:00:00.000Z",
+        updatedAt: "2026-11-24T00:00:00.000Z",
+      },
+    ];
+
     await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions"), async (route) => {
+      const url = new URL(route.request().url());
+      const includeArchived = url.searchParams.get("includeArchived") === "true";
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: "def-1",
-            entity: "CUSTOMER",
-            key: "flottennummer",
-            label: "Flottennummer",
-            type: "TEXT",
-            options: null,
-            purpose: "Flottenabrechnung",
-            personal_data: true,
-            retention_class: "PARENT_OBJECT",
-            archived: true,
-            sort_order: 0,
-            createdAt: "2026-11-24T00:00:00.000Z",
-            updatedAt: "2026-11-24T00:00:00.000Z",
-          },
-          {
-            id: "def-2",
-            entity: "CUSTOMER",
-            key: "ansprechpartner",
-            label: "Ansprechpartner",
-            type: "TEXT",
-            options: null,
-            purpose: "Kundenbetreuung",
-            personal_data: true,
-            retention_class: "PARENT_OBJECT",
-            archived: false,
-            sort_order: 1,
-            createdAt: "2026-11-24T00:00:00.000Z",
-            updatedAt: "2026-11-24T00:00:00.000Z",
-          },
-        ]),
+        body: JSON.stringify(includeArchived ? allDefs : allDefs.filter((d) => !d.archived)),
       });
     });
 

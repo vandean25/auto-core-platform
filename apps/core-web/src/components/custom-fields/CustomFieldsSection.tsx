@@ -137,8 +137,9 @@ function CustomFieldsSectionContent({
   const { data: definitions = [] } = useCustomFieldDefinitions(entity, {
     enabled: true,
   })
+  const activeDefinitions = definitions.filter((def) => !def.archived)
 
-  if (definitions.length === 0) {
+  if (activeDefinitions.length === 0) {
     return null
   }
 
@@ -148,7 +149,7 @@ function CustomFieldsSectionContent({
         {t('customFields.sectionTitle')}
       </div>
       <div className="space-y-2">
-        {definitions.map((def) => (
+        {activeDefinitions.map((def) => (
           <CustomFieldRow
             key={def.id}
             def={def}
