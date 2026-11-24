@@ -40,6 +40,7 @@ const e2eAuthSession: AuthSession = {
   formatLocale: 'de-AT',
   effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
   bankReconciliationEnabled: false,
+  customFieldsEnabled: false,
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
@@ -60,11 +61,14 @@ function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
 
   const siteOverride = window.localStorage.getItem('e2e-active-site-id')?.trim()
   const activeSiteId = siteOverride ? siteOverride : e2eAuthSession.activeSiteId
+  const customFieldsEnabled =
+    window.localStorage.getItem('e2e-custom-fields-enabled') === 'true'
 
   return {
     ...e2eAuthSession,
     activeRole,
     activeSiteId,
+    customFieldsEnabled,
   }
 }
 

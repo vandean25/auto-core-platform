@@ -1,4 +1,5 @@
 import { stripVehicleIdentityResolutionState } from '../../vehicle/vehicle-identity.util.js';
+import { omitCustomFields } from '../../custom-fields/custom-fields.validation.js';
 import { VehicleInventoryRole } from '@prisma/client';
 
 type VehicleLike = Parameters<typeof stripVehicleIdentityResolutionState>[0];
@@ -58,7 +59,7 @@ export function stripWorkshopOrderVehicleIdentity<
     ...order,
     vehicle: order.vehicle
       ? projectVehicleOperationalFields(
-          stripVehicleIdentityResolutionState(order.vehicle),
+          omitCustomFields(stripVehicleIdentityResolutionState(order.vehicle)),
           authorizedSiteIds,
         )
       : order.vehicle,

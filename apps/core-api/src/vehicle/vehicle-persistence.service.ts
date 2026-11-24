@@ -79,6 +79,17 @@ export class VehiclePersistenceService {
     });
   }
 
+  async findVehicleCustomFields(
+    id: string,
+    tenantId: string,
+  ): Promise<unknown> {
+    const row = await this.prisma.vehicle.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { custom_fields: true },
+    });
+    return row?.custom_fields ?? {};
+  }
+
   async customerExists(customerId: string, tenantId: string): Promise<boolean> {
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, tenant_id: tenantId },

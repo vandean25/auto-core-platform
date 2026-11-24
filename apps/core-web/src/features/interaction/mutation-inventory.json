@@ -483,6 +483,27 @@
       "sourceFile": "api/saved-views.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "One-time import writes the server saved_view_imports marker, validates each view, enforces per-list limits, and returns imported/skipped counts."
+    },
+    {
+      "operationId": "custom-field.create",
+      "owningHook": "useCreateCustomFieldDefinition",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creating a custom field definition enforces OWNER/ADMIN role, Art. 9 keyword blocking/confirmation, per-entity field limits, key uniqueness, and audit logging on the server."
+    },
+    {
+      "operationId": "custom-field.update",
+      "owningHook": "useUpdateCustomFieldDefinition",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Updating or archiving a custom field definition enforces OWNER/ADMIN role, Art. 9 keyword checks, and writes an audit log entry on the server."
+    },
+    {
+      "operationId": "custom-field.reorder",
+      "owningHook": "useReorderCustomFieldDefinitions",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Reordering custom field definitions updates server sort_order atomically in a transaction and records an audit entry."
     }
   ]
 }

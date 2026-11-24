@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -96,4 +97,13 @@ export class CreateCustomerDto {
   @IsEnum(DisplayLanguage)
   @IsOptional()
   preferred_language?: DisplayLanguage | null;
+
+  @ApiPropertyOptional({
+    type: Object,
+    additionalProperties: true,
+    description: 'Tenant-defined custom field values keyed by definition key.',
+  })
+  @IsObject()
+  @IsOptional()
+  custom_fields?: Record<string, unknown>;
 }

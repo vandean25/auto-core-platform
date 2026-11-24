@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 6;
+export const PERMISSION_CATALOGUE_VERSION = 7;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -100,8 +100,28 @@ const DEFINITIONS = [
   ['customer.consent.record', 'Einwilligung erfassen', 'Record consent'],
   ['customer.create', 'Kunde anlegen', 'Create customer'],
   ['customer.delete', 'Kunde löschen', 'Delete customer'],
+  [
+    'customer.erase',
+    'Kundendaten löschen (DSGVO)',
+    'Erase customer data (GDPR)',
+  ],
+  [
+    'customer.gdpr_export',
+    'DSGVO-Auskunft exportieren',
+    'Export GDPR Art. 15 package',
+  ],
   ['customer.read', 'Kunden ansehen', 'View customers'],
   ['customer.update', 'Kunde ändern', 'Edit customer'],
+  [
+    'custom_field.definition.manage',
+    'Eigene Felder verwalten',
+    'Manage custom fields',
+  ],
+  [
+    'custom_field.definition.read',
+    'Eigene Felder ansehen',
+    'View custom fields',
+  ],
   [
     'decision_shadow_log.read',
     'Entscheidungsprotokoll ansehen',
