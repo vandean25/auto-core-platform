@@ -218,6 +218,11 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'CustomerController.findAll': op('customer.read', BACK_OFFICE_DEMO, 'tenant'),
   'CustomerController.findOne': op('customer.read', BACK_OFFICE_DEMO, 'tenant'),
+  'CustomerController.getActivity': op(
+    'customer.read',
+    BACK_OFFICE_DEMO,
+    'tenant',
+  ),
   'CustomerController.update': op(
     'customer.update',
     BACK_OFFICE_DEMO,
