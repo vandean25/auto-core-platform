@@ -1,4 +1,12 @@
-import { IsInt, IsObject, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VehicleRegulatoryFieldsDto } from './vehicle-regulatory-fields.dto.js';
 

@@ -155,7 +155,7 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       true,
     );
 
-    const audit = await basePrisma.auditLog.findFirst({
+    const audit = await prismaA.auditLog.findFirst({
       where: {
         tenant_id: tenantAId,
         entity_type: 'CustomFieldDefinition',
@@ -273,12 +273,12 @@ describe('Custom fields (AUT-1043 e2e)', () => {
   });
 
   it('Scenario 7: WHEN tenant has max number of fields THEN creating another returns 422', async () => {
-    const existingCount = await basePrisma.customFieldDefinition.count({
+    const existingCount = await prismaA.customFieldDefinition.count({
       where: { tenant_id: tenantAId, entity: 'VEHICLE', archived: false },
     });
     const toCreate = MAX_CUSTOM_FIELDS_PER_ENTITY - existingCount;
     for (let i = 0; i < toCreate; i++) {
-      await basePrisma.customFieldDefinition.create({
+      await prismaA.customFieldDefinition.create({
         data: {
           tenant_id: tenantAId,
           entity: 'VEHICLE',
@@ -396,11 +396,11 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       .expect(201);
 
     const [dbCustomer, dbVehicle] = await Promise.all([
-      basePrisma.customer.findUnique({
+      prismaA.customer.findUnique({
         where: { id: customerId },
         select: { custom_fields: true, first_name: true },
       }),
-      basePrisma.vehicle.findUnique({
+      prismaA.vehicle.findUnique({
         where: { id: vehicleId },
         select: { custom_fields: true },
       }),

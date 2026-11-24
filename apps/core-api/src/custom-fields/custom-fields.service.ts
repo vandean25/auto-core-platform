@@ -81,7 +81,8 @@ export class CustomFieldsService {
   async createDefinition(dto: CreateCustomFieldDefinitionDto) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const actorUserId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+    const actorUserId =
+      this.tenantContext.getAuthenticatedUser()?.userId ?? null;
 
     const key = normalizeCustomFieldKey(dto.key ?? dto.label);
     assertArt9FieldSafety(dto.label, key, dto.confirmNoArt9);
@@ -119,7 +120,8 @@ export class CustomFieldsService {
             purpose: dto.purpose.trim(),
             personal_data: dto.personal_data ?? true,
             retention_class:
-              dto.retention_class?.trim() || DEFAULT_CUSTOM_FIELD_RETENTION_CLASS,
+              dto.retention_class?.trim() ||
+              DEFAULT_CUSTOM_FIELD_RETENTION_CLASS,
             archived: false,
             sort_order: (maxSort._max.sort_order ?? -1) + 1,
           },
@@ -155,7 +157,8 @@ export class CustomFieldsService {
   async updateDefinition(id: string, dto: UpdateCustomFieldDefinitionDto) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const actorUserId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+    const actorUserId =
+      this.tenantContext.getAuthenticatedUser()?.userId ?? null;
 
     const existing = await this.prisma.customFieldDefinition.findFirst({
       where: { id, tenant_id: tenantId },
@@ -245,7 +248,8 @@ export class CustomFieldsService {
   async reorderDefinitions(dto: ReorderCustomFieldDefinitionsDto) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const actorUserId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+    const actorUserId =
+      this.tenantContext.getAuthenticatedUser()?.userId ?? null;
 
     await this.prisma.$transaction(async (tx) => {
       await Promise.all(

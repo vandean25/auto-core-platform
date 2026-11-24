@@ -235,3 +235,11 @@ export function filterVisibleCustomFieldValues(
   }
   return visible;
 }
+
+export function omitCustomFields<T extends { custom_fields?: unknown }>(
+  obj: T,
+): Omit<T, 'custom_fields'> {
+  const copy = { ...obj };
+  delete copy.custom_fields;
+  return copy;
+}

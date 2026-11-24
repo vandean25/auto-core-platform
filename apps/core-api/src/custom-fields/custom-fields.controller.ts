@@ -10,7 +10,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { CustomFieldsEnabledGuard } from './custom-fields-enabled.guard.js';
 import { CustomFieldsService } from './custom-fields.service.js';
 import {

@@ -62,7 +62,7 @@ test.describe("Custom fields (AUT-1043)", () => {
     });
 
     await page.goto("/customers/cust-1");
-    await expect(page.getByText("Erika Musterfrau")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Erika Musterfrau" })).toBeVisible();
     await expect(page.getByTestId("custom-fields-section-customer")).toHaveCount(0);
   });
 
@@ -90,7 +90,7 @@ test.describe("Custom fields (AUT-1043)", () => {
       },
     ];
 
-    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions*"), async (route) => {
+    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions"), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -127,7 +127,7 @@ test.describe("Custom fields (AUT-1043)", () => {
 
     let currentCustomFields: Record<string, unknown> = { flottennummer: "FL-10" };
 
-    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions*"), async (route) => {
+    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions"), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -197,7 +197,7 @@ test.describe("Custom fields (AUT-1043)", () => {
       window.localStorage.setItem("e2e-custom-fields-enabled", "true");
     });
 
-    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions*"), async (route) => {
+    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions"), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

@@ -187,7 +187,7 @@ export function CustomFieldDefinitionDialog({
               <Label htmlFor="cf-options">{t('settings:customFields.dialog.options')}</Label>
               <textarea
                 id="cf-options"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={optionsText}
                 onChange={(e) => setOptionsText(e.target.value)}
                 rows={4}
@@ -201,7 +201,7 @@ export function CustomFieldDefinitionDialog({
             <Label htmlFor="cf-purpose">{t('settings:customFields.dialog.purpose')}</Label>
             <textarea
               id="cf-purpose"
-              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
               maxLength={500}

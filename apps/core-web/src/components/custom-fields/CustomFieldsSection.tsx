@@ -128,20 +128,17 @@ function CustomFieldRow({
   )
 }
 
-export function CustomFieldsSection({
+function CustomFieldsSectionContent({
   entity,
   values,
   onSaveField,
 }: CustomFieldsSectionProps) {
   const { t } = useTranslation('common')
-  const { data: session } = useAuthSession()
-  const enabled = Boolean(session?.customFieldsEnabled)
-
   const { data: definitions = [] } = useCustomFieldDefinitions(entity, {
-    enabled,
+    enabled: true,
   })
 
-  if (!enabled || definitions.length === 0) {
+  if (definitions.length === 0) {
     return null
   }
 
@@ -161,5 +158,24 @@ export function CustomFieldsSection({
         ))}
       </div>
     </div>
+  )
+}
+
+export function CustomFieldsSection({
+  entity,
+  values,
+  onSaveField,
+}: CustomFieldsSectionProps) {
+  const { data: session } = useAuthSession()
+  if (!session?.customFieldsEnabled) {
+    return null
+  }
+
+  return (
+    <CustomFieldsSectionContent
+      entity={entity}
+      values={values}
+      onSaveField={onSaveField}
+    />
   )
 }

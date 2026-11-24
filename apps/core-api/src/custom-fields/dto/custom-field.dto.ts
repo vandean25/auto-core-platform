@@ -26,7 +26,10 @@ function trimString(value: unknown): unknown {
 }
 
 export class ListCustomFieldDefinitionsQueryDto {
-  @ApiPropertyOptional({ enum: CustomFieldEntity, enumName: 'CustomFieldEntity' })
+  @ApiPropertyOptional({
+    enum: CustomFieldEntity,
+    enumName: 'CustomFieldEntity',
+  })
   @IsOptional()
   @IsEnum(CustomFieldEntity)
   entity?: CustomFieldEntity;

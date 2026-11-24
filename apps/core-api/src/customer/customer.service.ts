@@ -8,6 +8,7 @@ import {
 import { CustomFieldEntity, ImportEntityType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import {
   attachLegacyIds,
   findExternalEntityIds,
@@ -153,16 +154,18 @@ export class CustomerService {
     customer: T,
   ): Promise<T> {
     if (!this.customFields) {
-      const { custom_fields: _omitted, ...rest } = customer;
-      return rest as T;
+      const rest = { ...customer };
+      delete rest.custom_fields;
+      return rest;
     }
     const visible = await this.customFields.projectVisibleCustomFields(
       CustomFieldEntity.CUSTOMER,
       customer.custom_fields,
     );
     if (visible === undefined) {
-      const { custom_fields: _omitted, ...rest } = customer;
-      return rest as T;
+      const rest = { ...customer };
+      delete rest.custom_fields;
+      return rest;
     }
     return { ...customer, custom_fields: visible };
   }
@@ -183,8 +186,7 @@ export class CustomerService {
           )
         : undefined;
 
-    const { custom_fields: _rawCustomFields, ...restCreateDto } =
-      createCustomerDto;
+    const restCreateDto = omitCustomFields(createCustomerDto);
     const created = await this.prisma.customer.create({
       data: withPhoneDigits({
         ...restCreateDto,
@@ -192,7 +194,7 @@ export class CustomerService {
           ? { vat_id: normalizedVatId }
           : {}),
         ...(validatedCustomFields !== undefined
-          ? { custom_fields: validatedCustomFields as Prisma.InputJsonValue }
+          ? { custom_fields: validatedCustomFields }
           : {}),
         tenant_id: tenantId,
       }),
@@ -313,12 +315,11 @@ export class CustomerService {
           )
         : undefined;
 
-    const { custom_fields: _rawCustomFields, ...restUpdateDto } =
-      updateCustomerDto;
+    const restUpdateDto = omitCustomFields(updateCustomerDto);
     const data: Prisma.CustomerUpdateInput = {
       ...restUpdateDto,
       ...(validatedCustomFields !== undefined
-        ? { custom_fields: validatedCustomFields as Prisma.InputJsonValue }
+        ? { custom_fields: validatedCustomFields }
         : {}),
     };
     if (updateCustomerDto.vat_id !== undefined) {

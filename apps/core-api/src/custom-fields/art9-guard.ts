@@ -102,7 +102,10 @@ export function checkArt9FieldSafety(
   label: string,
   key?: string,
 ): Art9CheckResult {
-  const candidates = [normalizeForArt9(label), key ? normalizeForArt9(key) : ''];
+  const candidates = [
+    normalizeForArt9(label),
+    key ? normalizeForArt9(key) : '',
+  ];
 
   const blocked = findMatchedKeywords(candidates, ART9_BLOCKED_KEYWORDS);
   if (blocked.length > 0) {

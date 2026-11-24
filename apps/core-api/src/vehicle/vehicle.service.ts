@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { CustomFieldEntity } from '@prisma/client';
 import type { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto.js';
@@ -47,16 +52,18 @@ export class VehicleService {
     vehicle: T,
   ): Promise<T> {
     if (!this.customFields) {
-      const { custom_fields: _omitted, ...rest } = vehicle;
-      return rest as T;
+      const rest = { ...vehicle };
+      delete rest.custom_fields;
+      return rest;
     }
     const visible = await this.customFields.projectVisibleCustomFields(
       CustomFieldEntity.VEHICLE,
       vehicle.custom_fields,
     );
     if (visible === undefined) {
-      const { custom_fields: _omitted, ...rest } = vehicle;
-      return rest as T;
+      const rest = { ...vehicle };
+      delete rest.custom_fields;
+      return rest;
     }
     return { ...vehicle, custom_fields: visible };
   }
@@ -191,12 +198,7 @@ export class VehicleService {
 
     const barriers = await this.pickerlBarriers.loadBarrierFlags(tenantId, id);
     return this.maskVehicleCustomFields(
-      toVehicleDetailResponse(
-        vehicle,
-        authorizedSiteIds,
-        new Date(),
-        barriers,
-      ),
+      toVehicleDetailResponse(vehicle, authorizedSiteIds, new Date(), barriers),
     );
   }
 

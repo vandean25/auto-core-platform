@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { assertTenantAdmin } from '../site/site.authorization.js';
+import { withPhoneDigits } from '../customer/customer-phone.util.js';
 import { asPlainRecord } from './custom-fields.validation.js';
 
 export interface Art15CustomFieldEntry {
@@ -78,7 +79,11 @@ export class CustomFieldsGdprService {
           tenant_id: tenantId,
           OR: [
             { customer_id: customerId },
-            { parties: { some: { customer_id: customerId, tenant_id: tenantId } } },
+            {
+              parties: {
+                some: { customer_id: customerId, tenant_id: tenantId },
+              },
+            },
           ],
         },
       }),
@@ -143,7 +148,8 @@ export class CustomFieldsGdprService {
   async eraseCustomerPersonalData(customerId: string) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const actorUserId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+    const actorUserId =
+      this.tenantContext.getAuthenticatedUser()?.userId ?? null;
 
     const existing = await this.prisma.customer.findFirst({
       where: { id: customerId, tenant_id: tenantId },
@@ -156,13 +162,12 @@ export class CustomFieldsGdprService {
     await this.prisma.$transaction(async (tx) => {
       await tx.customer.updateMany({
         where: { id: customerId, tenant_id: tenantId },
-        data: {
+        data: withPhoneDigits({
           company_name: null,
           first_name: 'Anonymisiert',
           last_name: 'Kunde',
           email: null,
           phone: null,
-          phone_digits: null,
           vat_id: null,
           address_street: null,
           address_zip: null,
@@ -172,7 +177,7 @@ export class CustomFieldsGdprService {
           letter_salutation: null,
           contact_email_ok: false,
           custom_fields: {},
-        },
+        }),
       });
 
       await tx.vehicle.updateMany({

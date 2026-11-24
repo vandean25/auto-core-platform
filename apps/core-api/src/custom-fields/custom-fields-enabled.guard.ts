@@ -1,8 +1,4 @@
-import {
-  CanActivate,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ForbiddenException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CUSTOM_FIELDS_DISABLED_CODE } from './custom-fields.constants.js';

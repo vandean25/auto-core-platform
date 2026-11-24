@@ -254,10 +254,10 @@ export class AuthSessionService {
         where: { tenant_id: tenantId },
         select: { bank_reconciliation_enabled: true },
       }),
-      this.systemPrisma.tenant.findFirst({
+      this.systemPrisma.tenant?.findFirst?.({
         where: { id: tenantId },
         select: { custom_fields_enabled: true },
-      }),
+      }) ?? Promise.resolve(null),
     ]);
     return {
       ...session,

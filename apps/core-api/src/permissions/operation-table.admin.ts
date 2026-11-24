@@ -45,6 +45,31 @@ export const ADMIN_OPERATIONS: OperationTable = {
     'Copy a permitted saved view into own personal views.',
     BACK_OFFICE_TECH,
   ),
+  'CustomFieldsController.listDefinitions': op(
+    'custom_field.definition.read',
+    BACK_OFFICE_DEMO,
+    'tenant',
+  ),
+  'CustomFieldsController.exportCatalogue': op(
+    'custom_field.definition.manage',
+    ADMINS,
+    'tenant',
+  ),
+  'CustomFieldsController.createDefinition': op(
+    'custom_field.definition.manage',
+    ADMINS,
+    'tenant',
+  ),
+  'CustomFieldsController.updateDefinition': op(
+    'custom_field.definition.manage',
+    ADMINS,
+    'tenant',
+  ),
+  'CustomFieldsController.reorderDefinitions': op(
+    'custom_field.definition.manage',
+    ADMINS,
+    'tenant',
+  ),
   'SiteController.listSites': op('site.read', BACK_OFFICE_DEMO, 'tenant'),
   'SiteController.getSite': op('site.read', BACK_OFFICE_DEMO, 'tenant', [
     'site_membership',
