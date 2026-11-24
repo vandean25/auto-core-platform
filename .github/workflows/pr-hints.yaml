@@ -1,4 +1,4 @@
-# Non-blocking PR hints. A docs-check job is added in this workflow later.
+# Non-blocking PR hints.
 name: PR hints
 
 on:
@@ -9,27 +9,72 @@ on:
       - opened
       - synchronize
       - reopened
-    paths:
-      - 'apps/core-api/prisma/migrations/**'
+      - edited
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: pr-hints-${{ github.event.pull_request.number || github.ref }}
+  group: pr-hints-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' }}
   cancel-in-progress: true
 
+# The pull_request merge commit's first parent is the base branch tip.
 jobs:
   migration-overlap:
     name: Migration overlap hint
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Detect changed migrations
+        id: migrations
+        run: |
+          changed=$(git diff --name-only --no-renames HEAD^1 HEAD -- apps/core-api/prisma/migrations/)
+          if [ -n "$changed" ]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch migration history
+        if: steps.migrations.outputs.changed == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        if: steps.migrations.outputs.changed == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test migration overlap check
+        if: steps.migrations.outputs.changed == 'true'
+        run: node --test .github/scripts/migration-overlap-check.test.mjs
+
+      - name: Warn on overlapping Prisma migrations
+        if: steps.migrations.outputs.changed == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/migration-overlap-check.mjs
+
+  docs-check:
+    name: Docs check hint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
           persist-credentials: false
 
       - name: Setup Node
@@ -37,11 +82,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Test migration overlap check
-        run: node --test .github/scripts/migration-overlap-check.test.mjs
+      - name: Test docs check
+        run: node --test .github/scripts/docs-check.test.mjs
 
-      - name: Warn on overlapping Prisma migrations
+      - name: Warn on undocumented user-facing changes
+        shell: bash
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node .github/scripts/migration-overlap-check.mjs
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: git diff --name-only --no-renames -z HEAD^1 HEAD | node .github/scripts/docs-check.mjs
