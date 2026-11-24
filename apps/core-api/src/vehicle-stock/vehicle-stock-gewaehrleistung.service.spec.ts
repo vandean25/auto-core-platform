@@ -1,3 +1,4 @@
+import type { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -7,7 +8,9 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
   const prisma = {
     vehicleSale: { findMany: jest.fn() },
   };
-  const tenantContext = { getTenantId: jest.fn().mockResolvedValue('tenant-a') };
+  const tenantContext = {
+    getTenantId: jest.fn().mockResolvedValue('tenant-a'),
+  };
   const siteContext = { getSiteId: jest.fn().mockResolvedValue('site-a') };
   let service: VehicleStockQueryService;
 
@@ -20,6 +23,7 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
+      {} as ScopeContextSnapshotService,
     );
   });
 

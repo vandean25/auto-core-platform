@@ -1,5 +1,4 @@
 import type { Prisma } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service.js';
 import {
   LIST_COUNT_CAP,
   LIST_COUNT_PROBE_TAKE,
@@ -21,10 +20,12 @@ function cappedCountFromRows(
 
 /** Bounded match count for catalog items (ADR-0035 §5). */
 export async function cappedCatalogItemListCount(
-  prisma: PrismaService,
+  db: {
+    catalogItem: Pick<Prisma.TransactionClient['catalogItem'], 'findMany'>;
+  },
   where: Prisma.CatalogItemWhereInput,
 ): Promise<CappedListCountResult> {
-  const rows = await prisma.catalogItem.findMany({
+  const rows = await db.catalogItem.findMany({
     where,
     select: { id: true },
     take: LIST_COUNT_PROBE_TAKE,
@@ -34,10 +35,10 @@ export async function cappedCatalogItemListCount(
 
 /** Bounded match count for dealer stock vehicles (ADR-0035 §5). */
 export async function cappedVehicleListCount(
-  prisma: PrismaService,
+  db: { vehicle: Pick<Prisma.TransactionClient['vehicle'], 'findMany'> },
   where: Prisma.VehicleWhereInput,
 ): Promise<CappedListCountResult> {
-  const rows = await prisma.vehicle.findMany({
+  const rows = await db.vehicle.findMany({
     where,
     select: { id: true },
     take: LIST_COUNT_PROBE_TAKE,
@@ -47,10 +48,10 @@ export async function cappedVehicleListCount(
 
 /** Bounded match count for the invoice list (ADR-0035 §5). */
 export async function cappedInvoiceListCount(
-  prisma: PrismaService,
+  db: { invoice: Pick<Prisma.TransactionClient['invoice'], 'findMany'> },
   where: Prisma.InvoiceWhereInput,
 ): Promise<CappedListCountResult> {
-  const rows = await prisma.invoice.findMany({
+  const rows = await db.invoice.findMany({
     where,
     select: { id: true },
     take: LIST_COUNT_PROBE_TAKE,
@@ -63,7 +64,9 @@ export async function cappedInvoiceListCount(
  * count runs inside the scope-context snapshot (ADR-0038 §4).
  */
 export async function cappedWorkshopOrderListCount(
-  db: Pick<Prisma.TransactionClient, 'workshopOrder'>,
+  db: {
+    workshopOrder: Pick<Prisma.TransactionClient['workshopOrder'], 'findMany'>;
+  },
   scope: { tenantId: string; siteId: string },
   where: Prisma.WorkshopOrderWhereInput,
 ): Promise<CappedListCountResult> {

@@ -632,6 +632,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -993,6 +1001,15 @@
                 "name",
                 "price"
               ]
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -3022,6 +3039,15 @@
                 "date"
               ]
             }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3158,6 +3184,14 @@
             "name": "search",
             "required": false,
             "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -9200,6 +9234,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9314,6 +9356,15 @@
                 "IN_PREP",
                 "SOLD"
               ]
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
+            "schema": {
+              "type": "string"
             }
           }
         ],

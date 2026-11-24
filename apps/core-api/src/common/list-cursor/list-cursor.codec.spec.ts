@@ -22,6 +22,7 @@ function samplePayload(overrides: Partial<ListCursorPayload> = {}): ListCursorPa
     fh: 'filter-hash',
     tid: tenantId,
     sid: siteId,
+    scopeContextDigest: 'scope-digest',
     sv: 'Audi',
     id: rowId,
     ...overrides,
@@ -82,12 +83,45 @@ describe('list-cursor.codec', () => {
         filterHash: 'filter-hash',
         sortField: 'make',
         sortDirection: 'asc',
+        scopeContextDigest: 'scope-digest',
       }),
     ).toThrow(
       expect.objectContaining({
         response: expect.objectContaining({ code: 'LIST_CURSOR_INVALID' }),
       }),
     );
+  });
+
+  it('accepts only v2 cursors bound to the verified scope on enforced lists', () => {
+    const payload = { ...samplePayload(), scopeContextDigest: 'scope-digest' };
+    const context = {
+      endpoint: payload.ep,
+      tenantId,
+      siteId,
+      filterHash: payload.fh,
+      sortField: payload.sort,
+      sortDirection: payload.dir,
+      scopeContextDigest: payload.scopeContextDigest,
+    };
+    const bound = encodeListCursor(payload);
+    expect(parseListCursorParam(bound, context)).toMatchObject({
+      v: 2,
+      scopeContextDigest: context.scopeContextDigest,
+    });
+    const legacy = Buffer.from(
+      JSON.stringify({ ...samplePayload(), v: 1, scopeContextDigest: undefined }),
+    ).toString('base64url');
+    for (const [cursor, digest] of [
+      [bound, 'different-scope'],
+      [legacy, context.scopeContextDigest],
+    ]) {
+      const request = { ...context, scopeContextDigest: digest };
+      expect(() => parseListCursorParam(cursor, request)).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({ code: 'LIST_CURSOR_INVALID' }),
+        }),
+      );
+    }
   });
 
   // Regression: a tampered date sort value reached Prisma as an Invalid Date and failed with a 500.

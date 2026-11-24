@@ -6,17 +6,19 @@ import {
   LIST_CURSOR_SORT_UNSUPPORTED_CODE,
   LIST_CURSOR_STOCK_FILTER_REQUIRED_CODE,
   LIST_CURSOR_VERSION,
+  UNSCOPED_LIST_CURSOR_VERSION,
   type ListCursorEndpointId,
 } from './list-cursor.constants.js';
 
 export type ListCursorPayload = {
-  v: typeof LIST_CURSOR_VERSION;
+  v: typeof LIST_CURSOR_VERSION | typeof UNSCOPED_LIST_CURSOR_VERSION;
   ep: ListCursorEndpointId;
   sort: string;
   dir: 'asc' | 'desc';
   fh: string;
   tid: string;
   sid: string;
+  scopeContextDigest?: string;
   sv: string | number | boolean | null;
   sv2?: string | number | boolean | null;
   id: string;
@@ -48,7 +50,11 @@ function hasUuidFields(
 }
 
 const listCursorFieldChecks: ((parsed: ListCursorPayload) => boolean)[] = [
-  (parsed) => parsed.v === LIST_CURSOR_VERSION,
+  (parsed) =>
+    parsed.v === LIST_CURSOR_VERSION
+      ? isNonEmptyString(parsed.scopeContextDigest)
+      : parsed.v === UNSCOPED_LIST_CURSOR_VERSION &&
+        parsed.scopeContextDigest === undefined,
   (parsed) => typeof parsed.ep === 'string',
   (parsed) => isNonEmptyString(parsed.sort),
   (parsed) => parsed.dir === 'asc' || parsed.dir === 'desc',
@@ -92,6 +98,7 @@ export type ListCursorBindingContext = {
   filterHash: string;
   sortField: string;
   sortDirection: 'asc' | 'desc';
+  scopeContextDigest?: string;
 };
 
 function cursorBindingsMatch(
@@ -104,7 +111,8 @@ function cursorBindingsMatch(
     decoded.sid === context.siteId &&
     decoded.fh === context.filterHash &&
     decoded.sort === context.sortField &&
-    decoded.dir === context.sortDirection
+    decoded.dir === context.sortDirection &&
+    decoded.scopeContextDigest === context.scopeContextDigest
   );
 }
 

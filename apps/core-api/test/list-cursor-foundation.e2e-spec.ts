@@ -1,8 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { SCOPE_CONTEXT_HEADER } from '../src/auth/scope-context/scope-context.constants.js';
+import { mintListScopeContext } from './helpers/list-scope-context.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { encodeListCursor } from '../src/common/list-cursor/index.js';
-import { LIST_CURSOR_ENDPOINT } from '../src/common/list-cursor/list-cursor.constants.js';
+import { LIST_CURSOR_ENDPOINT, LIST_CURSOR_VERSION } from '../src/common/list-cursor/list-cursor.constants.js';
 import { hashListFilterContext } from '../src/common/list-cursor/list-cursor.filter-hash.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { InvoiceStatus, VehicleStockStatus } from '@prisma/client';
@@ -89,6 +91,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let tenantId: string;
     let otherTenantId: string;
     let authToken: string;
+    let listContext: Awaited<ReturnType<typeof mintListScopeContext>>;
+    let otherListContext: Awaited<ReturnType<typeof mintListScopeContext>>;
     let otherAuthToken: string;
     let createAndReceive: Awaited<
       ReturnType<typeof createVehicleStockSuite>
@@ -111,6 +115,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       } = await createVehicleStockSuite({
         configureModule: (builder) => builder,
       }));
+      listContext = await mintListScopeContext(app, authToken);
+      otherListContext = await mintListScopeContext(app, otherAuthToken);
     });
 
     afterAll(async () => {
@@ -127,7 +133,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/vehicle-stock')
         .query({ pagination: 'cursor', stock_status: VehicleStockStatus.IN_STOCK, ...query })
-        .set('Authorization', `Bearer ${authToken}`);
+        .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext);
     }
 
     it('WHEN cursor pages use ASC sort with tied values THEN rows neither repeat nor skip', async () => {
@@ -225,7 +232,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         async () => ({
           token: otherAuthToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: otherListContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.vehicleStock,
             sort: 'updatedAt',
             dir: 'desc',
@@ -250,7 +258,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.vehicleStock,
               sort: 'updatedAt',
               dir: 'desc',
@@ -276,7 +285,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.inventory,
               sort: 'updatedAt',
               dir: 'desc',
@@ -302,7 +312,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.vehicleStock,
               sort: 'make',
               dir: 'asc',
@@ -328,7 +339,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.vehicleStock,
               sort: 'updatedAt',
               dir: 'asc',
@@ -367,7 +379,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.vehicleStock,
               sort: 'updatedAt',
               dir: 'desc',
@@ -397,6 +410,10 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
             ...query,
           })
           .set('Authorization', `Bearer ${token}`)
+        .set(
+          SCOPE_CONTEXT_HEADER,
+          token === otherAuthToken ? otherListContext.scopeContext : listContext.scopeContext,
+        )
           .expect(400);
 
         expect(res.body.code).toBe('LIST_CURSOR_INVALID');
@@ -426,6 +443,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/vehicle-stock')
         .query({ pagination: 'cursor', limit: '10' })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(400);
 
       expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
@@ -435,6 +453,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/vehicle-stock/capped-count')
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(400);
 
       expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
@@ -705,8 +724,13 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/vehicle-stock/capped-count')
         .query({ search: tag, stock_status: VehicleStockStatus.IN_STOCK })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
-      expect(count.body).toEqual({ count: 1, isCapped: false });
+      expect(count.body).toEqual({
+        count: 1,
+        isCapped: false,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     it('WHEN stock sits at an unauthorized site THEN cursor list and capped-count omit it', async () => {
@@ -745,8 +769,13 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/vehicle-stock/capped-count')
         .query({ search: tag, stock_status: VehicleStockStatus.IN_STOCK })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
-      expect(count.body).toEqual({ count: 1, isCapped: false });
+      expect(count.body).toEqual({
+        count: 1,
+        isCapped: false,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     it('WHEN a scoped search matches one row THEN hasNextPage is false', async () => {
@@ -798,9 +827,14 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/vehicle-stock/capped-count')
         .query({ search: tag, stock_status: VehicleStockStatus.IN_STOCK })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
 
-      expect(res.body).toEqual({ count: 1000, isCapped: true });
+      expect(res.body).toEqual({
+        count: 1000,
+        isCapped: true,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
   });
 
@@ -810,6 +844,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let tenantId: string;
     let otherTenantId: string;
     let authToken: string;
+    let listContext: Awaited<ReturnType<typeof mintListScopeContext>>;
+    let otherListContext: Awaited<ReturnType<typeof mintListScopeContext>>;
     let otherAuthToken: string;
     let siteId: string;
 
@@ -817,6 +853,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       ({ app, prisma, tenantId, authToken, otherTenantId, otherAuthToken } =
         await startTenantPair('list-cursor-inv'));
       siteId = await resolveTestMainSiteId(app.get(PrismaService), tenantId);
+      listContext = await mintListScopeContext(app, authToken);
+      otherListContext = await mintListScopeContext(app, otherAuthToken);
     });
 
     afterEach(async () => {
@@ -827,7 +865,11 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/inventory')
         .query({ pagination: 'cursor', ...query })
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${token}`)
+        .set(
+          SCOPE_CONTEXT_HEADER,
+          token === otherAuthToken ? otherListContext.scopeContext : listContext.scopeContext,
+        );
     }
 
     it('WHEN cursor pages sort by price with tied values THEN rows neither repeat nor skip', async () => {
@@ -937,7 +979,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         () => ({
           token: otherAuthToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: otherListContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.inventory,
             sort: 'sku',
             dir: 'asc',
@@ -960,7 +1003,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         () => ({
           token: authToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: listContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.inventory,
             sort: 'sku',
             dir: 'asc',
@@ -983,7 +1027,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         () => ({
           token: authToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: listContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.vehicleStock,
             sort: 'sku',
             dir: 'asc',
@@ -1006,7 +1051,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         () => ({
           token: authToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: listContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.inventory,
             sort: 'sku',
             dir: 'asc',
@@ -1029,7 +1075,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         () => ({
           token: authToken,
           cursor: encodeListCursor({
-            v: 1,
+            v: LIST_CURSOR_VERSION,
+            scopeContextDigest: listContext.scopeContextDigest,
             ep: LIST_CURSOR_ENDPOINT.inventory,
             sort: 'sku',
             dir: 'asc',
@@ -1069,7 +1116,8 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           return {
             token: authToken,
             cursor: encodeListCursor({
-              v: 1,
+              v: LIST_CURSOR_VERSION,
+              scopeContextDigest: listContext.scopeContextDigest,
               ep: LIST_CURSOR_ENDPOINT.inventory,
               sort: 'sku',
               dir: 'asc',
@@ -1126,7 +1174,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       });
       try {
         const res = await listInventoryCursor({ limit: '10' }).expect(422);
-        expect(res.body.code).toBe('HTTP_422');
+        expect(res.body.code).toBe('ACTIVE_SITE_REQUIRED');
       } finally {
         await basePrisma.user.update({
           where: { id: user.id },
@@ -1232,8 +1280,13 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/inventory/capped-count')
         .query({ search: tag })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
-      expect(count.body).toEqual({ count: 1, isCapped: false });
+      expect(count.body).toEqual({
+        count: 1,
+        isCapped: false,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     it('WHEN 1,001 or more catalog rows match THEN capped count returns count 1000 and isCapped true', async () => {
@@ -1249,9 +1302,14 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/inventory/capped-count')
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
 
-      expect(res.body).toEqual({ count: 1000, isCapped: true });
+      expect(res.body).toEqual({
+        count: 1000,
+        isCapped: true,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
   });
   describe('invoice list (AUT-891)', () => {
@@ -1260,6 +1318,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
     let tenantId: string;
     let otherTenantId: string;
     let authToken: string;
+    let listContext: Awaited<ReturnType<typeof mintListScopeContext>>;
     let customerId: string;
 
     beforeEach(async () => {
@@ -1270,6 +1329,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           data: { tenant_id: tenantId, first_name: 'Erika', last_name: 'Musterfrau' },
         })
       ).id;
+      listContext = await mintListScopeContext(app, authToken);
     });
 
     afterEach(async () => {
@@ -1299,11 +1359,12 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       };
     }
 
-    function listInvoiceCursor(query: Record<string, string>, token = authToken) {
+    function listInvoiceCursor(query: Record<string, string>) {
       return request(app.getHttpServer())
         .get('/api/sales/invoices')
         .query({ pagination: 'cursor', ...query })
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext);
     }
 
     async function pageThrough(
@@ -1490,7 +1551,12 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const res = await listInvoiceCursor({}).expect(200);
 
       expect(res.body.data.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['NEW', 'OLD']);
-      expect(res.body.meta).toEqual({ nextCursor: null, hasNextPage: false, limit: 25 });
+      expect(res.body.meta).toEqual({
+        nextCursor: null,
+        hasNextPage: false,
+        limit: 25,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     it('WHEN the requested limit exceeds the ceiling THEN meta.limit is clamped to 100', async () => {
@@ -1572,12 +1638,17 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         .get('/api/sales/invoices/capped-count')
         .query({ search: 'erika' })
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
 
       expect(byName.body.data).toHaveLength(2);
       expect(byNumber.body.data.map((row: { invoice_number: string }) => row.invoice_number)).toEqual(['RE-2026-0002']);
       expect(byStatus.body.data).toHaveLength(1);
-      expect(count.body).toEqual({ count: 2, isCapped: false });
+      expect(count.body).toEqual({
+        count: 2,
+        isCapped: false,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     it('WHEN 1,001 invoices match THEN capped count returns count 1000 and isCapped true', async () => {
@@ -1590,9 +1661,14 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/sales/invoices/capped-count')
         .set('Authorization', `Bearer ${authToken}`)
+        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
         .expect(200);
 
-      expect(res.body).toEqual({ count: 1000, isCapped: true });
+      expect(res.body).toEqual({
+        count: 1000,
+        isCapped: true,
+        scopeContextDigest: listContext.scopeContextDigest,
+      });
     });
 
     // Scenario 3: a role without invoice access.
