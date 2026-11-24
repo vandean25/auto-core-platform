@@ -1,6 +1,7 @@
 /**
  * Playwright PDF render + golden output verification inside the pdf-worker image (CI smoke).
  * Uses the image-bundled Chromium under PLAYWRIGHT_BROWSERS_PATH and compiled dist/ renderers.
+ * `pdf-worker-image-golden.json` matches the baseline captured from `origin/main` (`mcr.microsoft.com/playwright:v1.65.1-noble`).
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
