@@ -156,6 +156,119 @@ function AdjustmentValuationSection({
   )
 }
 
+type AdjustmentPreviewState = {
+  needsManualValue: boolean
+  isManualMode: boolean
+  parsedQuantity: number
+  extendedPreview: number | null
+}
+
+type AdjustmentValidationErrorKey =
+  | 'dialogs.adjustStock.validationRequired'
+  | 'dialogs.adjustStock.validationNoteRequired'
+  | 'dialogs.adjustStock.validationManualValueRequired'
+  | 'dialogs.adjustStock.overridePermissionRequired'
+
+function resolveEffectiveUnitCost(
+  valuation: AdjustmentValuation | undefined,
+  isManualMode: boolean,
+  manualUnitCost: string,
+): number {
+  if (isManualMode) return Number(manualUnitCost)
+  if (valuation?.unitCost !== null && valuation?.unitCost !== undefined) {
+    return Number(valuation.unitCost)
+  }
+  return Number.NaN
+}
+
+function computeAdjustmentPreview(params: {
+  valuation: AdjustmentValuation | undefined
+  quantityText: string
+  overrideEnabled: boolean
+  manualUnitCost: string
+}): AdjustmentPreviewState {
+  const { valuation, quantityText, overrideEnabled, manualUnitCost } = params
+  const needsManualValue = valuation !== undefined && valuation.unitCost === null
+  const isManualMode = Boolean(valuation?.canOverrideValue) && (needsManualValue || overrideEnabled)
+  const effectiveUnitCost = resolveEffectiveUnitCost(valuation, isManualMode, manualUnitCost)
+  const parsedQuantity = Number(quantityText)
+  const validPreview = !Number.isNaN(parsedQuantity) && parsedQuantity !== 0 && !Number.isNaN(effectiveUnitCost)
+  const extendedPreview = validPreview ? Math.round(parsedQuantity * effectiveUnitCost * 100) / 100 : null
+  return { needsManualValue, isManualMode, parsedQuantity, extendedPreview }
+}
+
+type AdjustmentPayloadResult =
+  | {
+      ok: true
+      payload: {
+        locationId: string
+        quantity: number
+        reason: StockAdjustmentReason
+        note?: string
+        unitCost?: number
+        overrideReason?: string
+      }
+    }
+  | { ok: false; errorKey: AdjustmentValidationErrorKey }
+
+function validateAdjustmentCost(params: {
+  isManualMode: boolean
+  manualUnitCost: string
+  overrideReason: string
+  needsManualValue: boolean
+  canOverrideValue: boolean
+}): AdjustmentValidationErrorKey | null {
+  if (params.isManualMode) {
+    const parsedCost = Number(params.manualUnitCost)
+    const missingCost = params.manualUnitCost.trim() === '' || Number.isNaN(parsedCost) || parsedCost < 0
+    if (missingCost || !params.overrideReason.trim()) {
+      return 'dialogs.adjustStock.validationManualValueRequired'
+    }
+    return null
+  }
+  if (params.needsManualValue && !params.canOverrideValue) {
+    return 'dialogs.adjustStock.overridePermissionRequired'
+  }
+  return null
+}
+
+function buildAdjustmentPayload(params: {
+  locationId: string
+  parsedQuantity: number
+  reason: StockAdjustmentReason | ''
+  note: string
+  isManualMode: boolean
+  manualUnitCost: string
+  overrideReason: string
+  needsManualValue: boolean
+  canOverrideValue: boolean
+}): AdjustmentPayloadResult {
+  const { locationId, parsedQuantity, reason, note, isManualMode, manualUnitCost, overrideReason } = params
+
+  if (!locationId || Number.isNaN(parsedQuantity) || parsedQuantity === 0 || !reason) {
+    return { ok: false, errorKey: 'dialogs.adjustStock.validationRequired' }
+  }
+  const trimmedNote = note.trim()
+  if (reason === 'OTHER' && !trimmedNote) {
+    return { ok: false, errorKey: 'dialogs.adjustStock.validationNoteRequired' }
+  }
+  const costError = validateAdjustmentCost(params)
+  if (costError) {
+    return { ok: false, errorKey: costError }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      locationId,
+      quantity: parsedQuantity,
+      reason,
+      ...(trimmedNote ? { note: trimmedNote } : {}),
+      ...(isManualMode ? { unitCost: Number(manualUnitCost), overrideReason: overrideReason.trim() } : {}),
+    },
+  }
+}
+
 type AdjustInventoryStockDialogProps = {
   itemId: string
   open: boolean
@@ -201,49 +314,33 @@ export function AdjustInventoryStockDialog({
     }
   }, [open])
 
-  const needsManualValue = valuation !== undefined && valuation.unitCost === null
-  const isManualMode = Boolean(valuation?.canOverrideValue) && (needsManualValue || overrideEnabled)
-  const effectiveUnitCost = isManualMode
-    ? Number(manualUnitCost)
-    : valuation?.unitCost !== null && valuation?.unitCost !== undefined
-      ? Number(valuation.unitCost)
-      : Number.NaN
-  const parsedQuantity = Number(quantityText)
-  const extendedPreview =
-    !Number.isNaN(parsedQuantity) && parsedQuantity !== 0 && !Number.isNaN(effectiveUnitCost)
-      ? Math.round(parsedQuantity * effectiveUnitCost * 100) / 100
-      : null
+  const { needsManualValue, isManualMode, parsedQuantity, extendedPreview } = computeAdjustmentPreview({
+    valuation,
+    quantityText,
+    overrideEnabled,
+    manualUnitCost,
+  })
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!locationId || Number.isNaN(parsedQuantity) || parsedQuantity === 0 || !reason) {
-      toast.error(t('dialogs.adjustStock.validationRequired'))
-      return
-    }
-    const trimmedNote = note.trim()
-    if (reason === 'OTHER' && !trimmedNote) {
-      toast.error(t('dialogs.adjustStock.validationNoteRequired'))
-      return
-    }
-    if (isManualMode) {
-      const parsedCost = Number(manualUnitCost)
-      if (manualUnitCost.trim() === '' || Number.isNaN(parsedCost) || parsedCost < 0 || !overrideReason.trim()) {
-        toast.error(t('dialogs.adjustStock.validationManualValueRequired'))
-        return
-      }
-    } else if (needsManualValue && !valuation?.canOverrideValue) {
-      toast.error(t('dialogs.adjustStock.overridePermissionRequired'))
+    const result = buildAdjustmentPayload({
+      locationId,
+      parsedQuantity,
+      reason,
+      note,
+      isManualMode,
+      manualUnitCost,
+      overrideReason,
+      needsManualValue,
+      canOverrideValue: Boolean(valuation?.canOverrideValue),
+    })
+    if (!result.ok) {
+      toast.error(t(result.errorKey))
       return
     }
 
     try {
-      await adjustMutation.mutateAsync({
-        locationId,
-        quantity: parsedQuantity,
-        reason,
-        ...(trimmedNote ? { note: trimmedNote } : {}),
-        ...(isManualMode ? { unitCost: Number(manualUnitCost), overrideReason: overrideReason.trim() } : {}),
-      })
+      await adjustMutation.mutateAsync(result.payload)
       toast.success(t('dialogs.adjustStock.success'))
       onOpenChange(false)
     } catch (error: unknown) {

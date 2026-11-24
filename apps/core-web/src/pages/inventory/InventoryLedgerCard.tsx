@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency, formatDateTime, formatNumber } from '@/lib/format'
+import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import {
   formatInventoryTransactionType,
   formatStockAdjustmentReason,
@@ -135,6 +136,7 @@ function InventoryLedgerMobileList({
                   variant="outline"
                   size="sm"
                   className="min-h-11"
+                  data-action-id={ENTITY_ACTION_IDS.inventoryTransactionReverse}
                   onClick={() => onReverseClick(transaction.id)}
                 >
                   {t('ledger.reverseAction')}
@@ -168,7 +170,7 @@ function InventoryLedgerTable({
 
   return (
     <div className="hidden sm:block">
-      <Table scrollCue data-testid="inventory-ledger-table">
+      <Table scrollCue className="[&_th]:px-2 [&_td]:px-2" data-testid="inventory-ledger-table">
         <TableHeader>
           <TableRow>
             <TableHead>{t('ledger.columns.date')}</TableHead>
@@ -222,6 +224,7 @@ function InventoryLedgerTable({
                           type="button"
                           variant="outline"
                           size="sm"
+                          data-action-id={ENTITY_ACTION_IDS.inventoryTransactionReverse}
                           onClick={() => onReverseClick(transaction.id)}
                         >
                           {t('ledger.reverseAction')}

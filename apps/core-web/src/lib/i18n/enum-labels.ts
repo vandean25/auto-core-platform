@@ -63,11 +63,35 @@ export function formatInventoryTransactionType(type: string): string {
 }
 
 export function formatStockAdjustmentReason(reason: string): string {
-  return translateEnum('stockAdjustmentReason', reason)
+  switch (reason) {
+    case 'INVENTORY_COUNT':
+      return translateEnum('stockAdjustmentReason', 'INVENTORY_COUNT')
+    case 'BREAKAGE':
+      return translateEnum('stockAdjustmentReason', 'BREAKAGE')
+    case 'SHRINKAGE':
+      return translateEnum('stockAdjustmentReason', 'SHRINKAGE')
+    case 'FOUND':
+      return translateEnum('stockAdjustmentReason', 'FOUND')
+    case 'BOOKING_ERROR':
+      return translateEnum('stockAdjustmentReason', 'BOOKING_ERROR')
+    case 'OTHER':
+      return translateEnum('stockAdjustmentReason', 'OTHER')
+    default:
+      return translateEnum('stockAdjustmentReason', reason)
+  }
 }
 
 export function formatStockAdjustmentValueSource(source: string): string {
-  return translateEnum('stockAdjustmentValueSource', source)
+  switch (source) {
+    case 'AVG':
+      return translateEnum('stockAdjustmentValueSource', 'AVG')
+    case 'LAST_EK':
+      return translateEnum('stockAdjustmentValueSource', 'LAST_EK')
+    case 'MANUAL':
+      return translateEnum('stockAdjustmentValueSource', 'MANUAL')
+    default:
+      return translateEnum('stockAdjustmentValueSource', source)
+  }
 }
 
 export function formatAttendanceEventType(type: string): string {

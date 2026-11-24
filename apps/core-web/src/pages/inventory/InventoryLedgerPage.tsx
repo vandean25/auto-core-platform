@@ -17,6 +17,129 @@ import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { InventoryLedgerCard } from './InventoryLedgerCard'
 import { NotFoundCard } from '@/pages/not-found/NotFoundCard'
 import { getErrorStatus } from '@/lib/error-utils'
+import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
+
+type LedgerItem = NonNullable<ReturnType<typeof useInventoryItem>['data']> | NonNullable<ReturnType<typeof useInventoryItemBySku>['data']>
+
+function InventoryLedgerHeaderActions({
+  canManage,
+  item,
+  detailReady,
+  onReceive,
+  onAdjust,
+  onEdit,
+}: {
+  canManage: boolean
+  item: LedgerItem | null
+  detailReady: boolean
+  onReceive: () => void
+  onAdjust: () => void
+  onEdit: () => void
+}) {
+  const { t } = useTranslation('inventory')
+  if (!canManage || !item) return null
+
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+      <Button
+        variant="outline"
+        size="sm"
+        className="max-sm:min-h-11 max-sm:px-2"
+        data-action-id={ENTITY_ACTION_IDS.inventoryItemReceive}
+        onClick={onReceive}
+      >
+        {t('actions.receive')}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="max-sm:min-h-11 max-sm:px-2"
+        data-action-id={ENTITY_ACTION_IDS.inventoryItemAdjust}
+        onClick={onAdjust}
+      >
+        {t('actions.adjust')}
+      </Button>
+      <Button
+        size="sm"
+        className="max-sm:min-h-11 max-sm:px-2"
+        data-action-id={ENTITY_ACTION_IDS.inventoryItemEdit}
+        disabled={!detailReady}
+        onClick={onEdit}
+      >
+        {t('actions.edit')}
+      </Button>
+    </div>
+  )
+}
+
+function InventoryItemInfoColumn({
+  item,
+  isItemLoading,
+}: {
+  item: LedgerItem | null
+  isItemLoading: boolean
+}) {
+  const { t } = useTranslation('inventory')
+  if (item) {
+    return (
+      <motion.div layoutId="item-info-card" transition={{ duration: 0.35, ease: 'easeInOut' }}>
+        <InventoryItemInfoCard
+          item={item}
+          variant="expanded"
+          className="h-full flex flex-col"
+          contentClassName="flex-1"
+        />
+      </motion.div>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">{t('ledger.itemInfoTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm text-muted-foreground">
+        {isItemLoading ? t('ledger.loadingItemDetails') : t('ledger.itemDetailsUnavailable')}
+      </CardContent>
+    </Card>
+  )
+}
+
+function InventoryLedgerDialogs({
+  itemId,
+  item,
+  detailItem,
+  canManage,
+  receiveOpen,
+  onReceiveOpenChange,
+  adjustOpen,
+  onAdjustOpenChange,
+  editOpen,
+  onEditOpenChange,
+}: {
+  itemId: string
+  item: LedgerItem | null
+  detailItem: ReturnType<typeof useInventoryItem>['data']
+  canManage: boolean
+  receiveOpen: boolean
+  onReceiveOpenChange: (open: boolean) => void
+  adjustOpen: boolean
+  onAdjustOpenChange: (open: boolean) => void
+  editOpen: boolean
+  onEditOpenChange: (open: boolean) => void
+}) {
+  if (!item || !canManage) return null
+
+  return (
+    <>
+      <ReceiveInventoryStockDialog itemId={itemId} open={receiveOpen} onOpenChange={onReceiveOpenChange} />
+      <AdjustInventoryStockDialog itemId={itemId} open={adjustOpen} onOpenChange={onAdjustOpenChange} />
+      {detailItem ? (
+        <EditInventoryItemDialog item={detailItem} open={editOpen} onOpenChange={onEditOpenChange} />
+      ) : null}
+    </>
+  )
+}
 
 export default function InventoryLedgerPage() {
   const { t } = useTranslation('inventory')
@@ -57,47 +180,19 @@ export default function InventoryLedgerPage() {
             {t('ledger.backToInventory')}
           </Link>
         </Button>
-        {canManage && item ? (
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-            <Button variant="outline" size="sm" className="max-sm:min-h-11 max-sm:px-2" onClick={() => setReceiveOpen(true)}>
-              {t('actions.receive')}
-            </Button>
-            <Button variant="outline" size="sm" className="max-sm:min-h-11 max-sm:px-2" onClick={() => setAdjustOpen(true)}>
-              {t('actions.adjust')}
-            </Button>
-            <Button
-              size="sm"
-              className="max-sm:min-h-11 max-sm:px-2"
-              disabled={!detailItem || isDetailLoading}
-              onClick={() => setEditOpen(true)}
-            >
-              {t('actions.edit')}
-            </Button>
-          </div>
-        ) : null}
+        <InventoryLedgerHeaderActions
+          canManage={canManage}
+          item={item}
+          detailReady={Boolean(detailItem) && !isDetailLoading}
+          onReceive={() => setReceiveOpen(true)}
+          onAdjust={() => setAdjustOpen(true)}
+          onEdit={() => setEditOpen(true)}
+        />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
         <div className="lg:col-span-2">
-          {item ? (
-            <motion.div layoutId="item-info-card" transition={{ duration: 0.35, ease: 'easeInOut' }}>
-              <InventoryItemInfoCard
-                item={item}
-                variant="expanded"
-                className="h-full flex flex-col"
-                contentClassName="flex-1"
-              />
-            </motion.div>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">{t('ledger.itemInfoTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                {isItemLoading ? t('ledger.loadingItemDetails') : t('ledger.itemDetailsUnavailable')}
-              </CardContent>
-            </Card>
-          )}
+          <InventoryItemInfoColumn item={item} isItemLoading={isItemLoading} />
         </div>
 
         <div className="lg:col-span-3">
@@ -117,19 +212,18 @@ export default function InventoryLedgerPage() {
         </div>
       </div>
 
-      {item && canManage ? (
-        <>
-          <ReceiveInventoryStockDialog itemId={itemId} open={receiveOpen} onOpenChange={setReceiveOpen} />
-          <AdjustInventoryStockDialog itemId={itemId} open={adjustOpen} onOpenChange={setAdjustOpen} />
-          {detailItem ? (
-            <EditInventoryItemDialog
-              item={detailItem}
-              open={editOpen}
-              onOpenChange={setEditOpen}
-            />
-          ) : null}
-        </>
-      ) : null}
+      <InventoryLedgerDialogs
+        itemId={itemId}
+        item={item}
+        detailItem={detailItem}
+        canManage={canManage}
+        receiveOpen={receiveOpen}
+        onReceiveOpenChange={setReceiveOpen}
+        adjustOpen={adjustOpen}
+        onAdjustOpenChange={setAdjustOpen}
+        editOpen={editOpen}
+        onEditOpenChange={setEditOpen}
+      />
     </div>
   )
 }

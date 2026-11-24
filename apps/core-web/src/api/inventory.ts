@@ -292,7 +292,7 @@ export function useReverseInventoryTransaction(itemId: string) {
             return response.json() as Promise<InventoryTransaction>
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: [...inventoryKeys.all, 'history', itemId] })
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.history(itemId) })
             queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
         },
     })
