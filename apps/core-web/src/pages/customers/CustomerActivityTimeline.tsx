@@ -35,6 +35,28 @@ import {
   toggleActivityChip,
 } from './customer-activity-model'
 
+const ACTIVITY_TYPE_KEYS = {
+  workshop_order: 'activity.types.workshop_order',
+  sales_order: 'activity.types.sales_order',
+  invoice: 'activity.types.invoice',
+  credit_note: 'activity.types.credit_note',
+  email: 'activity.types.email',
+  consent: 'activity.types.consent',
+  vehicle_notice: 'activity.types.vehicle_notice',
+  loaner_booking: 'activity.types.loaner_booking',
+  audit: 'activity.types.audit',
+} as const satisfies Record<CustomerActivityType, string>
+
+const ACTIVITY_FILTER_KEYS = {
+  orders: 'activity.filters.orders',
+  invoices: 'activity.filters.invoices',
+  emails: 'activity.filters.emails',
+  consents: 'activity.filters.consents',
+  vehicleNotices: 'activity.filters.vehicleNotices',
+  loanerBookings: 'activity.filters.loanerBookings',
+  audit: 'activity.filters.audit',
+} as const
+
 const TYPE_ICONS: Record<CustomerActivityType, typeof Wrench> = {
   workshop_order: Wrench,
   sales_order: ShoppingBag,
@@ -78,7 +100,7 @@ function ActivityTimelineRow({ item }: { item: CustomerActivityItem }) {
         <div className='min-w-0 space-y-1'>
           <div className='flex flex-wrap items-center gap-2'>
             <span className='text-xs font-medium text-muted-foreground'>
-              {t(`activity.types.${item.type}`)}
+              {t(ACTIVITY_TYPE_KEYS[item.type])}
             </span>
             <span className='text-xs text-muted-foreground'>·</span>
             <time dateTime={item.occurred_at} className='text-xs text-muted-foreground tabular-nums'>
@@ -265,7 +287,7 @@ export function CustomerActivityTimeline({ customerId }: { customerId: string })
                 'min-h-11 px-3',
               )}
             >
-              {t(`activity.filters.${chip.key}`)}
+              {t(ACTIVITY_FILTER_KEYS[chip.key])}
             </button>
           )
         })}

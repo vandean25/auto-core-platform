@@ -45,8 +45,6 @@
     "workshop:command.clarificationPrompts.",
     "vehicleStock:stockDetail.fieldLabels.",
     "customers:detail.fieldLabels.",
-    "customers:activity.types.",
-    "customers:activity.filters.",
     "vehicles:detail.fieldLabels.",
     "workshop:orderDetail.fieldLabels."
   ],
