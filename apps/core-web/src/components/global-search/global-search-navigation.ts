@@ -29,6 +29,7 @@ const SETTINGS_TAB_LABEL_KEYS: Record<SettingsTab, `tabs.${keyof typeof settings
   'vehicle-data': 'tabs.vehicleData',
   'margin-rules': 'tabs.marginRules',
   'data-import': 'tabs.dataImport',
+  'custom-fields': 'tabs.customFields',
   team: 'tabs.team',
   'api-keys': 'tabs.apiKeys',
   'audit-logs': 'tabs.auditLogs',

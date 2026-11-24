@@ -54,6 +54,13 @@ export class CustomerResponseDto extends DryRunMetaDto {
   })
   preferred_language?: DisplayLanguage | null;
 
+  @ApiProperty({
+    type: Object,
+    additionalProperties: true,
+    required: false,
+  })
+  custom_fields?: Record<string, unknown>;
+
   @ApiProperty({ required: false })
   createdAt?: Date;
 

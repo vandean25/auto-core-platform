@@ -4457,6 +4457,223 @@
         ]
       }
     },
+    "/api/customers/{id}/art15-export": {
+      "get": {
+        "operationId": "CustomerController_art15Export",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customer"
+        ]
+      }
+    },
+    "/api/customers/{id}/erase": {
+      "post": {
+        "operationId": "CustomerController_erase",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customer"
+        ]
+      }
+    },
+    "/api/custom-fields/definitions": {
+      "get": {
+        "operationId": "CustomFieldsController_listDefinitions",
+        "parameters": [
+          {
+            "name": "entity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/CustomFieldEntity"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomFieldDefinitionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List custom field definitions for the tenant",
+        "tags": [
+          "CustomFields"
+        ]
+      },
+      "post": {
+        "operationId": "CustomFieldsController_createDefinition",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomFieldDefinitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldDefinitionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a custom field definition (OWNER/ADMIN)",
+        "tags": [
+          "CustomFields"
+        ]
+      }
+    },
+    "/api/custom-fields/definitions/export": {
+      "get": {
+        "operationId": "CustomFieldsController_exportCatalogue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Export custom field catalogue CSV for Art. 30(1) record",
+        "tags": [
+          "CustomFields"
+        ]
+      }
+    },
+    "/api/custom-fields/definitions/{id}": {
+      "patch": {
+        "operationId": "CustomFieldsController_updateDefinition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomFieldDefinitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldDefinitionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a custom field definition (OWNER/ADMIN)",
+        "tags": [
+          "CustomFields"
+        ]
+      }
+    },
+    "/api/custom-fields/definitions/reorder": {
+      "post": {
+        "operationId": "CustomFieldsController_reorderDefinitions",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderCustomFieldDefinitionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomFieldDefinitionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reorder custom field definitions (OWNER/ADMIN)",
+        "tags": [
+          "CustomFields"
+        ]
+      }
+    },
     "/api/finance/settings": {
       "get": {
         "operationId": "FinanceController_getSettings",
@@ -19277,6 +19494,9 @@
           },
           "bankReconciliationEnabled": {
             "type": "boolean"
+          },
+          "customFieldsEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -22370,6 +22590,10 @@
               }
             ]
           },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -22778,6 +23002,10 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -23972,6 +24200,11 @@
                 "$ref": "#/components/schemas/DisplayLanguage"
               }
             ]
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tenant-defined custom field values keyed by definition key."
           }
         },
         "required": [
@@ -24491,6 +24724,10 @@
           "labor_price_group_id": {
             "type": "string",
             "nullable": true
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -24563,10 +24800,221 @@
               }
             ]
           },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tenant-defined custom field values keyed by definition key."
+          },
           "contact_email_ok": {
             "type": "boolean"
           }
         }
+      },
+      "CustomFieldEntity": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "VEHICLE"
+        ]
+      },
+      "CustomFieldType": {
+        "type": "string",
+        "enum": [
+          "TEXT",
+          "NUMBER",
+          "DATE",
+          "SELECT",
+          "BOOLEAN"
+        ]
+      },
+      "CustomFieldDefinitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldEntity"
+              }
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldType"
+              }
+            ]
+          },
+          "options": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "personal_data": {
+            "type": "boolean"
+          },
+          "retention_class": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "sort_order": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entity",
+          "key",
+          "label",
+          "type",
+          "purpose",
+          "personal_data",
+          "retention_class",
+          "archived",
+          "sort_order",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateCustomFieldDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldEntity"
+              }
+            ]
+          },
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Slug key; derived from label when omitted."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldType"
+              }
+            ]
+          },
+          "options": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "personal_data": {
+            "type": "boolean",
+            "default": true
+          },
+          "retention_class": {
+            "type": "string",
+            "maxLength": 64,
+            "default": "PARENT_OBJECT"
+          },
+          "confirmNoArt9": {
+            "type": "boolean",
+            "description": "Explicit confirmation that no GDPR Art. 9 special-category data will be stored."
+          }
+        },
+        "required": [
+          "entity",
+          "label",
+          "type",
+          "purpose"
+        ]
+      },
+      "UpdateCustomFieldDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "options": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "personal_data": {
+            "type": "boolean"
+          },
+          "retention_class": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "sort_order": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confirmNoArt9": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReorderCustomFieldDefinitionsDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldEntity"
+              }
+            ]
+          },
+          "orderedIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity",
+          "orderedIds"
+        ]
       },
       "FinanceSettingsResponseDto": {
         "type": "object",
@@ -26762,6 +27210,10 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -26914,6 +27366,10 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -27004,6 +27460,10 @@
                 "$ref": "#/components/schemas/DisplayLanguage"
               }
             ]
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true
           },
           "createdAt": {
             "format": "date-time",
@@ -36109,6 +36569,11 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tenant-defined custom field values keyed by definition key."
           }
         },
         "required": [
@@ -36400,6 +36865,11 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tenant-defined custom field values keyed by definition key."
           }
         }
       },
@@ -39163,6 +39633,9 @@
           "isActive": {
             "type": "boolean"
           },
+          "customFieldsEnabled": {
+            "type": "boolean"
+          },
           "memberCount": {
             "type": "number"
           },
@@ -39180,6 +39653,7 @@
           "name",
           "slug",
           "isActive",
+          "customFieldsEnabled",
           "memberCount",
           "createdAt",
           "updatedAt"
@@ -39252,6 +39726,9 @@
             "type": "string"
           },
           "isActive": {
+            "type": "boolean"
+          },
+          "customFieldsEnabled": {
             "type": "boolean"
           }
         }

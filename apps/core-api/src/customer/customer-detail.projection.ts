@@ -38,7 +38,10 @@ export function projectCustomerDetail(
   return {
     ...customer,
     vehicles: projectVehicleListOperationalFields(
-      customer.vehicles?.map(stripVehicleIdentityResolutionState),
+      customer.vehicles?.map((vehicle) => {
+        const { custom_fields: _omitted, ...rest } = stripVehicleIdentityResolutionState(vehicle) as Record<string, unknown>;
+        return rest;
+      }),
       authorizedSiteIds,
     ),
     workshop_orders: stripWorkshopOrdersVehicleIdentity(

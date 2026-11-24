@@ -11,6 +11,7 @@ import {
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { CustomerService } from './customer.service.js';
 import { CustomerActivityService } from './activity/customer-activity.service.js';
+import { CustomFieldsGdprService } from '../custom-fields/custom-fields-gdpr.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 import { CustomerActivityQueryDto } from './dto/customer-activity-query.dto.js';
@@ -30,6 +31,7 @@ export class CustomerController {
   constructor(
     private readonly customerService: CustomerService,
     private readonly customerActivityService: CustomerActivityService,
+    private readonly customFieldsGdpr: CustomFieldsGdprService,
   ) {}
 
   @Post()
@@ -165,6 +167,16 @@ export class CustomerController {
     @Body() updateCustomerDto: UpdateCustomerDto,
   ) {
     return this.customerService.update(id, updateCustomerDto);
+  }
+
+  @Get(':id/art15-export')
+  art15Export(@Param('id') id: string) {
+    return this.customFieldsGdpr.exportCustomerArt15Package(id);
+  }
+
+  @Post(':id/erase')
+  erase(@Param('id') id: string) {
+    return this.customFieldsGdpr.eraseCustomerPersonalData(id);
   }
 
   @Delete(':id')

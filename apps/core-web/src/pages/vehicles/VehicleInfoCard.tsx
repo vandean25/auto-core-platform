@@ -19,6 +19,8 @@ import {
 } from './vehicle-detail-model'
 import { FieldSaveFailures } from '@/features/interaction/use-optimistic-field-save'
 import { useVehicleFieldSaves, type EditableVehicleField } from './useVehicleDetailMutations'
+import { useUpdateVehicle } from '@/api/vehicles'
+import { CustomFieldsSection } from '@/components/custom-fields/CustomFieldsSection'
 
 type VehicleInfoCardProps = {
   vehicle: VehicleDetailResponse
@@ -37,6 +39,7 @@ type EditableFieldConfig = {
 
 export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardProps) {
   const { t } = useTranslation('vehicles')
+  const updateVehicle = useUpdateVehicle()
   const { saveRegulatoryField, saveVehicleField, failures, retry, dismiss } = useVehicleFieldSaves(vehicle.id)
   const firstRegistrationDate = getFirstRegistrationDate(vehicle)
 
@@ -186,6 +189,17 @@ export function VehicleInfoCard({ vehicle, onChangeCustomer }: VehicleInfoCardPr
             <span className='font-medium'>{t('shared.unassigned')}</span>
           )}
         </div>
+
+        <CustomFieldsSection
+          entity='VEHICLE'
+          values={vehicle.custom_fields}
+          onSaveField={(key, value) =>
+            updateVehicle.mutateAsync({
+              id: vehicle.id,
+              data: { custom_fields: { [key]: value } },
+            })
+          }
+        />
       </CardContent>
     </Card>
   )

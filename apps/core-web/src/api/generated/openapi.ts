@@ -1361,6 +1361,107 @@ export interface paths {
         patch: operations["CustomerController_update"];
         trace?: never;
     };
+    "/api/customers/{id}/art15-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerController_art15Export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/customers/{id}/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CustomerController_erase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/custom-fields/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List custom field definitions for the tenant */
+        get: operations["CustomFieldsController_listDefinitions"];
+        put?: never;
+        /** Create a custom field definition (OWNER/ADMIN) */
+        post: operations["CustomFieldsController_createDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/custom-fields/definitions/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export custom field catalogue CSV for Art. 30(1) record */
+        get: operations["CustomFieldsController_exportCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/custom-fields/definitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a custom field definition (OWNER/ADMIN) */
+        patch: operations["CustomFieldsController_updateDefinition"];
+        trace?: never;
+    };
+    "/api/custom-fields/definitions/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder custom field definitions (OWNER/ADMIN) */
+        post: operations["CustomFieldsController_reorderDefinitions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/settings": {
         parameters: {
             query?: never;
@@ -5978,6 +6079,7 @@ export interface components {
             formatLocale: string;
             effectiveCapabilities: components["schemas"]["EffectiveCapabilitiesDto"] | null;
             bankReconciliationEnabled: boolean;
+            customFieldsEnabled?: boolean;
         };
         SwitchTenantDto: {
             /** Format: uuid */
@@ -6931,6 +7033,9 @@ export interface components {
             address_zip?: string | null;
             address_country?: string | null;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+            custom_fields?: {
+                [key: string]: unknown;
+            };
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -7044,6 +7149,9 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         /** @enum {string} */
         InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
@@ -7339,6 +7447,10 @@ export interface components {
             address_zip?: string;
             address_country?: string;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+            /** @description Tenant-defined custom field values keyed by definition key. */
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         CustomerActivityItemDto: {
             /** @description Stable item identifier within its source */
@@ -7466,6 +7578,9 @@ export interface components {
             payment_terms_text?: string | null;
             default_bill_to_customer_id?: string | null;
             labor_price_group_id?: string | null;
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         UpdateCustomerDto: {
             type?: components["schemas"]["CustomerType"];
@@ -7480,7 +7595,61 @@ export interface components {
             address_zip?: string;
             address_country?: string;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+            /** @description Tenant-defined custom field values keyed by definition key. */
+            custom_fields?: {
+                [key: string]: unknown;
+            };
             contact_email_ok?: boolean;
+        };
+        /** @enum {string} */
+        CustomFieldEntity: "CUSTOMER" | "VEHICLE";
+        /** @enum {string} */
+        CustomFieldType: "TEXT" | "NUMBER" | "DATE" | "SELECT" | "BOOLEAN";
+        CustomFieldDefinitionResponseDto: {
+            id: string;
+            entity: components["schemas"]["CustomFieldEntity"];
+            key: string;
+            label: string;
+            type: components["schemas"]["CustomFieldType"];
+            options?: string[] | null;
+            purpose: string;
+            personal_data: boolean;
+            retention_class: string;
+            archived: boolean;
+            sort_order: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateCustomFieldDefinitionDto: {
+            entity: components["schemas"]["CustomFieldEntity"];
+            /** @description Slug key; derived from label when omitted. */
+            key?: string;
+            label: string;
+            type: components["schemas"]["CustomFieldType"];
+            options?: string[];
+            purpose: string;
+            /** @default true */
+            personal_data: boolean;
+            /** @default PARENT_OBJECT */
+            retention_class: string;
+            /** @description Explicit confirmation that no GDPR Art. 9 special-category data will be stored. */
+            confirmNoArt9?: boolean;
+        };
+        UpdateCustomFieldDefinitionDto: {
+            label?: string;
+            options?: string[];
+            purpose?: string;
+            personal_data?: boolean;
+            retention_class?: string;
+            archived?: boolean;
+            sort_order?: number;
+            confirmNoArt9?: boolean;
+        };
+        ReorderCustomFieldDefinitionsDto: {
+            entity: components["schemas"]["CustomFieldEntity"];
+            orderedIds: string[];
         };
         FinanceSettingsResponseDto: {
             id: string;
@@ -8090,6 +8259,9 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         WorkshopSearchVehicleDto: {
             /**
@@ -8133,6 +8305,9 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         WorkshopSearchCustomerDto: {
             /**
@@ -8158,6 +8333,9 @@ export interface components {
             address_zip?: string | null;
             address_country?: string | null;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+            custom_fields?: {
+                [key: string]: unknown;
+            };
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -10728,6 +10906,10 @@ export interface components {
             plate?: string;
             /** Format: uuid */
             customer_id?: string | null;
+            /** @description Tenant-defined custom field values keyed by definition key. */
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         VehicleValuationResponseDto: {
             id: string;
@@ -10815,6 +10997,10 @@ export interface components {
             plate?: string;
             /** Format: uuid */
             customer_id?: string | null;
+            /** @description Tenant-defined custom field values keyed by definition key. */
+            custom_fields?: {
+                [key: string]: unknown;
+            };
         };
         /** @enum {string} */
         VehicleInspectionType: "PICKERL_57A";
@@ -11656,6 +11842,7 @@ export interface components {
             name: string;
             slug: string;
             isActive: boolean;
+            customFieldsEnabled: boolean;
             memberCount: number;
             /** Format: date-time */
             createdAt: string;
@@ -11681,6 +11868,7 @@ export interface components {
             name?: string;
             slug?: string;
             isActive?: boolean;
+            customFieldsEnabled?: boolean;
         };
         LogLevelOverrideDto: {
             /**
@@ -15984,6 +16172,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerController_art15Export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CustomerController_erase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CustomFieldsController_listDefinitions: {
+        parameters: {
+            query?: {
+                entity?: components["schemas"]["CustomFieldEntity"];
+                includeArchived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldDefinitionResponseDto"][];
+                };
+            };
+        };
+    };
+    CustomFieldsController_createDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomFieldDefinitionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldDefinitionResponseDto"];
+                };
+            };
+        };
+    };
+    CustomFieldsController_exportCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+        };
+    };
+    CustomFieldsController_updateDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomFieldDefinitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldDefinitionResponseDto"];
+                };
+            };
+        };
+    };
+    CustomFieldsController_reorderDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderCustomFieldDefinitionsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldDefinitionResponseDto"][];
                 };
             };
         };

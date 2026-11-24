@@ -98,6 +98,9 @@ export class PlatformAdminService {
               slug: dto.slug.trim().toLowerCase(),
             }),
             ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+            ...(dto.customFieldsEnabled !== undefined && {
+              custom_fields_enabled: dto.customFieldsEnabled,
+            }),
           },
           include: {
             _count: {
@@ -160,6 +163,7 @@ export class PlatformAdminService {
       name: tenant.name,
       slug: tenant.slug,
       isActive: tenant.is_active,
+      customFieldsEnabled: tenant.custom_fields_enabled,
       memberCount: tenant._count.memberships,
       createdAt: tenant.created_at,
       updatedAt: tenant.updated_at,

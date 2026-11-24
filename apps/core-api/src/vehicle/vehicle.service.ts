@@ -1,6 +1,8 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { CustomFieldEntity } from '@prisma/client';
 import type { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto.js';
+import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import type {
@@ -38,7 +40,26 @@ export class VehicleService {
     private readonly writes: VehicleWriteService,
     private readonly pickerlDue: VehiclePickerlDueService,
     private readonly pickerlBarriers: VehiclePickerlBarrierService,
+    @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
+
+  private async maskVehicleCustomFields<T extends { custom_fields?: unknown }>(
+    vehicle: T,
+  ): Promise<T> {
+    if (!this.customFields) {
+      const { custom_fields: _omitted, ...rest } = vehicle;
+      return rest as T;
+    }
+    const visible = await this.customFields.projectVisibleCustomFields(
+      CustomFieldEntity.VEHICLE,
+      vehicle.custom_fields,
+    );
+    if (visible === undefined) {
+      const { custom_fields: _omitted, ...rest } = vehicle;
+      return rest as T;
+    }
+    return { ...vehicle, custom_fields: visible };
+  }
 
   async getPickerlDueData(
     query: PickerlDueListQueryDto | PickerlDueListExportQueryDto,
@@ -83,12 +104,30 @@ export class VehicleService {
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const data = await this.writes.prepareCreate(createVehicleDto, tenantId);
+    const validatedCustomFields =
+      createVehicleDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.VEHICLE,
+            {},
+            createVehicleDto.custom_fields,
+          )
+        : undefined;
+    const data = await this.writes.prepareCreate(
+      {
+        ...createVehicleDto,
+        ...(validatedCustomFields !== undefined
+          ? { custom_fields: validatedCustomFields }
+          : {}),
+      },
+      tenantId,
+    );
 
     try {
       const createdVehicle = await this.persistence.createVehicle(data);
 
-      return stripVehicleIdentityResolutionState(createdVehicle);
+      return this.maskVehicleCustomFields(
+        stripVehicleIdentityResolutionState(createdVehicle),
+      );
     } catch (error: unknown) {
       rethrowVehiclePrismaError(error);
     }
@@ -121,13 +160,19 @@ export class VehicleService {
       take,
     });
 
-    return toVehicleListResponse({
+    const response = toVehicleListResponse({
       rows,
       total,
       page,
       pageSize,
       authorizedSiteIds,
     });
+    return {
+      ...response,
+      data: await Promise.all(
+        (response.data ?? []).map((row) => this.maskVehicleCustomFields(row)),
+      ),
+    };
   }
 
   async findOne(id: string) {
@@ -145,11 +190,13 @@ export class VehicleService {
     }
 
     const barriers = await this.pickerlBarriers.loadBarrierFlags(tenantId, id);
-    return toVehicleDetailResponse(
-      vehicle,
-      authorizedSiteIds,
-      new Date(),
-      barriers,
+    return this.maskVehicleCustomFields(
+      toVehicleDetailResponse(
+        vehicle,
+        authorizedSiteIds,
+        new Date(),
+        barriers,
+      ),
     );
   }
 
@@ -159,9 +206,22 @@ export class VehicleService {
       id,
       tenantId,
     );
+    const validatedCustomFields =
+      updateVehicleDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.VEHICLE,
+            await this.persistence.findVehicleCustomFields(id, tenantId),
+            updateVehicleDto.custom_fields,
+          )
+        : undefined;
     const data = await this.writes.prepareUpdate(
       existingVehicle,
-      updateVehicleDto,
+      {
+        ...updateVehicleDto,
+        ...(validatedCustomFields !== undefined
+          ? { custom_fields: validatedCustomFields }
+          : {}),
+      },
       tenantId,
     );
 
@@ -173,7 +233,9 @@ export class VehicleService {
         data,
       );
 
-      return stripVehicleIdentityResolutionState(updatedVehicle);
+      return this.maskVehicleCustomFields(
+        stripVehicleIdentityResolutionState(updatedVehicle),
+      );
     } catch (error: unknown) {
       rethrowVehiclePrismaError(error);
     }

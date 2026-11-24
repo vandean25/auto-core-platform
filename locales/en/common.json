@@ -489,5 +489,16 @@
       "exportDownloadFailed": "Failed to download accounting export",
       "checksumMismatch": "The file is corrupt or was modified."
     }
+  },
+  "customFields": {
+    "sectionTitle": "Custom fields",
+    "emptyValue": "Not set",
+    "placeholder": "Enter value",
+    "selectPlaceholder": "Select",
+    "clearOption": "Clear selection",
+    "booleanYes": "Yes",
+    "booleanNo": "No",
+    "saved": "Saved",
+    "saveFailed": "Failed to save."
   }
 }

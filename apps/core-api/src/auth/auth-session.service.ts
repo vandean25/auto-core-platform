@@ -94,6 +94,7 @@ export type AuthSession = {
   formatLocale: string;
   effectiveCapabilities: CountryCapabilities | null;
   bankReconciliationEnabled: boolean;
+  customFieldsEnabled: boolean;
 };
 
 const USER_ACCESS_SELECT = {
@@ -226,7 +227,7 @@ export class AuthSessionService {
     userId: string,
   ): Promise<AuthSession> {
     const tenantId = session.activeTenant.id;
-    const [membership, financeSettings] = await Promise.all([
+    const [membership, financeSettings, tenantFlags] = await Promise.all([
       session.activeSiteId
         ? this.systemPrisma.siteMembership.findFirst({
             where: {
@@ -253,6 +254,10 @@ export class AuthSessionService {
         where: { tenant_id: tenantId },
         select: { bank_reconciliation_enabled: true },
       }),
+      this.systemPrisma.tenant.findFirst({
+        where: { id: tenantId },
+        select: { custom_fields_enabled: true },
+      }),
     ]);
     return {
       ...session,
@@ -262,6 +267,7 @@ export class AuthSessionService {
         : null,
       bankReconciliationEnabled:
         financeSettings?.bank_reconciliation_enabled ?? false,
+      customFieldsEnabled: tenantFlags?.custom_fields_enabled ?? false,
     };
   }
 
@@ -468,6 +474,7 @@ export class AuthSessionService {
       formatLocale,
       effectiveCapabilities: null,
       bankReconciliationEnabled: false,
+      customFieldsEnabled: false,
       effectiveLocale: resolveUserLanguage(user.locale, defaultLocale),
     };
 

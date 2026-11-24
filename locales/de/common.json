@@ -489,5 +489,16 @@
       "exportDownloadFailed": "Export konnte nicht heruntergeladen werden",
       "checksumMismatch": "Die Datei ist beschädigt oder wurde verändert."
     }
+  },
+  "customFields": {
+    "sectionTitle": "Eigene Felder",
+    "emptyValue": "Nicht angegeben",
+    "placeholder": "Wert eingeben",
+    "selectPlaceholder": "Auswählen",
+    "clearOption": "Auswahl aufheben",
+    "booleanYes": "Ja",
+    "booleanNo": "Nein",
+    "saved": "Gespeichert",
+    "saveFailed": "Speichern fehlgeschlagen."
   }
 }

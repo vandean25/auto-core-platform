@@ -50,6 +50,8 @@ model Tenant {
   default_locale            DisplayLanguage @default(de)
   /// AUT-576 fixed Austrian formatting region (read-only in v1).
   format_locale             String          @default("de-AT") @db.VarChar(8)
+  /// AUT-1043 per-tenant opt-in for customer/vehicle custom fields (default OFF).
+  custom_fields_enabled     Boolean         @default(false)
 
   revenueGroups                    RevenueGroup[]
   financeSettings                  FinanceSettings?
@@ -213,6 +215,7 @@ model Tenant {
   vehicleNotices                   VehicleNotice[]
   savedViews                       SavedView[]
   savedViewImports                 SavedViewImport[]
+  customFieldDefinitions           CustomFieldDefinition[]
   inventoryValuations              InventoryValuation[]
 
   @@map("tenants")
@@ -1895,6 +1898,7 @@ model Customer {
   legacyDocumentsAsCustomer  LegacyDocument[]                  @relation("LegacyDocumentCustomer")
   legacyDocumentsAsBillTo    LegacyDocument[]                  @relation("LegacyDocumentBillTo")
   vehicle_parties            VehicleParty[]
+  custom_fields              Json                              @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2082,6 +2086,7 @@ model Vehicle {
   legacyDocuments                 LegacyDocument[]
   parties                         VehicleParty[]
   notices                         VehicleNotice[]
+  custom_fields                   Json                            @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -5905,3 +5910,40 @@ model SavedViewImport {
   @@index([user_id])
   @@map("saved_view_imports")
 }
+
+enum CustomFieldEntity {
+  CUSTOMER
+  VEHICLE
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  BOOLEAN
+}
+
+/// Tenant-defined custom field metadata for customers and vehicles (AUT-1043).
+model CustomFieldDefinition {
+  id              String            @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  entity          CustomFieldEntity
+  key             String            @db.VarChar(64)
+  label           String            @db.VarChar(60)
+  type            CustomFieldType
+  options         Json?
+  purpose         String            @db.VarChar(500)
+  personal_data   Boolean           @default(true)
+  retention_class String            @default("PARENT_OBJECT") @db.VarChar(64)
+  archived        Boolean           @default(false)
+  sort_order      Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([tenant_id, entity, key])
+  @@index([tenant_id, entity, archived, sort_order])
+  @@map("custom_field_definitions")
+}
+
