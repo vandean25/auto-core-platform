@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import type { DataTableDensity } from '@/lib/density-tokens'
 import { useClientSessionGeneration } from '@/auth/client-session-reset'
+import type { DataTableUrl } from '@/hooks/use-data-table-url'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useDataTableContextMenu } from './data-table-context-menu'
 import { useDataTableSelection } from './data-table-selection'
@@ -17,6 +17,7 @@ import type { DataTableCoreProps } from './data-table-props'
 import { DEFAULT_DATA_TABLE_PAGE_SIZE_OPTIONS } from './data-table-props'
 import { useDataTableInfinite } from './use-data-table-infinite'
 import { useDataTableInstance } from './use-data-table-instance'
+import { useDataTableLayout } from './use-data-table-layout'
 
 export type DataTableViewModelProps<TData extends object> = DataTableCoreProps<TData>
 
@@ -45,7 +46,7 @@ export function useDataTableViewModel<TData extends object>({
   rowBehaviour,
   pageSizeOptions = DEFAULT_DATA_TABLE_PAGE_SIZE_OPTIONS,
   infinite,
-}: DataTableViewModelProps<TData>) {
+}: DataTableViewModelProps<TData>, url?: DataTableUrl) {
   const { t } = useTranslation('common')
   const resolvedEmptyStateMessage = emptyStateMessage ?? t('dataTable.noResults')
   const hasUsableData = hasUsableDataProp ?? !isLoading
@@ -81,7 +82,7 @@ export function useDataTableViewModel<TData extends object>({
   )
 
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const [density, setDensity] = useState<DataTableDensity>('comfortable')
+  const { columnVisibility, setColumnVisibility, density, setDensity, getLayoutHref } = useDataTableLayout(columns, url)
   const isMobile = useIsMobile()
   const hasBulkActions = Boolean(bulkActions)
   // A tenant or site switch is a new scope: nothing selected before it may carry over (ADR-0035 §8).
@@ -99,6 +100,8 @@ export function useDataTableViewModel<TData extends object>({
     data: rows,
     columns: withSelectColumn(columns),
     pageCount,
+    columnVisibility,
+    setColumnVisibility,
     columnFilters,
     setColumnFilters,
     globalFilter,
@@ -128,6 +131,7 @@ export function useDataTableViewModel<TData extends object>({
     rootRef,
     density,
     setDensity,
+    getLayoutHref,
     isMobile,
     openRowContextMenu,
     contextMenu,

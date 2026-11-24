@@ -2,13 +2,14 @@ import { useState } from 'react'
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { densityTokens } from '@/lib/density-tokens'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { bindSingleKeyShortcutsUser } from '@/features/shortcuts/single-key-shortcuts-setting'
 import { resetClientSession } from '@/auth/client-session-reset'
 import { clearListScrollAnchors } from '@/lib/list-scroll-anchors'
+import { DATA_TABLE_URL_SYNC_DEBOUNCE_MS, useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTable } from './DataTable'
 import {
   HEADER_HEIGHT,
@@ -60,17 +61,23 @@ const columns: ColumnDef<Row>[] = [
 function Harness({
   data = rows,
   initialFilters = [],
+  initialUrl = '/',
+  routeControls,
   onFiltersChange,
   ...props
 }: Partial<React.ComponentProps<typeof DataTable<Row>>> & {
   initialFilters?: ColumnFiltersState
+  initialUrl?: string
+  routeControls?: React.ReactNode
   onFiltersChange?: (filters: ColumnFiltersState) => void
 }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialFilters)
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   return (
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/previous', initialUrl]}>
+      <CurrentSearch />
+      {routeControls}
       <DataTable<Row>
         columns={columns}
         data={data}
@@ -89,6 +96,22 @@ function Harness({
         {...props}
       />
     </MemoryRouter>
+  )
+}
+
+function CurrentSearch() {
+  const location = useLocation()
+  return <span data-testid="table-search" data-pathname={location.pathname}>{location.search}</span>
+}
+
+function RouteControls() {
+  const { setGlobalFilter } = useDataTableQuery()
+  const navigate = useNavigate()
+  return (
+    <>
+      <button type="button" onClick={() => setGlobalFilter('Alpha')}>Search Alpha</button>
+      <button type="button" onClick={() => navigate(-1)}>Back</button>
+    </>
   )
 }
 
@@ -266,6 +289,71 @@ describe('DataTable states', () => {
 })
 
 describe('DataTable layout options', () => {
+  it('restores known columns and density from a fresh URL', () => {
+    const { container } = render(<Harness initialUrl="/customers?cols=removed,status,amount,created&density=compact" />)
+
+    expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Name'])
+    expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'compact')
+  })
+
+  it('uses the default layout for unknown columns and invalid density', () => {
+    const { container } = render(<Harness initialUrl="/customers?cols=removed&density=huge" />)
+
+    expect(screen.getAllByRole('columnheader')).toHaveLength(columns.length)
+    expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'comfortable')
+  })
+
+  it('debounces a layout change and retains the open peek', async () => {
+    render(<Harness initialUrl="/customers?peek=customer%3Aa" />)
+    fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Betrag' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: dt.density.compact }))
+
+    const search = screen.getByTestId('table-search')
+    expect(search).toHaveTextContent(/^\?peek=customer%3Aa$/)
+    await waitFor(() => {
+      const params = new URLSearchParams(search.textContent ?? '')
+      expect(Object.fromEntries(params)).toEqual({ peek: 'customer:a', cols: 'amount', density: 'compact' })
+    })
+  })
+
+  it('resets both layout settings and keeps the search', async () => {
+    const { container } = render(<Harness initialUrl="/customers?search=Alpha&cols=name&density=compact" />)
+    fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: dt.reset }))
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+
+    await waitFor(() => expect(screen.getByTestId('table-search')).toHaveTextContent(/^\?search=Alpha$/))
+    expect(screen.getAllByRole('columnheader')).toHaveLength(columns.length)
+    expect(container.querySelector('[data-density]')).toHaveAttribute('data-density', 'comfortable')
+  })
+
+  it('keeps both edits when search and layout writes are due at the same time', async () => {
+    vi.useFakeTimers()
+    try {
+      render(<Harness initialUrl="/customers?peek=customer%3Aa" routeControls={<RouteControls />} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Search Alpha' }))
+      fireEvent.keyDown(screen.getByRole('button', { name: dt.columns }), { key: 'Enter' })
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: dt.density.compact }))
+      await act(() => vi.advanceTimersByTimeAsync(DATA_TABLE_URL_SYNC_DEBOUNCE_MS))
+
+      const params = new URLSearchParams(screen.getByTestId('table-search').textContent ?? '')
+      expect(Object.fromEntries(params)).toEqual({ peek: 'customer:a', search: 'Alpha', density: 'compact' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('replaces a URL that already describes the visible layout', async () => {
+    render(<Harness initialUrl="/customers?cols=removed,amount&density=comfortable" routeControls={<RouteControls />} />)
+    const search = screen.getByTestId('table-search')
+    await waitFor(() => expect(search).toHaveTextContent(/^\?cols=amount$/))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(search).toHaveAttribute('data-pathname', '/previous')
+  })
+
   it('marks numeric columns right-aligned with tabular figures and keeps the header sticky', () => {
     const { container } = render(<Harness />)
 

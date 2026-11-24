@@ -1,13 +1,12 @@
 import * as React from "react"
-import { useSearchParams } from "react-router-dom"
 import { MAX_LIST_PAGE_SIZE, clampPageSize } from "@/lib/list-page-size"
 import type {
   ColumnFiltersState,
   PaginationState,
   SortingState,
 } from '@tanstack/react-table'
+import { useDataTableUrl } from './use-data-table-url'
 
-/** Default debounce for table state → URL sync (`useDataTableQuery`). */
 export const DATA_TABLE_URL_SYNC_DEBOUNCE_MS = 500
 
 interface UseDataTableQueryOptions {
@@ -109,14 +108,10 @@ function convertParsedToTableState(
   return { columnFilters, sorting, pagination, search: parsed.search }
 }
 
-/** Same params, whatever their order: appending `peek` leaves the managed keys in a different order than the rebuild writes them. */
-function sameSearchParams(left: URLSearchParams, right: URLSearchParams): boolean {
-  const normalise = (params: URLSearchParams) => {
-    const sorted = new URLSearchParams(params)
-    sorted.sort()
-    return sorted.toString()
-  }
-  return normalise(left) === normalise(right)
+const queryParamKeys = new Set(['page', 'pageSize', 'search', 'sortField', 'sortDirection'])
+
+function isQueryParam(key: string): boolean {
+  return queryParamKeys.has(key) || key.startsWith('filter_')
 }
 
 function buildUpdatedSearchParams(
@@ -132,16 +127,7 @@ function buildUpdatedSearchParams(
   const next = new URLSearchParams(prev)
 
   for (const key of Array.from(next.keys())) {
-    if (
-      key === "page" ||
-      key === "pageSize" ||
-      key === "search" ||
-      key === "sortField" ||
-      key === "sortDirection" ||
-      key.startsWith("filter_")
-    ) {
-      next.delete(key)
-    }
+    if (isQueryParam(key)) next.delete(key)
   }
 
   const page = params.pagination.pageIndex + 1
@@ -184,14 +170,16 @@ function buildQueryParams(
 }
 
 export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const { location, searchParams, updateSearch } = useDataTableUrl()
   const {
     defaultPageSize = 25,
     maxPageSize = MAX_LIST_PAGE_SIZE,
     debounceMs = DATA_TABLE_URL_SYNC_DEBOUNCE_MS,
     initialSorting = [],
   } = options
-  const searchParamsKey = searchParams.toString()
+  const querySearch = new URLSearchParams([...searchParams].filter(([key]) => isQueryParam(key)))
+  querySearch.sort()
+  const searchParamsKey = querySearch.toString()
   const initialSortingKey = JSON.stringify(initialSorting)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableInitialSorting = React.useMemo<SortingState>(() => initialSorting, [initialSortingKey])
@@ -220,18 +208,11 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
       return nextState.pagination
     })
     setGlobalFilter((previous) => (previous === nextState.search ? previous : nextState.search))
-  }, [searchParamsKey, defaultPageSize, maxPageSize, stableInitialSorting])
-
-  // The debounced URL write reads the latest URL from a ref, not from its closure.
-  const latestSearchParamsRef = React.useRef(searchParams)
-  React.useEffect(() => {
-    latestSearchParamsRef.current = searchParams
-  }, [searchParams])
+  }, [location.pathname, searchParamsKey, defaultPageSize, maxPageSize, stableInitialSorting])
 
   // Debounce URL Updates
   React.useEffect(() => {
-    const timeout = setTimeout(() => {
-      const current = latestSearchParamsRef.current
+    const timeout = setTimeout(() => updateSearch((current) => {
       const next = buildUpdatedSearchParams(current, {
         columnFilters,
         sorting,
@@ -239,9 +220,6 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
         globalFilter,
         defaultPageSize,
       })
-      // An unchanged URL must not be written: a push of the same URL adds a duplicate history entry, and then the first
-      // back gesture (for example out of a `?peek=` sheet that was opened right after the list rendered) goes nowhere.
-      if (sameSearchParams(next, current)) return
       // A URL that already describes the table (only spelt differently, e.g. `page=1`) is tidied in place; a push would
       // leave a duplicate history entry behind.
       const shown = convertParsedToTableState(parseUrlTableState(current, defaultPageSize, maxPageSize), stableInitialSorting)
@@ -251,11 +229,11 @@ export function useDataTableQuery(options: UseDataTableQueryOptions = {}) {
         shown.pagination.pageIndex === pagination.pageIndex &&
         shown.pagination.pageSize === pagination.pageSize &&
         shown.search === globalFilter
-      setSearchParams(next, { replace: tidiesUrlOnly })
-    }, debounceMs)
+      return { next, replace: tidiesUrlOnly }
+    }), debounceMs)
 
     return () => clearTimeout(timeout)
-  }, [columnFilters, sorting, pagination, globalFilter, setSearchParams, defaultPageSize, maxPageSize, debounceMs, stableInitialSorting])
+  }, [columnFilters, sorting, pagination, globalFilter, updateSearch, location.pathname, searchParamsKey, defaultPageSize, maxPageSize, debounceMs, stableInitialSorting])
 
   return {
     columnFilters,

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { densityTokens, type DataTableDensity } from '@/lib/density-tokens'
 import { getTableRowId, type DataTableBodyRowModel } from './data-table-body-row'
 import { isDataTablePendingRow } from './data-table-states'
 import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
@@ -26,6 +27,7 @@ const ESTIMATED_CARD_HEIGHT = 72
 type DataTableListProps<TData extends object> = {
   columns: Parameters<typeof getDataTableMobileSlots>[0]
   rows: DataTableBodyRowModel<TData>[]
+  density: DataTableDensity
   rowBehaviour?: DataTableRowBehaviour<TData>
   interactionLocked?: boolean
   /** Present in infinite mode: only the cards near the viewport (and the focused one) are rendered, each measured. */
@@ -39,6 +41,7 @@ function TappableRow({ onActivate, children }: { onActivate: () => void; childre
     <div
       role="button"
       tabIndex={0}
+      data-row-primary
       className={cn(rowPrimaryClassName, 'cursor-pointer')}
       onClick={(event) => {
         // Controls rendered inside a cell keep their own behaviour.
@@ -139,12 +142,12 @@ function ListRowPrimary<TData extends object>({
   }
   if (rowHref) {
     return (
-      <Link to={rowHref} className={rowPrimaryClassName}>
+      <Link to={rowHref} data-row-primary className={rowPrimaryClassName}>
         {children}
       </Link>
     )
   }
-  return <div className={rowPrimaryClassName}>{children}</div>
+  return <div data-row-primary className={rowPrimaryClassName}>{children}</div>
 }
 
 function listRowClassName(interactionLocked: boolean, isPending: boolean, extra: string | undefined) {
@@ -207,11 +210,13 @@ function DataTableListRow<TData extends object>({
 export function DataTableList<TData extends object>({
   columns,
   rows,
+  density,
   rowBehaviour,
   interactionLocked = false,
   infiniteView,
 }: DataTableListProps<TData>) {
   const slots = getDataTableMobileSlots(columns)
+  const compactClass = density === 'compact' && densityTokens.compactListClass
   const listRef = useRef<HTMLUListElement | null>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
   const [focusedKey, setFocusedKey] = useState<string | null>(null)
@@ -233,7 +238,7 @@ export function DataTableList<TData extends object>({
 
   if (!infiniteView) {
     return (
-      <ul className="divide-y rounded-md border" data-table-list="true" aria-busy={interactionLocked}>
+      <ul className={cn('divide-y rounded-md border', compactClass)} data-table-list="true" data-density={density} aria-busy={interactionLocked}>
         {rows.map((row) => (
           <DataTableListRow key={row.id} row={row} slots={slots} rowBehaviour={rowBehaviour} interactionLocked={interactionLocked} />
         ))}
@@ -245,9 +250,10 @@ export function DataTableList<TData extends object>({
   return (
     <ul
       ref={listRef}
-      className="relative overflow-hidden rounded-md border"
+      className={cn('relative overflow-hidden rounded-md border', compactClass)}
       style={{ height: virtualizer.getTotalSize() }}
       data-table-list="true"
+      data-density={density}
       aria-busy={interactionLocked}
     >
       {virtualizer.getVirtualItems().map((item) => {

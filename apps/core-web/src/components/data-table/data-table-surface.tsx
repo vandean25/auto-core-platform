@@ -32,7 +32,7 @@ export function DataTableSurface<TData extends object>({
   onScopeRefresh,
   ...mainProps
 }: DataTableSurfaceProps<TData>) {
-  const { table, presentation, rootRef } = mainProps
+  const { table, presentation, rootRef, getLayoutHref } = mainProps
 
   return (
     <div className="space-y-4" ref={rootRef}>
@@ -42,6 +42,7 @@ export function DataTableSurface<TData extends object>({
           searchColumn={searchColumn}
           placeholder={searchPlaceholder}
           saveViewTitle={saveViewTitle}
+          getLayoutHref={getLayoutHref}
           dashboardSource={dashboardSource}
           enableCsvExport={enableCsvExport}
           csvFileName={csvFileName}

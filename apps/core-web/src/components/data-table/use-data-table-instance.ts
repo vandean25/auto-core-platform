@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-table/legacy'
 import type {
   ColumnFiltersState,
+  ColumnVisibilityState,
   OnChangeFn,
   PaginationState,
   RowSelectionState,
@@ -19,6 +20,8 @@ type UseDataTableInstanceParams<TData extends object> = {
   data: TData[]
   columns: ColumnDef<TData>[]
   pageCount: number
+  columnVisibility: ColumnVisibilityState
+  setColumnVisibility: OnChangeFn<ColumnVisibilityState>
   columnFilters: ColumnFiltersState
   setColumnFilters: OnChangeFn<ColumnFiltersState>
   globalFilter?: string
@@ -39,6 +42,8 @@ export function useDataTableInstance<TData extends object>({
   data,
   columns,
   pageCount,
+  columnVisibility,
+  setColumnVisibility,
   columnFilters,
   setColumnFilters,
   globalFilter,
@@ -62,11 +67,12 @@ export function useDataTableInstance<TData extends object>({
       return typeof id === 'string' && id.length > 0 ? id : String(index)
     },
     meta: selectionMeta,
-    state: { columnFilters, sorting, pagination, globalFilter, rowSelection },
+    state: { columnFilters, sorting, pagination, globalFilter, rowSelection, columnVisibility },
     // Pending rows (optimistic creates) are presentation only: never selectable, also not by select-all.
     enableRowSelection: hasBulkActions ? (row) => !selectionLocked && !isDataTablePendingRow(row.original) : false,
     onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
