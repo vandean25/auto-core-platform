@@ -54,6 +54,7 @@ COPY --from=builder /usr/src/app/apps/core-api/dist ./apps/core-api/dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /usr/src/app/apps/core-api/prisma ./apps/core-api/prisma
 COPY apps/core-api/scripts/pdf-worker-image-smoke.mjs ./apps/core-api/scripts/pdf-worker-image-smoke.mjs
+COPY apps/core-api/scripts/pdf-worker-image-golden.json ./apps/core-api/scripts/pdf-worker-image-golden.json
 
 WORKDIR /usr/src/app/apps/core-api
 
