@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import { formatDate, formatIsoDateOnly } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
+import { CustomerActivityTimeline } from './CustomerActivityTimeline'
 import { CustomerConsentPanel } from './CustomerConsentPanel'
 import { formatVehiclePartyRole } from '@/pages/vehicles/vehicle-party-model'
 import {
@@ -195,17 +196,37 @@ function VehiclesTable({ rows }: { rows: CustomerVehicleRow[] }) {
   )
 }
 
+const VALID_TABS = new Set(['activity', 'orders', 'invoices', 'vehicles', 'consent'])
+
 export function CustomerDetailTabs({ customer }: { customer: CustomerDetailResponse }) {
   const { t } = useTranslation('customers')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const rawTab = searchParams.get('tab')
+  const activeTab = rawTab && VALID_TABS.has(rawTab) ? rawTab : 'activity'
+
+  const handleTabChange = (nextTab: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (nextTab === 'activity') {
+      next.delete('tab')
+    } else {
+      next.set('tab', nextTab)
+    }
+    setSearchParams(next, { replace: true })
+  }
 
   return (
-    <Tabs defaultValue='orders'>
+    <Tabs value={activeTab} onValueChange={handleTabChange}>
       <TabsList className='flex h-auto min-h-9 w-full flex-wrap gap-1 max-sm:[&_[role=tab]]:min-h-11 max-sm:[&_[role=tab]]:shrink-0'>
+        <TabsTrigger value='activity'>{t('detail.tabs.activity')}</TabsTrigger>
         <TabsTrigger value='orders'>{t('detail.tabs.activeOrders')}</TabsTrigger>
         <TabsTrigger value='invoices'>{t('detail.tabs.invoices')}</TabsTrigger>
         <TabsTrigger value='vehicles'>{t('detail.tabs.vehicles')}</TabsTrigger>
         <TabsTrigger value='consent'>{t('consent.tab')}</TabsTrigger>
       </TabsList>
+
+      <TabsContent value='activity' className='mt-4'>
+        <CustomerActivityTimeline customerId={customer.id} />
+      </TabsContent>
 
       <TabsContent value='orders' className='mt-4'>
         <ActiveOrdersTable customer={customer} />

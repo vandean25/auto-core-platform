@@ -1329,6 +1329,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/customers/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerController_getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers/{id}": {
         parameters: {
             query?: never;
@@ -7323,6 +7339,30 @@ export interface components {
             address_zip?: string;
             address_country?: string;
             preferred_language?: components["schemas"]["DisplayLanguage"] | null;
+        };
+        CustomerActivityItemDto: {
+            /** @description Stable item identifier within its source */
+            id: string;
+            /** @enum {string} */
+            type: "workshop_order" | "sales_order" | "invoice" | "credit_note" | "email" | "consent" | "vehicle_notice" | "loaner_booking" | "audit";
+            /** Format: date-time */
+            occurred_at: string;
+            title: string;
+            /** @description Referenced entity ID */
+            ref_id: string;
+            ref_link: string | null;
+            summary: {
+                [key: string]: unknown;
+            };
+        };
+        CustomerActivityMetaDto: {
+            nextCursor: string | null;
+            hasNextPage: boolean;
+            limit: number;
+        };
+        CustomerActivityResponseDto: {
+            data: components["schemas"]["CustomerActivityItemDto"][];
+            meta: components["schemas"]["CustomerActivityMetaDto"];
         };
         VehicleSummaryDto: {
             id: string;
@@ -15848,6 +15888,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerController_getActivity: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous page */
+                cursor?: string;
+                /** @description Maximum items per page */
+                limit?: number;
+                /** @description Comma-separated list of activity source types to include */
+                types?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerActivityResponseDto"];
                 };
             };
         };
