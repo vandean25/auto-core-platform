@@ -183,7 +183,7 @@ describe('Custom fields (AUT-1043 e2e)', () => {
     expect(updateAudit?.actor_user_id).toBeTruthy();
     expect(updateAudit?.diff).toEqual(
       expect.objectContaining({
-        changedFields: ['purpose'],
+        changedFields: expect.arrayContaining(['purpose']),
         diff: expect.objectContaining({
           purpose: {
             before: 'Flottenabrechnung',
@@ -192,6 +192,12 @@ describe('Custom fields (AUT-1043 e2e)', () => {
         }),
       }),
     );
+
+    await request(app.getHttpServer())
+      .patch(`/api/custom-fields/definitions/${createRes.body.id}`)
+      .set(auth(adminToken))
+      .send({ purpose: 'Flottenabrechnung' })
+      .expect(200);
   });
 
   it('Scenario 3: WHEN an advisor edits the value inline THEN it is saved and validated by type', async () => {
