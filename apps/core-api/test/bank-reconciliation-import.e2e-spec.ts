@@ -182,6 +182,21 @@ describe('Bank Reconciliation Import (e2e)', () => {
     await teardownTestApp(app);
   });
 
+  beforeEach(async () => {
+    await runWithTenantContext(tenantAId, async () => {
+      await prismaA.bankTransaction.deleteMany({
+        where: { tenant_id: tenantAId },
+      });
+      await prismaA.bankStatementImport.deleteMany({
+        where: { tenant_id: tenantAId },
+      });
+      await prismaA.financeSettings.update({
+        where: { tenant_id: tenantAId },
+        data: { bank_reconciliation_enabled: false },
+      });
+    });
+  });
+
   // Scenario 3: WHEN the flag is off THEN import and list return 404
   it('returns 404 on import and list when bank_reconciliation_enabled is false', async () => {
     const fixture = buildCamt053Fixture({
@@ -342,6 +357,12 @@ describe('Bank Reconciliation Import (e2e)', () => {
 
   // Scenario 2: WHEN the same file is uploaded again THEN no duplicate transactions exist
   it('deduplicates exact re-uploads and overlapping bank references idempotently', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', ownerHeaderA)
+      .send({ bank_reconciliation_enabled: true })
+      .expect(200);
+
     const fixture = buildCamt053Fixture({
       receivingIban: 'AT61 1904 3002 3457 3201',
       statementId: 'STMT-A-001',
@@ -374,6 +395,18 @@ describe('Bank Reconciliation Import (e2e)', () => {
           referenceText: 'RE-2026-0002',
         },
       ],
+    });
+
+    const initialRes = await request(app.getHttpServer())
+      .post('/api/bank-reconciliation/imports')
+      .set('Authorization', ownerHeaderA)
+      .attach('file', fixture, 'camt053-a.xml')
+      .expect(200);
+
+    expect(initialRes.body).toMatchObject({
+      importedCount: 3,
+      duplicateCount: 0,
+      deduplicated: false,
     });
 
     const reuploadRes = await request(app.getHttpServer())
@@ -431,6 +464,12 @@ describe('Bank Reconciliation Import (e2e)', () => {
   });
 
   it('rejects statements whose receiving IBAN does not match any active legal entity in the tenant', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', ownerHeaderA)
+      .send({ bank_reconciliation_enabled: true })
+      .expect(200);
+
     const unknownIbanFixture = buildCamt053Fixture({
       receivingIban: 'AT000000000000000000',
       statementId: 'STMT-UNKNOWN',
@@ -450,5 +489,43 @@ describe('Bank Reconciliation Import (e2e)', () => {
       .set('Authorization', ownerHeaderA)
       .attach('file', unknownIbanFixture, 'unknown.xml')
       .expect(400);
+  });
+
+  it('fails import when BANK_RECONCILIATION_IBAN_HMAC_SECRET is unset', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', ownerHeaderA)
+      .send({ bank_reconciliation_enabled: true })
+      .expect(200);
+
+    const fixture = buildCamt053Fixture({
+      receivingIban: receivingIbanA,
+      statementId: 'STMT-NO-SECRET',
+      entries: [
+        {
+          amount: '75.00',
+          currency: 'EUR',
+          cdtDbtInd: 'CRDT',
+          bookingDate: '2026-11-10',
+          bankRef: 'BANK-REF-NO-SECRET',
+          remitterName: 'Muster GmbH',
+          remitterIban: 'DE89370400440532013000',
+        },
+      ],
+    });
+
+    const previousSecret = process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET;
+    delete process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET;
+    try {
+      await request(app.getHttpServer())
+        .post('/api/bank-reconciliation/imports')
+        .set('Authorization', ownerHeaderA)
+        .attach('file', fixture, 'no-secret.xml')
+        .expect(500);
+    } finally {
+      if (previousSecret !== undefined) {
+        process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET = previousSecret;
+      }
+    }
   });
 });

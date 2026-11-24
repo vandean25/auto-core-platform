@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { BankTransactionStatus, Prisma } from '@prisma/client';
 import { createHash, createHmac } from 'node:crypto';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -27,14 +31,21 @@ import {
 
 const DEFAULT_LIST_LIMIT = 50;
 
+function readIbanHmacSecret(): string {
+  const secret = process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET?.trim();
+  if (!secret) {
+    throw new InternalServerErrorException(
+      'BANK_RECONCILIATION_IBAN_HMAC_SECRET is required.',
+    );
+  }
+  return secret;
+}
+
 function computeIbanFingerprint(
   tenantId: string,
   normalizedIban: string,
+  secret: string,
 ): string {
-  const secret =
-    process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET ||
-    process.env.JWT_SECRET ||
-    'acp-bank-reconciliation-iban-hmac-dev-key';
   return createHmac('sha256', secret)
     .update(`${tenantId}:${normalizedIban}`)
     .digest('hex');
@@ -101,6 +112,7 @@ export class BankReconciliationService {
       );
     }
 
+    const ibanHmacSecret = readIbanHmacSecret();
     const fileSha256 = createHash('sha256').update(file.buffer).digest('hex');
     const parsed = parseCamt053(file.buffer);
     const { legalEntityId, receivingIban, statementId } =
@@ -182,7 +194,11 @@ export class BankReconciliationService {
             non_eur: entry.nonEur,
             remitter_name: entry.remitterName,
             remitter_iban_fingerprint: entry.remitterIban
-              ? computeIbanFingerprint(tenantId, entry.remitterIban)
+              ? computeIbanFingerprint(
+                  tenantId,
+                  entry.remitterIban,
+                  ibanHmacSecret,
+                )
               : null,
             remitter_iban_last4: entry.remitterIban
               ? entry.remitterIban.slice(-4)
