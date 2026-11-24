@@ -16,82 +16,16 @@ Do not bypass the mandatory workflows under any circumstances.
 
 ## Project Overview
 
-Auto Core Platform is a multi-tenant workshop operations system: parts inventory, procurement, sales, workshop jobs, vehicle stock, finance, and auth/tenancy.
+Auto Core Platform is a multi-tenant workshop operations system. Modules: **Inventory** (parts, storage locations, ledger-based stock), **Purchase** (POs from draft to completion, goods receipt, vendor bills), **Sales** (CRM for private/company customers; sales orders Draft -> Confirmed -> In Progress -> Completed -> Invoiced; invoices from completed sales orders), **Workshop** (intake, job cards, board, parts pick, mechanic tablet queue; Scheduled -> Intake -> In Progress -> Completed -> Invoiced), **Vehicle stock** (dealer-owned vehicles, separate from parts inventory), **Finance** (fiscal settings, lock dates, numbering, revenue groups, accounting export), **Auth/tenancy** (Firebase Auth + JWT guard, row-level `tenant_id`, `TenantMember` roles, platform super-admin), **Brand** and **Vendor** master data.
 
-### Core Modules
-- **Inventory**: Tracks automotive parts, storage locations, and stock levels with a full audit trail (ledger-based).
-- **Purchase (Procurement)**: Manages purchase orders (POs) from draft to completion, including goods receipt and vendor billing.
-- **Sales (CRM & Invoicing)**:
-    - **CRM**: Customer management (Private/Company) with full order and vehicle history.
-    - **Sales Orders**: Workflow from Draft -> Confirmed -> In Progress -> Completed -> Invoiced.
-    - **Invoicing**: Generates final tax invoices from completed sales orders with real-time stock integration.
-- **Workshop**: Intake, job cards, board, parts pick, and mechanic tablet queue. Order workflow: Scheduled -> Intake -> In Progress -> Completed -> Invoiced.
-- **Vehicle stock**: Dealer-owned vehicles (purchase, stock, sale, vehicle ledger). Separate from parts inventory.
-- **Finance**: Manages global fiscal settings (lock dates, numbering) and revenue categorization for accounting exports.
-- **Auth/tenancy**: Firebase Auth + JWT guard, row-level `tenant_id` isolation, `TenantMember` roles, and platform super-admin.
-- **Brand (Master Data)**: Centralized management of vehicle makes and part manufacturers, enabling consistent categorization and smart filtering.
-- **Vendor**: Management of external stakeholders and their associated data (brands, contact info).
+Stack: `apps/core-api` is NestJS 11 + Prisma 7 + PostgreSQL + class-validator, tested with Jest (unit and e2e). `apps/core-web` is React 19 (Vite 8) + Tailwind CSS 4 + shadcn/ui + TanStack Query v5 / Table, Recharts, Lucide, Sonner. Both use TypeScript 7.0 (`tsc`; TS 6 shim for eslint/ts-node, ADR-0017). Backend modules live in `apps/core-api/src/<module>/`, schema and migrations in `apps/core-api/prisma/`; frontend hooks in `src/api/`, pages in `src/pages/`, components in `src/components/`, theme in `src/index.css`.
 
-## Technology Stack
-
-### Backend (`apps/core-api`)
-- **Framework**: NestJS 11 (Node.js)
-- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint/ts-node — see ADR-0017)
-- **ORM**: Prisma 7
-- **Database**: PostgreSQL
-- **Validation**: class-validator & class-transformer
-- **Testing**: Jest (Unit & E2E)
-
-### Frontend (`apps/core-web`)
-- **Framework**: React 19 (Vite 8)
-- **Language**: TypeScript 7.0 (`tsc`; TS 6 shim for eslint — see ADR-0017)
-- **Styling**: Tailwind CSS 4
-- **UI Components**: shadcn/ui
-- **State Management**: TanStack Query (v5)
-- **Data Grid**: TanStack Table
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **Notifications**: Sonner
-
-## Architecture & Structure
-
-```text
-auto-core-platform/
-├── apps/
-│   ├── core-api/          # NestJS backend
-│   │   ├── prisma/        # Schema and migrations
-│   │   └── src/           # Modular services & controllers
-│   │       ├── auth/      # Firebase JWT + session
-│   │       ├── tenant-member/ # Tenant membership
-│   │       ├── brand/     # Brand Master Data
-│   │       ├── customer/  # CRM Module
-│   │       ├── finance/   # Finance Settings & Revenue Groups
-│   │       ├── inventory/ # Inventory & Ledger
-│   │       ├── purchase/  # Procurement
-│   │       ├── sales/     # Sales Orders & Invoices
-│   │       ├── workshop/  # Workshop orders, board, pick
-│   │       ├── vehicle-stock/ # Dealer vehicle stock
-│   │       └── vendor/    # Vendor Management
-│   └── core-web/          # React frontend
-│       ├── src/api/       # TanStack Query hooks & types
-│       ├── src/components/# UI & Feature components
-│       ├── src/hooks/     # Custom React hooks
-│       ├── src/pages/     # Routed page components
-│       └── src/index.css  # Tailwind theme config
-```
+Local setup, dev servers, interactive login, seeding and troubleshooting: [docs/local-development.md](docs/local-development.md). Node.js **26.13.1** from `.nvmrc`.
 
 ## Critical Rules & Development Conventions
 
 ### TypeScript Configuration
-- **Type Safety**: `verbatimModuleSyntax` is enforced in `apps/core-web`. Use `import type` for all type-only imports (recommended project-wide, required in frontend).
-  ```typescript
-  // ✅ Correct
-  import type { InventoryItem, InventoryResponse } from './types'
-  import { useQuery } from '@tanstack/react-query'
-  
-  // ❌ Wrong - can fail under verbatimModuleSyntax
-  import { InventoryItem, InventoryResponse } from './types'
-  ```
+- **Type Safety**: `verbatimModuleSyntax` is enforced in `apps/core-web`. Use `import type` for all type-only imports (recommended project-wide, required in frontend): `import type { InventoryItem } from './types'`, never `import { InventoryItem } from './types'` for a type.
 
 ### Frontend Patterns
 - **Tailwind v4**: All styling is defined in `@theme` blocks in `src/index.css`, NOT in `tailwind.config.js`. Utility classes are preferred.
@@ -157,21 +91,7 @@ A change is done when:
 
 ### Page Layout Defaults
 - **Main Container**: Admin routes are wrapped by `PageContainer` in `App.tsx` (`max-w-page mx-auto p-6`). Adjust width via `--container-page` in `src/index.css`. Pages should not repeat that wrapper — use `space-y-6` / `space-y-8` on a root fragment or inner div when vertical spacing is needed.
-- **Header Section**: Use a flex container for titles and actions:
-  ```tsx
-  <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-4"> {/* Optional gap for back button + title */}
-          <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Page Title</h1>
-              <p className="text-slate-500">Optional subtitle description.</p>
-          </div>
-      </div>
-      <div className="flex gap-2"> {/* Optional container for multiple action buttons */}
-          {/* Actions / Buttons go here */}
-      </div>
-  </div>
-  ```
-- **Typography/Colors**: Use `text-2xl font-semibold tracking-tight` for main page headers, and `text-slate-500` for subtitles instead of `text-muted-foreground`.
+- **Header Section**: a flex container `flex items-center justify-between mb-8`: on the left an optional back button plus a `<div>` with `<h1 className="text-2xl font-semibold tracking-tight">` and an optional `<p className="text-slate-500">` subtitle (not `text-muted-foreground`); on the right `flex gap-2` with the page actions.
 - **Lists / Tables**: Prefer using the shared `DataTable` component abstraction (`@/components/data-table/DataTable`) over constructing raw tables in `src/pages/` components for listing data.
 
 ### UX/UI Standards
@@ -179,12 +99,12 @@ A change is done when:
 - **DON'T**: Do not place page-level action buttons on the left side under the page title. The top-left is strictly reserved for context (`breadcrumbs`, `titles`, `badges`).
 
 ### List Page UI Standard (Required for New Lists)
-- **Header**: Use the standard title/subtitle block with `text-2xl font-semibold tracking-tight` and `text-slate-500`.
+- **Header**: the standard title/subtitle block from Page Layout Defaults.
 - **Top-right create action**: Use a plus icon with either the entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`) or a sentence-case `New <entity>` label (examples: `New order`, `New transfer`). Do not use `Add` or `Create` in the button label.
 - **Search behavior**: Every list must include a search bar and it must search across all relevant visible fields (not only a single column), matching the Item list behavior.
 - **Sorting**: Every list must support sortable column headers via the shared `DataTable`/`DataTableColumnHeader` pattern, consistent with other primary lists.
 - **Column sizing**: Keep column widths consistent across lists and use the Item list proportions as the reference baseline to avoid layout drift between modules.
-- **Status rendering**: Use the shared `StatusBadge` component (`@/components/status/StatusBadge`) for status cells and status chips to keep font size, spacing, and color mapping consistent across the app.
+- **Status rendering**: Use the shared `StatusBadge` component (`@/components/status/StatusBadge`) for status cells and status chips (see UI Styling & Standards).
 - **Row interaction**: Clicking a table row must open that entity's detail card/page. Avoid separate row-level edit/detail icon buttons in list rows.
 - **Row context action**: Right-clicking a row should expose a contextual `Delete` action (when the entity supports deletion).
 
@@ -249,16 +169,17 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
 ### Ticket Scenarios (WHEN/THEN)
 - Every WHEN/THEN scenario listed in a ticket maps to exactly one test, preferably by extending an existing spec (format borrowed from OpenSpec; we do not adopt OpenSpec itself), unless the ticket changes no behaviour, in which case each scenario maps to the doc section that states it.
 
+### Domain invariants (schema)
+- Tables use snake_case via `@@map()`; IDs are UUIDs; models carry `createdAt` / `updatedAt`; supersession chains use self-referencing relations.
+- `Brand` standardizes vehicle makes and part manufacturers. `InventoryStock` is one-to-many with `CatalogItem` (multiple locations).
+- Every stock movement is an `InventoryTransaction` (ledger). Workshop `WorkshopOrder` / `WorkshopTask` job cards; parts pick writes inventory transfers. Dealer cars use `VehiclePurchase` / `VehicleSale` / `VehicleLedgerEntry`, never parts inventory.
+- Transactions are validated against `FinanceSettings.lock_date`. Purchase orders follow DRAFT -> SENT -> PARTIAL -> COMPLETED.
+- Sales: `Customer` -> `SalesOrder` (Draft, links `Customer` and optionally `Vehicle`) -> `Invoice` (Final); sequential numbering (`SO-2026-XXXX`, `RE-2026-XXXX`); invoices snapshot `revenue_group_name` and `unit_price` at the moment of sale.
+
 ## GitHub Pull Request Workflow
 
-### ⚠️ Critical: Always use `gh` CLI, never use browser or GitHub MCP
-- **Never** use the browser to create PRs - the UI can be slow or require manual interaction
-- **Never** use `github-mcp-server` for PR creation - use it only for read operations (get commits, list issues, etc.)
-- **Always** use `gh pr create` from the command line to create pull requests
-  ```bash
-  gh pr create --draft --title "Your PR title" --body "Your PR description"
-  ```
-- This is faster, more reliable, and avoids UI-related issues or authentication problems
+### Creating PRs
+- Create PRs with the `gh` CLI (`gh pr create --draft --title "..." --body-file pr-body.md`), never through the browser. GitHub MCP tools are for read operations only.
 - **Claude Code cloud sessions:** GitHub access there allows REST only, not GraphQL, so `gh pr create`, `gh pr view` and other GraphQL-based `gh` commands fail. Use `gh api` with REST routes instead, e.g. `gh api repos/vandean25/auto-core-platform/pulls/<n>` (read) and `gh api -X POST repos/vandean25/auto-core-platform/pulls -f title=... -f head=<branch> -f base=main -f body=...` (create).
 
 ### PR body (checked by CI)
@@ -282,10 +203,7 @@ We use a **Context-Based Approach**, allowing both patterns strictly based on th
   ```bash
   gh pr ready <PR_NUMBER>
   ```
-- **Cloud Agents — subscribe until merge:** After pushing and opening/updating a PR, subscribe via `cursor-subscriptions` MCP (see `.agents/skills/` subscribe skill if needed):
-  - `subscribe_github_ci` on the branch for CI completion.
-  - `subscribe_github_pr` (scope `pr`) on the PR for review comments, `@cursoragent` mentions, and review activity.
-  Keep both active until the PR merges or closes; re-subscribe after each push or when expired; unsubscribe only then. On wake, re-read the PR and address CI failures or review feedback before ending the turn.
+- **Cursor Cloud Agents — subscribe until merge:** subscribe to CI and PR comments as described in `.cursor/rules/pr-lifecycle.mdc` and keep both subscriptions until the PR merges or closes.
 
 ### Local checks before pushing (CI is the source of truth)
 - Locally, run only the checks for the workspace you touched: lint, typecheck/build, the unit tests of the files you changed, and only the Playwright/E2E spec files you added or changed.
@@ -302,7 +220,7 @@ npm run lint --workspace=core-api
 npm run build --workspace=core-api
 npm test --workspace=core-api -- --ci --runInBand --findRelatedTests <changed src/spec files>
 ```
-Only if you added or changed a backend `.e2e-spec.ts`, run that one file once, against a fresh, unseeded `auto_core_test` database, migrated first and run serially (see [Cursor Cloud specific instructions](#cursor-cloud-specific-instructions)):
+Only if you added or changed a backend `.e2e-spec.ts`, run that one file once, against a fresh, unseeded `auto_core_test` database, migrated first and run serially (Cursor Cloud: see `.cursor/rules/cursor-cloud.mdc`):
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
   npm exec --workspace=core-api -- prisma migrate deploy
@@ -332,92 +250,24 @@ The full UI smoke suite (`npm run test:e2e` without a file filter) and `test:e2e
 - Fix the code. Never game the gate with renames, file splits, stubs, re-export shims or suppression comments, and never edit `.fallowrc.json` or the workflow to pass.
 - Reviewers do not repeat gate findings; they only check whether a gate fix is real or cosmetic. Details: `.agents/skills/acp-code-health/SKILL.md`.
 
-## Database Schema Highlights
-
-- **Tables**: use snake_case via `@@map()` directive.
-- **IDs**: are UUIDs.
-- **Timestamps**: Use `createdAt` and `updatedAt` timestamps.
-- **Supersession chains**: use self-referencing relations.
-- **Centralized Brands**: Uses `Brand` entity to standardize vehicle makes and part manufacturers.
-- **Row-level tenancy**: Tenant-scoped models include `tenant_id`. Every query against those models must filter by `tenant_id` from `TenantContextService`.
-- **Site operational scope**: Site-owned models also filter by `site_id` from `SiteContextService` (ADR-0022). Not a second tenant extension.
-- **Ledger-based Inventory**: Every stock movement is recorded in `InventoryTransaction`.
-- **Workshop**: `WorkshopOrder` / `WorkshopTask` job cards; parts pick writes inventory transfers.
-- **Vehicle stock**: `VehiclePurchase` / `VehicleSale` / `VehicleLedgerEntry` — dealer cars, not parts inventory.
-- **Fiscal Security**: Transactions are validated against `FinanceSettings.lock_date`.
-- **Purchase Orders**: follow a strict status workflow (DRAFT -> SENT -> PARTIAL -> COMPLETED).
-- **Sales Workflow**:
-  - `Customer` (Private/Company) -> `SalesOrder` (Draft) -> `Invoice` (Final).
-  - Numbering: Sequential numbering for Sales Orders (`SO-2026-XXXX`) and Invoices (`RE-2026-XXXX`).
-  - Invoice Snapshot: Invoices snapshot `revenue_group_name` and `unit_price` at the moment of sale.
-- **Relations**:
-  - `InventoryStock` is one-to-many with `CatalogItem` (allows multiple locations).
-  - `SalesOrder` links to `Customer` and optionally `Vehicle`.
-
-## Building and Running
-
-### Prerequisites
-- Node.js v26+
-- PostgreSQL v15+
-- npm v9+
-
-### Setup Commands
-```bash
-# Install all workspace dependencies (from repo root)
-npm install
-
-# Database Initialization
-cd apps/core-api
-npx prisma generate
-npx prisma migrate dev
-npx prisma db seed
-```
-
-### Development Servers & Common Commands
-```bash
-# Backend (Port 3000)
-cd apps/core-api
-npm run start:dev          # Start with hot reload
-npx prisma studio          # Database GUI
-npx prisma migrate dev     # Apply migrations
-npx prisma db seed         # Seed sample data
-
-# Frontend (Port 5173)
-cd apps/core-web
-npm run dev                # Start dev server
-npm run build              # Production build
-```
-
-## Known Troubleshooting & Gotchas
-1. **Blank page in browser?** Check Vite terminal for CSS errors / Tailwind Utility Errors (Check `@theme` block format in `index.css`).
-2. **Import errors?** Ensure type-only imports use `import type`.
-3. **Prisma errors / Type Errors?** Run `npx prisma generate` after pulling schema changes.
-4. **API 404s?** Confirm backend is running on port 3000 and proxy is active.
-
 ## Entity Deletion Policy
 - Source of truth: `docs/deletion-policy.md`
 - Apply policy before adding any new delete endpoint or UI delete action.
 - Backend must enforce all deletion rules; frontend should only mirror policy for UX, never replace backend validation.
 - **Maintenance**: The AI MUST automatically propose updates to `docs/deletion-policy.md` whenever a new database entity is created or when business rules regarding the lifecycle of an existing entity are altered.
 
+## Database Performance
+🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
+🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.
+
 ## MCP Servers & Skills
-This project uses the following MCP servers:
-- **context7**: Version-specific third-party library documentation (project config: `.cursor/mcp.json`). Optional `CONTEXT7_API_KEY` in the agent environment for higher rate limits (never commit keys).
-- **mcp-server-neon**: For managing the Neon PostgreSQL database (branching, migrations, etc.).
-- **github-mcp-server**: For GitHub operations.
-- **prisma-mcp-server**: For database schema management.
-- **repowise** (optional): codebase-intelligence MCP (`get_context`, `get_change_risk`, `get_dead_code`). Not a CI gate; never put repowise scores in PRs.
-
-When you are unsure about a third-party library API (e.g. Prisma, NestJS, React, Playwright), look it up via Context7 for the version pinned in the relevant `package.json` before writing code — on demand, not on every task.
-
-Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.
+- **context7** (`.cursor/mcp.json`; optional `CONTEXT7_API_KEY` in the agent environment, never commit keys): when you are unsure about a third-party library API (e.g. Prisma, NestJS, React, Playwright), look it up via Context7 for the version pinned in the relevant `package.json` before writing code — on demand, not on every task.
 
 ### Skill trees
-Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/superpowers/`). Codex and Cursor consume that tree — do not add `.codex/skills/` or `.cursor/skills/` copies. `docs/internal/.agents/skills/` (architecture vault) and `apps/core-api/.agents/skills/` (Neon) are separate, non-duplicate trees.
+Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/superpowers/`). Codex and Cursor consume that tree — do not add `.codex/skills/` or `.cursor/skills/` copies.
 
 ### Local Project Skills
-- **Stitch Fetch Skill**: `.agents/skills/stitch-fetch/SKILL.md`
-  - Use it to fetch Stitch screen metadata and download image/code assets via hosted URLs using `curl -L`.
+
 - **Mintlify Docs Skill**: `.agents/skills/mintlify-docs/SKILL.md`
   - Use it before writing or editing public Mintlify pages (`*.mdx`, `docs.json`). Enforces ACP workshop voice and the unique Mintlify design.
 - **Tracing Request IDs Skill**: `.agents/skills/tracing-request-ids/SKILL.md`
@@ -436,155 +286,15 @@ Canonical skills live in `.agents/skills/` (Superpowers at `.agents/skills/super
   - `ponytail-review`: quality review of a change (logic, safety, load, tests, speed, every line needed); reads the connected code, not only the diff.
   - `ponytail-audit`: one-shot quality audit of the whole repo, ranked findings; changes nothing.
   - `ponytail-debt`: lists every `shortcut:` (and older `ponytail:`) comment as a debt ledger; changes nothing.
-  - `ponytail-gain`: shows ponytail's measured savings (code, cost, speed) from the benchmark.
-  - `ponytail-help`: quick reference for ponytail levels, skills and commands.
 
 ## Google Secret Manager (Shared Dev Secrets)
-
-Use Google Secret Manager (GSM) as the source of truth for local dev credentials across machines and agents.
-
-### Files
-- Mapping template: `secrets/gsm-mapping.example.json`
-- Local mapping (gitignored): `secrets/gsm-mapping.json`
-- Pull script: `tools/pull-secrets-from-gsm.mjs`
-- Full guide: `docs/google-secret-manager.md`
-
-### One-time Setup (per machine)
-1. `gcloud auth login`
-2. `gcloud config set project auto-core-platform-vande`
-3. `Copy-Item secrets/gsm-mapping.example.json secrets/gsm-mapping.json`
-4. Update `secrets/gsm-mapping.json` secret names to match your GSM secrets.
-
-### Pull Secrets
-- Backend env (`apps/core-api/.env`):
-  - `npm --prefix apps/core-api run secrets:pull`
-- Frontend env (`apps/core-web/.env.local`):
-  - `npm --prefix apps/core-web run secrets:pull`
-
-Never commit real secret values or generated local `.env` files.
+Google Secret Manager (GSM, project `auto-core-platform-vande`) is the source of truth for local dev credentials. Copy `secrets/gsm-mapping.example.json` to the gitignored `secrets/gsm-mapping.json`, then pull with `npm --prefix apps/core-api run secrets:pull` (writes `apps/core-api/.env`) and `npm --prefix apps/core-web run secrets:pull` (writes `apps/core-web/.env.local`). Full guide: `docs/google-secret-manager.md`. Never commit real secret values or generated local `.env` files.
 
 ## Parallel local worktrees (optional)
 
-Cloud agents ignore this section. On one machine you can run several coding agents in parallel, each in its own git worktree, with isolated API/Vite ports, env files, and Postgres databases. Use the root scripts `npm run worktree:new`, `worktree:setup`, and `worktree:remove`, plus `docker compose -f docker-compose.worktrees.yml up -d` for shared local Postgres. Full steps: [docs/local-multi-worktree-development.md](docs/local-multi-worktree-development.md) (EN) and [docs/lokale-multi-worktree-entwicklung.md](docs/lokale-multi-worktree-entwicklung.md) (DE).
+Cloud agents ignore this section. On one machine you can run several coding agents in parallel, each in its own git worktree, with isolated API/Vite ports, env files, and Postgres databases. Use the root scripts `npm run worktree:new`, `worktree:setup`, and `worktree:remove`, plus `docker compose -f docker-compose.worktrees.yml up -d` for shared local Postgres. Full steps: [docs/local-multi-worktree-development.md](docs/local-multi-worktree-development.md).
 
 **Local agents** whose tool creates the worktree itself (e.g. Codex, Qoder): if you are in a **linked** git worktree (not the primary checkout) and `apps/core-api/.env` is missing, run `npm run worktree:setup` before building, testing, or starting the app. **Cloud agents** (Cursor Cloud Agent runs, `NODE_ENV=test`, no local Docker) must **not** run worktree setup — skip this entirely.
 
-## Database Performance
-🔴 **DON'T:** Never execute an `await` database query (read or write) inside a loop (N+1 anti-pattern).
-🟢 **DO:** For reads, use the "Pre-fetch & Map" pattern with `in:` queries. For writes, map the data to an array of Prisma queries and resolve them concurrently using our global chunking utility `chunkedPromiseAll` inside a transaction.
-
-## Cursor Cloud specific instructions
-
-Cloud Agents for this repository should use the versioned environment in `.cursor/environment.json` (Docker base image + `install`/`start` scripts). After merging, point the Cloud Agents environment at that file (or create a new environment from the repo so `environmentJsonPath` is `.cursor/environment.json`) and run an environment build so agents boot with dependencies preinstalled.
-
-### What the environment provides
-
-| Component | Detail |
-| --- | --- |
-| Node.js | **26.13.1** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
-| Dependencies | Root `npm ci`, then `prisma generate` for `core-api` |
-| PostgreSQL | **17** (PGDG), started on every agent boot via `start` |
-| Dev database | `core_platform` owned by role `acp_cloud` (local-only password in install scripts) |
-| E2E database | `auto_core_test` (CI-parity `postgres` / `postgres` owner) |
-| Shell env | `DATABASE_URL` and `ACP_E2E_DATABASE_URL` exported via `/etc/profile.d/acp-cloud-agent.sh` |
-| Backend `.env` | Generated locally by install into `apps/core-api/.env` (gitignored) with dev-only encryption/HMAC fixtures |
-
-### MCP (Context7)
-
-- **IDE:** `.cursor/mcp.json` defines the Context7 HTTP server with `${env:CONTEXT7_API_KEY}`.
-- **Cloud Agents:** Project `mcp.json` is **not** loaded automatically on the VM. Agents use dashboard MCP configuration plus environment policy. This repo’s `environment.json` includes an `mcpServerAllowlist` entry for `https://mcp.context7.com/mcp`.
-- **Manual dashboard steps (once per team/environment):**
-  1. Add a Team MCP server (Dashboard → Plugins & MCPs) with URL `https://mcp.context7.com/mcp` and header `Context7-API-Key` bound to secret **`CONTEXT7_API_KEY`** (same name as the agent environment variable).
-  2. Ensure the Cloud Agent environment has **`CONTEXT7_API_KEY`** set (environment secrets, not committed).
-  3. Confirm MCP is not blocked by team policy (`disableAllMcpServers` / allowlist). Built-in Cursor MCP servers (GitHub, Linear, etc.) are unaffected.
-
-### PR comment subscriptions (mandatory)
-Every Cloud Agent with an open PR must subscribe to PR comments and keep listening until the PR is merged or closed. CI-only subscriptions miss review feedback (including `@cursoragent` comments from Cursor PR Review).
-
-After each push that updates the PR:
-1. `subscribe_github_ci` — branch CI terminal state.
-2. `subscribe_github_pr` — scope `pr`, same PR URL/number.
-
-Use `list_subscriptions` before subscribing to reuse active ones; re-subscribe when `expiresAt` passes. Unsubscribe both when the PR is merged or closed. End the turn after subscribing so wake notifications can arrive for CI and review comments.
-
-### Services
-- **PostgreSQL 17** on `127.0.0.1:5432`. Dev URL: `DATABASE_URL` → `core_platform` (`acp_cloud`). E2E URL: `ACP_E2E_DATABASE_URL` → `auto_core_test` (`postgres` / `postgres`).
-- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires generated `apps/core-api/.env` (install creates it).
-- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. Proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
-
-### Postgres lifecycle
-`start` brings up cluster `17/main` and waits for `pg_isready`. If Postgres was stopped manually:
-```bash
-bash .cursor/scripts/cloud-agent-start.sh
-```
-
-### Reset dev or test databases
-**Dev (`core_platform`)** — drop and recreate, then migrate:
-```bash
-bash .cursor/scripts/cloud-agent-start.sh
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS core_platform WITH (FORCE);"
-sudo -u postgres psql -c "CREATE DATABASE core_platform OWNER acp_cloud;"
-DATABASE_URL="postgresql://acp_cloud:acp_cloud_local_only@127.0.0.1:5432/core_platform" \
-  npm exec --workspace=core-api -- prisma migrate deploy
-```
-
-**E2E (`auto_core_test`)** — must stay empty/unseeded for backend e2e (same as CI):
-```bash
-bash .cursor/scripts/cloud-agent-start.sh
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
-sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
-DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/auto_core_test" \
-  npm exec --workspace=core-api -- prisma migrate deploy
-```
-
-### Backend checks in Cloud Agent (before pushing)
-```bash
-npm run lint:prisma-tenant --workspace=core-api
-npm run lint --workspace=core-api
-npm run typecheck:spec --workspace=core-api
-```
-There is no root `typecheck` script; CI uses `typecheck:spec` for `core-api`.
-
-The full backend E2E suite runs **only in CI** on every PR; locally run only a new or changed `.e2e-spec.ts` (see [Local checks before pushing](#local-checks-before-pushing-ci-is-the-source-of-truth)). Example smoke file: `test/app.e2e-spec.ts`. When you touch one, run it once against a fresh `auto_core_test` (see reset above), serially:
-```bash
-DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
-DATABASE_URL="$ACP_E2E_DATABASE_URL" npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
-```
-
-If a prompt requires the **full** backend E2E suite (168 files) before push, do **not** run `npm run test:e2e` with default Jest workers. That path shares one database across parallel suites; several specs `TRUNCATE` invoices, stock, customers, and catalog tables globally, which is why a full local run fails while the 4 CI shards stay green.
-
-Reset and migrate `auto_core_test`, then run the CI-parity entrypoint (same runner, `--runInBand` batches, shards 1/4–4/4 in sequence on this VM):
-
-```bash
-bash .cursor/scripts/cloud-agent-start.sh
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
-sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
-DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
-npm run test:e2e:agent --workspace=core-api
-```
-
-`test:e2e:agent` forces `DATABASE_URL` to `ACP_E2E_DATABASE_URL` when that is set, and applies the same `INVOICE_BRANDING_WRITER_ENABLED` / `DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR` defaults as the `backend-e2e` job in CI. Do not point it at `core_platform`. Do not skip tests. CI shards remain the merge gate; this command exists so a required full pre-push run is actually comparable to CI.
-
-Jest sets `NODE_ENV=test` for e2e (local test JWTs; no Firebase required). Unit tests and frontend Playwright e2e do not need a seeded DB.
-
-### The seed is not idempotent when transactional rows exist
-`prisma db seed` deletes all tenants then recreates `default-workshop` with a **new** id, but its delete order does not cover `sales_orders`, so re-seeding a DB that already has sales orders fails with an FK error. Prefer the reset commands above instead of re-running seed on a dirty dev DB.
-
-### Interactive login with real Firebase (works, no service account required)
-All backend routes are behind a global `JwtAuthGuard`, and the frontend login uses Firebase Auth for project `auto-core-platform-vande`. Real interactive login works with these steps (no Google service account needed):
-
-1. Frontend config — the web config is public (shipped to browsers) and discoverable from Firebase Hosting:
-   `curl https://auto-core-platform-vande.firebaseapp.com/__/firebase/init.json`
-   Put `apiKey`, `authDomain`, `projectId`, `appId` into `apps/core-web/.env.local` as `VITE_FIREBASE_API_KEY` / `VITE_FIREBASE_AUTH_DOMAIN` / `VITE_FIREBASE_PROJECT_ID` / `VITE_FIREBASE_APP_ID`, then restart Vite. (`cloudbuild.yaml` lists all of these except the api key.)
-2. Backend config — set `FIREBASE_PROJECT_ID=auto-core-platform-vande` in `apps/core-api/.env`. `verifyIdToken()` only needs the project id (it fetches Google's public certs); Application Default Credentials are NOT required to *verify* tokens.
-3. Authorize the user in the local DB — the session is resolved from local `User` + `TenantMember` rows, not from token claims. `npm run db:seed:tenant-member` cannot be used here because it calls Firebase Admin (`getUserByEmail`/`setCustomUserClaims`), which needs a service account. Instead insert the rows directly: create a `User` (`firebaseUid` = the sign-in `localId`, matched by email otherwise) with `active_tenant_id` = the `default-workshop` tenant id, and a `TenantMember` (role `ADMIN`, `is_active: true`) for that tenant.
-
-For a **TECH/mechanic** login (tablet mode at `/mechanic/queue`), the `TenantMember` role must be `TECH` and — in addition — `MechanicService.resolveMechanic()` requires an active `Employee` (role `MECHANIC`, `is_active: true`) whose `user_id` points at that `User`.
-
-Alternatives without Firebase: run Vite with `VITE_E2E_SKIP_AUTH=true` to render the app shell (API calls then 401, no token attached); or run the backend with `NODE_ENV=test` + a known `TEST_JWT_SECRET` and mint an HS256 JWT with claims `{ sub, email, iss: 'local-test-fixture' }` that match a seeded `User` + active `TenantMember` (request authorization is resolved from Postgres, not from token `tenantId`/`role` claims).
-
-### Build/run gotcha
-The compiled entrypoint is `dist/main.js` (not `dist/src/main.js`). Do not run a `dist`-based server while `npm run start:dev` (watch) is recompiling `dist` — they race and cause `Cannot find module` errors.
-
-### Lint state
-`apps/core-api` `npm run lint` runs ESLint without `--fix` (PR CI uses the same command). Use `npm run lint:fix` to apply auto-fixes locally. `apps/core-web` `npm run lint` passes with a couple of warnings.
+## Cursor Cloud Agents
+Cursor Cloud Agents follow `.cursor/rules/cursor-cloud.mdc` (environment, databases, reset commands, full-suite runner) and `.cursor/rules/pr-lifecycle.mdc` (CI and PR subscriptions).
