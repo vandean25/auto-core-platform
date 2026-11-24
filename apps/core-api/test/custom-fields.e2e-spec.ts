@@ -427,13 +427,125 @@ describe('Custom fields (AUT-1043 e2e)', () => {
     expect(JSON.stringify(mcpCustomer)).not.toContain('FL-42');
   });
 
-  it('Scenario 9 & Anti-criterion 1: WHEN customer is erased THEN custom_fields are cleared in customer and vehicle DB rows', async () => {
+  it('Regression: customer detail and MCP strip custom_fields from workshop_orders[].vehicle and reserved_for_customer while flag is ON', async () => {
+    await basePrisma.tenant.update({
+      where: { id: tenantAId },
+      data: { custom_fields_enabled: true },
+    });
+
+    const reservedCustomer = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Reserved',
+        last_name: 'Kunde',
+        email: `reserved-1043-${Date.now()}@example.com`,
+        type: 'PRIVATE',
+        custom_fields: { flottennummer: 'RESERVED-SECRET' },
+      },
+    });
+
+    await prismaA.vehicle.updateMany({
+      where: { id: vehicleId, tenant_id: tenantAId },
+      data: { reserved_for_customer_id: reservedCustomer.id },
+    });
+
+    await prismaA.workshopOrder.create({
+      data: {
+        tenant_id: tenantAId,
+        site_id: siteAId,
+        customer_id: customerId,
+        vehicle_id: vehicleId,
+        order_number: `WO-1043-${Date.now()}`,
+        odometer: 10000,
+        fuel_level: 50,
+      },
+    });
+
+    const detailRes = await request(app.getHttpServer())
+      .get(`/api/customers/${customerId}`)
+      .set(auth(adminToken))
+      .expect(200);
+
+    expect(detailRes.body).toHaveProperty('custom_fields');
+    expect(detailRes.body.vehicles[0]).not.toHaveProperty('custom_fields');
+    expect(detailRes.body.vehicles[0].reserved_for_customer).not.toHaveProperty(
+      'custom_fields',
+    );
+    expect(detailRes.body.workshop_orders[0].vehicle).not.toHaveProperty(
+      'custom_fields',
+    );
+    expect(JSON.stringify(detailRes.body)).not.toContain('RESERVED-SECRET');
+
+    const mcpRead = app.get(McpOrderHistoryReadService);
+    const { TenantContextStorage } = await import(
+      '../src/common/services/tenant-context.storage.js'
+    );
+    const mcpCustomer = await TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        userId: `e2e-user-${tenantAId}`,
+        email: `e2e-${tenantAId}@example.com`,
+        tenantId: tenantAId,
+        role: 'ADMIN',
+        activeSiteId: siteAId,
+      });
+      return mcpRead.getCustomer({ customer_id: customerId });
+    });
+    expect(JSON.stringify(mcpCustomer)).not.toContain('RESERVED-SECRET');
+    expect(JSON.stringify(mcpCustomer)).not.toContain('"custom_fields"');
+
+    await prismaA.vehicle.updateMany({
+      where: { id: vehicleId, tenant_id: tenantAId },
+      data: { reserved_for_customer_id: null },
+    });
+  });
+
+  it('Scenario 9 & Anti-criterion 1: WHEN customer is erased THEN owned custom_fields are cleared and party-only vehicle values stay out of Art. 15 and on owner row', async () => {
+    const ownerCustomer = await prismaA.customer.create({
+      data: {
+        tenant_id: tenantAId,
+        first_name: 'Owner',
+        last_name: 'Kunde',
+        email: `owner-1043-${Date.now()}@example.com`,
+        type: 'PRIVATE',
+      },
+    });
+    const partyVehicle = await prismaA.vehicle.create({
+      data: {
+        tenant_id: tenantAId,
+        customer_id: ownerCustomer.id,
+        make: 'BMW',
+        model: '320d',
+        year: 2022,
+        plate: 'W-PARTY1',
+        custom_fields: { stellplatz: 'OWNER-ONLY' },
+      },
+    });
+    await prismaA.vehicleParty.create({
+      data: {
+        tenant_id: tenantAId,
+        vehicle_id: partyVehicle.id,
+        customer_id: customerId,
+        role: 'DRIVER',
+        source: 'MANUAL',
+      },
+    });
+
+    const art15Res = await request(app.getHttpServer())
+      .get(`/api/customers/${customerId}/art15-export`)
+      .set(auth(adminToken))
+      .expect(200);
+
+    expect(
+      art15Res.body.vehicles.map((v: { id: string }) => v.id),
+    ).not.toContain(partyVehicle.id);
+    expect(JSON.stringify(art15Res.body)).not.toContain('OWNER-ONLY');
+
     await request(app.getHttpServer())
       .post(`/api/customers/${customerId}/erase`)
       .set(auth(adminToken))
       .expect(201);
 
-    const [dbCustomer, dbVehicle] = await Promise.all([
+    const [dbCustomer, dbVehicle, dbPartyVehicle] = await Promise.all([
       prismaA.customer.findFirst({
         where: { id: customerId, tenant_id: tenantAId },
         select: { custom_fields: true, first_name: true },
@@ -442,10 +554,15 @@ describe('Custom fields (AUT-1043 e2e)', () => {
         where: { id: vehicleId, tenant_id: tenantAId },
         select: { custom_fields: true },
       }),
+      prismaA.vehicle.findFirst({
+        where: { id: partyVehicle.id, tenant_id: tenantAId },
+        select: { custom_fields: true },
+      }),
     ]);
 
     expect(dbCustomer?.custom_fields).toEqual({});
     expect(dbCustomer?.first_name).toBe('Anonymisiert');
     expect(dbVehicle?.custom_fields).toEqual({});
+    expect(dbPartyVehicle?.custom_fields).toEqual({ stellplatz: 'OWNER-ONLY' });
   });
 });

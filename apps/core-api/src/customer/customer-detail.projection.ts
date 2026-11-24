@@ -2,6 +2,7 @@ import {
   projectVehicleListOperationalFields,
   stripWorkshopOrdersVehicleIdentity,
 } from '../common/projections/vehicle-entity.projection.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import {
   buildHistoryMeta,
@@ -39,11 +40,20 @@ export function projectCustomerDetail(
     ...customer,
     vehicles: projectVehicleListOperationalFields(
       customer.vehicles?.map((vehicle) => {
-        const rest = {
-          ...stripVehicleIdentityResolutionState(vehicle),
-        } as Record<string, unknown>;
-        delete rest.custom_fields;
-        return rest;
+        const stripped = omitCustomFields(
+          stripVehicleIdentityResolutionState(vehicle),
+        ) as Record<string, unknown> & {
+          reserved_for_customer?: { custom_fields?: unknown } | null;
+        };
+        if (stripped.reserved_for_customer) {
+          return {
+            ...stripped,
+            reserved_for_customer: omitCustomFields(
+              stripped.reserved_for_customer,
+            ),
+          };
+        }
+        return stripped;
       }),
       authorizedSiteIds,
     ),

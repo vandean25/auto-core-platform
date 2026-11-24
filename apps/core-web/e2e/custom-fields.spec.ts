@@ -253,4 +253,84 @@ test.describe("Custom fields (AUT-1043)", () => {
       contentType: "image/png",
     });
   });
+
+  test("archived definition is hidden in customer file while active field remains visible", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("e2e-custom-fields-enabled", "true");
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher("/api/custom-fields/definitions"), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "def-1",
+            entity: "CUSTOMER",
+            key: "flottennummer",
+            label: "Flottennummer",
+            type: "TEXT",
+            options: null,
+            purpose: "Flottenabrechnung",
+            personal_data: true,
+            retention_class: "PARENT_OBJECT",
+            archived: true,
+            sort_order: 0,
+            createdAt: "2026-11-24T00:00:00.000Z",
+            updatedAt: "2026-11-24T00:00:00.000Z",
+          },
+          {
+            id: "def-2",
+            entity: "CUSTOMER",
+            key: "ansprechpartner",
+            label: "Ansprechpartner",
+            type: "TEXT",
+            options: null,
+            purpose: "Kundenbetreuung",
+            personal_data: true,
+            retention_class: "PARENT_OBJECT",
+            archived: false,
+            sort_order: 1,
+            createdAt: "2026-11-24T00:00:00.000Z",
+            updatedAt: "2026-11-24T00:00:00.000Z",
+          },
+        ]),
+      });
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher("/api/customers/cust-1"), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "cust-1",
+          type: "PRIVATE",
+          first_name: "Erika",
+          last_name: "Musterfrau",
+          legacy_ids: [],
+          vehicles: [],
+          vehicle_parties: [],
+          sales_orders: [],
+          workshop_orders: [],
+          invoices: [],
+          workshop_orders_meta: { page: 1, pageSize: 5, totalCount: 0, pageCount: 1, hasMore: false },
+          invoices_meta: { page: 1, pageSize: 5, totalCount: 0, pageCount: 1, hasMore: false },
+          block_level: "NONE",
+          custom_fields: { ansprechpartner: "Hr. Huber" },
+        }),
+      });
+    });
+
+    await page.goto("/customers/cust-1");
+    const section = page.getByTestId("custom-fields-section-customer");
+    await expect(section).toBeVisible();
+    await expect(section.getByText("Ansprechpartner")).toBeVisible();
+    await expect(section.getByText("Hr. Huber")).toBeVisible();
+    await expect(section.getByText("Flottennummer")).toHaveCount(0);
+
+    await testInfo.attach("custom-fields-customer-archived-de", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  });
 });

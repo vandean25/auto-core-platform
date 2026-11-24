@@ -1519,7 +1519,7 @@
     "saveFailed": "Failed to save custom field.",
     "exportFailed": "Failed to export field catalogue.",
     "exportCatalogue": "Export catalogue (CSV)",
-    "newField": "+ Custom field",
+    "newField": "Custom field",
     "empty": "No custom fields defined yet.",
     "archivedBadge": "Archived",
     "personalDataBadge": "Personal data",

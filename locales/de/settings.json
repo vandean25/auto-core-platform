@@ -1519,7 +1519,7 @@
     "saveFailed": "Das eigene Feld konnte nicht gespeichert werden.",
     "exportFailed": "Der Feldkatalog konnte nicht exportiert werden.",
     "exportCatalogue": "Katalog exportieren (CSV)",
-    "newField": "+ Eigenes Feld",
+    "newField": "Eigenes Feld",
     "empty": "Noch keine eigenen Felder angelegt.",
     "archivedBadge": "Archiviert",
     "personalDataBadge": "Personenbezogen",

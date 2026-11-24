@@ -104,6 +104,12 @@ describe('CustomFieldsGdprService', () => {
         value: 'B4',
       }),
     ]);
+    expect(prisma.vehicle.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+      },
+    });
   });
 
   it('clears custom_fields on customer and owned vehicles during erasure', async () => {

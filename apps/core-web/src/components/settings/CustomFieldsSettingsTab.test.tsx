@@ -63,7 +63,7 @@ describe('CustomFieldsSettingsTab', () => {
     renderTab()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Fahrzeuge' }))
-    fireEvent.click(screen.getByRole('button', { name: /\+ Eigenes Feld/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Eigenes Feld/i }))
 
     const checkbox = await screen.findByRole('checkbox', {
       name: /Personenbezogene Daten/i,

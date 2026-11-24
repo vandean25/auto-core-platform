@@ -77,14 +77,7 @@ export class CustomFieldsGdprService {
       this.prisma.vehicle.findMany({
         where: {
           tenant_id: tenantId,
-          OR: [
-            { customer_id: customerId },
-            {
-              parties: {
-                some: { customer_id: customerId, tenant_id: tenantId },
-              },
-            },
-          ],
+          customer_id: customerId,
         },
       }),
       this.prisma.customFieldDefinition.findMany({
