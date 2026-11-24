@@ -39,7 +39,7 @@ export function projectCustomerDetail(
   return {
     ...customer,
     vehicles: projectVehicleListOperationalFields(
-      customer.vehicles?.map((vehicle) => {
+      customer.vehicles?.map((vehicle): Record<string, unknown> => {
         const stripped = omitCustomFields(
           stripVehicleIdentityResolutionState(vehicle),
         ) as Record<string, unknown> & {
