@@ -10,11 +10,7 @@ You are operating under the `obra/superpowers` methodology. Before writing code,
 2. **Debugging:** If a test fails or a build error occurs, do not guess. Read `.agents/skills/superpowers/systematic-debugging/SKILL.md` and execute the formal root cause analysis.
 3. **Verification:** Before reporting work as complete, read `.agents/skills/superpowers/verification-before-completion/SKILL.md` and run its checks.
 
-### Optional Workflows (cloud agents):
-- **Planning:** Specs are settled upstream in Linear, so cloud agents proceed without waiting for plan approval. `writing-plans/SKILL.md` may be loaded on request.
-- **Brainstorming:** `brainstorming/SKILL.md` is optional for vague, open-ended requests.
-
-Only load the superpowers skills listed above. Do not require or load unused ones (e.g. `writing-skills`, `subagent-driven-development`, `using-git-worktrees`) — this saves context, unless a plan document declares it as a REQUIRED SUB-SKILL.
+Only load the three mandatory superpowers skills listed above. Specs are settled upstream in Linear. The other obra/superpowers skills are not kept in this repo.
 
 Do not bypass the mandatory workflows under any circumstances.
 
