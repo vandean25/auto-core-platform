@@ -101,6 +101,8 @@ export const statusClassMap: Record<string, string> = {
   EXPIRED: NEUTRAL,
   // An expired estimate asks for a follow-up; other EXPIRED states (proposals, documents) stay neutral.
   ESTIMATE_EXPIRED: WARNING,
+  GRANTED: SUCCESS,
+  SOFT_OPT_IN: INFO,
   REVOKED: DESTRUCTIVE,
   AUTO: SUCCESS,
   PROPOSE: WARNING,
