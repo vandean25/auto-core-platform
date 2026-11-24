@@ -1,7 +1,10 @@
 import './instrument.js';
 import { NestFactory } from '@nestjs/core';
 import { ApiRootModule } from './api-root.module.js';
-import { ObserveInstrument, isObserveTelemetryConfigured } from './common/index.js';
+import {
+  ObserveInstrument,
+  isObserveTelemetryConfigured,
+} from './common/index.js';
 import { configureCoreHttpApp } from './common/http/configure-core-http-app.js';
 import { LogLevelService } from './common/logging/index.js';
 import { validateEnv } from './config/env.js';
