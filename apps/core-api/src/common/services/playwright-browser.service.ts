@@ -37,6 +37,19 @@ export class PlaywrightBrowserService implements OnModuleDestroy {
     return this.browser;
   }
 
+  warmUp(): Promise<void> {
+    return this.getBrowser()
+      .then(() => {
+        this.logger.log('Playwright Chromium warm-up complete');
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Playwright Chromium warm-up failed (will retry on first job): ${message}`,
+        );
+      });
+  }
+
   async onModuleDestroy() {
     if (!this.browser) {
       this.browserInitPromise = null;

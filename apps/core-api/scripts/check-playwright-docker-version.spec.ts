@@ -55,19 +55,6 @@ function readPlaywrightVersionFromLockfile(): string {
   return version;
 }
 
-function readPlaywrightDockerTag(): string {
-  const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-  const match = dockerfile.match(
-    /^FROM mcr\.microsoft\.com\/playwright:v([0-9.]+)-noble(@sha256:[a-f0-9]{64}) AS worker$/m,
-  );
-  if (!match) {
-    throw new Error(
-      'Could not find the pinned Playwright worker image in Dockerfile',
-    );
-  }
-  return match[1];
-}
-
 function readBundledChromiumVersion(playwrightVersion: string): string {
   const browsersPath = path.join(
     REPO_ROOT,
@@ -133,7 +120,8 @@ function splitDockerStages(dockerfile: string): {
   worker: string;
   rest: string;
 } {
-  const workerSplit = dockerfile.split(/^FROM mcr\.microsoft\.com\/playwright:/m);
+  const workerHeader = /^FROM [^\n]+ AS worker$/m;
+  const workerSplit = dockerfile.split(workerHeader);
   const builder = workerSplit[0] ?? '';
   const afterWorker = workerSplit[1] ?? '';
   const workerMatch = afterWorker.match(
@@ -146,10 +134,13 @@ function splitDockerStages(dockerfile: string): {
 }
 
 describe('Production image version pins (AUT-167)', () => {
-  it('matches the playwright package version in package-lock.json', () => {
+  it('installs Chromium from the lockfile-pinned playwright package in the worker stage', () => {
     const packageVersion = readPlaywrightVersionFromLockfile();
-    const dockerTagVersion = readPlaywrightDockerTag();
-    expect(dockerTagVersion).toBe(packageVersion);
+    expect(packageVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
+    const { worker } = splitDockerStages(dockerfile);
+    expect(worker).toMatch(/playwright install-deps chromium/);
+    expect(worker).toMatch(/playwright install chromium --only-shell/);
   });
 
   it('bundles Chromium at or above 157.0.8103.50 (CVE-2026-125350)', () => {
@@ -187,9 +178,7 @@ describe('Production image version pins (AUT-167)', () => {
 
   it('copies repo-root locales into the builder stage after npm ci', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-    const builderStage = dockerfile.split(
-      /^FROM mcr\.microsoft\.com\/playwright:/m,
-    )[0];
+    const { builder: builderStage } = splitDockerStages(dockerfile);
 
     expect(builderStage).toMatch(/^COPY locales \.\/locales$/m);
     const npmCiIndex = builderStage.indexOf('npm ci');
@@ -201,18 +190,14 @@ describe('Production image version pins (AUT-167)', () => {
 
   it('fails the builder when dist/locales is missing after build', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-    const builderStage = dockerfile.split(
-      /^FROM mcr\.microsoft\.com\/playwright:/m,
-    )[0];
+    const { builder: builderStage } = splitDockerStages(dockerfile);
 
     expect(builderStage).toMatch(/^RUN test -d dist\/locales$/m);
   });
 
   it('fails the builder when dist/locales/de/seedMaster.json is missing after build', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-    const builderStage = dockerfile.split(
-      /^FROM mcr\.microsoft\.com\/playwright:/m,
-    )[0];
+    const { builder: builderStage } = splitDockerStages(dockerfile);
 
     expect(builderStage).toMatch(
       /^RUN test -f dist\/locales\/de\/seedMaster\.json$/m,
@@ -233,12 +218,15 @@ describe('Production image version pins (AUT-167)', () => {
     const builderPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
+    const workerPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS worker$/m,
+    );
     const apiPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
     expect(builderPin?.[1]).toBe(expected);
+    expect(workerPin?.[1]).toBe(expected);
     expect(apiPin?.[1]).toBe(expected);
-    expect(worker).toMatch(/COPY --from=builder \/usr\/local\/bin\/node\b/);
     expect(worker).toMatch(/COPY \.nvmrc /);
     expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
     const cursorNodeArgs = [
@@ -256,7 +244,7 @@ describe('Production image version pins (AUT-167)', () => {
     expect(agentsMd).toContain(`**${expected}** from`);
   });
 
-  it('requires digest-pinned node stages for builder and api (AUT-975)', () => {
+  it('requires digest-pinned node stages for builder, worker, and api (AUT-975, AUT-1038)', () => {
     const expected = readNvmrcVersion();
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
 
@@ -264,46 +252,37 @@ describe('Production image version pins (AUT-167)', () => {
       /^FROM node:[0-9.]+-slim@sha256:[a-f0-9]{64} AS builder$/m,
     );
     expect(dockerfile).toMatch(
+      /^FROM node:[0-9.]+-slim@sha256:[a-f0-9]{64} AS worker$/m,
+    );
+    expect(dockerfile).toMatch(
       /^FROM node:[0-9.]+-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
     expect(dockerfile).toContain(NODE_SLIM_DIGEST);
-    expect(dockerfile).not.toMatch(/^FROM node:[0-9.]+-slim AS (builder|api)$/m);
-    const taggedOnlyStages = [
-      ...dockerfile.matchAll(/^FROM node:([0-9.]+)-slim AS (builder|api)$/gm),
-    ];
-    expect(taggedOnlyStages).toHaveLength(0);
+    expect(dockerfile).not.toMatch(
+      /^FROM node:[0-9.]+-slim AS (builder|worker|api)$/m,
+    );
     const builderPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS builder$/m,
+    );
+    const workerPin = dockerfile.match(
+      /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS worker$/m,
     );
     const apiPin = dockerfile.match(
       /^FROM node:([0-9.]+)-slim@sha256:[a-f0-9]{64} AS api$/m,
     );
     expect(builderPin?.[1]).toBe(expected);
+    expect(workerPin?.[1]).toBe(expected);
     expect(apiPin?.[1]).toBe(expected);
   });
 
-  it('purges base nodejs and copies exact .nvmrc Node from builder into worker without apt network downloads (AUT-993)', () => {
+  it('installs Chromium-only Playwright headless shell and boots worker-main.js in the worker stage (AUT-1038)', () => {
     const dockerfile = fs.readFileSync(DOCKERFILE_PATH, 'utf8');
-    const { builder, worker } = splitDockerStages(dockerfile);
+    const { worker } = splitDockerStages(dockerfile);
 
-    expect(worker).toMatch(/apt-get purge -y nodejs\b/);
-    expect(worker).not.toMatch(/apt-get purge[^\n]*\|\| true/);
-    expect(worker).not.toMatch(/apt-get (update|install)/);
-    expect(worker).toMatch(/COPY --from=builder \/usr\/local\/bin\/node\b/);
-    expect(worker).toMatch(
-      /COPY --from=builder \/usr\/local\/lib\/node_modules\b/,
-    );
-    expect(worker).toMatch(/COPY \.nvmrc /);
-    expect(worker).toMatch(/verify-pdf-worker-node\.sh/);
-    expect(dockerfile).not.toMatch(/setup_24\.x/);
-    expect(worker).not.toMatch(/sha256sum -c -/);
-    expect(worker).not.toMatch(
-      /node-v\$\{PDF_WORKER_NODE_VERSION\}-linux-x64\.tar/,
-    );
-    // Non-worker stages are not subject to the worker apt ban guard.
-    expect(builder.length).toBeGreaterThan(0);
-    const verifyScript = fs.readFileSync(VERIFY_SCRIPT_PATH, 'utf8');
-    expect(verifyScript).toMatch(/process\.versions\.node !== expected/);
+    expect(worker).toMatch(/playwright install-deps chromium/);
+    expect(worker).toMatch(/playwright install chromium --only-shell/);
+    expect(worker).not.toMatch(/firefox|webkit/);
+    expect(worker).toMatch(/CMD \["node", "dist\/worker-main\.js"\]/);
   });
 
   it('declares a CI job that builds api and pdf-worker images and runs Node 26 smoke', () => {
