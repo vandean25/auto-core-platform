@@ -33,6 +33,13 @@ test.describe('Blueprint: Customer Detail Page', () => {
         body: JSON.stringify([]),
       });
     });
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      });
+    });
   });
 
   test('renders customer header with name, type badge, and contact info card', async ({
@@ -136,7 +143,10 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.goto(`/customers/${CUSTOMER_ID}`);
     await page.waitForLoadState('networkidle');
 
-    // Active Orders tab is default — verify both orders render
+    // Switch to Active Orders tab
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.activeOrders }).click();
+
+    // Verify both orders render
     await expect(page.getByText('SO-2026-0042')).toBeVisible();
     await expect(page.getByText('WO-2026-0015')).toBeVisible();
 
@@ -293,7 +303,11 @@ test.describe('Blueprint: Customer Detail Page', () => {
     await page.goto(`/customers/${CUSTOMER_ID}`);
     await page.waitForLoadState('networkidle');
 
+    // Verlauf tab (default) — empty state
+    await expect(page.getByText(DE_CUSTOMERS.activity.empty)).toBeVisible();
+
     // Active Orders tab — empty state
+    await page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.activeOrders }).click();
     await expect(page.getByText(DE_CUSTOMERS.detail.tables.noActiveOrders)).toBeVisible();
 
     // Invoice History tab — empty state
@@ -392,6 +406,13 @@ test.describe('Customer contact editor on a phone (AUT-883)', () => {
           body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, phone: '+43 123 456 789' })),
         }),
       );
+      await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+        }),
+      );
       await page.goto(`/customers/${CUSTOMER_ID}`);
 
       await page.getByRole('button', { name: '+43 123 456 789' }).click();
@@ -400,4 +421,145 @@ test.describe('Customer contact editor on a phone (AUT-883)', () => {
       expect((await editor.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     });
   }
+});
+
+test.describe('Customer activity timeline (AUT-1039)', () => {
+  const sampleItems = [
+    {
+      id: 'inv-1',
+      type: 'invoice',
+      occurred_at: '2026-11-20T10:00:00.000Z',
+      title: 'RE-2026-0042',
+      ref_id: 'inv-1',
+      ref_link: '/sales/invoices/inv-1',
+      summary: { status: 'FINALIZED', total_gross: 240 },
+    },
+    {
+      id: 'cn-1',
+      type: 'credit_note',
+      occurred_at: '2026-11-19T14:00:00.000Z',
+      title: 'GS-2026-0005',
+      ref_id: 'cn-1',
+      ref_link: '/finance/credit-notes/cn-1',
+      summary: { status: 'FINALIZED', total_gross: 50, reason: 'Kulanz' },
+    },
+    {
+      id: 'wo-1',
+      type: 'workshop_order',
+      occurred_at: '2026-11-18T09:00:00.000Z',
+      title: 'WO-2026-0015',
+      ref_id: 'wo-1',
+      ref_link: '/workshop/orders/wo-1',
+      summary: { status: 'INVOICED', vehicle: 'VW Golf (W-123AB)' },
+    },
+  ];
+
+  test('opens Verlauf tab by default with items newest first', async ({ page }, testInfo) => {
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: sampleItems, meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    await expect(page.getByRole('tab', { name: DE_CUSTOMERS.detail.tabs.activity, exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText('RE-2026-0042')).toBeVisible();
+    await expect(page.getByText('WO-2026-0015')).toBeVisible();
+
+    await testInfo.attach('customer-activity-default-de-desktop', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('filters by Rechnungen chip and persists filter in URL', async ({ page }, testInfo) => {
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) => {
+      const url = new URL(route.request().url());
+      const types = url.searchParams.get('types');
+      const filtered = types
+        ? sampleItems.filter((item) => types.split(',').includes(item.type))
+        : sampleItems;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: filtered, meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      });
+    });
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    await page.getByRole('button', { name: DE_CUSTOMERS.activity.filters.invoices }).click();
+
+    await expect(page).toHaveURL(/types=invoice(%2C|,)credit_note/);
+    await expect(page.getByText('RE-2026-0042')).toBeVisible();
+    await expect(page.getByText('GS-2026-0005')).toBeVisible();
+    await expect(page.getByText('WO-2026-0015')).not.toBeVisible();
+
+    await testInfo.attach('customer-activity-invoices-filter-de-desktop', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('375px: filter chips and record links meet 44px tap target without horizontal overflow', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: sampleItems, meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    const invoicesChip = page.getByRole('button', { name: DE_CUSTOMERS.activity.filters.invoices });
+    await expect(invoicesChip).toBeVisible();
+    expect((await invoicesChip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+    const openLink = page.getByRole('link', { name: DE_CUSTOMERS.activity.openRecord }).first();
+    expect((await openLink.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+    const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(hasHorizontalOverflow).toBe(false);
+
+    await openLink.scrollIntoViewIfNeeded();
+    await expect(invoicesChip).toBeInViewport();
+    await expect(openLink).toBeInViewport();
+
+    await testInfo.attach('customer-activity-mobile-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });

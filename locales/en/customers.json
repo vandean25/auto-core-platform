@@ -70,6 +70,7 @@
     "updateFailed": "Failed to update customer",
     "noVehicleForService": "No vehicle found. Add a vehicle first to create a workshop order.",
     "tabs": {
+      "activity": "Activity",
       "overview": "Overview",
       "orders": "Orders",
       "activeOrders": "Active Orders",
@@ -232,5 +233,37 @@
     "country": "Country",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "activity": {
+    "loading": "Loading activity…",
+    "loadFailed": "Could not load activity. Please try again.",
+    "retry": "Try again",
+    "empty": "No activity recorded for this customer yet.",
+    "emptyFiltered": "No entries match the selected filters.",
+    "resetFilters": "Reset filters",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more entries…",
+    "openRecord": "Open record",
+    "filterLabel": "Filter by type",
+    "filters": {
+      "orders": "Orders",
+      "invoices": "Invoices",
+      "emails": "Emails",
+      "consents": "Consents",
+      "vehicleNotices": "Vehicle notices",
+      "loanerBookings": "Loaners",
+      "audit": "Audit log"
+    },
+    "types": {
+      "workshop_order": "Workshop order",
+      "sales_order": "Sales order",
+      "invoice": "Invoice",
+      "credit_note": "Credit note",
+      "email": "Email",
+      "consent": "Consent",
+      "vehicle_notice": "Vehicle notice",
+      "loaner_booking": "Loaner booking",
+      "audit": "Audit log"
+    }
   }
 }
