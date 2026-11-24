@@ -32,8 +32,3 @@ export const i18nLiteralStringRuleOptions = {
 }
 
 export const i18nLiteralStringRule = ['i18next/no-literal-string', ['error', i18nLiteralStringRuleOptions]]
-
-export const i18nLiteralStringWarningRule = [
-  'i18next/no-literal-string',
-  ['warn', i18nLiteralStringRuleOptions],
-]

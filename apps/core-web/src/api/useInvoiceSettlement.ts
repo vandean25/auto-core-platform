@@ -226,8 +226,3 @@ export function settlementSuccessToastMessageKey(
   }
   return null
 }
-
-/** @deprecated Use settlementSuccessToastMessageKey and translate in the UI layer. */
-export function settlementSuccessToastMessage(paymentStatus: string | undefined): string | null {
-  return settlementSuccessToastMessageKey(paymentStatus)
-}
