@@ -381,8 +381,8 @@ describe('Custom fields (AUT-1043 e2e)', () => {
     );
     const mcpCustomer = await TenantContextStorage.run(async () => {
       TenantContextStorage.setUser({
-        userId: 'test-mcp',
-        email: 'mcp@example.com',
+        userId: `e2e-user-${tenantAId}`,
+        email: `e2e-${tenantAId}@example.com`,
         tenantId: tenantAId,
         role: 'ADMIN',
         activeSiteId: siteAId,
