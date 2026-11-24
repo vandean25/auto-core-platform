@@ -1,8 +1,9 @@
 import type { TFunction } from 'i18next'
 import type { NavigateFunction } from 'react-router-dom'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Phone } from 'lucide-react'
 
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { canRecordVehicleInspection } from '@/components/vehicles/vehicle-pickerl-permissions'
 import { canOpenVehicle } from './action-role-predicates'
 import { ENTITY_ACTION_IDS, type EntityActionDefinition } from './entity-action'
 
@@ -33,4 +34,24 @@ export function createVehicleRowActions(
       },
     },
   ]
+}
+
+export function createVehiclePickerlContactAction<TRecord extends { id: string }>(
+  t: TFunction<'vehicles'>,
+  onRecordContact?: (record: TRecord) => void,
+): EntityActionDefinition<TRecord, Record<string, never>> {
+  return {
+    id: ENTITY_ACTION_IDS.vehiclePickerlContact,
+    kind: 'dialog',
+    label: t('pickerlDue.recordContact'),
+    icon: Phone,
+    isAllowedForRole: (role) =>
+      canRecordVehicleInspection(
+        role as Parameters<typeof canRecordVehicleInspection>[0],
+      ),
+    isEnabled: () => true,
+    run: (row) => {
+      onRecordContact?.(row)
+    },
+  }
 }
