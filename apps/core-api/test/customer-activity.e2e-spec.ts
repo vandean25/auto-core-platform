@@ -47,7 +47,6 @@ describe('Customer activity timeline (e2e)', () => {
     const tenantB = await createTestTenant(basePrisma, 'aut1039b');
     tenantAId = tenantA.tenantId;
     tenantBId = tenantB.tenantId;
-    siteAId = tenantA.siteId;
 
     salesTokenA = createTestAuthToken(authService, tenantA, { role: 'SALES' });
     techTokenA = createTestAuthToken(authService, tenantA, { role: 'TECH' });
@@ -56,10 +55,22 @@ describe('Customer activity timeline (e2e)', () => {
     prismaA = createTenantAwarePrisma(basePrisma, tenantAId);
     prismaB = createTenantAwarePrisma(basePrisma, tenantBId);
 
-    const legalEntityA = await prismaA.legalEntity.findFirst({
-      where: { tenant_id: tenantAId, is_active: true },
-      select: { id: true },
-    });
+    const [siteA, siteB, legalEntityA] = await Promise.all([
+      prismaA.site.findFirst({
+        where: { tenant_id: tenantAId },
+        select: { id: true },
+      }),
+      prismaB.site.findFirst({
+        where: { tenant_id: tenantBId },
+        select: { id: true },
+      }),
+      prismaA.legalEntity.findFirst({
+        where: { tenant_id: tenantAId, is_active: true },
+        select: { id: true },
+      }),
+    ]);
+    siteAId = siteA!.id;
+    const siteBId = siteB!.id;
     legalEntityAId = legalEntityA!.id;
 
     const customerA = await prismaA.customer.create({
@@ -94,6 +105,7 @@ describe('Customer activity timeline (e2e)', () => {
         customer_id: customerAId,
         make: 'VW',
         model: 'Golf',
+        year: 2022,
         plate: 'W-1039A',
         vin: `WVWZZZ1JZXW${Date.now().toString().slice(-6)}`,
       },
@@ -105,6 +117,7 @@ describe('Customer activity timeline (e2e)', () => {
         customer_id: customerBId,
         make: 'VW',
         model: 'Golf',
+        year: 2022,
         plate: 'W-1039B',
         vin: `WVWZZZ1JZYW${Date.now().toString().slice(-6)}`,
       },
@@ -145,7 +158,7 @@ describe('Customer activity timeline (e2e)', () => {
     await prismaB.invoice.create({
       data: {
         tenant_id: tenantBId,
-        site_id: tenantB.siteId,
+        site_id: siteBId,
         customer_id: customerBId,
         vehicle_id: vehicleB.id,
         invoice_number: `RE-B-1039-${Date.now()}`,
@@ -199,10 +212,10 @@ describe('Customer activity timeline (e2e)', () => {
         controller_legal_entity_id: legalEntityAId,
         customer_id: customerAId,
         channel: 'EMAIL',
-        purpose: 'MARKETING',
+        purpose: 'NEWSLETTER',
         status: 'GRANTED',
         sequence: 1,
-        source: 'IN_PERSON',
+        source: 'PROFILE',
         occurred_at: atOffset(25),
       },
     });
@@ -213,10 +226,10 @@ describe('Customer activity timeline (e2e)', () => {
         controller_legal_entity_id: legalEntityAId,
         customer_id: customerAId,
         channel: 'EMAIL',
-        purpose: 'MARKETING',
+        purpose: 'NEWSLETTER',
         status: 'REVOKED',
         sequence: 2,
-        source: 'IN_PERSON',
+        source: 'PROFILE',
         occurred_at: atOffset(20),
       },
     });
@@ -342,16 +355,22 @@ describe('Customer activity timeline (e2e)', () => {
     let pages = 0;
 
     do {
-      const qs = cursor ? `?limit=2&cursor=${encodeURIComponent(cursor)}` : '?limit=2';
-      const res = await request(app.getHttpServer())
+      const qs: string = cursor
+        ? `?limit=2&cursor=${encodeURIComponent(cursor)}`
+        : '?limit=2';
+      const res: request.Response = await request(app.getHttpServer())
         .get(`/api/customers/${customerAId}/activity${qs}`)
         .set('Authorization', `Bearer ${salesTokenA}`)
         .expect(200);
 
-      for (const item of res.body.data as Array<{ id: string }>) {
+      const body = res.body as {
+        data: Array<{ id: string }>;
+        meta: { nextCursor: string | null };
+      };
+      for (const item of body.data) {
         allIds.push(item.id);
       }
-      cursor = res.body.meta.nextCursor;
+      cursor = body.meta.nextCursor;
       pages += 1;
     } while (cursor && pages < 10);
 
