@@ -376,15 +376,19 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       data: { custom_fields_enabled: true },
     });
     const mcpRead = app.get(McpOrderHistoryReadService);
-    const { RequestContextService } = await import(
-      '../src/common/services/request-context.service.js'
+    const { TenantContextStorage } = await import(
+      '../src/common/services/tenant-context.storage.js'
     );
-    const requestContext = app.get(RequestContextService);
-    const mcpCustomer = await requestContext.runAsWorker(
-      tenantAId,
-      () => mcpRead.getCustomer({ customer_id: customerId }),
-      { workerId: 'test-mcp', siteId: siteAId },
-    );
+    const mcpCustomer = await TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        userId: 'test-mcp',
+        email: 'mcp@example.com',
+        tenantId: tenantAId,
+        role: 'ADMIN',
+        activeSiteId: siteAId,
+      });
+      return mcpRead.getCustomer({ customer_id: customerId });
+    });
     expect(mcpCustomer).not.toHaveProperty('custom_fields');
     expect(JSON.stringify(mcpCustomer)).not.toContain('FL-42');
   });

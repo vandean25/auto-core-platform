@@ -58,6 +58,7 @@ function foundSalesOrder(
       payment_terms_text: null,
       default_bill_to_customer_id: null,
       labor_price_group_id: null,
+      custom_fields: {},
       createdAt: new Date(),
       updatedAt: new Date(),
     },

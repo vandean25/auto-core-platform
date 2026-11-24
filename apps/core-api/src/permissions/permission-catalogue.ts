@@ -100,6 +100,16 @@ const DEFINITIONS = [
   ['customer.consent.record', 'Einwilligung erfassen', 'Record consent'],
   ['customer.create', 'Kunde anlegen', 'Create customer'],
   ['customer.delete', 'Kunde löschen', 'Delete customer'],
+  [
+    'customer.erase',
+    'Kundendaten löschen (DSGVO)',
+    'Erase customer data (GDPR)',
+  ],
+  [
+    'customer.gdpr_export',
+    'DSGVO-Auskunft exportieren',
+    'Export GDPR Art. 15 package',
+  ],
   ['customer.read', 'Kunden ansehen', 'View customers'],
   ['customer.update', 'Kunde ändern', 'Edit customer'],
   [

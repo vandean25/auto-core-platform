@@ -231,8 +231,12 @@ export const SALES_OPERATIONS: OperationTable = {
   'CustomerController.remove': op('customer.delete', BACK_OFFICE, 'tenant', [
     'business_state',
   ]),
-  'CustomerController.art15Export': op('customer.read', ADMINS, 'tenant'),
-  'CustomerController.erase': op('customer.delete', ADMINS, 'tenant'),
+  'CustomerController.art15Export': op(
+    'customer.gdpr_export',
+    ADMINS,
+    'tenant',
+  ),
+  'CustomerController.erase': op('customer.erase', ADMINS, 'tenant'),
   'CustomerConsentController.getPreferences': op(
     'customer.consent.read',
     BACK_OFFICE,

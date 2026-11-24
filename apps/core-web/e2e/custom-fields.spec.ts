@@ -100,7 +100,7 @@ test.describe("Custom fields (AUT-1043)", () => {
 
     await page.goto("/settings?tab=custom-fields");
     await expect(page.getByText(/Verantwortlicher für diese Felder/i)).toBeVisible();
-    await expect(page.getByText("Flottennummer")).toBeVisible();
+    await expect(page.getByText("Flottennummer", { exact: true })).toBeVisible();
 
     await testInfo.attach("custom-fields-settings-de", {
       body: await page.screenshot(),
@@ -108,7 +108,7 @@ test.describe("Custom fields (AUT-1043)", () => {
     });
 
     await page.setViewportSize({ width: 375, height: 812 });
-    await expect(page.getByText("Flottennummer")).toBeVisible();
+    await expect(page.getByText("Flottennummer", { exact: true })).toBeVisible();
     const hasOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
     );
