@@ -59,15 +59,41 @@ const COMMON_QUERY_PARAMS = new Set([
   'search',
   'sortField',
   'sortDirection',
+  'cols',
+  'density',
 ]);
 
 const FILTER_PARAM_PATTERN = /^filter_[a-zA-Z0-9_.-]+$/;
+const COLUMN_LIST_PATTERN = /^[a-zA-Z0-9_.-]+(?:,[a-zA-Z0-9_.-]+)*$/;
 
 function invalidSavedView(message: string): BadRequestException {
   return new BadRequestException({
     code: 'SAVED_VIEW_INVALID',
     message,
   });
+}
+
+function validateLayoutParams(params: URLSearchParams): void {
+  const cols = params.get('cols');
+  if (
+    cols !== null &&
+    (params.getAll('cols').length > 1 || !COLUMN_LIST_PATTERN.test(cols))
+  ) {
+    throw invalidSavedView(
+      'Saved view cols must be a comma-separated list of column IDs.',
+    );
+  }
+
+  const density = params.get('density');
+  if (
+    density !== null &&
+    (params.getAll('density').length > 1 ||
+      (density !== 'compact' && density !== 'comfortable'))
+  ) {
+    throw invalidSavedView(
+      'Saved view density must be compact or comfortable.',
+    );
+  }
 }
 
 export function getSavedViewListEntry(listPath: string): SavedViewListEntry {
@@ -144,6 +170,7 @@ export function validateSavedViewHref(
     }
   }
 
+  validateLayoutParams(parsed.searchParams);
   return trimmed;
 }
 

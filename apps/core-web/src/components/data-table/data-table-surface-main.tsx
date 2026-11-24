@@ -104,6 +104,7 @@ export function DataTableSurfaceBody<TData extends object>(props: DataTableSurfa
         <DataTableList
           columns={table.getVisibleLeafColumns()}
           rows={bodyRowModels}
+          density={density}
           rowBehaviour={rowBehaviour}
           interactionLocked={presentation.isStalePreview}
           infiniteView={infiniteView}

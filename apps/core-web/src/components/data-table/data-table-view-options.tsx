@@ -1,5 +1,6 @@
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu"
 import { Settings2 } from "lucide-react"
+import { useContext } from 'react'
 import { useTranslation } from "react-i18next"
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
@@ -13,7 +14,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { getDataTableColumnLabel } from "./data-table-column-label"
-import { DataTableDensityMenuItem } from "./data-table-density-toggle"
+import { DataTableDensityContext, DataTableDensityMenuItem } from "./data-table-density-toggle"
 
 interface DataTableViewOptionsProps<TData extends object> {
   table: Table<TData>
@@ -21,30 +22,24 @@ interface DataTableViewOptionsProps<TData extends object> {
 
 // Mounted only while the menu is open, so labels are read after the column headers have committed their titles.
 function ColumnToggleItems<TData extends object>({ table }: DataTableViewOptionsProps<TData>) {
-  return table
-    .getAllColumns()
-    .filter(
-      (column) =>
-        typeof column.accessorFn !== "undefined" && column.getCanHide()
-    )
-    .map((column) => {
-      return (
-        <DropdownMenuCheckboxItem
-          key={column.id}
-          checked={column.getIsVisible()}
-          onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
-          onSelect={(event) => event.preventDefault()}
-        >
-          {getDataTableColumnLabel(column)}
-        </DropdownMenuCheckboxItem>
-      )
-    })
+  const columns = table.getAllFlatColumns().filter((column) => column.accessorFn !== undefined && column.getCanHide())
+  return columns.map((column) => (
+    <DropdownMenuCheckboxItem
+      key={column.id}
+      checked={column.getIsVisible()}
+      onCheckedChange={(value) => column.toggleVisibility(value)}
+      onSelect={(event) => event.preventDefault()}
+    >
+      {getDataTableColumnLabel(column)}
+    </DropdownMenuCheckboxItem>
+  ))
 }
 
 export function DataTableViewOptions<TData extends object>({
   table,
 }: DataTableViewOptionsProps<TData>) {
   const { t } = useTranslation('common')
+  const density = useContext(DataTableDensityContext)
 
   return (
     <DropdownMenu>
@@ -59,7 +54,10 @@ export function DataTableViewOptions<TData extends object>({
           <span className="max-md:sr-only">{t('dataTable.columns')}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
+      <DropdownMenuContent
+        align="end"
+        className="max-h-(--radix-dropdown-menu-content-available-height) w-[200px] overflow-y-auto max-md:[&_[role^=menuitem]]:min-h-11"
+      >
         <DropdownMenuLabel>{t('dataTable.toggleColumns')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -74,6 +72,7 @@ export function DataTableViewOptions<TData extends object>({
           onSelect={(event) => {
             event.preventDefault()
             table.resetColumnVisibility()
+            density?.setDensity('comfortable')
           }}
         >
           {t('dataTable.reset')}

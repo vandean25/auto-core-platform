@@ -12,4 +12,5 @@ export type DataTableDensity = 'comfortable' | 'compact'
 export const densityTokens = {
   compactRowClass: '[&_:where(td)]:py-1.5',
   compactHeaderClass: '[&_:where(th)]:h-9',
+  compactListClass: '[&_:where([data-row-primary])]:min-h-11 [&_:where([data-row-primary])]:py-1',
 } as const

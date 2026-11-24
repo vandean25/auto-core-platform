@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bookmark } from 'lucide-react'
@@ -19,22 +19,22 @@ import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
 type SaveCurrentViewButtonProps = {
   title: string
+  getHref?: () => string
 }
 
-export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
+export function SaveCurrentViewButton({ title, getHref }: SaveCurrentViewButtonProps) {
   const { t } = useTranslation('common')
   const location = useLocation()
   const { addSavedView, isOfflineError } = useSavedViews()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(() => t('savedViews.defaultName', { title }))
 
-  const href = useMemo(() => `${location.pathname}${location.search}`, [location.pathname, location.search])
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     const normalizedName = name.trim()
     if (!normalizedName) return
 
+    const href = getHref?.() ?? `${location.pathname}${location.search}`
     const result = await addSavedView({ name: normalizedName, href })
     if (result.created) {
       toast.success(t('savedViews.added'))
