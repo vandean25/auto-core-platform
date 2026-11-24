@@ -114,10 +114,6 @@ export class SiteServiceRuntime {
     return this.defaults.resolveDefaultSiteId(tenantId);
   }
 
-  resolveDefaultSite(tenantId: string) {
-    return this.defaults.resolveDefaultSite(tenantId);
-  }
-
   listMySites() {
     return this.session.listMySites();
   }
@@ -136,13 +132,6 @@ export class SiteServiceRuntime {
 
   removeSiteMembership(siteId: string, userId: string) {
     return this.memberships.removeSiteMembership(siteId, userId);
-  }
-
-  guardLegalEntityDeactivation(tenantId: string, legalEntityId: string) {
-    return this.legalEntities.guardLegalEntityDeactivation(
-      tenantId,
-      legalEntityId,
-    );
   }
 
   guardSiteDeactivation(tenantId: string, siteId: string) {

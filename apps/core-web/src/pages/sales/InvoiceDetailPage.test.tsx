@@ -61,7 +61,6 @@ vi.mock('@/api/useInvoiceSettlement', () => ({
   useRecordSettlement: () => ({ mutate: vi.fn(), isPending: false }),
   useReconcileSettlement: () => ({ mutate: vi.fn(), isPending: false }),
   useCancelFiscalReceipt: () => ({ mutate: vi.fn(), isPending: false }),
-  settlementSuccessToastMessage: () => null,
 }))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>

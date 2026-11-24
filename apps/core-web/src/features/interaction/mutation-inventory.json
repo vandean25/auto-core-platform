@@ -347,13 +347,6 @@
       "serverConfirmedReason": "Issuing posts the invoice. The number and the status are assigned by the server."
     },
     {
-      "operationId": "invoice.pdf.generate",
-      "owningHook": "useGenerateInvoicePdf",
-      "sourceFile": "api/invoices.ts",
-      "classification": "server-confirmed",
-      "serverConfirmedReason": "The PDF is the customer delivery of the invoice. The server builds the document."
-    },
-    {
       "operationId": "invoice.draft.update",
       "owningHook": "useUpdateInvoice",
       "sourceFile": "api/sales.ts",

@@ -67,19 +67,6 @@ export function useEmployees(options?: ListEmployeesOptions) {
   });
 }
 
-export function useEmployee(id: string) {
-  return useQuery<Employee>({
-    queryKey: employeeKeys.detail(id),
-    queryFn: async () => {
-      return fetchJsonWithAuth(
-        `/api/employees/${id}`,
-        "Failed to fetch employee",
-      );
-    },
-    enabled: !!id,
-  });
-}
-
 export function useCreateEmployee() {
   const queryClient = useQueryClient()
 

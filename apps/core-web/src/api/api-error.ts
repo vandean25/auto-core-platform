@@ -189,25 +189,6 @@ export function translateApiError(
   return appendSupportReference(generic, normalized)
 }
 
-export async function parseApiErrorResponse(
-  response: Response,
-): Promise<NormalizedApiError> {
-  const payload = (await response.json().catch(() => undefined)) as
-    | ApiErrorBody
-    | undefined
-  const synthetic = { response: { status: response.status, data: payload } }
-  return (
-    normalizeApiError(synthetic) ?? {
-      status: response.status,
-      code: null,
-      params: {},
-      violations: [],
-      requestId: null,
-      eventId: null,
-    }
-  )
-}
-
 export async function fetchJsonWithAuth<T>(
   input: RequestInfo | URL,
   fallbackMessage: string,

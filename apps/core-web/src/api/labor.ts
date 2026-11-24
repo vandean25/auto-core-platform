@@ -5,32 +5,6 @@ import type { components } from './generated/openapi'
 
 const LABOR_API = '/api/labor'
 
-function extractApiErrorText(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    const messages = value
-      .map((entry) => extractApiErrorText(entry))
-      .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-
-    return messages.length > 0 ? messages.join(', ') : undefined
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>
-    return extractApiErrorText(record.message) ?? extractApiErrorText(record.error)
-  }
-
-  return undefined
-}
-
-async function getApiErrorMessage(res: Response, fallbackMessage: string) {
-  const error = await res.json().catch(() => undefined)
-  return extractApiErrorText(error) ?? fallbackMessage
-}
-
 export const laborKeys = {
   all: ['labor'] as const,
   categories: () => [...laborKeys.all, 'categories'] as const,
@@ -49,11 +23,6 @@ export type CreateLaborCategoryPayload = components['schemas']['CreateLaborCateg
 export type UpdateLaborCategoryPayload = components['schemas']['UpdateLaborCategoryDto']
 
 export type LaborOperation = components['schemas']['LaborOperationResponseDto']
-export type PaginatedLaborOperationsResponse = components['schemas']['PaginatedLaborOperationsResponseDto']
-
-export type CreateLaborOperationPayload = components['schemas']['CreateLaborOperationDto']
-export type UpdateLaborOperationPayload = components['schemas']['UpdateLaborOperationDto']
-export type SoftDeleteResponse = components['schemas']['SoftDeleteResponseDto']
 
 /**
  * Flattens hierarchical labor categories into a list for dropdowns.
@@ -140,35 +109,6 @@ export function useDeleteLaborCategory() {
 
 // ── Operations ────────────────────────────────────────────────────────────────
 
-export function useLaborOperations(queryParams?: DataTableQueryParams) {
-  return useQuery<PaginatedLaborOperationsResponse>({
-    queryKey: laborKeys.operationsList(queryParams),
-    queryFn: async () => {
-      if (!queryParams) {
-        const res = await fetchWithAuth(`${LABOR_API}/operations`)
-        if (!res.ok) throw new Error('Failed to fetch labor operations')
-        return res.json()
-      }
-
-      // Build URL manually: backend uses `limit` (not `pageSize`) and ignores unknown params
-      const params = new URLSearchParams()
-      params.append('page', String(queryParams.page))
-      params.append('limit', String(queryParams.pageSize))
-      if (queryParams.search) params.append('search', queryParams.search)
-      if (queryParams.sortField) params.append('sortField', queryParams.sortField)
-      if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
-      const categoryId = queryParams.filters.find((f) => f.field === 'categoryId')?.value
-      if (categoryId) params.append('categoryId', categoryId)
-      const isActive = queryParams.filters.find((f) => f.field === 'isActive')?.value
-      if (isActive !== undefined && isActive !== '') params.append('isActive', isActive)
-
-      const res = await fetchWithAuth(`${LABOR_API}/operations?${params.toString()}`)
-      if (!res.ok) throw new Error('Failed to fetch labor operations')
-      return res.json()
-    },
-  })
-}
-
 export function useLaborOperation(id: string) {
   return useQuery<LaborOperation>({
     queryKey: laborKeys.operation(id),
@@ -178,66 +118,5 @@ export function useLaborOperation(id: string) {
       return res.json()
     },
     enabled: !!id,
-  })
-}
-
-export function useCreateLaborOperation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: CreateLaborOperationPayload) => {
-      const res = await fetchWithAuth(`${LABOR_API}/operations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) {
-        throw new Error(await getApiErrorMessage(res, 'Failed to create labor operation'))
-      }
-      return res.json() as Promise<LaborOperation>
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: laborKeys.operations() })
-    },
-  })
-}
-
-export function useUpdateLaborOperation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateLaborOperationPayload }) => {
-      const res = await fetchWithAuth(`${LABOR_API}/operations/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) {
-        throw new Error(await getApiErrorMessage(res, 'Failed to update labor operation'))
-      }
-      return res.json() as Promise<LaborOperation>
-    },
-    onSuccess: (operation) => {
-      queryClient.invalidateQueries({ queryKey: laborKeys.operations() })
-      queryClient.invalidateQueries({ queryKey: laborKeys.operation(operation.id) })
-    },
-  })
-}
-
-export function useDeleteLaborOperation() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetchWithAuth(`${LABOR_API}/operations/${id}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Failed to delete labor operation' }))
-        throw new Error(error.message || 'Failed to delete labor operation')
-      }
-      return res.json() as Promise<SoftDeleteResponse>
-    },
-    onSuccess: (_result, id) => {
-      queryClient.invalidateQueries({ queryKey: laborKeys.operations() })
-      queryClient.invalidateQueries({ queryKey: laborKeys.operation(id) })
-    },
   })
 }

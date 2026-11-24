@@ -1,8 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  downloadPdfFromGetUrl,
-  generateAndDownloadPdfBlob,
-} from '@/lib/async-pdf'
+import { generateAndDownloadPdfBlob } from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import type {
   CreateWarrantyClaimPayload,
@@ -152,15 +149,6 @@ export function downloadWarrantyClaimPdf(
           fetchWarrantyClaimPdfGenerationError(orderId, claimId),
       }),
   )
-}
-
-export function fetchWarrantyClaimPdfBlob(
-  orderId: string,
-  claimId: string,
-): Promise<Blob> {
-  return downloadPdfFromGetUrl(`${claimsUrl(orderId)}/${claimId}/pdf`, {
-    poll: false,
-  })
 }
 
 export function useWarrantyClaims(orderId: string, status?: WarrantyClaimStatus) {

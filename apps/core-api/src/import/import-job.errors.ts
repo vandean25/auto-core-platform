@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ImportJobStatus } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
@@ -11,14 +10,6 @@ export function importJobNotFound(): NotFoundException {
   return new NotFoundException({
     code: IMPORT_ERROR_CODES.JOB_NOT_FOUND,
     message: 'Import job not found',
-  });
-}
-
-export function importApplyInterrupted(): ServiceUnavailableException {
-  return new ServiceUnavailableException({
-    code: IMPORT_ERROR_CODES.APPLY_INTERRUPTED,
-    message:
-      'Import apply was interrupted by database contention; re-apply the job to resume',
   });
 }
 

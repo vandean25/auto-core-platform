@@ -108,10 +108,6 @@ function armOffsetHandoff(state: EpisodeRecoveryState) {
   publishHandoffChange()
 }
 
-export function latchUnsupportedSortForEpisode(semanticKey: string) {
-  armOffsetHandoff(readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey)))
-}
-
 function isOffsetHandoffPending(semanticKey: string): boolean {
   const state = episodes.get(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
   return state?.offsetLatched === true && state.offsetHandoffPending

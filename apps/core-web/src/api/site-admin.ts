@@ -191,19 +191,6 @@ export function useLegalEntities() {
   });
 }
 
-export function useLegalEntity(id: string | null) {
-  return useQuery<LegalEntityRecord>({
-    queryKey: siteAdminKeys.legalEntity(id ?? ""),
-    enabled: Boolean(id),
-    queryFn: async () => {
-      return fetchJsonWithAuth(
-        `/api/legal-entities/${id}`,
-        "Failed to load legal entity",
-      );
-    },
-  });
-}
-
 export function useCreateLegalEntity() {
   const queryClient = useQueryClient()
 

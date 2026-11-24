@@ -174,15 +174,3 @@ export function PlannerDayGrid({
     </div>
   )
 }
-
-export function parsePlannerSlotId(id: string): { bayId: string; startIso: string } | null {
-  const prefix = 'planner-slot-'
-  if (!id.startsWith(prefix)) return null
-  const remainder = id.slice(prefix.length)
-  const separator = remainder.indexOf('__')
-  if (separator <= 0) return null
-  return {
-    bayId: remainder.slice(0, separator),
-    startIso: remainder.slice(separator + 2),
-  }
-}
