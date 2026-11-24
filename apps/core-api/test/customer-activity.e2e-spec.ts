@@ -24,6 +24,7 @@ describe('Customer activity timeline (e2e)', () => {
   let tenantAId: string;
   let tenantBId: string;
   let salesTokenA: string;
+  let demoTokenA: string;
   let techTokenA: string;
   let tokenB: string;
   let customerAId: string;
@@ -50,21 +51,41 @@ describe('Customer activity timeline (e2e)', () => {
     tenantBId = tenantB.tenantId;
 
     salesTokenA = createTestAuthToken(authService, tenantA, { role: 'SALES' });
-    const techUserA = await basePrisma.user.create({
-      data: {
-        firebaseUid: `e2e-tech-${Date.now()}`,
-        email: `tech-1039-${Date.now()}@example.com`,
-      },
-    });
-    await seedTestTenantMember(basePrisma, {
-      tenantId: tenantAId,
-      userId: techUserA.id,
-      role: 'TECH',
-    });
+    const [techUserA, demoUserA] = await Promise.all([
+      basePrisma.user.create({
+        data: {
+          firebaseUid: `e2e-tech-${Date.now()}`,
+          email: `tech-1039-${Date.now()}@example.com`,
+        },
+      }),
+      basePrisma.user.create({
+        data: {
+          firebaseUid: `e2e-demo-${Date.now()}`,
+          email: `demo-1039-${Date.now()}@example.com`,
+        },
+      }),
+    ]);
+    await Promise.all([
+      seedTestTenantMember(basePrisma, {
+        tenantId: tenantAId,
+        userId: techUserA.id,
+        role: 'TECH',
+      }),
+      seedTestTenantMember(basePrisma, {
+        tenantId: tenantAId,
+        userId: demoUserA.id,
+        role: 'DEMO',
+      }),
+    ]);
     techTokenA = createTestAuthToken(authService, tenantA, {
       sub: techUserA.firebaseUid ?? undefined,
       email: techUserA.email ?? undefined,
       role: 'TECH',
+    });
+    demoTokenA = createTestAuthToken(authService, tenantA, {
+      sub: demoUserA.firebaseUid ?? undefined,
+      email: demoUserA.email ?? undefined,
+      role: 'DEMO',
     });
     tokenB = createTestAuthToken(authService, tenantB, { role: 'SALES' });
 
@@ -330,19 +351,26 @@ describe('Customer activity timeline (e2e)', () => {
     expect(types).toEqual(['credit_note', 'invoice']);
   });
 
-  it('omits invoices and credit notes for a role without invoice.read without leaking numbers', async () => {
-    const res = await request(app.getHttpServer())
+  it('omits unpermitted sources for DEMO (credit_note/consent) and blocks TECH without leaking invoice numbers', async () => {
+    const demoRes = await request(app.getHttpServer())
       .get(`/api/customers/${customerAId}/activity`)
-      .set('Authorization', `Bearer ${techTokenA}`)
+      .set('Authorization', `Bearer ${demoTokenA}`)
       .expect(200);
 
-    const types = (res.body.data as Array<{ type: string }>).map(
+    const demoTypes = (demoRes.body.data as Array<{ type: string }>).map(
       (item) => item.type,
     );
-    expect(types).not.toContain('invoice');
-    expect(types).not.toContain('credit_note');
-    expect(JSON.stringify(res.body)).not.toContain('RE-1039-SECRET-');
-    expect(JSON.stringify(res.body)).not.toContain('GS-1039-');
+    expect(demoTypes).not.toContain('credit_note');
+    expect(demoTypes).not.toContain('consent');
+    expect(JSON.stringify(demoRes.body)).not.toContain('GS-1039-');
+
+    const techRes = await request(app.getHttpServer())
+      .get(`/api/customers/${customerAId}/activity`)
+      .set('Authorization', `Bearer ${techTokenA}`)
+      .expect(403);
+
+    expect(JSON.stringify(techRes.body)).not.toContain('RE-1039-SECRET-');
+    expect(JSON.stringify(techRes.body)).not.toContain('GS-1039-');
   });
 
   it('masks redacted_fields in audit entries for a role with customer.read', async () => {
