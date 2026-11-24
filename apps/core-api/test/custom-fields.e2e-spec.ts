@@ -400,12 +400,12 @@ describe('Custom fields (AUT-1043 e2e)', () => {
       .expect(201);
 
     const [dbCustomer, dbVehicle] = await Promise.all([
-      prismaA.customer.findUnique({
-        where: { id: customerId },
+      prismaA.customer.findFirst({
+        where: { id: customerId, tenant_id: tenantAId },
         select: { custom_fields: true, first_name: true },
       }),
-      prismaA.vehicle.findUnique({
-        where: { id: vehicleId },
+      prismaA.vehicle.findFirst({
+        where: { id: vehicleId, tenant_id: tenantAId },
         select: { custom_fields: true },
       }),
     ]);
