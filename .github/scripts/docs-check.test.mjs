@@ -46,6 +46,7 @@ test('accepts a Docs opt-out only when it has a reason on the same line', () => 
   for (const body of [
     'Docs: n/a – \r\n## Tests',
     '<!--\nDocs: n/a – internal refactor\n-->',
+    'Do<!-- example -->cs: n/a – internal refactor',
     'Docs: n/a – <reason>',
   ]) {
     assert.match(runCheck([uiFile], body).log, /^::warning::/)

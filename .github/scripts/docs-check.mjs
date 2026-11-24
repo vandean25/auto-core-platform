@@ -11,7 +11,7 @@ function isUserFacing(file) {
 }
 
 function hasDocsOptOut(body) {
-  const lines = body.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/)
+  const lines = body.replace(/<!--[\s\S]*?-->/g, ' ').split(/\r?\n/)
   return lines.some((line) => {
     const reason = /^Docs:[ \t]*n\/a[ \t]*[-–][ \t]*(.+)$/i.exec(line.trim())?.[1]?.trim()
     return Boolean(reason) && reason !== '<reason>'
