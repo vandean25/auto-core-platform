@@ -30,9 +30,7 @@ function clientFacingImportCodes(): string[] {
         entry.name !== 'import.constants.ts'
       ) {
         const source = readFileSync(fullPath, 'utf8');
-        for (const match of source.matchAll(
-          /IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g,
-        )) {
+        for (const match of source.matchAll(/IMPORT_ERROR_CODES\.([A-Z0-9_]+)/g)) {
           keys.add(match[1] as keyof typeof IMPORT_ERROR_CODES);
         }
       }
@@ -70,30 +68,7 @@ describe('client-safe HTTP error codes', () => {
   });
 
   it('lists workshop command error codes', () => {
-    for (const code of [
-      'AUDIO_EMPTY',
-      'AUDIO_TOO_LARGE',
-      'AUDIO_UNSUPPORTED_TYPE',
-      'COMMAND_ID_REUSED',
-      'CONTRACT_VERSION_UNSUPPORTED',
-      'DURATION_REQUIRED',
-      'HUMAN_ONLY_EXCLUDED',
-      'INTENT_INCOMPLETE',
-      'LOANER_NOT_PERMITTED',
-      'LOCALE_UNSUPPORTED',
-      'PLAN_STALE',
-      'RESOURCE_AMBIGUOUS',
-      'RESOURCE_MISSING',
-      'SELECTION_NOT_OFFERED',
-      'SESSION_NOT_FOUND',
-      'SITE_MISMATCH',
-      'TEXT_TOO_LONG',
-      'TIME_CONTRADICTORY',
-      'TIME_IN_PAST',
-      'TRANSCRIPT_EMPTY',
-      'UNSUPPORTED_GRAMMAR',
-      'UNSUPPORTED_SERVICE',
-    ]) {
+    for (const code of ['AUDIO_EMPTY', 'AUDIO_TOO_LARGE', 'AUDIO_UNSUPPORTED_TYPE', 'COMMAND_ID_REUSED', 'CONTRACT_VERSION_UNSUPPORTED', 'DURATION_REQUIRED', 'HUMAN_ONLY_EXCLUDED', 'INTENT_INCOMPLETE', 'LOANER_NOT_PERMITTED', 'LOCALE_UNSUPPORTED', 'PLAN_STALE', 'RESOURCE_AMBIGUOUS', 'RESOURCE_MISSING', 'SELECTION_NOT_OFFERED', 'SESSION_NOT_FOUND', 'SITE_MISMATCH', 'TEXT_TOO_LONG', 'TIME_CONTRADICTORY', 'TIME_IN_PAST', 'TRANSCRIPT_EMPTY', 'UNSUPPORTED_GRAMMAR', 'UNSUPPORTED_SERVICE']) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
     }
   });
@@ -111,12 +86,8 @@ describe('client-safe HTTP error codes', () => {
 
   // Regression: the global filter drops unlisted codes, so a cursor request with page/pageSize lost its typed 400.
   it('lists the ADR-0035 cursor param code', () => {
-    expect(
-      CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_PARAM_FORBIDDEN'),
-    ).toBe(true);
-    expect(readWebPublicErrorCodes().has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(
-      true,
-    );
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(true);
+    expect(readWebPublicErrorCodes().has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(true);
   });
 
   it('lists ADR-0038 scope context wire codes', () => {
@@ -158,9 +129,7 @@ describe('client-safe HTTP error codes', () => {
   });
 
   it('lists the active-order conflict code and forwards only its order ids', () => {
-    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('VEHICLE_HAS_ACTIVE_ORDER')).toBe(
-      true,
-    );
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('VEHICLE_HAS_ACTIVE_ORDER')).toBe(true);
     expect(
       pickClientSafeHttpErrorDetails({
         code: 'VEHICLE_HAS_ACTIVE_ORDER',
@@ -244,10 +213,7 @@ describe('client-safe HTTP error codes', () => {
 
   it('forwards no detail fields for codes outside the allowlist', () => {
     expect(
-      pickClientSafeHttpErrorDetails({
-        code: 'SOMETHING_ELSE',
-        orderId: 'wo-live',
-      }),
+      pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),
     ).toEqual({});
   });
 
@@ -296,9 +262,7 @@ describe('client-safe HTTP error codes', () => {
         ],
       }),
     ).toEqual({
-      field_issues: [
-        { field: 'price_gross_eur', code: 'LISTING_PRICE_REQUIRED' },
-      ],
+      field_issues: [{ field: 'price_gross_eur', code: 'LISTING_PRICE_REQUIRED' }],
     });
   });
 });
