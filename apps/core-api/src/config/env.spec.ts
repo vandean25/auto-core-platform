@@ -12,6 +12,8 @@ function productionEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     FIREBASE_PROJECT_ID: 'auto-core-platform',
     SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
     CATALOG_HIT_HMAC_SECRET: 'catalog-hit-production-secret',
+    BANK_RECONCILIATION_IBAN_HMAC_SECRET:
+      'bank-reconciliation-iban-production-secret',
     FRONTEND_URL: 'https://app.example.com',
     CLOUD_TASKS_ENABLED: 'false',
     ...overrides,
@@ -35,6 +37,7 @@ describe('validateEnv', () => {
       'DATABASE_URL',
       'SECRET_ENCRYPTION_KEY',
       'CATALOG_HIT_HMAC_SECRET',
+      'BANK_RECONCILIATION_IBAN_HMAC_SECRET',
       'FIREBASE_PROJECT_ID',
       'FRONTEND_URL',
       'CLOUD_TASKS_WORKER_SECRET',
@@ -165,12 +168,13 @@ describe('validateEnv', () => {
     ).toBe(Buffer.alloc(32, 3).toString('base64'));
   });
 
-  it('requires DATABASE_URL, SECRET_ENCRYPTION_KEY, and CATALOG_HIT_HMAC_SECRET in development', () => {
+  it('requires DATABASE_URL, SECRET_ENCRYPTION_KEY, CATALOG_HIT_HMAC_SECRET, and BANK_RECONCILIATION_IBAN_HMAC_SECRET in development', () => {
     const validationError = expectEnvError({ NODE_ENV: 'development' });
     expect(validationError.missing).toEqual([
       'DATABASE_URL',
       'SECRET_ENCRYPTION_KEY',
       'CATALOG_HIT_HMAC_SECRET',
+      'BANK_RECONCILIATION_IBAN_HMAC_SECRET',
     ]);
   });
 
@@ -181,6 +185,8 @@ describe('validateEnv', () => {
         DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/core',
         SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
         CATALOG_HIT_HMAC_SECRET: 'catalog-hit-dev-secret',
+        BANK_RECONCILIATION_IBAN_HMAC_SECRET:
+          'bank-reconciliation-iban-dev-secret',
       }),
     ).not.toThrow();
   });

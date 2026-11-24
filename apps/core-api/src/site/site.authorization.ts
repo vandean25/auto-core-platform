@@ -11,6 +11,14 @@ export function assertTenantAdmin(tenantContext: TenantContextService): void {
   }
 }
 
+export function assertTenantOwner(tenantContext: TenantContextService): void {
+  const user = tenantContext.getAuthenticatedUser() as
+    TenantAdminUser | undefined;
+  if (!user || user.role !== 'OWNER') {
+    throw new ForbiddenException('Tenant owner access is required.');
+  }
+}
+
 /** Resolves the authenticated user's relational User row in this tenant. */
 export async function resolveCurrentUser(
   prisma: PrismaService,

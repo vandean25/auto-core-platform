@@ -63,6 +63,7 @@ VALUES
   ('_VendorBrands'),
   ('accounting_exports'),
   ('attendance_events'),
+  ('bank_statement_imports'),
   ('catalog_items'),
   ('catalog_oem_concern_makes'),
   ('catalog_provider_settings'),
@@ -81,6 +82,7 @@ VALUES
   ('sites'),
   ('vehicle_make_aliases'),
   ('voice_note_rate_limits'),
+  ('bank_transactions'),
   ('bays'),
   ('customer_communication_states'),
   ('customer_consent_unsubscribe_tokens'),
@@ -225,6 +227,12 @@ VALUES
   ('attendance_events', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('audit_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('bank_statement_imports', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('bank_statement_imports', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('bank_statement_imports', 'users', 'uploaded_by_user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('bank_transactions', 'bank_statement_imports', 'tenant_id,import_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('bank_transactions', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('bank_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('bays', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('bays', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('brands', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1081,6 +1089,8 @@ DELETE FROM public."customer_communication_states"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."bays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."bank_transactions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_note_rate_limits"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_make_aliases"
@@ -1116,6 +1126,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_oem_concern_makes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."bank_statement_imports"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."attendance_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

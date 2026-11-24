@@ -21,6 +21,7 @@ describe('AuthSessionService effective capabilities', () => {
   function createSessionService(
     countryIso: string | null,
     activeSiteId: string | null = ACTIVE_SITE_ID,
+    bankReconciliationEnabled = false,
   ) {
     const user = {
       id: 'user-1',
@@ -57,6 +58,11 @@ describe('AuthSessionService effective capabilities', () => {
       {
         user: { findFirst: asyncMock().mockResolvedValue(user) },
         siteMembership: { findFirst: findMembership },
+        financeSettings: {
+          findFirst: asyncMock().mockResolvedValue({
+            bank_reconciliation_enabled: bankReconciliationEnabled,
+          }),
+        },
       } as unknown as SystemPrismaService,
       createLandingDemoGrantMock(),
     );
@@ -129,6 +135,16 @@ describe('AuthSessionService effective capabilities', () => {
       email: 'user@example.com',
     });
     expect(session).toHaveProperty('effectiveCapabilities', null);
+    expect(session).toHaveProperty('bankReconciliationEnabled', false);
+  });
+
+  it('exposes bankReconciliationEnabled true when enabled in financeSettings', async () => {
+    const { service } = createSessionService('AT', null, true);
+    const session = await service.getSessionForClaims({
+      sub: 'firebase-user-1',
+      email: 'user@example.com',
+    });
+    expect(session).toHaveProperty('bankReconciliationEnabled', true);
   });
 
   it('does not treat an unknown seller country as Austria', async () => {

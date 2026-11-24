@@ -39,6 +39,9 @@ export class FinanceSettingsResponseDto {
 
   @ApiProperty()
   vehicle_sale_prefix!: string;
+
+  @ApiProperty()
+  bank_reconciliation_enabled!: boolean;
 }
 
 export class RevenueGroupResponseDto {

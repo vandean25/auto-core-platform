@@ -1473,6 +1473,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bank-reconciliation/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["BankReconciliationController_importStatement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank-reconciliation/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BankReconciliationController_listTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/brands": {
         parameters: {
             query?: never;
@@ -5929,6 +5961,7 @@ export interface components {
             /** @example de-AT */
             formatLocale: string;
             effectiveCapabilities: components["schemas"]["EffectiveCapabilitiesDto"] | null;
+            bankReconciliationEnabled: boolean;
         };
         SwitchTenantDto: {
             /** Format: uuid */
@@ -7423,12 +7456,14 @@ export interface components {
             vehicle_purchase_prefix: string;
             next_vehicle_sale_number: number;
             vehicle_sale_prefix: string;
+            bank_reconciliation_enabled: boolean;
         };
         UpdateFinanceSettingsDto: {
             fiscal_year_start_month?: number;
             lock_date?: string | null;
             next_invoice_number?: number;
             invoice_prefix?: string;
+            bank_reconciliation_enabled?: boolean;
         };
         RevenueGroupResponseDto: {
             id: number;
@@ -7620,6 +7655,53 @@ export interface components {
             tenantWideBlockers: components["schemas"]["AccountingExportBlockerDto"][];
             data: components["schemas"]["AccountingExportReadinessDocumentDto"][];
             meta: components["schemas"]["AccountingExportReadinessMetaDto"];
+        };
+        BankStatementImportResponseDto: {
+            /** Format: uuid */
+            importId: string;
+            /** Format: uuid */
+            legalEntityId: string;
+            receivingIban: string;
+            statementId: string | null;
+            format: string;
+            totalEntries: number;
+            creditEntries: number;
+            debitEntries: number;
+            importedCount: number;
+            duplicateCount: number;
+            deduplicated: boolean;
+        };
+        /** @enum {string} */
+        BankTransactionStatus: "UNMATCHED" | "MATCHED" | "IGNORED";
+        BankTransactionItemDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            legal_entity_id: string;
+            /** Format: uuid */
+            import_id: string;
+            receiving_iban: string;
+            /** @example 2026-11-10 */
+            booking_date: string;
+            /** @example 2026-11-10 */
+            value_date: string | null;
+            /** @example 1250.50 */
+            amount: string;
+            /** @example EUR */
+            currency: string;
+            is_credit: boolean;
+            non_eur: boolean;
+            remitter_name: string | null;
+            remitter_iban_last4: string | null;
+            reference_text: string | null;
+            bank_ref: string;
+            status: components["schemas"]["BankTransactionStatus"];
+            version: number;
+            createdAt: string;
+        };
+        ListBankTransactionsResponseDto: {
+            data: components["schemas"]["BankTransactionItemDto"][];
+            meta: components["schemas"]["ListCursorPageMetaDto"];
         };
         CreateBrandDto: {
             name: string;
@@ -16079,6 +16161,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountingExportReadinessResponseDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_importStatement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankStatementImportResponseDto"];
+                };
+            };
+        };
+    };
+    BankReconciliationController_listTransactions: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                legal_entity_id?: string;
+                limit?: number;
+                sortDirection?: "asc" | "desc";
+                status?: components["schemas"]["BankTransactionStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListBankTransactionsResponseDto"];
                 };
             };
         };

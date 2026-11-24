@@ -28,6 +28,7 @@ const sessionFixture: AuthSession = {
   defaultLocale: 'de',
   formatLocale: 'de-AT',
   effectiveCapabilities: null,
+  bankReconciliationEnabled: false,
 }
 
 describe('resolveAuthenticatedSessionGate', () => {

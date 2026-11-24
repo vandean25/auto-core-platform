@@ -85,6 +85,9 @@ describe('Bearer auth (e2e)', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    financeSettings: {
+      findFirst: jest.fn(),
+    },
   };
 
   beforeAll(async () => {
@@ -126,6 +129,9 @@ describe('Bearer auth (e2e)', () => {
     systemPrismaMock.user.findUnique.mockReset().mockResolvedValue(null);
     systemPrismaMock.siteMembership.findFirst.mockReset().mockResolvedValue(null);
     systemPrismaMock.siteMembership.findMany.mockReset().mockResolvedValue([]);
+    systemPrismaMock.financeSettings.findFirst
+      .mockReset()
+      .mockResolvedValue(null);
     firebaseAuthMock.getUser.mockReset();
     firebaseAuthMock.setCustomUserClaims.mockReset();
     firebaseAuthMock.revokeRefreshTokens.mockReset();

@@ -1330,6 +1330,7 @@ export const mcpToolOutputSchemas = {
         winter_swap_date: nonEmptyString,
         due_for_swap_days: count,
       }),
+      bank_reconciliation_enabled: z.boolean(),
     }),
     document_branding: z.array(brandingSummary),
   }),

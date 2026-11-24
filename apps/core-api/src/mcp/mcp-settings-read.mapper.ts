@@ -417,6 +417,7 @@ export function toMcpTenantSettings(input: {
   voice: McpVoiceSettingsRecord | null;
   catalog: McpCatalogSettingsRecord | null;
   tyre: McpTyreStorageRecord | null;
+  bankReconciliationEnabled?: boolean;
   legalEntities: {
     entity: { id: string; name: string };
     branding: McpBrandingRecord | null;
@@ -464,6 +465,7 @@ export function toMcpTenantSettings(input: {
         ),
         due_for_swap_days: tyreSettings.due_for_swap_days,
       },
+      bank_reconciliation_enabled: input.bankReconciliationEnabled ?? false,
     },
     document_branding: input.legalEntities.map(({ entity, branding }) =>
       toMcpBrandingSummary(entity, branding),

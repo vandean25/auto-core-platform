@@ -7,6 +7,7 @@ export const LIST_CURSOR_ENDPOINT = {
   inventory: 'inventory',
   invoices: 'invoices',
   workshopOrders: 'workshop-orders',
+  bankTransactions: 'bank-transactions',
 } as const;
 
 export type ListCursorEndpointId =

@@ -241,4 +241,14 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE,
     'tenant',
   ),
+  'BankReconciliationController.importStatement': op(
+    'bank_reconciliation.import',
+    ADMINS,
+    'tenant',
+  ),
+  'BankReconciliationController.listTransactions': op(
+    'bank_reconciliation.read',
+    ADMINS,
+    'tenant',
+  ),
 };

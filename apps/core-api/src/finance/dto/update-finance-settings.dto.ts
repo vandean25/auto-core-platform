@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -37,4 +38,9 @@ export class UpdateFinanceSettingsDto {
   @IsOptional()
   @IsString()
   invoice_prefix?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  bank_reconciliation_enabled?: boolean;
 }

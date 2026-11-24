@@ -12,7 +12,10 @@ import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto.js';
 import { CreateRevenueGroupDto } from './dto/create-revenue-group.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import { assertTenantAdmin } from '../site/site.authorization.js';
+import {
+  assertTenantAdmin,
+  assertTenantOwner,
+} from '../site/site.authorization.js';
 import {
   calendarYearInTimeZone,
   DEFAULT_INVOICE_PREFIX,
@@ -132,6 +135,9 @@ export class FinanceService {
 
   async updateSettings(data: UpdateFinanceSettingsDto) {
     assertTenantAdmin(this.tenantContext);
+    if (data.bank_reconciliation_enabled !== undefined) {
+      assertTenantOwner(this.tenantContext);
+    }
     const tenantId = await this.tenantContext.getTenantId();
     const { lock_date, ...rest } = data;
     const updateData: Prisma.FinanceSettingsUpdateInput = {

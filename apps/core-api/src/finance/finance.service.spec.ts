@@ -275,4 +275,61 @@ describe('FinanceService.updateSettings', () => {
     ).rejects.toThrow('must be greater than the highest issued invoice number');
     expect(tx.financeSettings.update).not.toHaveBeenCalled();
   });
+
+  it('rejects ADMIN when bank_reconciliation_enabled is present', async () => {
+    const prisma = {
+      financeSettings: {
+        update: jest.fn(),
+      },
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    await expect(
+      service.updateSettings({ bank_reconciliation_enabled: true }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.financeSettings.update).not.toHaveBeenCalled();
+  });
+
+  it('allows ADMIN to update other finance settings when bank_reconciliation_enabled is omitted', async () => {
+    const prisma = {
+      financeSettings: {
+        update: jest.fn().mockResolvedValue({ fiscal_year_start_month: 4 }),
+      },
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    const result = await service.updateSettings({ fiscal_year_start_month: 4 });
+    expect(result).toEqual({ fiscal_year_start_month: 4 });
+    expect(prisma.financeSettings.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows OWNER to update bank_reconciliation_enabled', async () => {
+    const prisma = {
+      financeSettings: {
+        update: jest.fn().mockResolvedValue({ bank_reconciliation_enabled: true }),
+      },
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    const result = await service.updateSettings({
+      bank_reconciliation_enabled: true,
+    });
+    expect(result).toEqual({ bank_reconciliation_enabled: true });
+    expect(prisma.financeSettings.update).toHaveBeenCalledTimes(1);
+  });
 });

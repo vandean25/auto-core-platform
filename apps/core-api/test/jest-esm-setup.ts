@@ -25,6 +25,11 @@ if (!process.env.SCOPE_CONTEXT_HMAC_SECRET?.trim()) {
   process.env.SCOPE_CONTEXT_HMAC_SECRET = 'acp-e2e-scope-context-hmac-secret';
 }
 
+if (!process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET?.trim()) {
+  process.env.BANK_RECONCILIATION_IBAN_HMAC_SECRET =
+    'acp-e2e-bank-reconciliation-iban-hmac-secret';
+}
+
 const runsImportWorkerE2e = process.argv.some((arg) =>
   arg.includes('import-background-worker.e2e-spec'),
 );

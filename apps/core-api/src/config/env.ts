@@ -65,6 +65,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'GCP_CREDENTIALS',
   'SECRET_ENCRYPTION_KEY',
   'CATALOG_HIT_HMAC_SECRET',
+  'BANK_RECONCILIATION_IBAN_HMAC_SECRET',
   'SCOPE_CONTEXT_HMAC_SECRET',
   'SCOPE_CONTEXT_HMAC_SECRET_PREVIOUS',
   'API_KEY_PEPPER',
@@ -190,6 +191,7 @@ const envSchema = z
     GCP_CREDENTIALS: optionalString,
     SECRET_ENCRYPTION_KEY: optionalString,
     CATALOG_HIT_HMAC_SECRET: optionalString,
+    BANK_RECONCILIATION_IBAN_HMAC_SECRET: optionalString,
     SCOPE_CONTEXT_HMAC_SECRET: optionalString,
     SCOPE_CONTEXT_HMAC_SECRET_PREVIOUS: optionalString,
     API_KEY_PEPPER: optionalString,
@@ -253,6 +255,11 @@ const envSchema = z
       ctx,
       'CATALOG_HIT_HMAC_SECRET',
       env.CATALOG_HIT_HMAC_SECRET,
+    );
+    addRequiredIssue(
+      ctx,
+      'BANK_RECONCILIATION_IBAN_HMAC_SECRET',
+      env.BANK_RECONCILIATION_IBAN_HMAC_SECRET,
     );
 
     if (env.NODE_ENV === 'production') {

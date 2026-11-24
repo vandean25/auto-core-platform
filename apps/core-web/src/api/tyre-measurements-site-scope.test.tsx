@@ -34,6 +34,7 @@ const session = {
   activeRole: 'TECH' as const, activeSiteId: 'site-1', memberships: [],
   locale: null, effectiveLocale: 'de' as const, defaultLocale: 'de' as const, formatLocale: 'de-AT',
   effectiveCapabilities: null,
+  bankReconciliationEnabled: false,
 }
 
 function jsonResponse(data: unknown, status = 200) {

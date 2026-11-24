@@ -10,6 +10,8 @@ const developmentEnv = (
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/core',
   SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
   CATALOG_HIT_HMAC_SECRET: 'catalog-hit-development-secret',
+  BANK_RECONCILIATION_IBAN_HMAC_SECRET:
+    'bank-reconciliation-iban-development-secret',
   ...overrides,
 });
 

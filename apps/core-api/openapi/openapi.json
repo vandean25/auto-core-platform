@@ -4836,6 +4836,117 @@
         ]
       }
     },
+    "/api/bank-reconciliation/imports": {
+      "post": {
+        "operationId": "BankReconciliationController_importStatement",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankStatementImportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
+    "/api/bank-reconciliation/transactions": {
+      "get": {
+        "operationId": "BankReconciliationController_listTransactions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legal_entity_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BankTransactionStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListBankTransactionsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "bank-reconciliation"
+        ]
+      }
+    },
     "/api/brands": {
       "post": {
         "operationId": "BrandController_create",
@@ -19102,6 +19213,9 @@
                 "$ref": "#/components/schemas/EffectiveCapabilitiesDto"
               }
             ]
+          },
+          "bankReconciliationEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -19115,7 +19229,8 @@
           "effectiveLocale",
           "defaultLocale",
           "formatLocale",
-          "effectiveCapabilities"
+          "effectiveCapabilities",
+          "bankReconciliationEnabled"
         ]
       },
       "SwitchTenantDto": {
@@ -24345,6 +24460,9 @@
           },
           "vehicle_sale_prefix": {
             "type": "string"
+          },
+          "bank_reconciliation_enabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -24359,7 +24477,8 @@
           "next_vehicle_purchase_number",
           "vehicle_purchase_prefix",
           "next_vehicle_sale_number",
-          "vehicle_sale_prefix"
+          "vehicle_sale_prefix",
+          "bank_reconciliation_enabled"
         ]
       },
       "UpdateFinanceSettingsDto": {
@@ -24377,6 +24496,9 @@
           },
           "invoice_prefix": {
             "type": "string"
+          },
+          "bank_reconciliation_enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -25108,6 +25230,176 @@
           "exportProfile",
           "summary",
           "tenantWideBlockers",
+          "data",
+          "meta"
+        ]
+      },
+      "BankStatementImportResponseDto": {
+        "type": "object",
+        "properties": {
+          "importId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "legalEntityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "receivingIban": {
+            "type": "string"
+          },
+          "statementId": {
+            "type": "string",
+            "nullable": true
+          },
+          "format": {
+            "type": "string"
+          },
+          "totalEntries": {
+            "type": "number"
+          },
+          "creditEntries": {
+            "type": "number"
+          },
+          "debitEntries": {
+            "type": "number"
+          },
+          "importedCount": {
+            "type": "number"
+          },
+          "duplicateCount": {
+            "type": "number"
+          },
+          "deduplicated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "importId",
+          "legalEntityId",
+          "receivingIban",
+          "statementId",
+          "format",
+          "totalEntries",
+          "creditEntries",
+          "debitEntries",
+          "importedCount",
+          "duplicateCount",
+          "deduplicated"
+        ]
+      },
+      "BankTransactionStatus": {
+        "type": "string",
+        "enum": [
+          "UNMATCHED",
+          "MATCHED",
+          "IGNORED"
+        ]
+      },
+      "BankTransactionItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "legal_entity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "import_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "receiving_iban": {
+            "type": "string"
+          },
+          "booking_date": {
+            "type": "string",
+            "example": "2026-11-10"
+          },
+          "value_date": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-11-10"
+          },
+          "amount": {
+            "type": "string",
+            "example": "1250.50"
+          },
+          "currency": {
+            "type": "string",
+            "example": "EUR"
+          },
+          "is_credit": {
+            "type": "boolean"
+          },
+          "non_eur": {
+            "type": "boolean"
+          },
+          "remitter_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "remitter_iban_last4": {
+            "type": "string",
+            "nullable": true
+          },
+          "reference_text": {
+            "type": "string",
+            "nullable": true
+          },
+          "bank_ref": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BankTransactionStatus"
+              }
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "legal_entity_id",
+          "import_id",
+          "receiving_iban",
+          "booking_date",
+          "value_date",
+          "amount",
+          "currency",
+          "is_credit",
+          "non_eur",
+          "remitter_name",
+          "remitter_iban_last4",
+          "reference_text",
+          "bank_ref",
+          "status",
+          "version",
+          "createdAt"
+        ]
+      },
+      "ListBankTransactionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankTransactionItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ListCursorPageMetaDto"
+          }
+        },
+        "required": [
           "data",
           "meta"
         ]
