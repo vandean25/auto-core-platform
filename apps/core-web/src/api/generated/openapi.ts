@@ -3955,6 +3955,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicles/{id}/pickerl-contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleController_recordPickerlContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles": {
         parameters: {
             query?: never;
@@ -7044,6 +7060,14 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            /** Format: date-time */
+            last_contacted_at?: string | null;
+            /** @enum {string|null} */
+            last_contact_channel?: "PHONE" | "EMAIL" | "SMS" | "IN_PERSON" | "POST" | null;
+            last_contact_by?: string | null;
+            /** @enum {string|null} */
+            last_contact_outcome?: "REACHED" | "NO_ANSWER" | "APPOINTMENT_BOOKED" | "DECLINED" | null;
+            phone_consent_allowed?: boolean;
         };
         /** @enum {string} */
         InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
@@ -8090,6 +8114,14 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            /** Format: date-time */
+            last_contacted_at?: string | null;
+            /** @enum {string|null} */
+            last_contact_channel?: "PHONE" | "EMAIL" | "SMS" | "IN_PERSON" | "POST" | null;
+            last_contact_by?: string | null;
+            /** @enum {string|null} */
+            last_contact_outcome?: "REACHED" | "NO_ANSWER" | "APPOINTMENT_BOOKED" | "DECLINED" | null;
+            phone_consent_allowed?: boolean;
         };
         WorkshopSearchVehicleDto: {
             /**
@@ -8133,6 +8165,14 @@ export interface components {
             parties?: components["schemas"]["VehiclePartyResponseDto"][];
             /** @description Detail only: open service-due notices, soonest first (read only). */
             open_due_dates?: components["schemas"]["VehicleOpenDueDateDto"][];
+            /** Format: date-time */
+            last_contacted_at?: string | null;
+            /** @enum {string|null} */
+            last_contact_channel?: "PHONE" | "EMAIL" | "SMS" | "IN_PERSON" | "POST" | null;
+            last_contact_by?: string | null;
+            /** @enum {string|null} */
+            last_contact_outcome?: "REACHED" | "NO_ANSWER" | "APPOINTMENT_BOOKED" | "DECLINED" | null;
+            phone_consent_allowed?: boolean;
         };
         WorkshopSearchCustomerDto: {
             /**
@@ -10696,6 +10736,45 @@ export interface components {
         PickerlDuePaginatedResponseDto: {
             data: components["schemas"]["VehicleResponseDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
+        };
+        RecordPickerlContactDto: {
+            /**
+             * @default PHONE
+             * @enum {string}
+             */
+            channel: "PHONE" | "EMAIL" | "SMS" | "IN_PERSON" | "POST";
+            /** @enum {string} */
+            outcome?: "REACHED" | "NO_ANSWER" | "APPOINTMENT_BOOKED" | "DECLINED";
+            /** @description Contact timestamp (ISO-8601). Defaults to server now. */
+            contacted_at?: string;
+            /**
+             * @description Due month (YYYY-MM) this contact refers to. Defaults to current due_month.
+             * @example 2026-03
+             */
+            due_month?: string | null;
+            /**
+             * @description Required when logging a PHONE contact for a customer without active PHONE consent.
+             * @enum {string}
+             */
+            no_consent_reason?: "CUSTOMER_CALLED" | "ACTIVE_ORDER" | "MARKETING_CALL_WITHOUT_CONSENT";
+            /** @description When true, immediately revokes active PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER. */
+            revoke_phone_consent?: boolean;
+        };
+        PickerlContactLogResponseDto: {
+            id: string;
+            vehicle_id: string;
+            customer_id: string | null;
+            due_month: string | null;
+            contacted_at: string;
+            /** @enum {string} */
+            channel: "PHONE" | "EMAIL" | "SMS" | "IN_PERSON" | "POST";
+            /** @enum {string|null} */
+            outcome: "REACHED" | "NO_ANSWER" | "APPOINTMENT_BOOKED" | "DECLINED" | null;
+            /** @enum {string|null} */
+            no_consent_reason: "CUSTOMER_CALLED" | "ACTIVE_ORDER" | "MARKETING_CALL_WITHOUT_CONSENT" | null;
+            actor_member_id: string | null;
+            actor_name: string | null;
+            phone_consent_allowed: boolean;
         };
         VehiclePaginatedResponseDto: {
             data: components["schemas"]["VehicleListItemDto"][];
@@ -20967,6 +21046,8 @@ export interface operations {
     VehicleController_findPickerlDue: {
         parameters: {
             query?: {
+                contacted?: "yes" | "no" | "older_than";
+                contactedDays?: number;
                 page?: number;
                 /** @description Larger values are clamped to 50. */
                 pageSize?: number;
@@ -20992,6 +21073,8 @@ export interface operations {
     VehicleController_exportPickerlDue: {
         parameters: {
             query?: {
+                contacted?: "yes" | "no" | "older_than";
+                contactedDays?: number;
                 status?: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
                 window?: 30 | 60 | 90;
             };
@@ -21026,6 +21109,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpenPickerlOrderDto"] | null;
+                };
+            };
+        };
+    };
+    VehicleController_recordPickerlContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPickerlContactDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickerlContactLogResponseDto"];
                 };
             };
         };

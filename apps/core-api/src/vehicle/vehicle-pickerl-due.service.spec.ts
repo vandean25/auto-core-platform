@@ -8,10 +8,23 @@ describe('VehiclePickerlDueService', () => {
   let persistence: {
     findPickerlCandidates: jest.Mock;
     findOpenPickerlOrders: jest.Mock;
+    findPickerlContactLogs: jest.Mock;
   };
   let service: VehiclePickerlDueService;
   let pickerlBarriers: {
     loadBarrierFlagsByVehicleIds: jest.Mock;
+  };
+  let customerConsent: {
+    loadPhonePickerlConsentByCustomerIds: jest.Mock;
+    revokePhonePickerlConsents: jest.Mock;
+  };
+  let auditService: {
+    recordTenantMutation: jest.Mock;
+  };
+  let prisma: {
+    vehicle: { findFirst: jest.Mock };
+    tenantMember: { findFirst: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   const overdueVehicle = {
@@ -45,13 +58,29 @@ describe('VehiclePickerlDueService', () => {
     persistence = {
       findPickerlCandidates: jest.fn(),
       findOpenPickerlOrders: jest.fn(),
+      findPickerlContactLogs: jest.fn().mockResolvedValue([]),
     };
     pickerlBarriers = {
       loadBarrierFlagsByVehicleIds: jest.fn().mockResolvedValue(new Map()),
     };
+    customerConsent = {
+      loadPhonePickerlConsentByCustomerIds: jest.fn().mockResolvedValue(new Map()),
+      revokePhonePickerlConsents: jest.fn(),
+    };
+    auditService = {
+      recordTenantMutation: jest.fn(),
+    };
+    prisma = {
+      vehicle: { findFirst: jest.fn() },
+      tenantMember: { findFirst: jest.fn() },
+      $transaction: jest.fn(),
+    };
     service = new VehiclePickerlDueService(
       persistence as unknown as VehiclePersistenceService,
       pickerlBarriers as never,
+      prisma as never,
+      customerConsent as never,
+      auditService as never,
     );
   });
 

@@ -34,7 +34,7 @@ export const SAVED_VIEW_LIST_REGISTRY: Readonly<
   '/vehicles': { permission: 'vehicle.read' },
   '/vehicles/pickerl-due': {
     permission: 'vehicle.pickerl.read',
-    extraParams: ['window', 'status'],
+    extraParams: ['window', 'status', 'contacted', 'contactedDays'],
   },
   '/vehicles/gewaehrleistung-due': {
     permission: 'vehicle_stock.gewaehrleistung.read',

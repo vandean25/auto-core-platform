@@ -137,6 +137,7 @@ export const AUDITED_MODELS = new Set([
   'VehicleLedgerEntry',
   'VehicleMedia',
   'VehicleInspectionRecord',
+  'PickerlContactLog',
   'WorkshopOpeningHour',
   'WorkshopHoliday',
   'LegalEntity',

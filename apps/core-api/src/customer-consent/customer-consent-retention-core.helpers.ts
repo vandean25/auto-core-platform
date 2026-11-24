@@ -1,5 +1,8 @@
-/** AUT-374 default: keep consent proof until withdrawal/unsubscribe + 3 calendar years (leap day clamps). */
+/** AUT-374 default (AT): keep consent proof until withdrawal/unsubscribe + 3 calendar years (leap day clamps). */
 export const CUSTOMER_CONSENT_PROOF_RETENTION_YEARS = 3;
+
+/** AUT-1041 (§ 7a UWG, DE): keep consent proof 5 years after last use / withdrawal. */
+export const CUSTOMER_CONSENT_PROOF_RETENTION_YEARS_DE = 5;
 
 export function addCalendarYearsPreservingDate(
   anchor: Date,
@@ -17,9 +20,13 @@ export function addCalendarYearsPreservingDate(
   return result;
 }
 
-export function consentProofRetainUntil(cessationAt: Date): Date {
-  return addCalendarYearsPreservingDate(
-    cessationAt,
-    CUSTOMER_CONSENT_PROOF_RETENTION_YEARS,
-  );
+export function consentProofRetainUntil(
+  cessationAt: Date,
+  countryIso?: string | null,
+): Date {
+  const years =
+    countryIso === 'DE'
+      ? CUSTOMER_CONSENT_PROOF_RETENTION_YEARS_DE
+      : CUSTOMER_CONSENT_PROOF_RETENTION_YEARS;
+  return addCalendarYearsPreservingDate(cessationAt, years);
 }

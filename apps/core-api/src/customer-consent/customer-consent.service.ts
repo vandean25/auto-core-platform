@@ -50,7 +50,7 @@ import {
 } from './customer-consent-token.helpers.js';
 import type { RecordCommunicationEventDto } from './dto/customer-consent.dto.js';
 
-const PREFERENCE_CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS'];
+const PREFERENCE_CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS', 'PHONE'];
 
 @Injectable()
 export class CustomerConsentService {
@@ -298,6 +298,10 @@ export class CustomerConsentService {
         });
 
         if (isRevocation) {
+          const controller = await tx.legalEntity.findFirst({
+            where: { tenant_id: tenantId, id: controllerId },
+            select: { country_iso: true },
+          });
           await stampProofChainRetainUntil(tx, {
             tenantId,
             controllerLegalEntityId: controllerId,
@@ -305,6 +309,7 @@ export class CustomerConsentService {
             channel: dto.channel,
             purposes: [dto.purpose],
             cessationAt: serverNow,
+            countryIso: controller?.country_iso,
           });
         }
 
@@ -818,5 +823,208 @@ export class CustomerConsentService {
       source: row.source,
       revoked_at: row.revoked_at?.toISOString() ?? null,
     };
+  }
+
+  /**
+   * Batch-checks whether each customer has active PHONE consent for PICKERL_REMINDER or SERVICE_REMINDER.
+   */
+  async loadPhonePickerlConsentByCustomerIds(
+    tenantId: string,
+    customerIds: string[],
+  ): Promise<Map<string, boolean>> {
+    const uniqueIds = [...new Set(customerIds)];
+    const result = new Map<string, boolean>();
+    if (uniqueIds.length === 0) {
+      return result;
+    }
+
+    const [states, consents] = await Promise.all([
+      this.prisma.customerCommunicationState.findMany({
+        where: { tenant_id: tenantId, customer_id: { in: uniqueIds } },
+        select: { customer_id: true, processing_status: true },
+      }),
+      this.prisma.customerConsent.findMany({
+        where: {
+          tenant_id: tenantId,
+          customer_id: { in: uniqueIds },
+          channel: 'PHONE',
+          purpose: { in: ['PICKERL_REMINDER', 'SERVICE_REMINDER'] },
+        },
+        select: {
+          customer_id: true,
+          purpose: true,
+          channel: true,
+          status: true,
+          sequence: true,
+          basis: true,
+          text_version: true,
+          text_snapshot: true,
+          evidence: true,
+        },
+      }),
+    ]);
+
+    const restrictedCustomers = new Set(
+      states
+        .filter((state) => state.processing_status !== 'ACTIVE')
+        .map((state) => state.customer_id),
+    );
+    const eventsByCustomer = new Map<string, LedgerEventSlice[]>();
+    for (const row of consents) {
+      const list = eventsByCustomer.get(row.customer_id) ?? [];
+      list.push({
+        purpose: row.purpose,
+        channel: row.channel,
+        status: row.status,
+        sequence: row.sequence,
+        basis: row.basis,
+        text_version: row.text_version,
+        text_snapshot: row.text_snapshot,
+        evidence: row.evidence as LedgerEventSlice['evidence'],
+      });
+      eventsByCustomer.set(row.customer_id, list);
+    }
+
+    for (const customerId of uniqueIds) {
+      const processingRestricted = restrictedCustomers.has(customerId);
+      const events = eventsByCustomer.get(customerId) ?? [];
+      const allowed =
+        canContact({
+          purpose: 'PICKERL_REMINDER',
+          channel: 'PHONE',
+          events,
+          processingRestricted,
+        }).allowed ||
+        canContact({
+          purpose: 'SERVICE_REMINDER',
+          channel: 'PHONE',
+          events,
+          processingRestricted,
+        }).allowed;
+      result.set(customerId, allowed);
+    }
+
+    return result;
+  }
+
+  /**
+   * Immediately revokes PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER for a customer.
+   */
+  async revokePhonePickerlConsents(params: {
+    tenantId: string;
+    customerId: string;
+    actorMemberId: string | null;
+    tx: Prisma.TransactionClient;
+  }): Promise<void> {
+    const controllerId = await resolveControllerLegalEntityId(
+      params.tx as unknown as PrismaService,
+      params.tenantId,
+    );
+    await this.ensureCommunicationStateRowInTx(
+      params.tx,
+      params.tenantId,
+      controllerId,
+      params.customerId,
+    );
+    const state = await this.lockCommunicationState(
+      params.tx,
+      params.tenantId,
+      controllerId,
+      params.customerId,
+    );
+    const controller = await params.tx.legalEntity.findFirst({
+      where: { tenant_id: params.tenantId, id: controllerId },
+      select: { country_iso: true },
+    });
+    const now = new Date();
+    const purposes: CustomerConsentPurpose[] = [
+      'PICKERL_REMINDER',
+      'SERVICE_REMINDER',
+    ];
+
+    for (const purpose of purposes) {
+      const last = await params.tx.customerConsent.findFirst({
+        where: {
+          tenant_id: params.tenantId,
+          customer_id: params.customerId,
+          controller_legal_entity_id: controllerId,
+          channel: 'PHONE',
+          purpose,
+        },
+        orderBy: { sequence: 'desc' },
+        select: { sequence: true, status: true },
+      });
+      if (last?.status === 'REVOKED') {
+        continue;
+      }
+      const sequence = (last?.sequence ?? 0) + 1;
+      const created = await params.tx.customerConsent.create({
+        data: {
+          id: randomUUID(),
+          tenant_id: params.tenantId,
+          controller_legal_entity_id: controllerId,
+          customer_id: params.customerId,
+          channel: 'PHONE',
+          purpose,
+          status: 'REVOKED',
+          sequence,
+          occurred_at: now,
+          source: 'PROFILE',
+          actor_member_id: params.actorMemberId,
+          revoked_at: now,
+        },
+      });
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'CustomerConsent',
+          entityId: created.id,
+          action: AuditLogAction.CREATE,
+          after: this.toEventSummary(created),
+          source: 'pickerl-contact-dialog.revoke',
+        },
+        params.tx,
+      );
+    }
+
+    await stampProofChainRetainUntil(params.tx, {
+      tenantId: params.tenantId,
+      controllerLegalEntityId: controllerId,
+      customerId: params.customerId,
+      channel: 'PHONE',
+      purposes,
+      cessationAt: now,
+      countryIso: controller?.country_iso,
+    });
+
+    await params.tx.customerCommunicationState.update({
+      where: { id: state.id },
+      data: { revision: state.revision + 1 },
+    });
+  }
+
+  private async ensureCommunicationStateRowInTx(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    controllerLegalEntityId: string,
+    customerId: string,
+  ): Promise<void> {
+    await tx.customerCommunicationState.upsert({
+      where: {
+        tenant_id_controller_legal_entity_id_customer_id: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerLegalEntityId,
+          customer_id: customerId,
+        },
+      },
+      create: {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerLegalEntityId,
+        customer_id: customerId,
+        revision: 0,
+        processing_status: 'ACTIVE',
+      },
+      update: {},
+    });
   }
 }

@@ -130,6 +130,17 @@
     "recordPickerl": "Record Pickerl",
     "openOrder": "Open §57a order",
     "createOrder": "Create §57a order",
+    "recordContact": "Log contact",
+    "callPhone": "Call",
+    "contactedAria": "Contact status",
+    "contactedPlaceholder": "Contact status",
+    "contactedAll": "All contact statuses",
+    "contactedYes": "Contacted: Yes",
+    "contactedNo": "Contacted: No",
+    "contactedOlderThan": "More than N days ago",
+    "contactedDaysAria": "Days since last contact",
+    "noPhoneConsentHint": "No phone consent – do not call for marketing purposes",
+    "obtainConsentHint": "Obtain consent at next contact",
     "statusOk": "OK",
     "statusDueSoon": "Due soon",
     "statusOverdue": "Overdue",
@@ -143,8 +154,40 @@
       "dueMonth": "Due month",
       "status": "Status",
       "lastInspection": "Last inspection",
+      "lastContact": "Contacted on / via",
       "phone": "Phone",
       "email": "Email"
+    },
+    "contactDialog": {
+      "title": "Log contact",
+      "channel": "Channel",
+      "outcome": "Outcome",
+      "outcomeNone": "No outcome",
+      "noConsentReason": "Reason (without phone consent)",
+      "noConsentReasonPlaceholder": "Select reason",
+      "marketingWithoutConsentWarning": "Warning: A marketing call without consent is logged in the audit log for administrators.",
+      "revokeConsent": "Customer revokes consent",
+      "revokeConsentHint": "Phone consent will be deactivated immediately.",
+      "saveSuccess": "Contact logged.",
+      "saveError": "Could not save the contact. Please try again.",
+      "channels": {
+        "PHONE": "Phone",
+        "EMAIL": "Email",
+        "SMS": "SMS",
+        "IN_PERSON": "In person",
+        "POST": "Post"
+      },
+      "outcomes": {
+        "REACHED": "Reached",
+        "NO_ANSWER": "No answer",
+        "APPOINTMENT_BOOKED": "Appointment booked",
+        "DECLINED": "Declined"
+      },
+      "reasons": {
+        "CUSTOMER_CALLED": "Customer called / requested callback",
+        "ACTIVE_ORDER": "Active order",
+        "MARKETING_CALL_WITHOUT_CONSENT": "Marketing call without consent"
+      }
     }
   },
   "gewaehrleistungDue": {

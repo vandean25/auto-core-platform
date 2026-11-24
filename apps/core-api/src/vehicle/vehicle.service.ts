@@ -81,6 +81,18 @@ export class VehicleService {
     return buildPickerlDueCsv(allData);
   }
 
+  async recordPickerlContact(
+    vehicleId: string,
+    dto: import('./dto/pickerl-contact.dto.js').RecordPickerlContactDto,
+  ) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const userId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+    return this.pickerlDue.recordContact(vehicleId, dto, {
+      tenantId,
+      userId,
+    });
+  }
+
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const data = await this.writes.prepareCreate(createVehicleDto, tenantId);

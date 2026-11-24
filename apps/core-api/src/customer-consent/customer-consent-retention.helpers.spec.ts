@@ -5,10 +5,17 @@ import {
 import { stampProofChainRetainUntil } from './customer-consent-retention.helpers.js';
 
 describe('consent proof retention', () => {
-  it('adds three calendar years on a normal date', () => {
+  it('adds three calendar years on a normal date (AT default)', () => {
     const cessation = new Date('2024-03-15T12:00:00.000Z');
     expect(consentProofRetainUntil(cessation).toISOString()).toBe(
       '2027-03-15T12:00:00.000Z',
+    );
+  });
+
+  it('adds five calendar years for DE tenants (§ 7a UWG)', () => {
+    const cessation = new Date('2024-03-15T12:00:00.000Z');
+    expect(consentProofRetainUntil(cessation, 'DE').toISOString()).toBe(
+      '2029-03-15T12:00:00.000Z',
     );
   });
 

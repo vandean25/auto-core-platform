@@ -298,3 +298,34 @@ export function usePickerlDueList(queryParams: Record<string, unknown>) {
     refetchOnWindowFocus: (query) => (hasUtcDayChanged(query.state.dataUpdatedAt) ? 'always' : false),
   })
 }
+
+export type RecordPickerlContactInput = {
+  vehicleId: string
+  channel: 'PHONE' | 'EMAIL' | 'SMS' | 'IN_PERSON' | 'POST'
+  outcome?: 'REACHED' | 'NO_ANSWER' | 'APPOINTMENT_BOOKED' | 'DECLINED'
+  no_consent_reason?: 'CUSTOMER_CALLED' | 'ACTIVE_ORDER' | 'MARKETING_CALL_WITHOUT_CONSENT'
+  revoke_phone_consent?: boolean
+}
+
+export function useRecordPickerlContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationKey: [...vehicleKeys.all, 'pickerl-contact'],
+    mutationFn: async ({ vehicleId, ...body }: RecordPickerlContactInput) => {
+      const response = await fetchWithAuth(`/api/vehicles/${vehicleId}/pickerl-contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || 'Failed to record pickerl contact')
+      }
+      return (await response.json()) as components['schemas']['PickerlContactLogResponseDto']
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.pickerlDueAll() })
+      queryClient.invalidateQueries({ queryKey: customerKeys.all })
+    },
+  })
+}

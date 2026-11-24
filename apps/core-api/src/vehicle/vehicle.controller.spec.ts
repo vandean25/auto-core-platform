@@ -98,6 +98,7 @@ describe('vehicle routes', () => {
     ['GET /vehicles/pickerl-due', undefined, false, 'VehicleController_findPickerlDue'],
     ['GET /vehicles/pickerl-due/export', undefined, false, 'VehicleController_exportPickerlDue'],
     ['GET /vehicles/:id/pickerl-open-order', undefined, false, 'VehicleController_findOpenPickerlWorkshopOrder'],
+    ['POST /vehicles/:id/pickerl-contacts', undefined, false, 'VehicleController_recordPickerlContact'],
     ['GET /vehicles', undefined, false, 'VehicleController_findAll'],
     ['POST /vehicles', undefined, true, 'VehicleController_create'],
     ['POST /vehicles/:id/resolve-identity', 200, false, 'VehicleController_resolveIdentity'],
@@ -115,7 +116,7 @@ describe('vehicle routes', () => {
   );
 
   it('serves no other route under vehicles', () => {
-    expect(routes).toHaveLength(11);
+    expect(routes).toHaveLength(12);
   });
 
   it.each([

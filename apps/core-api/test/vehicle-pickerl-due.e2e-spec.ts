@@ -326,4 +326,337 @@ describe('Pickerl Due (e2e)', () => {
     expect(res.text).toContain('+4312345678'); // phone
     expect(res.text).toContain(`'=injection@test.com`); // Neutralized CSV injection
   });
+
+  it('POST /vehicles/:id/pickerl-contacts returns 403 for TECH role', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${someVehicleId}/pickerl-contacts`)
+      .set('Authorization', `Bearer ${techToken}`)
+      .send({ channel: 'PHONE', no_consent_reason: 'CUSTOMER_CALLED' })
+      .expect(403);
+  });
+
+  describe('Pickerl contact log & phone consent gate (AUT-1041)', () => {
+    let contactVehicleId: string;
+    let uncontactedVehicleId: string;
+    let consentedCustomerId: string;
+    let emailOnlyCustomerId: string;
+    let emailOnlyVehicleId: string;
+    let controllerLegalEntityId: string;
+
+    beforeAll(async () => {
+      await runWithTenantContext(tenantId, async () => {
+        const le = await basePrisma.legalEntity.findFirstOrThrow({
+          where: { tenant_id: tenantId, is_active: true },
+        });
+        controllerLegalEntityId = le.id;
+
+        const c1 = await basePrisma.customer.create({
+          data: {
+            tenant_id: tenantId,
+            type: 'PRIVATE',
+            first_name: 'Anna',
+            last_name: 'Telefon',
+            phone: '+43660111222',
+          },
+        });
+        consentedCustomerId = c1.id;
+        await basePrisma.customerConsent.create({
+          data: {
+            tenant_id: tenantId,
+            controller_legal_entity_id: controllerLegalEntityId,
+            customer_id: consentedCustomerId,
+            channel: 'PHONE',
+            purpose: 'PICKERL_REMINDER',
+            status: 'GRANTED',
+            basis: 'CONSENT',
+            sequence: 1,
+            occurred_at: new Date(),
+            source: 'PROFILE',
+            text_version: 'v1',
+            text_snapshot: 'Telefonische Erinnerung an §57a-Überprüfung',
+          },
+        });
+
+        const c2 = await basePrisma.customer.create({
+          data: {
+            tenant_id: tenantId,
+            type: 'PRIVATE',
+            first_name: 'Bernd',
+            last_name: 'NurEmail',
+            phone: '+43660333444',
+            email: 'bernd@test.local',
+          },
+        });
+        emailOnlyCustomerId = c2.id;
+        await basePrisma.customerConsent.create({
+          data: {
+            tenant_id: tenantId,
+            controller_legal_entity_id: controllerLegalEntityId,
+            customer_id: emailOnlyCustomerId,
+            channel: 'EMAIL',
+            purpose: 'PICKERL_REMINDER',
+            status: 'GRANTED',
+            basis: 'CONSENT',
+            sequence: 1,
+            occurred_at: new Date(),
+            source: 'PROFILE',
+            text_version: 'v1',
+            text_snapshot: 'E-Mail-Erinnerung an §57a-Überprüfung',
+          },
+        });
+
+        const todayYear = new Date().getUTCFullYear();
+        const vContact = await basePrisma.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            customer_id: consentedCustomerId,
+            make: 'Audi',
+            model: 'A3',
+            year: 2020,
+            plate: 'W-CONTACT-1',
+            inventory_role: 'CUSTOMER',
+            first_registration_date: FIXTURE_FIRST_REGISTRATION,
+          },
+        });
+        contactVehicleId = vContact.id;
+        await basePrisma.vehicleInspectionRecord.create({
+          data: {
+            tenant_id: tenantId,
+            vehicle_id: contactVehicleId,
+            inspection_type: 'PICKERL_57A',
+            inspected_on: new Date('2024-03-01T00:00:00.000Z'),
+            plaketten_valid_until_year: todayYear - 1,
+            plaketten_valid_until_month: 3,
+          },
+        });
+
+        const vUncontacted = await basePrisma.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            customer_id: consentedCustomerId,
+            make: 'Audi',
+            model: 'A4',
+            year: 2020,
+            plate: 'W-UNCONTACTED-1',
+            inventory_role: 'CUSTOMER',
+            first_registration_date: FIXTURE_FIRST_REGISTRATION,
+          },
+        });
+        uncontactedVehicleId = vUncontacted.id;
+        await basePrisma.vehicleInspectionRecord.create({
+          data: {
+            tenant_id: tenantId,
+            vehicle_id: uncontactedVehicleId,
+            inspection_type: 'PICKERL_57A',
+            inspected_on: new Date('2024-04-01T00:00:00.000Z'),
+            plaketten_valid_until_year: todayYear - 1,
+            plaketten_valid_until_month: 4,
+          },
+        });
+
+        const vEmailOnly = await basePrisma.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            customer_id: emailOnlyCustomerId,
+            make: 'VW',
+            model: 'Passat',
+            year: 2020,
+            plate: 'W-EMAILONLY-1',
+            inventory_role: 'CUSTOMER',
+            first_registration_date: FIXTURE_FIRST_REGISTRATION,
+          },
+        });
+        emailOnlyVehicleId = vEmailOnly.id;
+        await basePrisma.vehicleInspectionRecord.create({
+          data: {
+            tenant_id: tenantId,
+            vehicle_id: emailOnlyVehicleId,
+            inspection_type: 'PICKERL_57A',
+            inspected_on: new Date('2024-05-01T00:00:00.000Z'),
+            plaketten_valid_until_year: todayYear - 1,
+            plaketten_valid_until_month: 5,
+          },
+        });
+      });
+    });
+
+    it('records a phone contact, shows latest on list, writes audit log, and creates no outbox row (Scenarios 1, 2, 7 & Anti-criterion 4)', async () => {
+      const outboxBefore = await basePrisma.notificationOutbox.count({
+        where: { tenant_id: tenantId },
+      });
+
+      const firstAt = new Date(Date.now() - 3_600_000).toISOString();
+      await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'NO_ANSWER',
+          contacted_at: firstAt,
+        })
+        .expect(201);
+
+      const secondAt = new Date().toISOString();
+      const secondRes = await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'REACHED',
+          contacted_at: secondAt,
+        })
+        .expect(201);
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const row = listRes.body.data.find(
+        (v: { id: string }) => v.id === contactVehicleId,
+      );
+      expect(row).toMatchObject({
+        last_contact_channel: 'PHONE',
+        last_contact_outcome: 'REACHED',
+        phone_consent_allowed: true,
+      });
+      expect(new Date(row.last_contacted_at).toISOString()).toBe(secondAt);
+      expect(row.last_contact_by).toBeTruthy();
+
+      const auditEntry = await basePrisma.auditLog.findFirst({
+        where: {
+          tenant_id: tenantId,
+          entity_type: 'PickerlContactLog',
+          entity_id: secondRes.body.id,
+        },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.occurred_at).toBeTruthy();
+
+      const outboxAfter = await basePrisma.notificationOutbox.count({
+        where: { tenant_id: tenantId },
+      });
+      expect(outboxAfter).toBe(outboxBefore);
+    });
+
+    it('filters contacted=no and contacted=yes (Scenario 3)', async () => {
+      const noRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?contacted=no&pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const noIds = noRes.body.data.map((v: { id: string }) => v.id);
+      expect(noIds).toContain(uncontactedVehicleId);
+      expect(noIds).not.toContain(contactVehicleId);
+
+      const yesRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?contacted=yes&pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const yesIds = yesRes.body.data.map((v: { id: string }) => v.id);
+      expect(yesIds).toContain(contactVehicleId);
+      expect(yesIds).not.toContain(uncontactedVehicleId);
+    });
+
+    it('does not count earlier contacts when due date advances (Scenario 4 & Anti-criterion 1)', async () => {
+      const nextYear = new Date().getUTCFullYear() + 1;
+      await runWithTenantContext(tenantId, async () => {
+        await basePrisma.vehicleInspectionRecord.create({
+          data: {
+            tenant_id: tenantId,
+            vehicle_id: contactVehicleId,
+            inspection_type: 'PICKERL_57A',
+            inspected_on: new Date(),
+            plaketten_valid_until_year: nextYear,
+            plaketten_valid_until_month: 3,
+          },
+        });
+      });
+
+      const noRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?contacted=no&pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const row = noRes.body.data.find(
+        (v: { id: string }) => v.id === contactVehicleId,
+      );
+      expect(row).toBeTruthy();
+      expect(row.last_contacted_at).toBeNull();
+    });
+
+    it('enforces phone consent gate: EMAIL-only has phone_consent_allowed=false, requires reason, writes admin audit for MARKETING_CALL_WITHOUT_CONSENT (Scenarios 6, 6a, 6c & Anti-criterion 3)', async () => {
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const emailOnlyRow = listRes.body.data.find(
+        (v: { id: string }) => v.id === emailOnlyVehicleId,
+      );
+      expect(emailOnlyRow.phone_consent_allowed).toBe(false);
+
+      await request(app.getHttpServer())
+        .post(`/api/vehicles/${emailOnlyVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ channel: 'PHONE', outcome: 'REACHED' })
+        .expect(400);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/vehicles/${emailOnlyVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'REACHED',
+          no_consent_reason: 'MARKETING_CALL_WITHOUT_CONSENT',
+        })
+        .expect(201);
+
+      const auditEntry = await basePrisma.auditLog.findFirst({
+        where: {
+          tenant_id: tenantId,
+          entity_type: 'PickerlContactLog',
+          entity_id: res.body.id,
+        },
+      });
+      expect(auditEntry?.source).toBe('PICKERL_MARKETING_CALL_WITHOUT_CONSENT');
+    });
+
+    it('immediately deactivates PHONE consent when revoke_phone_consent=true (Scenario 6b)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/vehicles/${uncontactedVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'DECLINED',
+          revoke_phone_consent: true,
+        })
+        .expect(201);
+      expect(res.body.phone_consent_allowed).toBe(false);
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const row = listRes.body.data.find(
+        (v: { id: string }) => v.id === uncontactedVehicleId,
+      );
+      expect(row.phone_consent_allowed).toBe(false);
+    });
+
+    it('returns 404 when another tenant posts a contact for this vehicle (Scenario 8 & Anti-criterion 2)', async () => {
+      const otherTenant = await createTestTenant(basePrisma, 'aut-1041-other');
+      otherTenantId = otherTenant.tenantId;
+      try {
+        const otherToken = createTestAuthToken(
+          app.get(AuthService),
+          otherTenant,
+        );
+        await request(app.getHttpServer())
+          .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+          .set('Authorization', `Bearer ${otherToken}`)
+          .send({ channel: 'PHONE', no_consent_reason: 'CUSTOMER_CALLED' })
+          .expect(404);
+      } finally {
+        await cleanupTestTenantGraph(basePrisma, otherTenantId);
+      }
+    });
+  });
 });

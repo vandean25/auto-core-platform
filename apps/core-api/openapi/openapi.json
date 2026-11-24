@@ -12494,6 +12494,28 @@
         "operationId": "VehicleController_findPickerlDue",
         "parameters": [
           {
+            "name": "contacted",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "older_than"
+              ]
+            }
+          },
+          {
+            "name": "contactedDays",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -12563,6 +12585,28 @@
         "operationId": "VehicleController_exportPickerlDue",
         "parameters": [
           {
+            "name": "contacted",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "older_than"
+              ]
+            }
+          },
+          {
+            "name": "contactedDays",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -12626,6 +12670,46 @@
                       "$ref": "#/components/schemas/OpenPickerlOrderDto"
                     }
                   ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
+    "/api/vehicles/{id}/pickerl-contacts": {
+      "post": {
+        "operationId": "VehicleController_recordPickerlContact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPickerlContactDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickerlContactLogResponseDto"
                 }
               }
             }
@@ -22778,6 +22862,39 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "last_contacted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_contact_channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "EMAIL",
+              "SMS",
+              "IN_PERSON",
+              "POST"
+            ],
+            "nullable": true
+          },
+          "last_contact_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_contact_outcome": {
+            "type": "string",
+            "enum": [
+              "REACHED",
+              "NO_ANSWER",
+              "APPOINTMENT_BOOKED",
+              "DECLINED"
+            ],
+            "nullable": true
+          },
+          "phone_consent_allowed": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -26762,6 +26879,39 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "last_contacted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_contact_channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "EMAIL",
+              "SMS",
+              "IN_PERSON",
+              "POST"
+            ],
+            "nullable": true
+          },
+          "last_contact_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_contact_outcome": {
+            "type": "string",
+            "enum": [
+              "REACHED",
+              "NO_ANSWER",
+              "APPOINTMENT_BOOKED",
+              "DECLINED"
+            ],
+            "nullable": true
+          },
+          "phone_consent_allowed": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -26914,6 +27064,39 @@
             "items": {
               "$ref": "#/components/schemas/VehicleOpenDueDateDto"
             }
+          },
+          "last_contacted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_contact_channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "EMAIL",
+              "SMS",
+              "IN_PERSON",
+              "POST"
+            ],
+            "nullable": true
+          },
+          "last_contact_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_contact_outcome": {
+            "type": "string",
+            "enum": [
+              "REACHED",
+              "NO_ANSWER",
+              "APPOINTMENT_BOOKED",
+              "DECLINED"
+            ],
+            "nullable": true
+          },
+          "phone_consent_allowed": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -36023,6 +36206,129 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "RecordPickerlContactDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "EMAIL",
+              "SMS",
+              "IN_PERSON",
+              "POST"
+            ],
+            "default": "PHONE"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "REACHED",
+              "NO_ANSWER",
+              "APPOINTMENT_BOOKED",
+              "DECLINED"
+            ]
+          },
+          "contacted_at": {
+            "type": "string",
+            "description": "Contact timestamp (ISO-8601). Defaults to server now."
+          },
+          "due_month": {
+            "type": "string",
+            "nullable": true,
+            "description": "Due month (YYYY-MM) this contact refers to. Defaults to current due_month.",
+            "example": "2026-03"
+          },
+          "no_consent_reason": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER_CALLED",
+              "ACTIVE_ORDER",
+              "MARKETING_CALL_WITHOUT_CONSENT"
+            ],
+            "description": "Required when logging a PHONE contact for a customer without active PHONE consent."
+          },
+          "revoke_phone_consent": {
+            "type": "boolean",
+            "description": "When true, immediately revokes active PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER."
+          }
+        }
+      },
+      "PickerlContactLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "due_month": {
+            "type": "string",
+            "nullable": true
+          },
+          "contacted_at": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "EMAIL",
+              "SMS",
+              "IN_PERSON",
+              "POST"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "REACHED",
+              "NO_ANSWER",
+              "APPOINTMENT_BOOKED",
+              "DECLINED"
+            ],
+            "nullable": true
+          },
+          "no_consent_reason": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER_CALLED",
+              "ACTIVE_ORDER",
+              "MARKETING_CALL_WITHOUT_CONSENT"
+            ],
+            "nullable": true
+          },
+          "actor_member_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "actor_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_consent_allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "customer_id",
+          "due_month",
+          "contacted_at",
+          "channel",
+          "outcome",
+          "no_consent_reason",
+          "actor_member_id",
+          "actor_name",
+          "phone_consent_allowed"
         ]
       },
       "VehiclePaginatedResponseDto": {

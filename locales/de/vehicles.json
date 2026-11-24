@@ -130,6 +130,17 @@
     "recordPickerl": "Pickerl erfasst",
     "openOrder": "§57a-Auftrag öffnen",
     "createOrder": "§57a-Auftrag anlegen",
+    "recordContact": "Kontakt erfassen",
+    "callPhone": "Anrufen",
+    "contactedAria": "Kontaktstatus",
+    "contactedPlaceholder": "Kontaktstatus",
+    "contactedAll": "Alle Kontaktstatus",
+    "contactedYes": "Kontaktiert: Ja",
+    "contactedNo": "Kontaktiert: Nein",
+    "contactedOlderThan": "Vor mehr als N Tagen",
+    "contactedDaysAria": "Tage seit letztem Kontakt",
+    "noPhoneConsentHint": "Keine Telefon-Einwilligung – nicht zu Werbezwecken anrufen",
+    "obtainConsentHint": "Einwilligung beim nächsten Kontakt einholen",
     "statusOk": "OK",
     "statusDueSoon": "Bald fällig",
     "statusOverdue": "Überfällig",
@@ -143,8 +154,40 @@
       "dueMonth": "Fällig im Monat",
       "status": "Status",
       "lastInspection": "Letzte Überprüfung",
+      "lastContact": "Kontaktiert am / über",
       "phone": "Telefon",
       "email": "E-Mail"
+    },
+    "contactDialog": {
+      "title": "Kontakt erfassen",
+      "channel": "Kanal",
+      "outcome": "Ergebnis",
+      "outcomeNone": "Kein Ergebnis",
+      "noConsentReason": "Grund (ohne Telefon-Einwilligung)",
+      "noConsentReasonPlaceholder": "Grund auswählen",
+      "marketingWithoutConsentWarning": "Achtung: Ein Werbeanruf ohne Einwilligung wird im Audit-Log für Administratoren protokolliert.",
+      "revokeConsent": "Kunde widerruft Einwilligung",
+      "revokeConsentHint": "Die Telefon-Einwilligung wird sofort deaktiviert.",
+      "saveSuccess": "Kontakt erfasst.",
+      "saveError": "Der Kontakt konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+      "channels": {
+        "PHONE": "Telefon",
+        "EMAIL": "E-Mail",
+        "SMS": "SMS",
+        "IN_PERSON": "Vor Ort",
+        "POST": "Post"
+      },
+      "outcomes": {
+        "REACHED": "Erreicht",
+        "NO_ANSWER": "Keine Antwort",
+        "APPOINTMENT_BOOKED": "Termin vereinbart",
+        "DECLINED": "Abgelehnt"
+      },
+      "reasons": {
+        "CUSTOMER_CALLED": "Kunde hat angerufen / um Rückruf gebeten",
+        "ACTIVE_ORDER": "Laufender Auftrag",
+        "MARKETING_CALL_WITHOUT_CONSENT": "Werbeanruf ohne Einwilligung"
+      }
     }
   },
   "gewaehrleistungDue": {
