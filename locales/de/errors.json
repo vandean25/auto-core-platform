@@ -19,6 +19,7 @@
     "AUDIO_UNSUPPORTED_TYPE": "Dieses Audioformat wird nicht unterstützt.",
     "AUSTAUSCHPLAKETTE_NOT_TRACKED": "Austauschplakette wird nicht erfasst.",
     "AUTOMATIC_CLIMATE": "Automatische Klimaregelung.",
+    "BANK_RECONCILIATION_CONFLICT": "Die Banktransaktion oder Rechnung wurde geändert oder der Betrag überschreitet den offenen Saldo. Bitte laden Sie die Seite neu und prüfen Sie die Beträge.",
     "BLOCKED_SELLER_INCOMPLETE": "Verkäuferdaten sind unvollständig (Sperre).",
     "BRAND_ASSET_INVALID": "Die Briefpapierdatei ist ungültig.",
     "BRAND_ASSET_NOT_ATTACHABLE": "Diese Briefkopf-Quelle kann dem Entwurf nicht mehr zugeordnet werden.",

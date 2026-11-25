@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   UploadedFile,
@@ -16,6 +18,15 @@ import {
   ListBankTransactionsQueryDto,
   ListBankTransactionsResponseDto,
 } from './bank-reconciliation.dto.js';
+import { BankAllocationService } from './bank-allocation.service.js';
+import {
+  BankSuggestionsDto,
+  BankTransactionActionDto,
+  ConfirmBankTransactionDto,
+  IgnoreBankTransactionDto,
+  UndoBankTransactionDto,
+} from './bank-matching.dto.js';
+import { BankSuggestionsService } from './bank-suggestions.service.js';
 import { BankReconciliationEnabledGuard } from './bank-reconciliation.guard.js';
 import { BankReconciliationService } from './bank-reconciliation.service.js';
 
@@ -25,7 +36,38 @@ const MAX_STATEMENT_UPLOAD_BYTES = 10 * 1024 * 1024;
 @Controller('bank-reconciliation')
 @UseGuards(BankReconciliationEnabledGuard)
 export class BankReconciliationController {
-  constructor(private readonly bankReconciliation: BankReconciliationService) {}
+  constructor(
+    private readonly bankReconciliation: BankReconciliationService,
+    private readonly suggestions: BankSuggestionsService,
+    private readonly allocations: BankAllocationService,
+  ) {}
+
+  @Get('transactions/:id/suggestions')
+  @ApiOkResponse({ type: BankSuggestionsDto })
+  listSuggestions(@Param('id') id: string): Promise<BankSuggestionsDto> {
+    return this.suggestions.list(id);
+  }
+
+  @Post('transactions/:id/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: BankTransactionActionDto })
+  confirm(@Param('id') id: string, @Body() dto: ConfirmBankTransactionDto) {
+    return this.allocations.confirm(id, dto);
+  }
+
+  @Post('transactions/:id/undo')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: BankTransactionActionDto })
+  undo(@Param('id') id: string, @Body() dto: UndoBankTransactionDto) {
+    return this.allocations.undo(id, dto);
+  }
+
+  @Post('transactions/:id/ignore')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: BankTransactionActionDto })
+  ignore(@Param('id') id: string, @Body() dto: IgnoreBankTransactionDto) {
+    return this.allocations.ignore(id, dto);
+  }
 
   @Post('imports')
   @HttpCode(HttpStatus.OK)

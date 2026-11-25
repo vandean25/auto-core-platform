@@ -19,6 +19,7 @@
     "AUDIO_UNSUPPORTED_TYPE": "This audio format is not supported.",
     "AUSTAUSCHPLAKETTE_NOT_TRACKED": "Austauschplakette not tracked.",
     "AUTOMATIC_CLIMATE": "Automatic climate.",
+    "BANK_RECONCILIATION_CONFLICT": "The transfer or invoice changed, or the allocation exceeds the available balance. Refresh and review the amounts.",
     "BLOCKED_SELLER_INCOMPLETE": "Blocked seller incomplete.",
     "BRAND_ASSET_INVALID": "The letterhead file is invalid. Please choose another PDF or PNG letterhead.",
     "BRAND_ASSET_NOT_ATTACHABLE": "This letterhead source can no longer be attached to the draft.",

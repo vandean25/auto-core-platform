@@ -252,6 +252,29 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE,
     'tenant',
   ),
+  'BankReconciliationController.listSuggestions': op(
+    'bank_reconciliation.read',
+    ADMINS,
+    'tenant',
+  ),
+  'BankReconciliationController.confirm': op(
+    'bank_reconciliation.manage',
+    ADMINS,
+    'tenant',
+    ['business_state'],
+  ),
+  'BankReconciliationController.undo': op(
+    'bank_reconciliation.manage',
+    ADMINS,
+    'tenant',
+    ['business_state'],
+  ),
+  'BankReconciliationController.ignore': op(
+    'bank_reconciliation.manage',
+    ADMINS,
+    'tenant',
+    ['business_state'],
+  ),
   'BankReconciliationController.importStatement': op(
     'bank_reconciliation.import',
     ADMINS,

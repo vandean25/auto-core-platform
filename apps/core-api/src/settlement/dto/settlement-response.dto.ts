@@ -64,6 +64,23 @@ export class SettlementPaymentSummaryDto {
   fiscalReceipts!: FiscalReceiptSummaryDto[];
 }
 
+class BankPaymentHistoryItemDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: ['BANK_TRANSFER'] })
+  method!: string;
+
+  @ApiProperty({ enum: ['SETTLED', 'REVERSED'] })
+  status!: string;
+
+  @ApiProperty()
+  amount!: string;
+
+  @ApiProperty()
+  currency!: string;
+}
+
 export class SettlementResponseDto {
   @ApiProperty()
   invoiceId!: string;
@@ -79,6 +96,18 @@ export class SettlementResponseDto {
   @ApiPropertyOptional({ example: 'Europe/Vienna' })
   siteTimezone?: string;
 
-  @ApiPropertyOptional({ type: SettlementPaymentSummaryDto, nullable: true })
+  @ApiPropertyOptional({
+    type: SettlementPaymentSummaryDto,
+    nullable: true,
+    description:
+      'The most recent individual payment. Its amount is the value of that payment.',
+  })
   payment!: SettlementPaymentSummaryDto | null;
+
+  @ApiPropertyOptional({
+    type: [BankPaymentHistoryItemDto],
+    description:
+      'Bank allocation history. Sum SETTLED entries for the active bank payment total.',
+  })
+  bankPayments?: BankPaymentHistoryItemDto[];
 }

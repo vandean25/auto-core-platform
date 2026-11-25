@@ -470,6 +470,7 @@ VALUES
   ('parts_reservations', 'storage_locations', 'location_id', 'id', 'SET NULL', 'CASCADE'),
   ('parts_reservations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('parts_reservations', 'workshop_task_line_items', 'workshop_task_line_item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'bank_transactions', 'tenant_id,bank_transaction_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('payments', 'invoices', 'tenant_id,invoice_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('payments', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('payments', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),

@@ -59,6 +59,14 @@ function readLocaleErrorTexts(language: 'de' | 'en'): Record<string, string> {
 }
 
 describe('client-safe HTTP error codes', () => {
+  it('exposes and translates the bank reconciliation conflict code', () => {
+    const code = 'BANK_RECONCILIATION_CONFLICT';
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    expect(readWebPublicErrorCodes().has(code)).toBe(true);
+    expect(readLocaleErrorTexts('de')[code]).toMatch(/Banktransaktion/);
+    expect(readLocaleErrorTexts('en')[code]).toMatch(/transfer/);
+  });
+
   it('lists workshop command error codes', () => {
     for (const code of ['AUDIO_EMPTY', 'AUDIO_TOO_LARGE', 'AUDIO_UNSUPPORTED_TYPE', 'COMMAND_ID_REUSED', 'CONTRACT_VERSION_UNSUPPORTED', 'DURATION_REQUIRED', 'HUMAN_ONLY_EXCLUDED', 'INTENT_INCOMPLETE', 'LOANER_NOT_PERMITTED', 'LOCALE_UNSUPPORTED', 'PLAN_STALE', 'RESOURCE_AMBIGUOUS', 'RESOURCE_MISSING', 'SELECTION_NOT_OFFERED', 'SESSION_NOT_FOUND', 'SITE_MISMATCH', 'TEXT_TOO_LONG', 'TIME_CONTRADICTORY', 'TIME_IN_PAST', 'TRANSCRIPT_EMPTY', 'UNSUPPORTED_GRAMMAR', 'UNSUPPORTED_SERVICE']) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);

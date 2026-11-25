@@ -11,6 +11,7 @@ import {
   FiscalReceiptState,
   FiscalReceiptType,
   InvoiceStatus,
+  PaymentMethod,
   PaymentStatus,
   Prisma,
   RksvMode,
@@ -89,15 +90,46 @@ export class SettlementService {
       where: { tenant_id: tenantId, id: siteId },
       select: { timezone: true },
     });
-    const payment = await this.prisma.payment.findFirst({
-      where: { tenant_id: tenantId, invoice_id: invoiceId },
-      orderBy: { createdAt: 'desc' },
-      include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
-    });
-    return mapSettlementResponse(invoice, payment, {
+    const paymentScope = {
+      tenant_id: tenantId,
+      invoice_id: invoiceId,
+      site_id: siteId,
+    };
+    const [payment, bankPayments] = await Promise.all([
+      this.prisma.payment.findFirst({
+        where: paymentScope,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          fiscal_receipts: {
+            where: { tenant_id: tenantId },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      }),
+      this.prisma.payment.findMany({
+        where: { ...paymentScope, method: PaymentMethod.BANK_TRANSFER },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          status: true,
+          method: true,
+          amount: true,
+          currency: true,
+        },
+      }),
+    ]);
+    const settlement = mapSettlementResponse(invoice, payment, {
       rksvMode: legalEntity?.rksv_mode,
       siteTimezone: site?.timezone,
     });
+    if (!bankPayments.length) return settlement;
+    return {
+      ...settlement,
+      bankPayments: bankPayments.map((allocation) => ({
+        ...allocation,
+        amount: allocation.amount.toFixed(2),
+      })),
+    };
   }
 
   async recordSettlement(invoiceId: string, dto: RecordSettlementDto) {
@@ -491,6 +523,23 @@ export class SettlementService {
         params.invoice.id,
         tx,
       );
+      const bankPayment = await tx.payment.findFirst({
+        where: {
+          tenant_id: params.tenantId,
+          invoice_id: params.invoice.id,
+          site_id: params.invoice.site_id!,
+          method: PaymentMethod.BANK_TRANSFER,
+          status: PaymentStatus.SETTLED,
+        },
+        select: { id: true },
+      });
+      if (bankPayment) {
+        throw new UnprocessableEntityException({
+          code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
+          message:
+            'An open or completed settlement already exists for this invoice.',
+        });
+      }
       await lockSitesAndAssertActive(tx, params.tenantId, [
         params.invoice.site_id!,
       ]);

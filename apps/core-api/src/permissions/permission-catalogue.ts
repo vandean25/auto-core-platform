@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 8;
+export const PERMISSION_CATALOGUE_VERSION = 9;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -71,6 +71,11 @@ const DEFINITIONS = [
     'bank_reconciliation.read',
     'Banktransaktionen ansehen',
     'View bank transactions',
+  ],
+  [
+    'bank_reconciliation.manage',
+    'Banktransaktionen zuordnen und bearbeiten',
+    'Allocate and manage bank transactions',
   ],
   ['bay.create', 'Hebebühne anlegen', 'Create bay'],
   ['bay.delete', 'Hebebühne löschen', 'Delete bay'],
