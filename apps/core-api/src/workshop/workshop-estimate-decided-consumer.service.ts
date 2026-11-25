@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DOMAIN_EVENT_TYPES } from '../domain-event-store/domain-event.constants.js';
+import { queryVisibleDomainEvents } from '../domain-event-store/domain-event-visibility.js';
 import {
   DOMAIN_EVENT_CONSUMER_BATCH_SIZE,
   DOMAIN_EVENT_CONSUMER_LEASE_MS,
@@ -78,21 +79,15 @@ export class WorkshopEstimateDecidedConsumerService {
       if (!progress) {
         return 0;
       }
-      const events = await this.prisma.domainEvent.findMany({
-        where: {
-          tenant_id: tenantId,
-          event_type: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
-          sequence: { gt: progress.cursor_sequence },
+      const events = await queryVisibleDomainEvents(
+        {
+          tenantId,
+          eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+          afterSequence: progress.cursor_sequence,
+          limit: DOMAIN_EVENT_CONSUMER_BATCH_SIZE,
         },
-        orderBy: { sequence: 'asc' },
-        take: DOMAIN_EVENT_CONSUMER_BATCH_SIZE,
-        select: {
-          id: true,
-          sequence: true,
-          event_type: true,
-          payload: true,
-        },
-      });
+        this.prisma.pool,
+      );
       for (const event of events) {
         await this.processOneEvent(tenantId, event.id, now, claimToken);
         processed += 1;

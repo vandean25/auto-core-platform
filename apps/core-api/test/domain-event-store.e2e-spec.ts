@@ -1,11 +1,15 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { INestApplication } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { AuthService } from '../src/auth/auth.service.js';
+import { DomainEventConsumerRecoveryService } from '../src/domain-event-consumer/domain-event-consumer-recovery.service.js';
+import { WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER } from '../src/domain-event-consumer/domain-event-consumer.constants.js';
 import { DOMAIN_EVENT_TYPES } from '../src/domain-event-store/domain-event.constants.js';
 import { encodeDomainEventFeedCursor } from '../src/domain-event-store/domain-event.cursor.js';
 import { DomainEventStoreService } from '../src/domain-event-store/domain-event-store.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { WorkshopEstimateDecidedConsumerService } from '../src/workshop/workshop-estimate-decided-consumer.service.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -14,6 +18,16 @@ import {
   resolveTestMainSiteId,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+
+function createDeferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 describe('Domain event store (e2e, AUT-536)', () => {
   let app: INestApplication;
@@ -208,5 +222,550 @@ describe('Domain event store (e2e, AUT-536)', () => {
       .query({ cursor: foreign })
       .set(auth())
       .expect(400);
+  });
+
+  // Regression (AUT-1052): out-of-order commit must not advance feed/consumer/recovery past an open transaction.
+  it('hides out-of-order committed events from feed, consumer, and recovery until earlier tx commits without duplicate delivery', async () => {
+    const isolated = await createTestTenant(basePrisma, 'domain-event-ooo');
+    const isolatedSiteId = await resolveTestMainSiteId(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const isolatedToken = createTestAuthToken(app.get(AuthService), isolated);
+    const isolatedPrisma = createTenantAwarePrisma(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const domainEventStore = app.get(DomainEventStoreService);
+    const consumer = app.get(WorkshopEstimateDecidedConsumerService);
+    const recovery = app.get(DomainEventConsumerRecoveryService);
+
+    const txAInserted = createDeferred<void>();
+    const releaseTxA = createDeferred<void>();
+    let txAPromise: Promise<unknown> | null = null;
+
+    try {
+      const entityA = randomUUID();
+      const entityB = randomUUID();
+      const traceA = randomUUID();
+      const traceB = randomUUID();
+
+      txAPromise = isolatedPrisma.$transaction(
+        async (tx) => {
+          const appended = await domainEventStore.appendInTx(tx, {
+            tenantId: isolated.tenantId,
+            siteId: isolatedSiteId,
+            entityId: entityA,
+            eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+            occurrenceKey: `test-ooo-a-${entityA}`,
+            occurredAt: new Date('2026-11-25T10:00:00.000Z'),
+            traceId: traceA,
+            payload: {},
+          });
+          txAInserted.resolve();
+          await releaseTxA.promise;
+          return appended;
+        },
+        { timeout: 20_000 },
+      );
+      txAPromise.catch(txAInserted.reject);
+
+      await txAInserted.promise;
+
+      const txBPromise = isolatedPrisma.$transaction(
+        async (tx) =>
+          domainEventStore.appendInTx(tx, {
+            tenantId: isolated.tenantId,
+            siteId: isolatedSiteId,
+            entityId: entityB,
+            eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+            occurrenceKey: `test-ooo-b-${entityB}`,
+            occurredAt: new Date('2026-11-25T10:00:01.000Z'),
+            traceId: traceB,
+            payload: {},
+          }),
+        { timeout: 20_000 },
+      );
+
+      // Between commits: tx A is still open and tx B is serialized behind it. Neither event may be visible.
+      const feedBetween = await request(app.getHttpServer())
+        .get('/api/agent/domain-events')
+        .set({ Authorization: `Bearer ${isolatedToken}` })
+        .expect(200);
+      expect(feedBetween.body.data).toEqual([]);
+
+      const consumerCountBetween = await consumer.processTenantBatch(
+        isolated.tenantId,
+      );
+      expect(consumerCountBetween).toBe(0);
+
+      await recovery.run();
+      const progressBetween =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressBetween?.cursor_sequence ?? BigInt(0)).toBe(BigInt(0));
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(0);
+
+      // Now commit tx A; tx B unblocks and commits next. Both events must appear in sequence order without skipping or duplicating.
+      releaseTxA.resolve();
+      const [appendedA, appendedB] = (await Promise.all([
+        txAPromise,
+        txBPromise,
+      ])) as [
+        { eventId: string; sequence: bigint },
+        { eventId: string; sequence: bigint },
+      ];
+      txAPromise = null;
+      expect(appendedB).not.toBeNull();
+      expect(appendedA.sequence < appendedB.sequence).toBe(true);
+
+      const feedAfter = await request(app.getHttpServer())
+        .get('/api/agent/domain-events')
+        .set({ Authorization: `Bearer ${isolatedToken}` })
+        .expect(200);
+      expect(feedAfter.body.data.map((row: { event_id: string }) => row.event_id)).toEqual([
+        appendedA.eventId,
+        appendedB.eventId,
+      ]);
+
+      await recovery.run();
+      const progressAfter =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressAfter?.cursor_sequence).toBe(appendedB.sequence);
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(2);
+
+      // Replay: resetting cursor and re-running consumer must not create duplicate deliveries.
+      await isolatedPrisma.domainEventConsumerProgress.updateMany({
+        where: {
+          tenant_id: isolated.tenantId,
+          consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+        },
+        data: { cursor_sequence: BigInt(0), cursor_event_id: null },
+      });
+      await consumer.processTenantBatch(isolated.tenantId);
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(2);
+    } finally {
+      releaseTxA.resolve();
+      if (txAPromise) {
+        await txAPromise.catch(() => undefined);
+      }
+      await isolatedPrisma.domainEventConsumerDelivery.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await isolatedPrisma.domainEventConsumerProgress.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await cleanupTestTenantGraph(basePrisma, isolated.tenantId);
+    }
+  });
+
+  // Regression (AUT-1052): older xid (from an earlier write) must not insert a higher sequence and commit ahead of a paused lower-sequence append.
+  it('serializes per-tenant appends when an older transaction writes before appending and a newer transaction pauses before commit', async () => {
+    const isolated = await createTestTenant(basePrisma, 'domain-event-xid-race');
+    const isolatedSiteId = await resolveTestMainSiteId(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const isolatedToken = createTestAuthToken(app.get(AuthService), isolated);
+    const isolatedPrisma = createTenantAwarePrisma(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const domainEventStore = app.get(DomainEventStoreService);
+    const consumer = app.get(WorkshopEstimateDecidedConsumerService);
+    const recovery = app.get(DomainEventConsumerRecoveryService);
+
+    const txAUpdated = createDeferred<void>();
+    const releaseTxAAppend = createDeferred<void>();
+    const txBAppended = createDeferred<void>();
+    const releaseTxBCommit = createDeferred<void>();
+    let txAPromise: Promise<unknown> | null = null;
+    let txBPromise: Promise<unknown> | null = null;
+
+    try {
+      const entityA = randomUUID();
+      const entityB = randomUUID();
+
+      txAPromise = isolatedPrisma.$transaction(
+        async (tx) => {
+          await tx.site.update({
+            where: { id: isolatedSiteId },
+            data: { name: 'AUT-1052 xid-before-append' },
+          });
+          txAUpdated.resolve();
+          await releaseTxAAppend.promise;
+          return domainEventStore.appendInTx(tx, {
+            tenantId: isolated.tenantId,
+            siteId: isolatedSiteId,
+            entityId: entityA,
+            eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+            occurrenceKey: `test-xid-race-a-${entityA}`,
+            occurredAt: new Date('2026-11-25T10:00:00.000Z'),
+            traceId: randomUUID(),
+            payload: {},
+          });
+        },
+        { timeout: 20_000 },
+      );
+      txAPromise.catch(txAUpdated.reject);
+
+      await txAUpdated.promise;
+
+      txBPromise = isolatedPrisma.$transaction(
+        async (tx) => {
+          const appended = await domainEventStore.appendInTx(tx, {
+            tenantId: isolated.tenantId,
+            siteId: isolatedSiteId,
+            entityId: entityB,
+            eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+            occurrenceKey: `test-xid-race-b-${entityB}`,
+            occurredAt: new Date('2026-11-25T10:00:01.000Z'),
+            traceId: randomUUID(),
+            payload: {},
+          });
+          txBAppended.resolve();
+          await releaseTxBCommit.promise;
+          return appended;
+        },
+        { timeout: 20_000 },
+      );
+      txBPromise.catch(txBAppended.reject);
+
+      await txBAppended.promise;
+
+      // Release txA to attempt append + commit while txB holds the per-tenant advisory lock before commit.
+      releaseTxAAppend.resolve();
+
+      const feedBetween = await request(app.getHttpServer())
+        .get('/api/agent/domain-events')
+        .set({ Authorization: `Bearer ${isolatedToken}` })
+        .expect(200);
+      expect(feedBetween.body.data).toEqual([]);
+
+      const consumerCountBetween = await consumer.processTenantBatch(
+        isolated.tenantId,
+      );
+      expect(consumerCountBetween).toBe(0);
+
+      await recovery.run();
+      const progressBetween =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressBetween?.cursor_sequence ?? BigInt(0)).toBe(BigInt(0));
+
+      releaseTxBCommit.resolve();
+      const [appendedA, appendedB] = (await Promise.all([
+        txAPromise,
+        txBPromise,
+      ])) as [
+        { eventId: string; sequence: bigint },
+        { eventId: string; sequence: bigint },
+      ];
+      txAPromise = null;
+      txBPromise = null;
+
+      expect(appendedB.sequence < appendedA.sequence).toBe(true);
+
+      const feedAfter = await request(app.getHttpServer())
+        .get('/api/agent/domain-events')
+        .set({ Authorization: `Bearer ${isolatedToken}` })
+        .expect(200);
+      expect(
+        feedAfter.body.data.map((row: { event_id: string }) => row.event_id),
+      ).toEqual([appendedB.eventId, appendedA.eventId]);
+
+      await recovery.run();
+      const progressAfter =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressAfter?.cursor_sequence).toBe(appendedA.sequence);
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(2);
+    } finally {
+      releaseTxAAppend.resolve();
+      releaseTxBCommit.resolve();
+      if (txAPromise) {
+        await txAPromise.catch(() => undefined);
+      }
+      if (txBPromise) {
+        await txBPromise.catch(() => undefined);
+      }
+      await isolatedPrisma.domainEventConsumerDelivery.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await isolatedPrisma.domainEventConsumerProgress.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await cleanupTestTenantGraph(basePrisma, isolated.tenantId);
+    }
+  });
+
+  // Regression (AUT-1052): an open write transaction whose xid sits between two committed events' xids must not hide either event.
+  it('returns both committed events in sequence order to feed, consumer, and recovery while a third write transaction with an intermediate xid stays open', async () => {
+    const isolated = await createTestTenant(basePrisma, 'domain-event-open-xid');
+    const isolatedSiteId = await resolveTestMainSiteId(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const isolatedToken = createTestAuthToken(app.get(AuthService), isolated);
+    const isolatedPrisma = createTenantAwarePrisma(
+      basePrisma,
+      isolated.tenantId,
+    );
+    const domainEventStore = app.get(DomainEventStoreService);
+    const consumer = app.get(WorkshopEstimateDecidedConsumerService);
+    const recovery = app.get(DomainEventConsumerRecoveryService);
+
+    const txOlderHasXid = createDeferred<void>();
+    const releaseTxOlder = createDeferred<void>();
+    const txMidHasXid = createDeferred<void>();
+    const releaseTxMid = createDeferred<void>();
+    let txOlderPromise: Promise<unknown> | null = null;
+    let txMidPromise: Promise<unknown> | null = null;
+
+    try {
+      const entityNewer = randomUUID();
+      const entityOlder = randomUUID();
+
+      // 1. txOlder acquires an earlier xid (X1) before releasing to append after txNewer.
+      txOlderPromise = isolatedPrisma.$transaction(
+        async (tx) => {
+          await tx.site.update({
+            where: { id: isolatedSiteId },
+            data: { name: 'AUT-1052 older-xid' },
+          });
+          txOlderHasXid.resolve();
+          await releaseTxOlder.promise;
+          return domainEventStore.appendInTx(tx, {
+            tenantId: isolated.tenantId,
+            siteId: isolatedSiteId,
+            entityId: entityOlder,
+            eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+            occurrenceKey: `test-open-xid-older-${entityOlder}`,
+            occurredAt: new Date('2026-11-25T10:00:01.000Z'),
+            traceId: randomUUID(),
+            payload: {},
+          });
+        },
+        { timeout: 20_000 },
+      );
+      txOlderPromise.catch(txOlderHasXid.reject);
+      await txOlderHasXid.promise;
+
+      // 2. txMid acquires an intermediate xid (X2 > X1) on an unrelated tenant and stays open during reads.
+      txMidPromise = prisma.$transaction(
+        async (tx) => {
+          await tx.customer.update({
+            where: { id: customerId },
+            data: { last_name: 'Customer-OpenXid' },
+          });
+          txMidHasXid.resolve();
+          await releaseTxMid.promise;
+        },
+        { timeout: 20_000 },
+      );
+      txMidPromise.catch(txMidHasXid.reject);
+      await txMidHasXid.promise;
+
+      // 3. txNewer acquires a newer xid (X3 > X2 > X1), appends the lower sequence, and commits.
+      const appendedNewer = (await isolatedPrisma.$transaction(async (tx) =>
+        domainEventStore.appendInTx(tx, {
+          tenantId: isolated.tenantId,
+          siteId: isolatedSiteId,
+          entityId: entityNewer,
+          eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+          occurrenceKey: `test-open-xid-newer-${entityNewer}`,
+          occurredAt: new Date('2026-11-25T10:00:00.000Z'),
+          traceId: randomUUID(),
+          payload: {},
+        }),
+      )) as { eventId: string; sequence: bigint };
+
+      // 4. txOlder (X1) now appends the higher sequence and commits.
+      releaseTxOlder.resolve();
+      const appendedOlder = (await txOlderPromise) as {
+        eventId: string;
+        sequence: bigint;
+      };
+      txOlderPromise = null;
+
+      expect(appendedNewer.sequence < appendedOlder.sequence).toBe(true);
+
+      // With txMid (X2) still open, feed, consumer, and recovery must still observe both committed events in sequence order.
+      const feedRes = await request(app.getHttpServer())
+        .get('/api/agent/domain-events')
+        .set({ Authorization: `Bearer ${isolatedToken}` })
+        .expect(200);
+      expect(
+        feedRes.body.data.map((row: { event_id: string }) => row.event_id),
+      ).toEqual([appendedNewer.eventId, appendedOlder.eventId]);
+
+      const processed = await consumer.processTenantBatch(isolated.tenantId);
+      expect(processed).toBe(2);
+
+      const progressAfterConsumer =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressAfterConsumer?.cursor_sequence).toBe(
+        appendedOlder.sequence,
+      );
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(2);
+
+      // Reset cursor and run recovery while txMid is still open: cursor advances to the later sequence with no duplicate deliveries.
+      await isolatedPrisma.domainEventConsumerProgress.updateMany({
+        where: {
+          tenant_id: isolated.tenantId,
+          consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+        },
+        data: { cursor_sequence: BigInt(0), cursor_event_id: null },
+      });
+      await recovery.run();
+
+      const progressAfterRecovery =
+        await isolatedPrisma.domainEventConsumerProgress.findFirst({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        });
+      expect(progressAfterRecovery?.cursor_sequence).toBe(
+        appendedOlder.sequence,
+      );
+      expect(
+        await isolatedPrisma.domainEventConsumerDelivery.count({
+          where: {
+            tenant_id: isolated.tenantId,
+            consumer_key: WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER,
+          },
+        }),
+      ).toBe(2);
+    } finally {
+      releaseTxOlder.resolve();
+      releaseTxMid.resolve();
+      if (txOlderPromise) {
+        await txOlderPromise.catch(() => undefined);
+      }
+      if (txMidPromise) {
+        await txMidPromise.catch(() => undefined);
+      }
+      await isolatedPrisma.domainEventConsumerDelivery.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await isolatedPrisma.domainEventConsumerProgress.deleteMany({
+        where: { tenant_id: isolated.tenantId },
+      });
+      await cleanupTestTenantGraph(basePrisma, isolated.tenantId);
+    }
+  });
+
+  // Anti-criterion (AUT-1052): no global (cross-tenant) lock on append.
+  it('allows two tenants to append domain events concurrently without blocking', async () => {
+    const other = await createTestTenant(basePrisma, 'domain-event-concurrent');
+    const otherSiteId = await resolveTestMainSiteId(basePrisma, other.tenantId);
+    const otherPrisma = createTenantAwarePrisma(basePrisma, other.tenantId);
+    const domainEventStore = app.get(DomainEventStoreService);
+
+    const txAInserted = createDeferred<void>();
+    const releaseTxA = createDeferred<void>();
+    let txAPromise: Promise<unknown> | null = null;
+
+    try {
+      txAPromise = prisma.$transaction(
+        async (tx) => {
+          const appended = await domainEventStore.appendInTx(tx, {
+            tenantId,
+            siteId,
+            entityId: randomUUID(),
+            eventType: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
+            occurrenceKey: `test-concurrent-t1-${randomUUID()}`,
+            occurredAt: new Date('2026-11-25T10:00:00.000Z'),
+            traceId: randomUUID(),
+            payload: {},
+          });
+          txAInserted.resolve();
+          await releaseTxA.promise;
+          return appended;
+        },
+        { timeout: 20_000 },
+      );
+      txAPromise.catch(txAInserted.reject);
+
+      await txAInserted.promise;
+
+      const otherAppended = await otherPrisma.$transaction(async (tx) =>
+        domainEventStore.appendInTx(tx, {
+          tenantId: other.tenantId,
+          siteId: otherSiteId,
+          entityId: randomUUID(),
+          eventType: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
+          occurrenceKey: `test-concurrent-t2-${randomUUID()}`,
+          occurredAt: new Date('2026-11-25T10:00:01.000Z'),
+          traceId: randomUUID(),
+          payload: {},
+        }),
+      );
+      expect(otherAppended).not.toBeNull();
+    } finally {
+      releaseTxA.resolve();
+      if (txAPromise) {
+        await txAPromise.catch(() => undefined);
+      }
+      await cleanupTestTenantGraph(basePrisma, other.tenantId);
+    }
   });
 });

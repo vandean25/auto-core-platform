@@ -1,5 +1,4 @@
-import type { DomainEvent } from '@prisma/client';
-import type { EstimateApprovalDecision } from '@prisma/client';
+import type { DomainEvent, EstimateApprovalDecision } from '@prisma/client';
 import { DOMAIN_EVENT_TYPES } from './domain-event.constants.js';
 
 export type DomainEventEnvelopeDto = {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DOMAIN_EVENT_TYPES } from '../domain-event-store/domain-event.constants.js';
+import { queryVisibleDomainEvents } from '../domain-event-store/domain-event-visibility.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
@@ -70,15 +71,16 @@ export class DomainEventConsumerRecoveryService {
         select: { cursor_sequence: true },
       });
       const cursor = progress?.cursor_sequence ?? BigInt(0);
-      const pending = await this.prisma.domainEvent.findFirst({
-        where: {
-          tenant_id: tenantId,
-          event_type: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
-          sequence: { gt: cursor },
+      const pending = await queryVisibleDomainEvents(
+        {
+          tenantId,
+          eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+          afterSequence: cursor,
+          limit: 1,
         },
-        select: { id: true },
-      });
-      return pending !== null;
+        this.prisma.pool,
+      );
+      return pending.length > 0;
     });
   }
 }

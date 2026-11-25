@@ -1,5 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -9,14 +13,14 @@ import {
   sequenceFromCursor,
 } from './domain-event.cursor.js';
 import { toDomainEventEnvelope } from './domain-event-feed.mapper.js';
+import {
+  DOMAIN_EVENT_QUERY_POOL,
+  type DomainEventQueryPool,
+  queryVisibleDomainEvents,
+} from './domain-event-visibility.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 25;
-
-const FEED_ORDER: Prisma.DomainEventOrderByWithRelationInput[] = [
-  { sequence: 'asc' },
-  { id: 'asc' },
-];
 
 export type ListDomainEventsQuery = {
   cursor?: string;
@@ -35,6 +39,9 @@ export class DomainEventFeedService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    @Optional()
+    @Inject(DOMAIN_EVENT_QUERY_POOL)
+    private readonly queryPool?: DomainEventQueryPool,
   ) {}
 
   async listFeed(query: ListDomainEventsQuery): Promise<DomainEventFeedPage> {
@@ -50,18 +57,17 @@ export class DomainEventFeedService {
       authorizedSiteIds,
       query.cursor,
     );
-    const where = this.buildWhere(
-      tenantId,
-      authorizedSiteIds,
-      cursor,
-      query.eventType,
-    );
 
-    const rows = await this.prisma.domainEvent.findMany({
-      where,
-      orderBy: FEED_ORDER,
-      take: pageSize + 1,
-    });
+    const rows = await queryVisibleDomainEvents(
+      {
+        tenantId,
+        siteIds: authorizedSiteIds,
+        eventType: query.eventType,
+        afterCursor: cursor ?? undefined,
+        limit: pageSize + 1,
+      },
+      this.queryPool ?? this.prisma.pool,
+    );
 
     const hasMore = rows.length > pageSize;
     const page = hasMore ? rows.slice(0, pageSize) : rows;
@@ -105,33 +111,6 @@ export class DomainEventFeedService {
       throw new BadRequestException('cursor is invalid');
     }
     return { sequence: anchor.sequence, id: anchor.id };
-  }
-
-  private buildWhere(
-    tenantId: string,
-    authorizedSiteIds: string[],
-    cursor: { sequence: bigint; id: string } | null,
-    eventType?: string,
-  ): Prisma.DomainEventWhereInput {
-    const siteFilter: Prisma.DomainEventWhereInput = {
-      tenant_id: tenantId,
-      site_id: { in: authorizedSiteIds },
-      ...(eventType ? { event_type: eventType } : {}),
-    };
-    if (!cursor) {
-      return siteFilter;
-    }
-    return {
-      AND: [
-        siteFilter,
-        {
-          OR: [
-            { sequence: { gt: cursor.sequence } },
-            { sequence: cursor.sequence, id: { gt: cursor.id } },
-          ],
-        },
-      ],
-    };
   }
 }
 

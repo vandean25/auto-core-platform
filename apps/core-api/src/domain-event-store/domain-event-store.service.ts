@@ -11,6 +11,15 @@ export type AppendedDomainEvent = {
   sequence: bigint;
 };
 
+type BoundExecuteRaw = (
+  query: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<unknown>;
+
+function boundExecuteRaw(tx: DomainEventTxClient): BoundExecuteRaw {
+  return tx['$executeRaw'].bind(tx) as BoundExecuteRaw;
+}
+
 @Injectable()
 export class DomainEventStoreService {
   /**
@@ -24,6 +33,10 @@ export class DomainEventStoreService {
     if (DryRunStorage.isDryRun()) {
       return null;
     }
+    const lockKey = `domain_events:${input.tenantId}`;
+    await boundExecuteRaw(
+      tx,
+    )`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}::text, 0))`;
     const row = buildDomainEventRow(input);
     const created = await tx.domainEvent.create({
       data: row,

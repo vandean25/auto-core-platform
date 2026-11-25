@@ -114,7 +114,7 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
-  private readonly pool: Pool;
+  public readonly pool: Pool;
   public readonly client: PrismaClient;
 
   constructor(
