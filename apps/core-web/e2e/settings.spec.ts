@@ -104,16 +104,21 @@ test.describe('Blueprint: Settings Page', () => {
       });
     });
 
-    // 2. Navigate 
+    // 2. Navigate to settings overview
     await corePage.navigate('/settings');
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible();
 
-    // 3. Verify Page load & Default Finance tab
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.page.title })).toBeVisible();
+    // 3. Navigate to Finance subpage via tile
+    await page.locator('main a[href="/settings/finance"]').click();
+    await expect(page).toHaveURL(/\/settings\/finance$/);
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.tabs.finance })).toBeVisible();
     await expect(page.getByLabel(DE_SETTINGS.finance.invoicing.prefix)).toHaveValue('TEST-');
     await expect(page.getByLabel(DE_SETTINGS.finance.invoicing.nextNumber)).toHaveValue('999');
 
-    // 4. Tab Navigation to Revenue Groups
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.revenueGroups }).click();
+    // 4. Navigate to Revenue Groups via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
+    await page.locator('main a[href="/settings/revenue-groups"]').click();
+    await expect(page).toHaveURL(/\/settings\/revenue-groups$/);
     await expect(page.getByRole('cell', { name: 'Parts Revenue' })).toBeVisible();
 
     // Verify Revenue Group Create dialog opens
@@ -121,8 +126,10 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('dialog', { name: DE_SETTINGS.revenueGroups.addDialog.title })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // 5. Tab Navigation to Brands
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.brands }).click();
+    // 5. Navigate to Brands via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
+    await page.locator('main a[href="/settings/brands"]').click();
+    await expect(page).toHaveURL(/\/settings\/brands$/);
     // exact: the row actions are named "Edit brand Stellantis" / "Delete brand Stellantis" (AUT-471),
     // so a substring match would also resolve to the actions cell.
     await expect(page.getByRole('cell', { name: 'Stellantis', exact: true })).toBeVisible();
@@ -132,17 +139,20 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('dialog', { name: DE_SETTINGS.brands.addDialog.addTitle })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // 6. Tab Navigation to Storage Locations
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.locations }).click();
+    // 6. Navigate to Storage Locations via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
+    await page.locator('main a[href="/settings/locations"]').click();
+    await expect(page).toHaveURL(/\/settings\/locations$/);
     await expect(page.locator('text="Aisle F"').first()).toBeVisible();
 
     // (Storage locations creation is inline in SettingsPage, so no dialog test needed, just the button visibility)
     await expect(page.getByRole('button', { name: DE_SETTINGS.storageLocations.form.submit })).toBeVisible();
 
-    // 7. Tab Navigation to Employees
+    // 7. Navigate to Employees via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
     const employeesResponsePromise = waitForApiResponse('/api/employees');
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.employees }).click();
-    await expect(page).toHaveURL(/\/settings\?tab=employees$/);
+    await page.locator('main a[href="/settings/employees"]').click();
+    await expect(page).toHaveURL(/\/settings\/employees$/);
     await employeesResponsePromise;
     await expect(page.getByRole('cell', { name: 'Alex Novak' })).toBeVisible();
     await expect(page.getByRole('button', { name: DE_SETTINGS.employees.createButton })).toBeVisible();
@@ -151,10 +161,11 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('dialog', { name: DE_HR.employees.createDialog.title })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // 8. Tab Navigation to Bays
+    // 8. Navigate to Bays via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
     const baysResponsePromise = waitForApiResponse('/api/bays');
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.bays }).click();
-    await expect(page).toHaveURL(/\/settings\?tab=bays$/);
+    await page.locator('main a[href="/settings/bays"]').click();
+    await expect(page).toHaveURL(/\/settings\/bays$/);
     await baysResponsePromise;
     await expect(page.getByRole('cell', { name: 'Bay 01' })).toBeVisible();
     await expect(page.getByRole('button', { name: DE_SETTINGS.bays.createButton })).toBeVisible();
@@ -163,9 +174,11 @@ test.describe('Blueprint: Settings Page', () => {
     await expect(page.getByRole('dialog', { name: DE_SETTINGS.bays.dialog.title })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // 9. Tab Navigation to Labor
+    // 9. Navigate to Labor via overview
+    await page.getByRole('link', { name: DE_SETTINGS.page.backToOverview }).click();
     const laborCategoriesResponsePromise = waitForApiResponse('/api/labor/categories');
-    await page.getByRole('tab', { name: DE_SETTINGS.tabs.labor, exact: true }).click();
+    await page.locator('a[href="/settings/labor"]').click();
+    await expect(page).toHaveURL(/\/settings\/labor$/);
     await laborCategoriesResponsePromise;
     await expect(page.getByText('Diagnostic Labor').first()).toBeVisible();
 

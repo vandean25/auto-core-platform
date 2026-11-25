@@ -162,7 +162,7 @@ describe('VendorDetail Price List & Articles integration', () => {
     expect(importBtn).toBeInTheDocument()
     expect(importBtn).toHaveAttribute(
       'href',
-      '/settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1',
+      '/settings/data-import?entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1',
     )
   })
 

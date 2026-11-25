@@ -67,7 +67,7 @@ export default function VendorDetail() {
         actions={
           <>
           <Button variant='outline' className='max-sm:min-h-11' asChild>
-            <Link to={`/settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=${vendor.id}`}>
+            <Link to={`/settings/data-import?entity=SUPPLIER_PRICE_LIST&vendorId=${vendor.id}`}>
               <FileUp className='mr-2 h-4 w-4' /> {t('vendors.detail.importPriceList', { ns: 'finance' })}
             </Link>
           </Button>

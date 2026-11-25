@@ -119,6 +119,7 @@ export function AppRoutes() {
               </Route>
               <Route element={<LazyNamespaceLayout namespaces={['settings']} />}>
                 <Route path={APP_ROUTE_PATHS.settings} element={<Lazy.SettingsPage />} />
+                <Route path={APP_ROUTE_PATHS.settingsSection} element={<Lazy.SettingsPage />} />
               </Route>
               <Route path={APP_ROUTE_PATHS.hr} element={<Lazy.HrLayout />}>
                 <Route index element={<Navigate to="employees" replace />} />

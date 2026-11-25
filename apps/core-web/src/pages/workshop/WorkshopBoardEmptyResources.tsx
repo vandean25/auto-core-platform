@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Wrench } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 
 export function WorkshopBoardEmptyResources({ mode }: { mode: BoardViewMode }) {
-  const navigate = useNavigate()
   const { t } = useTranslation('workshop')
   const tab = mode === 'mechanic' ? 'employees' : 'bays'
   const resourceKey = mode === 'mechanic' ? 'mechanics' : 'bays'
@@ -24,12 +23,10 @@ export function WorkshopBoardEmptyResources({ mode }: { mode: BoardViewMode }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex justify-center pt-0">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/settings?tab=${tab}`)}
-        >
-          {t('board.emptyResources.goToSettings')}
+        <Button variant="outline" size="sm" asChild>
+          <Link to={`/settings/${tab}`}>
+            {t('board.emptyResources.goToSettings')}
+          </Link>
         </Button>
       </CardContent>
     </Card>

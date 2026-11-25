@@ -236,6 +236,7 @@ describe('lazy namespace first paint (AUT-945)', () => {
         <Routes>
           <Route element={<LazyNamespaceLayout namespaces={['settings']} />}>
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/:section" element={<SettingsPage />} />
           </Route>
         </Routes>
       </MemoryRouter>,

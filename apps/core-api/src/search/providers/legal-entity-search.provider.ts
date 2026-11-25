@@ -58,7 +58,7 @@ function toResult({ row, score }: ScoredRow<LegalEntityRow>): SearchResult {
     id: row.id,
     title: row.name,
     subtitle: joinParts([row.tax_number, row.registration_number]),
-    href: '/settings?tab=legal-entities',
+    href: '/settings/legal-entities',
     score,
   };
 }

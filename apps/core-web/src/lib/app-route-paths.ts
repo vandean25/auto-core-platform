@@ -51,6 +51,7 @@ export const APP_ROUTE_PATHS = {
   accountingExportReadiness: '/finance/accounting-export-readiness',
   purchaseInvoiceNew: '/purchase-invoices/new',
   settings: '/settings',
+  settingsSection: '/settings/:section',
   hr: '/hr',
   hrEmployees: '/hr/employees',
   hrClock: '/hr/clock',

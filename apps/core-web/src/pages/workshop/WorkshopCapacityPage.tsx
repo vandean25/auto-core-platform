@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import { useAuthSession } from '@/api/auth-session'
 import { useWorkshopCapacityWeek } from '@/api/workshop'
@@ -45,7 +45,6 @@ function CapacityOverbookedInfoPopover() {
 
 export default function WorkshopCapacityPage() {
   const { t } = useTranslation('workshop')
-  const navigate = useNavigate()
   const [anchorWeek, setAnchorWeek] = React.useState<string | undefined>(undefined)
   const capacity = useWorkshopCapacityWeek(anchorWeek)
   const session = useAuthSession()
@@ -137,8 +136,10 @@ export default function WorkshopCapacityPage() {
         <Empty className="rounded-xl border">
           <EmptyDescription>{t('capacity.page.noBays')}</EmptyDescription>
           <EmptyContent>
-            <Button variant="outline" size="sm" className="max-md:min-h-11" onClick={() => navigate('/settings?tab=bays')}>
-              {t('capacity.page.openBaySettings')}
+            <Button variant="outline" size="sm" className="max-md:min-h-11" asChild>
+              <Link to="/settings/bays">
+                {t('capacity.page.openBaySettings')}
+              </Link>
             </Button>
           </EmptyContent>
         </Empty>

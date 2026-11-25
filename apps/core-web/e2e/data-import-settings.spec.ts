@@ -73,7 +73,7 @@ test('AUT-1037: import history shows its empty message only after a successful e
   })
 
   const openHistory = async () => {
-    await page.goto('/settings?tab=data-import')
+    await page.goto('/settings/data-import')
     await page.getByRole('tab', { name: DE_SETTINGS.dataImport.view.history }).click()
   }
   await openHistory()
@@ -279,9 +279,9 @@ test.describe('Data import settings wizard', () => {
     const { getApplyCount } = await installImportMocks(page, {})
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
-    await corePage.navigate('/settings?tab=data-import')
+    await corePage.navigate('/settings/data-import')
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
 
@@ -320,7 +320,7 @@ test.describe('Data import settings wizard', () => {
     })
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
-    await corePage.navigate('/settings?tab=data-import')
+    await corePage.navigate('/settings/data-import')
     await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
     await page.setInputFiles('#import-file', {
       name: 'customers.csv',
@@ -350,7 +350,7 @@ test.describe('Data import settings wizard', () => {
     await installImportMocks(page, { job: expiredJob })
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
-    await corePage.navigate('/settings?tab=data-import')
+    await corePage.navigate('/settings/data-import')
     await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
     await page.setInputFiles('#import-file', {
       name: 'customers.csv',
@@ -466,9 +466,9 @@ test.describe('Data import settings wizard', () => {
     )
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
-    await corePage.navigate('/settings?tab=data-import')
+    await corePage.navigate('/settings/data-import')
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible({
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible({
       timeout: 15_000,
     })
 

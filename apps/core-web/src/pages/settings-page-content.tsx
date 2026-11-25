@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
-import { Loader2 } from "lucide-react"
+import { Link, Navigate, useLocation, useParams, useSearchParams } from "react-router-dom"
+import { ArrowLeft, Box, ChevronDown, ChevronRight, Folder, Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuthSession } from "@/api/auth-session"
@@ -9,7 +9,6 @@ import { useRevenueGroups } from "@/api/useFinance"
 import { useBrands } from "@/api/brands"
 import { useLocationTree, useCreateLocation, useDeleteLocation, type StorageLocation, type LocationType } from "@/api/locations"
 import { SettingsSectionHeading } from "@/components/settings/SettingsSectionHeading"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -38,14 +37,20 @@ import { CustomFieldsSettingsTab } from "@/components/settings/CustomFieldsSetti
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import { ensureNamespaceLoaded } from "@/lib/i18n"
-import type { Brand, RevenueGroup } from "@/api/types"
-import { Folder, ChevronRight, ChevronDown, Box, Trash2 } from "lucide-react"
+import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
+import type { Brand } from "@/api/types"
 import { FinanceSettingsTab, LockDateAlertDialog, useFinanceSettingsForm } from "./settings-finance-tab"
-import { getVisibleTabs, type SettingsTab } from "./settings-page-tabs"
-import { SettingsTabNav } from "./settings-tab-nav"
-import { SettingsTabLoadingState } from '@/components/settings/settings-tab-shared'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Empty, EmptyDescription } from '@/components/ui/empty'
+import {
+    getVisibleTabs,
+    resolveLegacySettingsRedirect,
+    SETTINGS_SECTION_META,
+    type SettingsTab,
+} from "./settings-page-tabs"
+import { SettingsOverview } from "@/components/settings/SettingsOverview"
+import { SettingsTabLoadingState } from "@/components/settings/settings-tab-shared"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs"
+import { Empty, EmptyDescription } from "@/components/ui/empty"
 
 // ─── Location Tree Item (reused from former LocationManagement) ────────────
 const LocationTreeItem = ({
@@ -280,9 +285,10 @@ function StorageLocationsTab() {
     )
 }
 
-// ─── Revenue Groups Tab ────────────────────────────────────────────────────
-function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | undefined; isLoading: boolean }) {
+// ─── Revenue Groups Section ────────────────────────────────────────────────
+function RevenueGroupsSection() {
     const { t } = useTranslation(['settings', 'common'])
+    const { data: groups, isLoading } = useRevenueGroups()
 
     return (
         <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
@@ -302,9 +308,10 @@ function RevenueGroupsTab({ groups, isLoading }: { groups: RevenueGroup[] | unde
     )
 }
 
-// ─── Brands Tab ────────────────────────────────────────────────────────────
-function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoading: boolean }) {
+// ─── Brands Section ────────────────────────────────────────────────────────
+function BrandsSection() {
     const { t } = useTranslation(['settings', 'common'])
+    const { data: brands, isLoading } = useBrands()
     const [editingBrand, setEditingBrand] = React.useState<Brand | null>(null)
 
     return (
@@ -327,6 +334,68 @@ function BrandsTab({ brands, isLoading }: { brands: Brand[] | undefined; isLoadi
     )
 }
 
+// ─── Finance Section ───────────────────────────────────────────────────────
+function FinanceSection({ canManageTeam, openExportProfile }: { canManageTeam: boolean; openExportProfile: boolean }) {
+    const finance = useFinanceSettingsForm()
+
+    return (
+        <>
+            <FinanceSettingsTab
+                form={finance}
+                canManageExports={canManageTeam}
+                canEdit={canManageTeam}
+                openExportProfile={openExportProfile}
+            />
+            <LockDateAlertDialog form={finance} />
+        </>
+    )
+}
+
+type SectionRendererProps = {
+    canManageTeam: boolean
+    openExportProfile: boolean
+}
+
+const SECTION_RENDERERS: Record<SettingsTab, (props: SectionRendererProps) => React.ReactNode> = {
+    "finance": ({ canManageTeam, openExportProfile }) => (
+        <FinanceSection canManageTeam={canManageTeam} openExportProfile={openExportProfile} />
+    ),
+    "voice-translation": () => <VoiceTranslationSettingsTab />,
+    "revenue-groups": () => <RevenueGroupsSection />,
+    "brands": () => <BrandsSection />,
+    "legal-entities": () => <LegalEntitiesSettingsTab />,
+    "sites": () => <SitesSettingsTab />,
+    "locations": () => <StorageLocationsTab />,
+    "employees": () => <EmployeeSettingsTab />,
+    "bays": () => <BaySettingsTab />,
+    "hours": () => <WorkshopHoursSettingsPanel />,
+    "labor": () => <LaborCategoriesTab />,
+    "vehicle-data": () => <VehicleDataSettingsPanel />,
+    "margin-rules": () => <MarginRulesTab />,
+    "data-import": () => <DataImportSettingsTab />,
+    "custom-fields": () => <CustomFieldsSettingsTab />,
+    "team": () => <TeamSettingsTab />,
+    "api-keys": () => <ApiKeysSettingsTab />,
+    "audit-logs": () => (
+        <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
+            <AuditLogsTab />
+        </div>
+    ),
+    "notifications": () => <NotificationsSettingsTab />,
+}
+
+function SettingsSectionPanel({
+    section,
+    canManageTeam,
+    openExportProfile,
+}: {
+    section: SettingsTab
+    canManageTeam: boolean
+    openExportProfile: boolean
+}) {
+    return SECTION_RENDERERS[section]({ canManageTeam, openExportProfile })
+}
+
 // ─── Main Settings Page ────────────────────────────────────────────────────
 export default function SettingsPage() {
     const { t } = useTranslation(['settings', 'common'])
@@ -334,95 +403,61 @@ export default function SettingsPage() {
         void ensureNamespaceLoaded('settings')
     }, [])
     const sessionQuery = useAuthSession()
-    const [searchParams, setSearchParams] = useSearchParams()
-    const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
-    const customFieldsEnabled = Boolean(sessionQuery.data?.customFieldsEnabled)
-    const visibleTabs = getVisibleTabs(canManageTeam, customFieldsEnabled)
-    const activeTab = visibleTabs.find(tab => tab === searchParams.get("tab")) ?? "finance"
-
-    const finance = useFinanceSettingsForm()
-    const { data: groups, isLoading: isLoadingGroups } = useRevenueGroups()
-    const { data: brands, isLoading: isLoadingBrands } = useBrands()
+    const { section } = useParams<{ section?: string }>()
+    const location = useLocation()
+    const [searchParams] = useSearchParams()
 
     if (sessionQuery.isLoading) {
         return <PageLoader />
     }
 
-    const tabLabels: Record<SettingsTab, string> = {
-        "finance": t('tabs.finance'),
-        "voice-translation": t('tabs.voiceTranslation'),
-        "revenue-groups": t('tabs.revenueGroups'),
-        "brands": t('tabs.brands'),
-        "legal-entities": t('tabs.legalEntities'),
-        "sites": t('tabs.sites'),
-        "locations": t('tabs.locations'),
-        "employees": t('tabs.employees'),
-        "bays": t('tabs.bays'),
-        "hours": t('tabs.hours'),
-        "labor": t('tabs.labor'),
-        "vehicle-data": t('tabs.vehicleData'),
-        "margin-rules": t('tabs.marginRules'),
-        "data-import": t('tabs.dataImport'),
-        "custom-fields": t('tabs.customFields'),
-        "team": t('tabs.team'),
-        "api-keys": t('tabs.apiKeys'),
-        "audit-logs": t('tabs.auditLogs'),
-        "notifications": t('tabs.notifications')
+    const legacyRedirect = resolveLegacySettingsRedirect(location.search, location.hash)
+    if (legacyRedirect) {
+        return <Navigate to={legacyRedirect} replace />
     }
 
-    const tabPanels: Record<SettingsTab, React.ReactNode> = {
-        "finance": (
-            <FinanceSettingsTab
-                form={finance}
-                canManageExports={canManageTeam}
-                canEdit={canManageTeam}
-                openExportProfile={canManageTeam && searchParams.get("subtab") === "accounting-export"}
-            />
-        ),
-        "voice-translation": <VoiceTranslationSettingsTab />,
-        "revenue-groups": <RevenueGroupsTab groups={groups} isLoading={isLoadingGroups} />,
-        "brands": <BrandsTab brands={brands} isLoading={isLoadingBrands} />,
-        "legal-entities": <LegalEntitiesSettingsTab />,
-        "sites": <SitesSettingsTab />,
-        "locations": <StorageLocationsTab />,
-        "employees": <EmployeeSettingsTab />,
-        "bays": <BaySettingsTab />,
-        "hours": <WorkshopHoursSettingsPanel />,
-        "labor": <LaborCategoriesTab />,
-        "vehicle-data": <VehicleDataSettingsPanel />,
-        "margin-rules": <MarginRulesTab />,
-        "data-import": <DataImportSettingsTab />,
-        "custom-fields": <CustomFieldsSettingsTab />,
-        "team": <TeamSettingsTab />,
-        "api-keys": <ApiKeysSettingsTab />,
-        "audit-logs": (
-            <div className="p-4 sm:p-6 bg-card border rounded-lg shadow-sm">
-                <AuditLogsTab />
-            </div>
-        ),
-        "notifications": <NotificationsSettingsTab />
+    const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
+    const customFieldsEnabled = Boolean(sessionQuery.data?.customFieldsEnabled)
+    const visibleTabs = getVisibleTabs(canManageTeam, customFieldsEnabled)
+
+    if (!section) {
+        return <SettingsOverview visibleTabs={visibleTabs} />
     }
+
+    const activeSection = visibleTabs.find((tab) => tab === section)
+    if (!activeSection) {
+        return <Navigate to={APP_ROUTE_PATHS.settings} replace />
+    }
+
+    const sectionTitle = t(SETTINGS_SECTION_META[activeSection].labelKey)
 
     return (
         <div className="space-y-6">
-            <PageHeader title={t('page.title')} />
+            <PageHeader
+                className="mb-0"
+                breadcrumbs={
+                    <Breadcrumbs
+                        items={[
+                            { label: t('page.title'), to: APP_ROUTE_PATHS.settings },
+                            { label: sectionTitle },
+                        ]}
+                    />
+                }
+                leading={
+                    <Button variant="ghost" size="icon" className="max-sm:min-h-11 max-sm:min-w-11" asChild>
+                        <Link to={APP_ROUTE_PATHS.settings} aria-label={t('page.backToOverview')}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                }
+                title={sectionTitle}
+            />
 
-            <Tabs value={activeTab} onValueChange={(value) => setSearchParams({ tab: value })} className="space-y-6">
-                <SettingsTabNav
-                    tabs={visibleTabs}
-                    labels={tabLabels}
-                    active={activeTab}
-                    onChange={(tab) => setSearchParams({ tab })}
-                />
-
-                {visibleTabs.map(tab => (
-                    <TabsContent key={tab} value={tab} className="space-y-6">
-                        {tabPanels[tab]}
-                    </TabsContent>
-                ))}
-            </Tabs>
-
-            <LockDateAlertDialog form={finance} />
+            <SettingsSectionPanel
+                section={activeSection}
+                canManageTeam={canManageTeam}
+                openExportProfile={canManageTeam && searchParams.get("subtab") === "accounting-export"}
+            />
         </div>
     )
 }

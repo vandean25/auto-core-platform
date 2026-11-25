@@ -583,8 +583,8 @@ git commit -m "feat(workshop): add Settings Hours tab with holiday import"
 - [ ] **Step 1: Failing `WorkshopPlannerPage.test.tsx`** (mirror `WorkshopBoard.test.tsx` QueryClient + mocked `workshop` API)
 
 1. Title `Workshop Planner`; Day/Week toggle; `+ Workshop Order`.
-2. No bays → card "No bays configured" + link to `/settings?tab=bays`.
-3. Closed weekday → "Workshop closed" + link `/settings?tab=hours`.
+2. No bays → card "No bays configured" + link to `/settings/bays`.
+3. Closed weekday → "Workshop closed" + link `/settings/hours`.
 4. Closed holiday → `Closed — Nationalfeiertag` + hours link.
 5. Click empty cell opens sheet with bay + start; end = start + 60 minutes.
 6. Occupied `SCHEDULED` click navigates to `/workshop/orders/:id`.

@@ -2,7 +2,41 @@
   "page": {
     "sectionLabel": "Section",
     "title": "Settings",
-    "description": "Manage your platform configuration, master data, and storage locations."
+    "description": "Manage your platform configuration, master data, and storage locations.",
+    "backToOverview": "Back to settings"
+  },
+  "overview": {
+    "searchLabel": "Search settings",
+    "searchPlaceholder": "Search settings…",
+    "empty": "No matching settings found.",
+    "clearSearch": "Clear search"
+  },
+  "groups": {
+    "company": "Company",
+    "workshop": "Workshop",
+    "finance": "Finance",
+    "system": "System"
+  },
+  "descriptions": {
+    "finance": "Lock date, invoice numbering, and export.",
+    "voiceTranslation": "Configure speech recognition and translation.",
+    "revenueGroups": "Revenue groups, tax rates, and accounts.",
+    "brands": "Maintain vehicle makes and part manufacturers.",
+    "legalEntities": "Manage company details, VAT IDs, and legal entities.",
+    "sites": "Configure locations and branches.",
+    "locations": "Structure warehouses, shelves, and bins.",
+    "employees": "Manage workshop personnel for assignments.",
+    "bays": "Set up work bays and lifts.",
+    "hours": "Set opening hours and public holidays.",
+    "labor": "Labor units, categories, and hourly rates.",
+    "vehicleData": "Vehicle catalog and make defaults.",
+    "marginRules": "Define markups and margin rules.",
+    "dataImport": "Import master data and price lists via CSV.",
+    "customFields": "Custom fields for records.",
+    "team": "Manage users, roles, and access permissions.",
+    "apiKeys": "Manage API keys for integrations.",
+    "auditLogs": "View audit trail and system activities.",
+    "notifications": "Control email and system notifications."
   },
   "tabs": {
     "finance": "Finance",

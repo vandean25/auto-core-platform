@@ -97,7 +97,7 @@ test.describe('Icon-only controls have accessible names (AUT-471)', () => {
     });
 
     const corePage = new AutoCorePage(page, 'Settings');
-    await corePage.navigate('/settings?tab=brands');
+    await corePage.navigate('/settings/brands');
 
     await expect(
       page.getByRole('button', {

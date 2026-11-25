@@ -23,15 +23,29 @@ const defaultFinanceData = { lock_date: null as string | null, invoice_prefix: '
 
 function LocationProbe() {
   const location = useLocation()
-  return <div data-testid='location-search'>{location.search}</div>
+  return (
+    <>
+      <div data-testid='location-pathname'>{location.pathname}</div>
+      <div data-testid='location-search'>{location.search}</div>
+    </>
+  )
 }
 
-function renderSettings(search = '') {
+function renderSettings(path = '') {
   return render(
-    <MemoryRouter initialEntries={[`/settings${search}`]}>
+    <MemoryRouter initialEntries={[`/settings${path}`]}>
       <Routes>
         <Route
           path='/settings'
+          element={
+            <>
+              <SettingsPage />
+              <LocationProbe />
+            </>
+          }
+        />
+        <Route
+          path='/settings/:section'
           element={
             <>
               <SettingsPage />
@@ -113,52 +127,50 @@ describe('SettingsPage characterization: session and header', () => {
   })
 })
 
-describe('SettingsPage characterization: tab visibility by role', () => {
-  it.each(['ADMIN', 'OWNER'])('shows every tab to %s in the documented order', (role) => {
+describe('SettingsPage characterization: overview visibility by role', () => {
+  it.each(['ADMIN', 'OWNER'])('shows every section tile to %s in the documented groups', (role) => {
     setRole(role)
     renderSettings()
 
-    const [mainTabList] = screen.getAllByRole('tablist')
-    const labels = within(mainTabList).getAllByRole('tab').map((tab) => tab.textContent)
-    expect(labels).toEqual([
-      tabNames.finance,
-      tabNames.voiceTranslation,
-      tabNames.revenueGroups,
-      tabNames.brands,
-      tabNames.legalEntities,
-      tabNames.sites,
-      tabNames.locations,
-      tabNames.employees,
-      tabNames.bays,
-      tabNames.hours,
-      tabNames.labor,
-      tabNames.vehicleData,
-      tabNames.marginRules,
-      tabNames.dataImport,
-      tabNames.team,
-      tabNames.apiKeys,
-      tabNames.auditLogs,
-      tabNames.notifications,
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/settings/legal-entities',
+      '/settings/sites',
+      '/settings/brands',
+      '/settings/employees',
+      '/settings/team',
+      '/settings/bays',
+      '/settings/hours',
+      '/settings/labor',
+      '/settings/locations',
+      '/settings/vehicle-data',
+      '/settings/finance',
+      '/settings/revenue-groups',
+      '/settings/margin-rules',
+      '/settings/voice-translation',
+      '/settings/data-import',
+      '/settings/api-keys',
+      '/settings/audit-logs',
+      '/settings/notifications',
     ])
   })
 
-  it.each(['SALES', 'TECH'])('hides the admin-only tabs from %s', (role) => {
+  it.each(['SALES', 'TECH'])('hides the admin-only tiles from %s', (role) => {
     setRole(role)
     renderSettings()
 
-    const [mainTabList] = screen.getAllByRole('tablist')
-    const labels = within(mainTabList).getAllByRole('tab').map((tab) => tab.textContent)
-    expect(labels).toEqual([
-      tabNames.finance,
-      tabNames.voiceTranslation,
-      tabNames.revenueGroups,
-      tabNames.brands,
-      tabNames.locations,
-      tabNames.employees,
-      tabNames.bays,
-      tabNames.hours,
-      tabNames.labor,
-      tabNames.notifications,
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/settings/brands',
+      '/settings/employees',
+      '/settings/bays',
+      '/settings/hours',
+      '/settings/labor',
+      '/settings/locations',
+      '/settings/finance',
+      '/settings/revenue-groups',
+      '/settings/voice-translation',
+      '/settings/notifications',
     ])
   })
 
@@ -166,73 +178,71 @@ describe('SettingsPage characterization: tab visibility by role', () => {
     authSessionResult.data = undefined
     renderSettings()
 
-    expect(screen.queryByRole('tab', { name: tabNames.team })).not.toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: deSettings.finance.subTabs.accountingExport })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: new RegExp(tabNames.team) })).not.toBeInTheDocument()
   })
 })
 
-describe('SettingsPage characterization: active tab resolution', () => {
-  it('defaults to the finance tab when no tab query param is given', () => {
+describe('SettingsPage characterization: section resolution and redirects', () => {
+  it('renders the overview on /settings without opening finance', () => {
     renderSettings()
 
-    expect(screen.getByRole('tab', { name: tabNames.finance })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toBeVisible()
+    expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+    expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
   })
 
-  it('falls back to the finance tab for an unknown tab query param without rewriting the URL', () => {
-    renderSettings('?tab=does-not-exist')
+  it.each(['?tab=does-not-exist', '/does-not-exist'])(
+    'redirects unknown %s to the overview without opening finance',
+    async (entry) => {
+      renderSettings(entry)
 
-    expect(screen.getByRole('tab', { name: tabNames.finance })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=does-not-exist')
-  })
+      await waitFor(() => {
+        expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings')
+      })
+      expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+      expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
+    },
+  )
 
-  it.each(openTabs)('opens %s from ?tab=%s for an admin', (label, value, content) => {
-    renderSettings(`?tab=${value}`)
+  it.each(openTabs)('opens %s from /settings/%s for an admin', (label, value, content) => {
+    renderSettings(`/${value}`)
 
-    expect(screen.getByRole('tab', { name: label })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('heading', { level: 1, name: label })).toBeVisible()
     expect(screen.getByText(content)).toBeVisible()
   })
 
-  it.each(privilegedTabs)('opens %s from ?tab=%s for an admin', (label, value, content) => {
-    renderSettings(`?tab=${value}`)
+  it.each(privilegedTabs)('opens %s from /settings/%s for an admin', (label, value, content) => {
+    renderSettings(`/${value}`)
 
-    expect(screen.getByRole('tab', { name: label })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('heading', { level: 1, name: label })).toBeVisible()
     expect(screen.getByText(content)).toBeVisible()
   })
 
-  it.each(privilegedTabs)('falls back to finance for ?tab=%s when the role is not admin or owner', (_label, value, content) => {
-    setRole('SALES')
-    renderSettings(`?tab=${value}`)
+  it.each(privilegedTabs)(
+    'redirects /settings/%s to the overview when the role is not admin or owner',
+    async (_label, value, content) => {
+      setRole('SALES')
+      renderSettings(`/${value}`)
 
-    expect(screen.getByRole('tab', { name: tabNames.finance })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByText(content)).not.toBeInTheDocument()
-    expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toBeVisible()
-    expect(screen.getByTestId('location-search')).toHaveTextContent(`?tab=${value}`)
-  })
+      await waitFor(() => {
+        expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings')
+      })
+      expect(screen.queryByText(content)).not.toBeInTheDocument()
+      expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+    },
+  )
 
-  it('opens the storage locations tab', () => {
-    renderSettings('?tab=locations')
+  it('opens the storage locations section', () => {
+    renderSettings('/locations')
 
-    expect(screen.getByRole('tab', { name: tabNames.locations })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('heading', { level: 1, name: tabNames.locations })).toBeVisible()
     expect(screen.getByRole('heading', { level: 2, name: deSettings.storageLocations.title })).toBeVisible()
-  })
-
-  it('replaces the whole query string with the clicked tab', async () => {
-    renderSettings('?tab=brands&extra=1')
-
-    fireEvent.click(screen.getByRole('tab', { name: tabNames.labor }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('location-search')).toHaveTextContent(/^\?tab=labor$/)
-    })
-    expect(screen.getByText('Labor tab content')).toBeVisible()
   })
 })
 
 describe('SettingsPage characterization: revenue groups and brands tabs', () => {
   it('shows the revenue groups heading, the add dialog trigger and the table with the loaded groups', () => {
     revenueGroupsResult.data = [{ id: 'g1' }, { id: 'g2' }] as never
-    renderSettings('?tab=revenue-groups')
+    renderSettings('/revenue-groups')
 
     expect(screen.getByRole('heading', { level: 2, name: deSettings.revenueGroups.title })).toBeVisible()
     expect(screen.getByText(deSettings.revenueGroups.description)).toBeVisible()
@@ -243,7 +253,7 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
   it('WHEN the revenue groups load THEN a Skeleton is shown instead of the table and a spinner', () => {
     revenueGroupsResult.isLoading = true
     revenueGroupsResult.data = undefined as never
-    const { container } = renderSettings('?tab=revenue-groups')
+    const { container } = renderSettings('/revenue-groups')
 
     expect(screen.queryByText(/Revenue groups table/)).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toBeInTheDocument()
@@ -253,14 +263,14 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
 
   it('passes an empty list to the revenue groups table when no data is available', () => {
     revenueGroupsResult.data = undefined as never
-    renderSettings('?tab=revenue-groups')
+    renderSettings('/revenue-groups')
 
     expect(screen.getByText('Revenue groups table (0)')).toBeVisible()
   })
 
   it('shows the brands heading and the table with the loaded brands', () => {
     brandsResult.data = [{ name: 'Audi' }] as never
-    renderSettings('?tab=brands')
+    renderSettings('/brands')
 
     expect(screen.getByRole('heading', { level: 2, name: deSettings.brands.title })).toBeVisible()
     expect(screen.getByText(deSettings.brands.description)).toBeVisible()
@@ -270,7 +280,7 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
   it('WHEN the brands load THEN a Skeleton is shown instead of the table, and an empty list without data', () => {
     brandsResult.isLoading = true
     brandsResult.data = undefined as never
-    const { container, unmount } = renderSettings('?tab=brands')
+    const { container, unmount } = renderSettings('/brands')
 
     expect(screen.queryByText(/Brands table/)).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toBeInTheDocument()
@@ -279,7 +289,7 @@ describe('SettingsPage characterization: revenue groups and brands tabs', () => 
     unmount()
 
     brandsResult.isLoading = false
-    renderSettings('?tab=brands')
+    renderSettings('/brands')
     expect(screen.getByText('Brands table (0)')).toBeVisible()
   })
 
@@ -300,7 +310,7 @@ describe('SettingsPage characterization: finance tab', () => {
   it('WHEN the finance settings load THEN a Skeleton is shown instead of the form and a spinner', () => {
     financeSettingsResult.isLoading = true
     financeSettingsResult.data = undefined as never
-    const { container } = renderSettings()
+    const { container } = renderSettings('/finance')
 
     expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toBeInTheDocument()
@@ -310,7 +320,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('fills the form from the loaded settings and shows the lock date as TT.MM.JJJJ', () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'INV', next_invoice_number: 42 }
-    renderSettings()
+    renderSettings('/finance')
 
     expect(lockDateInput()).toHaveValue('31.03.2026')
     expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toHaveValue('INV')
@@ -318,7 +328,7 @@ describe('SettingsPage characterization: finance tab', () => {
   })
 
   it('shows an empty lock date when none is set', () => {
-    renderSettings()
+    renderSettings('/finance')
 
     expect(lockDateInput()).toHaveValue('')
     expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toHaveValue('RE')
@@ -327,7 +337,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('starts with an empty form while no settings are loaded', () => {
     financeSettingsResult.data = undefined as never
-    renderSettings()
+    renderSettings('/finance')
 
     expect(lockDateInput()).toHaveValue('')
     expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toHaveValue('')
@@ -336,7 +346,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('renders finance settings fields as read-only and hides the save button for SALES role', () => {
     setRole('SALES')
-    renderSettings()
+    renderSettings('/finance')
 
     expect(lockDateInput()).toBeDisabled()
     expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toBeDisabled()
@@ -345,7 +355,7 @@ describe('SettingsPage characterization: finance tab', () => {
   })
 
   it('saves edited values directly when there is no existing lock date and shows a success toast', async () => {
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '01.05.2026' } })
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.prefix), { target: { value: 'AR' } })
@@ -364,7 +374,7 @@ describe('SettingsPage characterization: finance tab', () => {
   })
 
   it('omits an unedited lock date and coerces an unparsable invoice number to 0', async () => {
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.nextNumber), { target: { value: '' } })
     submitFinanceForm()
@@ -379,7 +389,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('shows an error toast when saving fails', async () => {
     updateFinanceSettingsResult.mutateAsync.mockRejectedValueOnce(new Error('boom'))
-    renderSettings()
+    renderSettings('/finance')
 
     submitFinanceForm()
 
@@ -391,14 +401,14 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('disables the submit button while the update is pending', () => {
     updateFinanceSettingsResult.isPending = true
-    renderSettings()
+    renderSettings('/finance')
 
     expect(screen.getByRole('button', { name: deSettings.finance.saveChanges })).toBeDisabled()
   })
 
   it('saves directly when the new lock date is not later than the existing one', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '01.02.2026' } })
     submitFinanceForm()
@@ -413,7 +423,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('saves directly when the lock date is cleared even though one exists', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '' } })
     submitFinanceForm()
@@ -428,7 +438,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('asks for confirmation before moving the lock date later and saves only after confirming', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
@@ -455,7 +465,7 @@ describe('SettingsPage characterization: finance tab', () => {
 
   it('does not save when the lock date confirmation is cancelled', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
@@ -472,7 +482,7 @@ describe('SettingsPage characterization: finance tab', () => {
   it('keeps the confirmation dialog open and shows an error toast when the confirmed save fails', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     updateFinanceSettingsResult.mutateAsync.mockRejectedValueOnce(new Error('boom'))
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
     submitFinanceForm()
@@ -486,37 +496,22 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(toast.success).not.toHaveBeenCalled()
   })
 
-  it('keeps unsaved finance edits when switching to another tab and back', async () => {
-    renderSettings()
-
-    fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.prefix), { target: { value: 'XX' } })
-    fireEvent.click(screen.getByRole('tab', { name: tabNames.labor }))
-    await waitFor(() => {
-      expect(screen.getByText('Labor tab content')).toBeVisible()
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: tabNames.finance }))
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(deSettings.finance.invoicing.prefix)).toHaveValue('XX')
-    })
-  })
 })
 
 describe('SettingsPage characterization: finance sub tabs', () => {
   it('shows the fiscal form first and the accounting export sub tab for admins', () => {
-    renderSettings()
+    renderSettings('/finance')
 
-    const subTabList = screen.getAllByRole('tablist')[1]
+    const subTabList = screen.getAllByRole('tablist')[0]
     const labels = within(subTabList).getAllByRole('tab').map((tab) => tab.textContent)
     expect(labels).toEqual([deSettings.finance.subTabs.fiscal, deSettings.finance.subTabs.accountingExport])
   })
 
   it('hides the accounting export sub tab for non-admins', () => {
     setRole('SALES')
-    renderSettings()
+    renderSettings('/finance')
 
-    const subTabList = screen.getAllByRole('tablist')[1]
+    const subTabList = screen.getAllByRole('tablist')[0]
     const labels = within(subTabList).getAllByRole('tab').map((tab) => tab.textContent)
     expect(labels).toEqual([deSettings.finance.subTabs.fiscal])
   })
@@ -524,7 +519,7 @@ describe('SettingsPage characterization: finance sub tabs', () => {
 
 describe('SettingsPage characterization: accounting export sub tab', () => {
   it('switches to the accounting export panel inside the finance tab', () => {
-    renderSettings()
+    renderSettings('/finance')
 
     fireEvent.click(screen.getByRole('tab', { name: deSettings.finance.subTabs.accountingExport }))
 
@@ -532,10 +527,10 @@ describe('SettingsPage characterization: accounting export sub tab', () => {
     expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
   })
 
-  it('opens the accounting export panel on the export profile deep link (AUT-852)', () => {
+  it('opens the accounting export panel on the export profile deep link (AUT-852)', async () => {
     renderSettings('?tab=finance&subtab=accounting-export')
 
-    expect(screen.getByText('Accounting export tab content')).toBeVisible()
+    expect(await screen.findByText('Accounting export tab content')).toBeVisible()
     expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
   })
 })

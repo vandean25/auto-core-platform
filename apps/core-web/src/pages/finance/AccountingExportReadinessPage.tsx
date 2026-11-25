@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -37,11 +37,10 @@ export default function AccountingExportReadinessPage() {
             {t('accountingExportReadiness.title')}
           </h1>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`${APP_ROUTE_PATHS.settings}?tab=finance&subtab=accounting-export`)}
-        >
-          {t('actions.openSettings')}
+        <Button variant="outline" asChild>
+          <Link to={`${APP_ROUTE_PATHS.settings}/finance?subtab=accounting-export`}>
+            {t('actions.openSettings')}
+          </Link>
         </Button>
       </div>
 

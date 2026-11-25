@@ -181,7 +181,7 @@ async function installAccountingExportMocks(
 
 async function openAccountingExportTab(page: Page) {
   const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
-  await corePage.navigate('/settings?tab=finance');
+  await corePage.navigate('/settings/finance');
   await page.getByRole('tab', { name: DE_SETTINGS.finance.subTabs.accountingExport }).click();
   await page.locator('#export-date-from').fill('01.01.2026');
   await page.locator('#export-date-to').fill('31.01.2026');
@@ -313,7 +313,7 @@ test.describe('Accounting export settings', () => {
       });
     });
 
-    await page.goto('/settings?tab=finance');
+    await page.goto('/settings/finance');
     await expect(
       page.getByRole('tab', { name: DE_SETTINGS.finance.subTabs.accountingExport }),
     ).toHaveCount(0);

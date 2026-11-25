@@ -71,7 +71,7 @@ function toResult({ row, score }: ScoredRow<UserMemberRow>): SearchResult {
     id: row.id,
     title: fullName || row.user.email,
     subtitle: fullName ? joinParts([row.user.email]) : null,
-    href: '/settings?tab=team',
+    href: '/settings/team',
     score,
   };
 }

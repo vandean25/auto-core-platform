@@ -110,7 +110,7 @@ describe('GlobalSearch navigation targets', () => {
     })
     fireEvent.click(screen.getByText('Revenue Groups'))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/settings?tab=revenue-groups')
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/revenue-groups')
   })
 
   describe('saved views (AUT-880 / AUT-940)', () => {

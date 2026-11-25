@@ -139,7 +139,7 @@ function WorkshopPlannerPageContent(props: WorkshopPlannerPageViewProps) {
           title={t('planner.page.noBaysTitle')}
           description={t('planner.page.noBaysDescription')}
           settingsAction={
-            <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings?tab=bays')} />
+            <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings/bays')} />
           }
         />
       ) : (
@@ -237,7 +237,7 @@ function WorkshopPlannerBoard({
             }
             description={t('planner.page.closedDescription')}
             settingsAction={
-              <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings?tab=hours')} />
+              <PlannerGoToSettingsButton onGoToSettings={() => navigate('/settings/hours')} />
             }
           />
         )}
