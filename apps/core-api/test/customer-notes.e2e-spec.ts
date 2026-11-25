@@ -52,7 +52,8 @@ describe('Customer notes & GDPR (e2e)', () => {
     const tenantB = await createTestTenant(basePrisma, 'aut1040b');
     tenantAId = tenantA.tenantId;
     tenantBId = tenantB.tenantId;
-    const defaultSite = await basePrisma.site.findFirstOrThrow({
+    prismaA = createTenantAwarePrisma(basePrisma, tenantAId);
+    const defaultSite = await prismaA.site.findFirstOrThrow({
       where: { tenant_id: tenantAId },
       select: { id: true },
     });
@@ -95,7 +96,6 @@ describe('Customer notes & GDPR (e2e)', () => {
       role: 'ACCOUNTING',
     });
 
-    prismaA = createTenantAwarePrisma(basePrisma, tenantAId);
     const customerA = await prismaA.customer.create({
       data: {
         tenant_id: tenantAId,
