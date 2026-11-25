@@ -25,6 +25,8 @@ import { VehicleWriteService } from './vehicle-write.service.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
 import { InspectionExchangeModule } from '../inspection-exchange/inspection-exchange.module.js';
 import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
+import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
 
 @Module({
@@ -32,6 +34,8 @@ import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
     PrismaModule,
     InspectionExchangeModule,
     EffectiveCapabilitiesModule,
+    CustomerConsentModule,
+    AuditModule,
     CustomFieldsModule,
   ],
   controllers: [

@@ -341,6 +341,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'vehicle_parties', clean: (p) => p.vehicleParty.deleteMany() },
   { table: 'vehicle_notices', clean: (p) => p.vehicleNotice.deleteMany() },
   {
+    table: 'pickerl_contact_logs',
+    clean: (p) => p.pickerlContactLog.deleteMany(),
+  },
+  {
     table: 'vehicle_inspection_records',
     clean: (p) => p.vehicleInspectionRecord.deleteMany(),
   },

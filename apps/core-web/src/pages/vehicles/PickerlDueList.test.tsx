@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as vehiclesApi from "@/api/vehicles";
 import * as authApi from "@/api/auth-session";
 import { fetchWithAuth } from "@/api/client";
+import { SavedViewsProvider } from "@/features/saved-views/SavedViewsProvider";
 
 vi.mock("@/api/vehicles");
 vi.mock("@/api/auth-session");
@@ -40,7 +41,9 @@ function renderList(initialEntry = "/vehicles/pickerl-due") {
   return render(
     <QueryClientProvider client={mockQueryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
-        <PickerlDueList />
+        <SavedViewsProvider userKey="test-user">
+          <PickerlDueList />
+        </SavedViewsProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -60,6 +63,10 @@ describe("PickerlDueList", () => {
       },
       isLoading: false,
     } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+    vi.mocked(vehiclesApi.useRecordPickerlContact).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof vehiclesApi.useRecordPickerlContact>);
   });
 
   afterEach(() => cleanup());
@@ -261,5 +268,114 @@ describe("PickerlDueList", () => {
     expect(
       screen.queryByRole("button", { name: "§57a-Auftrag anlegen" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders last contact date, channel, and actor name and enables tel: link when phone consent is active", async () => {
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: "v-contacted",
+            make: "Audi",
+            model: "A4",
+            plate: "W-CALL-1",
+            customer: {
+              first_name: "Anna",
+              last_name: "Test",
+              phone: "+43660111222",
+              type: "PRIVATE",
+            },
+            pickerl_due: { status: "OVERDUE", due_month: "2026-01", warnings: [] },
+            last_contacted_at: "2026-11-20T10:00:00.000Z",
+            last_contact_channel: "PHONE",
+            last_contact_by: "Max Berater",
+            phone_consent_allowed: true,
+          },
+        ],
+        meta: { total: 1, page: 1, pageSize: 25, pageCount: 1 },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+
+    renderList();
+
+    expect(await screen.findByText(/Telefon · Max Berater/)).toBeInTheDocument();
+    const telLink = screen.getByRole("link", { name: "+43660111222" });
+    expect(telLink).toHaveAttribute("href", "tel:+43660111222");
+  });
+
+  it("greys out phone and hides tel: link when phone consent is missing", async () => {
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: "v-noconsent",
+            make: "VW",
+            model: "Golf",
+            plate: "W-NOCONSENT",
+            customer: {
+              first_name: "Bernd",
+              last_name: "Test",
+              phone: "+43660333444",
+              type: "PRIVATE",
+            },
+            pickerl_due: { status: "OVERDUE", due_month: "2026-01", warnings: [] },
+            phone_consent_allowed: false,
+          },
+        ],
+        meta: { total: 1, page: 1, pageSize: 25, pageCount: 1 },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+
+    renderList();
+
+    expect(
+      await screen.findByText(deVehicles.pickerlDue.noPhoneConsentHint),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "+43660333444" })).not.toBeInTheDocument();
+  });
+
+  it("passes contacted filter params from URL to usePickerlDueList", async () => {
+    renderList("/vehicles/pickerl-due?filter_contacted=older_than&filter_contactedDays=7");
+
+    await waitFor(() => {
+      expect(vehiclesApi.usePickerlDueList).toHaveBeenCalledWith(
+        expect.objectContaining({ contacted: "older_than", contactedDays: 7 }),
+      );
+    });
+  });
+
+  it("opens contact dialog and requires reason when phone consent is missing", async () => {
+    vi.mocked(vehiclesApi.usePickerlDueList).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: "v-dialog",
+            make: "VW",
+            model: "Golf",
+            plate: "W-DLG-1",
+            customer: { first_name: "Clara", last_name: "Test", type: "PRIVATE" },
+            pickerl_due: { status: "OVERDUE", due_month: "2026-01", warnings: [] },
+            phone_consent_allowed: false,
+          },
+        ],
+        meta: { total: 1, page: 1, pageSize: 25, pageCount: 1 },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehiclesApi.usePickerlDueList>);
+
+    renderList();
+
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: deVehicles.pickerlDue.recordContact }))[0]!,
+    );
+
+    expect(
+      await screen.findByText(deVehicles.pickerlDue.contactDialog.noConsentReason),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: deCommon.actions.save }),
+    ).toBeDisabled();
   });
 });

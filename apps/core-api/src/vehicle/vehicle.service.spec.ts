@@ -8,6 +8,8 @@ import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
 import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.js';
 import { VehicleWriteService } from './vehicle-write.service.js';
+import { CustomerConsentService } from '../customer-consent/customer-consent.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { VehicleService } from './vehicle.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 
@@ -29,6 +31,7 @@ describe('VehicleService', () => {
     externalIdMapping: { findMany: jest.Mock };
     vehicleParty: { findMany: jest.Mock; create: jest.Mock };
     workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
+    pickerlContactLog: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let tenantContext: { getTenantId: jest.Mock };
@@ -50,6 +53,7 @@ describe('VehicleService', () => {
         create: jest.fn().mockImplementation(async ({ data }) => data),
       },
       workshopOrder: { findFirst: jest.fn(), findMany: jest.fn() },
+      pickerlContactLog: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(
@@ -68,6 +72,21 @@ describe('VehicleService', () => {
         VehiclePersistenceService,
         VehicleWriteService,
         VehiclePickerlDueService,
+        {
+          provide: CustomerConsentService,
+          useValue: {
+            loadPhonePickerlConsentByCustomerIds: jest
+              .fn()
+              .mockResolvedValue(new Map()),
+            revokePhonePickerlConsents: jest.fn(),
+          },
+        },
+        {
+          provide: AuditService,
+          useValue: {
+            recordTenantMutation: jest.fn(),
+          },
+        },
         {
           provide: VehiclePickerlBarrierService,
           useValue: {

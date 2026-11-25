@@ -412,6 +412,9 @@ export class CustomerService {
       await tx.customerCommunicationState.deleteMany({
         where: { tenant_id: tenantId, customer_id: id },
       });
+      await tx.pickerlContactLog.deleteMany({
+        where: { tenant_id: tenantId, customer_id: id },
+      });
       return tx.customer.deleteMany({
         where: { id, tenant_id: tenantId },
       });

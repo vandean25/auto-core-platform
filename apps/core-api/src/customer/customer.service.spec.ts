@@ -32,12 +32,16 @@ describe('CustomerService', () => {
   const customerCommunicationState = {
     deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
   };
+  const pickerlContactLog = {
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+  };
   const mockPrisma = {
     registrationDocumentIntake,
     customer,
     externalIdMapping: { findMany: jest.fn().mockResolvedValue([]) },
     customerConsentUnsubscribeToken,
     customerCommunicationState,
+    pickerlContactLog,
     $transaction: jest.fn(
       async (
         fn: (tx: {
@@ -45,6 +49,7 @@ describe('CustomerService', () => {
           customer: typeof customer;
           customerConsentUnsubscribeToken: typeof customerConsentUnsubscribeToken;
           customerCommunicationState: typeof customerCommunicationState;
+          pickerlContactLog: typeof pickerlContactLog;
         }) => Promise<unknown>,
       ) =>
         fn({
@@ -52,6 +57,7 @@ describe('CustomerService', () => {
           customer,
           customerConsentUnsubscribeToken,
           customerCommunicationState,
+          pickerlContactLog,
         }),
     ),
     salesOrder: { count: jest.fn() },

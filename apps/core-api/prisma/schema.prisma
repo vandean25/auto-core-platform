@@ -76,6 +76,7 @@ model Tenant {
   vehicleSales                     VehicleSale[]
   vehicleLedgerEntries             VehicleLedgerEntry[]
   vehicleInspectionRecords         VehicleInspectionRecord[]
+  pickerlContactLogs               PickerlContactLog[]
   inspectionSourceConnections      InspectionSourceConnection[]
   inspectionExchangeImports        InspectionExchangeImport[]
   inspectionReportIdentities       InspectionReportIdentity[]
@@ -372,8 +373,10 @@ model TenantMember {
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 
-  siteMemberships SiteMembership[]
+  siteMemberships     SiteMembership[]
+  pickerlContactLogs  PickerlContactLog[]
 
+  @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
@@ -1925,6 +1928,7 @@ model Customer {
   legacyDocumentsAsCustomer  LegacyDocument[]                  @relation("LegacyDocumentCustomer")
   legacyDocumentsAsBillTo    LegacyDocument[]                  @relation("LegacyDocumentBillTo")
   vehicle_parties            VehicleParty[]
+  pickerl_contact_logs       PickerlContactLog[]
   custom_fields              Json                              @default("{}")
 
   createdAt DateTime @default(now())
@@ -2096,6 +2100,7 @@ model Vehicle {
   ledger_entries                  VehicleLedgerEntry[]
   loaner_fleet_entry              LoanerVehicle?
   inspection_records              VehicleInspectionRecord[]
+  pickerl_contact_logs            PickerlContactLog[]
   inspectionReportIdentities      InspectionReportIdentity[]
   inspectionExchangeImports       InspectionExchangeImport[]
   externalInspectionResults       ExternalInspectionResult[]
@@ -2655,6 +2660,51 @@ model VehicleInspectionRecord {
   @@index([tenant_id, vehicle_id, inspected_on], map: "idx_vehicle_inspection_records_vehicle_inspected")
   @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
   @@map("vehicle_inspection_records")
+}
+
+enum PickerlContactChannel {
+  PHONE
+  EMAIL
+  SMS
+  IN_PERSON
+  POST
+}
+
+enum PickerlContactOutcome {
+  REACHED
+  NO_ANSWER
+  APPOINTMENT_BOOKED
+  DECLINED
+}
+
+enum PickerlNoConsentReason {
+  CUSTOMER_CALLED
+  ACTIVE_ORDER
+  MARKETING_CALL_WITHOUT_CONSENT
+}
+
+/// Retention class: OPERATIONAL. Included in customer erasure cleanup.
+model PickerlContactLog {
+  id                String                  @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant                  @relation(fields: [tenant_id], references: [id])
+  vehicle_id        String
+  vehicle           Vehicle                 @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Cascade)
+  customer_id       String?
+  customer          Customer?               @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: SetNull)
+  due_month         String?                 @db.VarChar(7)
+  contacted_at      DateTime                @default(now())
+  channel           PickerlContactChannel
+  outcome           PickerlContactOutcome?
+  no_consent_reason PickerlNoConsentReason?
+  actor_member_id   String?
+  actor_member      TenantMember?           @relation(fields: [tenant_id, actor_member_id], references: [tenant_id, id], onDelete: SetNull)
+  created_at        DateTime                @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, vehicle_id, due_month, contacted_at], map: "idx_pickerl_contact_logs_vehicle_due_contacted")
+  @@index([tenant_id, customer_id], map: "idx_pickerl_contact_logs_tenant_customer")
+  @@map("pickerl_contact_logs")
 }
 
 enum VehiclePartyRole {

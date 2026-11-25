@@ -20,6 +20,21 @@ export class PickerlDueListQueryDto {
   @IsIn(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
   status?: PickerlDueStatus;
 
+  @ApiProperty({
+    required: false,
+    enum: ['yes', 'no', 'older_than'],
+  })
+  @IsOptional()
+  @IsIn(['yes', 'no', 'older_than'])
+  contacted?: 'yes' | 'no' | 'older_than';
+
+  @ApiProperty({ required: false, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contactedDays?: number;
+
   @ApiProperty({ required: false, minimum: 1, type: Number })
   @IsOptional()
   @Type(() => Number)
@@ -55,6 +70,21 @@ export class PickerlDueListExportQueryDto {
   @IsOptional()
   @IsIn(['OK', 'DUE_SOON', 'OVERDUE', 'UNKNOWN'])
   status?: PickerlDueStatus;
+
+  @ApiProperty({
+    required: false,
+    enum: ['yes', 'no', 'older_than'],
+  })
+  @IsOptional()
+  @IsIn(['yes', 'no', 'older_than'])
+  contacted?: 'yes' | 'no' | 'older_than';
+
+  @ApiProperty({ required: false, minimum: 1, type: Number })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contactedDays?: number;
 }
 
 export class PickerlDuePaginatedResponseDto {

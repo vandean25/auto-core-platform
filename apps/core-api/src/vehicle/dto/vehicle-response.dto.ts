@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PickerlContactChannel, PickerlContactOutcome } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { LegacyIdDto } from '../../common/dto/legacy-id.dto.js';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
@@ -134,6 +135,26 @@ export class VehicleResponseDto extends DryRunMetaDto {
       'Detail only: open service-due notices, soonest first (read only).',
   })
   open_due_dates?: VehicleOpenDueDateDto[];
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    required: false,
+    nullable: true,
+  })
+  last_contacted_at?: string | null;
+
+  @ApiProperty({ enum: PickerlContactChannel, required: false, nullable: true })
+  last_contact_channel?: PickerlContactChannel | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  last_contact_by?: string | null;
+
+  @ApiProperty({ enum: PickerlContactOutcome, required: false, nullable: true })
+  last_contact_outcome?: PickerlContactOutcome | null;
+
+  @ApiProperty({ type: Boolean, required: false })
+  phone_consent_allowed?: boolean;
 
   @ApiProperty({
     type: Object,

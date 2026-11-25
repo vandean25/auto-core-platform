@@ -387,6 +387,7 @@
     "PARKING_REAR": "Einparkhilfe hinten.",
     "PART_NOT_AVAILABLE": "Teileposition erfordert einen Katalogartikel.",
     "PICKERL_57A_PREP": "Pickerl-§57a-Vorbereitung.",
+    "PICKERL_NO_CONSENT_REASON_REQUIRED": "Für einen Telefonkontakt ohne Telefon-Einwilligung muss ein Grund angegeben werden.",
     "PLAN_STALE": "Die Vorschau ist veraltet oder wurde noch nicht geprüft. Bitte prüfen Sie den Befehl erneut.",
     "PRICE_JUMP_EXCEEDED": "Die Preisänderung überschreitet den erlaubten Schwellenwert. Bitte prüfen Sie den neuen Preis.",
     "PRISMA_P2000": "Ein eingegebener Wert ist zu lang.",

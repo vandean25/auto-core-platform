@@ -22,7 +22,7 @@ import {
 import { createInventoryBulkActions } from './inventory-bulk-actions'
 import { createInventoryLedgerActions } from './inventory-ledger-actions'
 import { createImportJobRowActions } from './import-job-row-actions'
-import { createVehicleRowActions } from './vehicle-row-actions'
+import { createVehiclePickerlContactAction, createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
 import { createWorkshopOrderUndoNotesAction } from './work-order-undo-notes-action'
 import { createTyreSetTyreMeasurementAction } from './tyre-set-row-actions'
@@ -94,6 +94,7 @@ describe('entity action registry helpers', () => {
       ...createWorkshopOrderRowActions(passthroughT as TFunction<'workshop'>),
       createWorkshopOrderUndoNotesAction(passthroughT as TFunction<'workshop'>),
       ...createVehicleRowActions(passthroughT as TFunction<'vehicles'>),
+      createVehiclePickerlContactAction(passthroughT as TFunction<'vehicles'>),
       ...createEstimateRowActions(passthroughT as TFunction<'workshop'>),
       createTyreSetTyreMeasurementAction(passthroughT as TFunction<'workshop'>),
       ...createImportJobRowActions(passthroughT as TFunction<'settings'>),

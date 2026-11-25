@@ -16,9 +16,13 @@ export async function stampProofChainRetainUntil(
     channel: CustomerConsentChannel;
     purposes: CustomerConsentPurpose[];
     cessationAt: Date;
+    countryIso?: string | null;
   },
 ): Promise<void> {
-  const retainUntil = consentProofRetainUntil(params.cessationAt);
+  const retainUntil = consentProofRetainUntil(
+    params.cessationAt,
+    params.countryIso,
+  );
   await tx.customerConsent.updateMany({
     where: {
       tenant_id: params.tenantId,

@@ -28,6 +28,11 @@ export const VEHICLE_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO,
     'site',
   ),
+  'VehiclePickerlDueController.recordPickerlContact': op(
+    'vehicle.update',
+    BACK_OFFICE_DEMO,
+    'tenant',
+  ),
   'VehicleController.findAll': op('vehicle.read', BACK_OFFICE_DEMO, 'tenant'),
   'VehicleController.create': op('vehicle.create', BACK_OFFICE_DEMO, 'tenant'),
   'VehicleController.resolveIdentity': op(

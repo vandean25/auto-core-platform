@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { assertValidCommunicationEventRequest } from './customer-consent-event-validation.js';
+import {
+  assertValidCommunicationEventRequest,
+  marketingGrantProofComplete,
+} from './customer-consent-event-validation.js';
 import {
   anyMarketingPurposeNeedsUnsubscribe,
   buildUnsubscribeIdempotencyKey,
@@ -36,6 +39,7 @@ import {
 } from './customer-consent.controller-context.js';
 import {
   canContact,
+  pickLatestLedgerEvent,
   type LedgerEventSlice,
 } from './customer-consent.permissions.js';
 import {
@@ -50,7 +54,7 @@ import {
 } from './customer-consent-token.helpers.js';
 import type { RecordCommunicationEventDto } from './dto/customer-consent.dto.js';
 
-const PREFERENCE_CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS'];
+const PREFERENCE_CHANNELS: CustomerConsentChannel[] = ['EMAIL', 'SMS', 'PHONE'];
 
 @Injectable()
 export class CustomerConsentService {
@@ -298,6 +302,10 @@ export class CustomerConsentService {
         });
 
         if (isRevocation) {
+          const controller = await tx.legalEntity.findFirst({
+            where: { tenant_id: tenantId, id: controllerId },
+            select: { country_iso: true },
+          });
           await stampProofChainRetainUntil(tx, {
             tenantId,
             controllerLegalEntityId: controllerId,
@@ -305,6 +313,7 @@ export class CustomerConsentService {
             channel: dto.channel,
             purposes: [dto.purpose],
             cessationAt: serverNow,
+            countryIso: controller?.country_iso,
           });
         }
 
@@ -369,7 +378,14 @@ export class CustomerConsentService {
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const token = mintUnsubscribeToken();
-    const retainUntil = consentProofRetainUntil(new Date());
+    const controller = await this.prisma.legalEntity.findFirst({
+      where: { tenant_id: tenantId, id: params.controllerLegalEntityId },
+      select: { country_iso: true },
+    });
+    const retainUntil = consentProofRetainUntil(
+      new Date(),
+      controller?.country_iso,
+    );
     await this.prisma.customerConsentUnsubscribeToken.create({
       data: {
         id: randomUUID(),
@@ -543,6 +559,14 @@ export class CustomerConsentService {
             return;
           }
 
+          const controller = await tx.legalEntity.findFirst({
+            where: {
+              tenant_id: tokenRow.tenant_id,
+              id: tokenRow.controller_legal_entity_id,
+            },
+            select: { country_iso: true },
+          });
+
           await stampProofChainRetainUntil(tx, {
             tenantId: tokenRow.tenant_id,
             controllerLegalEntityId: tokenRow.controller_legal_entity_id,
@@ -550,6 +574,7 @@ export class CustomerConsentService {
             channel: tokenRow.channel,
             purposes: [...MARKETING_CONSENT_PURPOSES],
             cessationAt: now,
+            countryIso: controller?.country_iso,
           });
 
           await tx.customerCommunicationState.update({
@@ -819,4 +844,310 @@ export class CustomerConsentService {
       revoked_at: row.revoked_at?.toISOString() ?? null,
     };
   }
+
+  /**
+   * Batch-checks whether each customer has active PHONE consent for PICKERL_REMINDER or SERVICE_REMINDER
+   * across any active controller legal entity of the tenant.
+   */
+  async loadPhonePickerlConsentByCustomerIds(
+    tenantId: string,
+    customerIds: string[],
+  ): Promise<Map<string, boolean>> {
+    const uniqueIds = [...new Set(customerIds)];
+    const result = new Map<string, boolean>();
+    if (uniqueIds.length === 0) {
+      return result;
+    }
+
+    const activeControllers = await this.prisma.legalEntity.findMany({
+      where: { tenant_id: tenantId, is_active: true },
+      select: { id: true },
+    });
+    const controllerIds = activeControllers.map((c) => c.id);
+    if (controllerIds.length === 0) {
+      for (const customerId of uniqueIds) {
+        result.set(customerId, false);
+      }
+      return result;
+    }
+
+    const [states, consents] = await Promise.all([
+      this.prisma.customerCommunicationState.findMany({
+        where: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: { in: controllerIds },
+          customer_id: { in: uniqueIds },
+        },
+        select: {
+          customer_id: true,
+          controller_legal_entity_id: true,
+          processing_status: true,
+        },
+      }),
+      this.prisma.customerConsent.findMany({
+        where: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: { in: controllerIds },
+          customer_id: { in: uniqueIds },
+          channel: 'PHONE',
+          purpose: { in: ['PICKERL_REMINDER', 'SERVICE_REMINDER'] },
+        },
+        select: {
+          customer_id: true,
+          controller_legal_entity_id: true,
+          purpose: true,
+          channel: true,
+          status: true,
+          sequence: true,
+          basis: true,
+          text_version: true,
+          text_snapshot: true,
+          evidence: true,
+        },
+      }),
+    ]);
+
+    const restrictedByCustomerController = new Set(
+      states
+        .filter((state) => state.processing_status !== 'ACTIVE')
+        .map(
+          (state) => `${state.customer_id}:${state.controller_legal_entity_id}`,
+        ),
+    );
+    const eventsByCustomerController =
+      indexEventsByCustomerAndController(consents);
+
+    for (const customerId of uniqueIds) {
+      const byController = eventsByCustomerController.get(customerId);
+      if (!byController) {
+        result.set(customerId, false);
+        continue;
+      }
+      result.set(
+        customerId,
+        hasActivePhoneConsentOnAnyController(
+          customerId,
+          byController,
+          restrictedByCustomerController,
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Immediately revokes PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER
+   * on each controller legal entity that has a PHONE ledger for the customer.
+   */
+  async revokePhonePickerlConsents(params: {
+    tenantId: string;
+    customerId: string;
+    actorMemberId: string | null;
+    actorUserId?: string | null;
+    tx: Prisma.TransactionClient;
+  }): Promise<void> {
+    const purposes: CustomerConsentPurpose[] = [
+      'PICKERL_REMINDER',
+      'SERVICE_REMINDER',
+    ];
+    const ledgerControllers = await params.tx.customerConsent.findMany({
+      where: {
+        tenant_id: params.tenantId,
+        customer_id: params.customerId,
+        channel: 'PHONE',
+        purpose: { in: purposes },
+      },
+      distinct: ['controller_legal_entity_id'],
+      select: { controller_legal_entity_id: true },
+    });
+
+    for (const {
+      controller_legal_entity_id: controllerId,
+    } of ledgerControllers) {
+      await this.revokePhonePickerlConsentsForController({
+        ...params,
+        controllerId,
+        purposes,
+      });
+    }
+  }
+
+  private async revokePhonePickerlConsentsForController(params: {
+    tenantId: string;
+    customerId: string;
+    controllerId: string;
+    purposes: CustomerConsentPurpose[];
+    actorMemberId: string | null;
+    actorUserId?: string | null;
+    tx: Prisma.TransactionClient;
+  }): Promise<void> {
+    const { tenantId, customerId, controllerId, purposes } = params;
+    await this.ensureCommunicationStateRowInTx(
+      params.tx,
+      tenantId,
+      controllerId,
+      customerId,
+    );
+    const state = await this.lockCommunicationState(
+      params.tx,
+      tenantId,
+      controllerId,
+      customerId,
+    );
+    const controller = await params.tx.legalEntity.findFirst({
+      where: { tenant_id: tenantId, id: controllerId },
+      select: { country_iso: true },
+    });
+    const now = new Date();
+
+    for (const purpose of purposes) {
+      const last = await params.tx.customerConsent.findFirst({
+        where: {
+          tenant_id: tenantId,
+          customer_id: customerId,
+          controller_legal_entity_id: controllerId,
+          channel: 'PHONE',
+          purpose,
+        },
+        orderBy: { sequence: 'desc' },
+        select: { sequence: true, status: true },
+      });
+      if (last?.status === 'REVOKED') {
+        continue;
+      }
+      const sequence = (last?.sequence ?? 0) + 1;
+      const created = await params.tx.customerConsent.create({
+        data: {
+          id: randomUUID(),
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerId,
+          customer_id: customerId,
+          channel: 'PHONE',
+          purpose,
+          status: 'REVOKED',
+          sequence,
+          occurred_at: now,
+          source: 'PROFILE',
+          actor_member_id: params.actorMemberId,
+          revoked_at: now,
+        },
+      });
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'CustomerConsent',
+          entityId: created.id,
+          action: AuditLogAction.CREATE,
+          actorUserId: params.actorUserId ?? null,
+          after: this.toEventSummary(created),
+          source: 'pickerl-contact-dialog.revoke',
+        },
+        params.tx,
+      );
+    }
+
+    await stampProofChainRetainUntil(params.tx, {
+      tenantId,
+      controllerLegalEntityId: controllerId,
+      customerId,
+      channel: 'PHONE',
+      purposes,
+      cessationAt: now,
+      countryIso: controller?.country_iso,
+    });
+
+    await params.tx.customerCommunicationState.update({
+      where: { id: state.id },
+      data: { revision: state.revision + 1 },
+    });
+  }
+
+  private async ensureCommunicationStateRowInTx(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    controllerLegalEntityId: string,
+    customerId: string,
+  ): Promise<void> {
+    await tx.customerCommunicationState.upsert({
+      where: {
+        tenant_id_controller_legal_entity_id_customer_id: {
+          tenant_id: tenantId,
+          controller_legal_entity_id: controllerLegalEntityId,
+          customer_id: customerId,
+        },
+      },
+      create: {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        controller_legal_entity_id: controllerLegalEntityId,
+        customer_id: customerId,
+        revision: 0,
+        processing_status: 'ACTIVE',
+      },
+      update: {},
+    });
+  }
+}
+
+function indexEventsByCustomerAndController(
+  consents: Array<{
+    customer_id: string;
+    controller_legal_entity_id: string;
+    purpose: LedgerEventSlice['purpose'];
+    channel: LedgerEventSlice['channel'];
+    status: LedgerEventSlice['status'];
+    sequence: number;
+    basis: LedgerEventSlice['basis'];
+    text_version: string | null;
+    text_snapshot: string | null;
+    evidence: unknown;
+  }>,
+): Map<string, Map<string, LedgerEventSlice[]>> {
+  const byCustomer = new Map<string, Map<string, LedgerEventSlice[]>>();
+  for (const row of consents) {
+    let byController = byCustomer.get(row.customer_id);
+    if (!byController) {
+      byController = new Map<string, LedgerEventSlice[]>();
+      byCustomer.set(row.customer_id, byController);
+    }
+    const list = byController.get(row.controller_legal_entity_id) ?? [];
+    list.push({
+      purpose: row.purpose,
+      channel: row.channel,
+      status: row.status,
+      sequence: row.sequence,
+      basis: row.basis,
+      text_version: row.text_version,
+      text_snapshot: row.text_snapshot,
+      evidence: row.evidence as LedgerEventSlice['evidence'],
+    });
+    byController.set(row.controller_legal_entity_id, list);
+  }
+  return byCustomer;
+}
+
+function hasActivePhoneConsentOnAnyController(
+  customerId: string,
+  byController: Map<string, LedgerEventSlice[]>,
+  restrictedByCustomerController: Set<string>,
+): boolean {
+  for (const [controllerId, events] of byController.entries()) {
+    if (restrictedByCustomerController.has(`${customerId}:${controllerId}`)) {
+      continue;
+    }
+    const hasGrant = (['PICKERL_REMINDER', 'SERVICE_REMINDER'] as const).some(
+      (purpose) => {
+        const latest = pickLatestLedgerEvent(events, purpose, 'PHONE');
+        return (
+          latest !== null &&
+          latest.status === 'GRANTED' &&
+          marketingGrantProofComplete(latest)
+        );
+      },
+    );
+    if (hasGrant) {
+      return true;
+    }
+  }
+  return false;
 }

@@ -231,6 +231,12 @@
       "eligibilityPredicate": "isVehicleUpdateOptimisticEligible"
     },
     {
+      "operationId": "vehicle.pickerl.contact",
+      "owningHook": "useRecordPickerlContact",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Recording a Pickerl contact log validates phone consent rules, writes an audit entry and may immediately revoke phone consent on the server."
+    },
+    {
       "operationId": "vehicle-stock.patch",
       "owningHook": "usePatchVehicleStock",
       "classification": "conditional",

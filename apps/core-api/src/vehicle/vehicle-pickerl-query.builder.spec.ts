@@ -195,4 +195,29 @@ describe('VehiclePickerlQueryBuilder', () => {
       });
     });
   });
+
+  describe('matchesContactedFilter', () => {
+    const today = new Date('2026-11-24T12:00:00.000Z');
+
+    it.each([
+      ['yes', '2026-11-20T10:00:00.000Z', undefined, true],
+      ['yes', null, undefined, false],
+      ['no', null, undefined, true],
+      ['no', '2026-11-20T10:00:00.000Z', undefined, false],
+      ['older_than', '2026-11-01T10:00:00.000Z', 14, true],
+      ['older_than', '2026-11-20T10:00:00.000Z', 14, false],
+      ['older_than', null, 14, false],
+    ] as const)(
+      'filter=%s with lastContactedAt=%s (days=%s) returns %s',
+      (contacted, lastContactedAt, contactedDays, expected) => {
+        expect(
+          VehiclePickerlQueryBuilder.matchesContactedFilter(
+            lastContactedAt,
+            { contacted, contactedDays },
+            today,
+          ),
+        ).toBe(expected);
+      },
+    );
+  });
 });

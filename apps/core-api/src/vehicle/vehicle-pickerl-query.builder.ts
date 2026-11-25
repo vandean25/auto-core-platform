@@ -68,6 +68,38 @@ export class VehiclePickerlQueryBuilder {
     return compareUtcDates(dueMonthEnd, windowEndDate) <= 0;
   }
 
+  static matchesContactedFilter(
+    lastContactedAt: string | Date | null | undefined,
+    query: VehiclePickerlQuery,
+    today: Date,
+  ): boolean {
+    if (!query.contacted) {
+      return true;
+    }
+    if (query.contacted === 'yes') {
+      return Boolean(lastContactedAt);
+    }
+    if (query.contacted === 'no') {
+      return !lastContactedAt;
+    }
+    if (query.contacted === 'older_than') {
+      if (!lastContactedAt) {
+        return false;
+      }
+      const days =
+        query.contactedDays && query.contactedDays > 0
+          ? query.contactedDays
+          : 14;
+      const cutoffMs = today.getTime() - days * 86_400_000;
+      const contactedMs =
+        lastContactedAt instanceof Date
+          ? lastContactedAt.getTime()
+          : new Date(lastContactedAt).getTime();
+      return contactedMs < cutoffMs;
+    }
+    return true;
+  }
+
   /** Sort: OVERDUE first, then by due_month ascending, then UNKNOWN. */
   static compareRows(
     left: { pickerl_due: VehiclePickerlDueSummary },

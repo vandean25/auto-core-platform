@@ -27,6 +27,7 @@ export const ENTITY_ACTION_IDS = {
   workOrderReschedule: 'workOrder.reschedule',
   workOrderUndoNotes: 'workOrder.undoNotes',
   vehicleOpen: 'vehicle.open',
+  vehiclePickerlContact: 'vehicle.pickerl.contact',
   estimateOpen: 'estimate.open',
   tyreSetRecordTyreMeasurement: 'tyreSet.recordTyreMeasurement',
   importJobResume: 'importJob.resume',

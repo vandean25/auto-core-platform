@@ -387,6 +387,7 @@
     "PARKING_REAR": "Parking rear.",
     "PART_NOT_AVAILABLE": "Part position requires a catalog item",
     "PICKERL_57A_PREP": "Pickerl 57a prep.",
+    "PICKERL_NO_CONSENT_REASON_REQUIRED": "A reason is required when logging a phone contact without active phone consent.",
     "PLAN_STALE": "The plan was not reviewed or has changed since review. Please review it again.",
     "PRICE_JUMP_EXCEEDED": "The price change exceeds the allowed threshold. Check the new price.",
     "PRISMA_P2000": "The provided value is too long for one of the columns.",

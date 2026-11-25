@@ -361,4 +361,30 @@ export class VehiclePersistenceService {
       select: { id: true, order_number: true },
     });
   }
+
+  async findPickerlContactLogs(tenantId: string, vehicleIds: string[]) {
+    if (vehicleIds.length === 0) {
+      return [];
+    }
+    return this.prisma.pickerlContactLog.findMany({
+      where: {
+        tenant_id: tenantId,
+        vehicle_id: { in: vehicleIds },
+      },
+      orderBy: [{ contacted_at: 'desc' }, { created_at: 'desc' }],
+      include: {
+        actor_member: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

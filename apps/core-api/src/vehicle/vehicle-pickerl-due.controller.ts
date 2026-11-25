@@ -1,12 +1,23 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  PickerlContactLogResponseDto,
+  RecordPickerlContactDto,
+} from './dto/pickerl-contact.dto.js';
 import {
   PickerlDueListExportQueryDto,
   PickerlDueListQueryDto,
@@ -55,5 +66,18 @@ export class VehiclePickerlDueController {
   @ApiOkResponse({ type: OpenPickerlOrderDto, nullable: true })
   findOpenPickerlWorkshopOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.vehicleService.findOpenPickerlWorkshopOrder(id);
+  }
+
+  @Post(':id/pickerl-contacts')
+  @ApiOperation({
+    operationId: 'VehicleController_recordPickerlContact',
+    summary: undefined,
+  })
+  @ApiCreatedResponse({ type: PickerlContactLogResponseDto })
+  recordPickerlContact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RecordPickerlContactDto,
+  ) {
+    return this.vehicleService.recordPickerlContact(id, body);
   }
 }
