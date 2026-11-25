@@ -167,9 +167,9 @@ test.describe('Workshop orders — DataTable click-to-sort', () => {
   });
 });
 
-test.describe('Vehicle stock — cursor and offset sorts (AUT-890)', () => {
-  // Scenario 4: Status is a sort the cursor API does not whitelist, so the list falls back to working offset pages.
-  test('WHEN the sort is switched to a non-cursor sort THEN the list uses offset mode and still works', async ({ page }) => {
+test.describe('Vehicle stock — cursor and offset sorts (AUT-890, AUT-958)', () => {
+  // AUT-958: stock_status is now a cursor sort when a draft-free status filter is active; unapproved sorts stay offset.
+  test('WHEN the sort is switched to stock_status THEN cursor mode stays active; non-cursor sorts stay on offset paging', async ({ page }) => {
     const rows = Array.from({ length: 30 }, (_, index) =>
       createMockVehicleStockRow({ id: `stock-${index}`, make: `Marke${String(index).padStart(2, '0')}` }),
     );
@@ -182,17 +182,24 @@ test.describe('Vehicle stock — cursor and offset sorts (AUT-890)', () => {
 
     const statusLabel = DE_VEHICLE_STOCK.stockList.columns.status;
     const statusHeader = page.getByRole('columnheader', { name: new RegExp(`^${statusLabel}`) });
-    const offsetRequest = page.waitForRequest(sortRequest('/api/vehicle-stock', 'stock_status', 'asc'));
+    const statusCursorRequest = page.waitForRequest(sortRequest('/api/vehicle-stock', 'stock_status', 'asc'));
     await page.getByRole('button', { name: statusLabel, exact: true }).click();
+    const statusRequestUrl = new URL((await statusCursorRequest).url());
+    expect(statusRequestUrl.searchParams.get('pagination')).toBe('cursor');
+    expect(statusRequestUrl.searchParams.get('stock_status')).toBe('IN_STOCK');
+    await expect(statusHeader).toHaveAttribute('aria-sort', 'ascending');
+    await expect(page.getByRole('button', { name: DE_COMMON.dataTable.next, exact: true })).toHaveCount(0);
+
+    // An unapproved sortField (e.g. from a saved view or hand-edited URL) falls back to working offset pages.
+    const offsetRequest = page.waitForRequest(sortRequest('/api/vehicle-stock', 'unknown_col', 'asc'));
+    await corePage.navigate('/vehicle-stock?filter_stock_status=IN_STOCK&sortField=unknown_col&sortDirection=asc');
     const request = new URL((await offsetRequest).url());
 
     expect(request.searchParams.get('pagination')).toBeNull();
     expect(request.searchParams.get('cursor')).toBeNull();
     expect(request.searchParams.get('page')).toBe('1');
     expect(request.searchParams.get('stock_status')).toBe('IN_STOCK');
-    await expect(statusHeader).toHaveAttribute('aria-sort', 'ascending');
     await expect(page.getByText('Marke00')).toBeVisible();
-    // Offset mode brings the page controls back and they page through the 30 rows.
     const next = page.getByRole('button', { name: DE_COMMON.dataTable.next, exact: true });
     await expect(next).toBeVisible();
     const secondPage = page.waitForRequest((candidate) => new URL(candidate.url()).searchParams.get('page') === '2');
