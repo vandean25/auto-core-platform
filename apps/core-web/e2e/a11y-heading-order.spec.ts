@@ -139,10 +139,10 @@ test.describe('Heading order on detail pages', () => {
       })
     })
 
-    await page.goto('/settings')
+    await page.goto('/settings/finance')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.tabs.finance })).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 2, name: DE_SETTINGS.finance.fiscal.title, exact: true }),
     ).toBeVisible()
@@ -183,7 +183,7 @@ test.describe('Heading order on detail pages', () => {
     await page.goto('/settings/hours')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.tabs.hours })).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 2, name: DE_SETTINGS.workshopHours.title, exact: true }),
     ).toBeVisible()
@@ -219,7 +219,7 @@ test.describe('Heading order on detail pages', () => {
     await page.goto('/settings/brands')
     await page.waitForLoadState('networkidle')
 
-    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.tabs.brands })).toBeVisible()
     await expect(
       page.getByRole('heading', { level: 2, name: DE_SETTINGS.brands.title, exact: true }),
     ).toBeVisible()

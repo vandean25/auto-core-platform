@@ -108,7 +108,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     )
 
     await new AutoCorePage(page, '').navigate('/settings/margin-rules')
-    await expect(page.getByRole('heading', { name: deSettings.marginRules.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: deSettings.marginRules.title })).toBeVisible()
 
     // Evaluation rule info button is visible
     const infoBtn = page.getByRole('button', { name: deSettings.marginRules.activeRules.infoAria })
@@ -336,11 +336,11 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
     })
 
     await new AutoCorePage(page, '').navigate('/settings/api-keys')
-    await expect(page.getByRole('heading', { name: deSettings.apiKeys.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: deSettings.apiKeys.title })).toBeVisible()
     await expect(page.getByText('Nur-Lese-Schlüssel für Integrationen')).toBeHidden()
 
     await new AutoCorePage(page, '').navigate('/settings/audit-logs')
-    await expect(page.getByRole('heading', { name: deSettings.auditLogs.title })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: deSettings.auditLogs.title })).toBeVisible()
     await expect(page.getByText('Unveränderliches, nur ergänzbares Audit-Protokoll')).toBeHidden()
 
     await expectNoPageScroll(page)
@@ -456,7 +456,7 @@ test.describe('Settings repeated OK-state badges (AUT-952)', () => {
           await expect(wartungRow).toBeVisible()
           await expect(wartungRow.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
         } else {
-          const scope = page.getByRole('tabpanel')
+          const scope = page.locator('main')
           await expect(scope.getByText(rowText).first()).toBeVisible()
           await expect(scope.getByText(okBadgeLabel, { exact: true })).toHaveCount(0)
         }

@@ -27,7 +27,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
                   {item.label}
                 </span>
               ) : (
-                <Link to={item.to} className="transition-colors hover:text-foreground hover:underline">
+                <Link to={item.to} className="transition-colors hover:text-foreground hover:underline max-sm:inline-flex max-sm:min-h-11 max-sm:items-center">
                   {item.label}
                 </Link>
               )}

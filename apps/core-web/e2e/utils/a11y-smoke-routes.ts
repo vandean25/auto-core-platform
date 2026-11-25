@@ -218,19 +218,27 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     },
   },
   {
-    name: 'settings: finance tab',
-    path: A11Y_SMOKE_PATHS_BY_NAME['settings: finance tab'],
+    name: 'settings: overview',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: overview'],
+    mock: async (page) => {
+      await mockShellApis(page);
+    },
+    ready: titleReady(DE_SETTINGS.page.title),
+  },
+  {
+    name: 'settings: finance',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: finance'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/finance/revenue-groups', [
         createMockRevenueGroup({ name: 'Parts Revenue' }),
       ]);
     },
-    ready: titleReady(DE_SETTINGS.page.title),
+    ready: titleReady(DE_SETTINGS.tabs.finance),
   },
   {
-    name: 'settings: brands tab',
-    path: A11Y_SMOKE_PATHS_BY_NAME['settings: brands tab'],
+    name: 'settings: brands',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: brands'],
     mock: async (page) => {
       await mockShellApis(page);
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
@@ -238,23 +246,23 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
       await mockApi(page, '/api/brands', createMockListResponse([createMockBrand({ name: 'Stellantis' })]));
     },
     ready: async (page) => {
-      await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible({
+      await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.tabs.brands })).toBeVisible({
         timeout: 15_000,
       });
     },
   },
   {
-    name: 'settings: storage locations tab',
-    path: A11Y_SMOKE_PATHS_BY_NAME['settings: storage locations tab'],
+    name: 'settings: storage locations',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: storage locations'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(page, '/api/inventory/locations/tree', [createMockStorageLocation({ name: 'Aisle F' })]);
     },
-    ready: titleReady(DE_SETTINGS.page.title),
+    ready: titleReady(DE_SETTINGS.tabs.locations),
   },
   {
-    name: 'settings: labor tab',
-    path: A11Y_SMOKE_PATHS_BY_NAME['settings: labor tab'],
+    name: 'settings: labor',
+    path: A11Y_SMOKE_PATHS_BY_NAME['settings: labor'],
     mock: async (page) => {
       await mockApi(page, '/api/finance/settings', createMockFinanceSettings());
       await mockApi(
@@ -268,7 +276,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
         createMockListResponse([createMockLaborOperation({ description: 'Engine Diagnostics' })]),
       );
     },
-    ready: titleReady(DE_SETTINGS.page.title),
+    ready: titleReady(DE_SETTINGS.tabs.labor),
   },
   {
     name: 'customers list with add customer dialog open',

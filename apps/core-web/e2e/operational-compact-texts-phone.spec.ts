@@ -161,7 +161,7 @@ test.describe('AUT-844: Operational compact texts on phone (375px)', () => {
 
     // Short status line; the header settings button is the single settings action and stays 44px
     await expect(page.getByText(DE_FINANCE.accountingExportReadiness.exportProfileMissing)).toBeVisible()
-    const settingsButton = page.getByRole('button', { name: DE_FINANCE.actions.openSettings })
+    const settingsButton = page.getByRole('link', { name: DE_FINANCE.actions.openSettings })
     await expect(settingsButton).toBeVisible()
     expect((await settingsButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     // Old long text not present
@@ -745,7 +745,7 @@ test.describe('AUT-1033: Remaining page subtitles and helper sentences', () => {
           await captureDocScreenshot(page, 'aut-1033-s3-dashboard-onboarding-de-390.png', { fullPage: true })
         }
 
-        await page.goto('/settings')
+        await page.goto('/settings/finance')
         await page.waitForLoadState('networkidle')
         await expect(page.getByLabel(s.finance.fiscal.lockDate).first()).toBeVisible()
         await expect(page.getByText(s.finance.fiscal.lockDateHint)).toHaveCount(0)

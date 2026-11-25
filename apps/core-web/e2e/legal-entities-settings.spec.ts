@@ -110,7 +110,7 @@ test.describe('Legal entities seller settings', () => {
 
     await corePage.navigate('/settings/legal-entities');
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.legalEntities.title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.legalEntities.title })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Example GmbH' })).toBeVisible();
     await expect(page.getByText(DE_SETTINGS.legalEntities.seller.incomplete)).toBeVisible();
 

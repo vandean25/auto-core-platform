@@ -54,10 +54,10 @@ test.describe("Custom fields (AUT-1043)", () => {
     });
 
     await page.goto("/settings");
-    await expect(page.getByRole("tab", { name: "Finanzen" })).toBeVisible();
-    await page.getByRole("tab", { name: "Team" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("tab", { name: "Datenimport" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Eigene Felder" })).toHaveCount(0);
+    await expect(page.locator('a[href="/settings/finance"]')).toBeVisible();
+    await page.locator('a[href="/settings/team"]').scrollIntoViewIfNeeded();
+    await expect(page.locator('a[href="/settings/data-import"]')).toBeVisible();
+    await expect(page.locator('a[href="/settings/custom-fields"]')).toHaveCount(0);
     await testInfo.attach("custom-fields-flag-off-settings-de", {
       body: await page.screenshot(),
       contentType: "image/png",

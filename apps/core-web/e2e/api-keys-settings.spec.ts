@@ -145,7 +145,7 @@ test.describe("Blueprint: API keys settings", () => {
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
     await corePage.navigate("/settings/api-keys");
 
-    await expect(page.getByRole("heading", { name: DE_SETTINGS.apiKeys.title, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: DE_SETTINGS.apiKeys.title, exact: true })).toBeVisible();
     const seededRow = rowFor(page, "Warehouse BI");
     await expect(seededRow).toBeVisible();
     await expect(seededRow).toContainText("acp_live_3f9a2c1b");

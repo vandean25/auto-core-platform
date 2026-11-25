@@ -287,7 +287,7 @@ test.describe('Blueprint: Workshop Board', () => {
 
     // Empty state card
     await expect(page.getByText(workshopEmptyMechanicsTitle())).toBeVisible()
-    await expect(page.getByRole('button', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') })).toBeVisible()
+    await expect(page.getByRole('link', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') })).toBeVisible()
 
     // Unassigned column still visible alongside the empty state
     await expect(page.getByText(DE_WORKSHOP.board.unassigned)).toBeVisible()
@@ -332,10 +332,10 @@ test.describe('Blueprint: Workshop Board', () => {
 
     await corePage.navigate('/workshop/board')
 
-    await page.getByRole('button', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') }).click()
+    await page.getByRole('link', { name: new RegExp(DE_WORKSHOP.board.emptyResources.goToSettings, 'i') }).click()
 
-    // Should navigate to /settings?tab=employees
-    await expect(page).toHaveURL(/\/settings.*tab=employees/)
+    // Should navigate to /settings/employees
+    await expect(page).toHaveURL(/\/settings\/employees/)
   })
 
   test('Quick assign button calls PATCH /api/workshop/board/assign and moves the card', async ({ page }) => {

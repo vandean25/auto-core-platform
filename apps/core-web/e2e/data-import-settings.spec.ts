@@ -281,7 +281,7 @@ test.describe('Data import settings wizard', () => {
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
     await corePage.navigate('/settings/data-import')
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).first().click()
 
@@ -468,7 +468,7 @@ test.describe('Data import settings wizard', () => {
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title)
     await corePage.navigate('/settings/data-import')
 
-    await expect(page.getByRole('heading', { name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible({
+    await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.dataImport.title, exact: true })).toBeVisible({
       timeout: 15_000,
     })
 
