@@ -7,6 +7,8 @@ import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
 
+const openingHours = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, isClosed: weekday >= 6, openTime: '07:30', closeTime: '17:00' }))
+
 async function mockApi(page: Page) {
   await page.route(/\/api\/margin-rules(\/threshold)?(\?.*)?$/, (route) =>
     route.fulfill(json(route.request().url().includes('threshold') ? { thresholdPercent: 10 } : [])),
@@ -24,6 +26,10 @@ async function mockApi(page: Page) {
     ),
   )
   await page.route(/\/api\/sites\/[^/]+\/memberships/, (route) => route.fulfill(json([])))
+  await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/settings'), (route) =>
+    route.fulfill(json({ timezone: 'Europe/Vienna', slotMinutes: 60, holidayCountryIso: 'AT', holidaySubdivisionCode: null, openingHours })),
+  )
+  await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/holidays'), (route) => route.fulfill(json({ data: [] })))
 }
 
 for (const width of [1280, 375] as const) {
@@ -80,6 +86,7 @@ for (const width of [1280, 375] as const) {
       await expect(breadcrumb).toContainText(deSettings.page.title)
       await expect(breadcrumb).toContainText(deSettings.tabs.hours)
       await expect(page.getByRole('link', { name: deSettings.page.backToOverview })).toHaveAttribute('href', '/settings')
+      await expect(page.getByRole('button', { name: deSettings.workshopHours.saveHours })).toBeVisible()
       await expectNoPageScroll(page)
 
       await testInfo.attach(`settings-subpage-hours-breadcrumb-${width}`, {

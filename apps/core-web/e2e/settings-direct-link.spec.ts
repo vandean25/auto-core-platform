@@ -11,6 +11,8 @@ import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
 
+const openingHours = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ weekday, isClosed: weekday >= 6, openTime: '07:30', closeTime: '17:00' }))
+
 const REDIRECT_TABS = [
   ['locations', deSettings.tabs.locations],
   ['labor', deSettings.tabs.labor],
@@ -26,12 +28,20 @@ for (const width of [375, 1280] as const) {
       test(`?tab=${tab} redirects to /settings/${tab} and never renders tab strip or select`, async ({ page }, testInfo) => {
         await page.route(/\/api\/(margin-rules|audit-logs|locations|api-keys|labor)/, (route) => route.fulfill(json(list)))
         await page.route(/\/api\/sites(\?.*)?$/, (route) => route.fulfill(json([])))
+        await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/settings'), (route) =>
+          route.fulfill(json({ timezone: 'Europe/Vienna', slotMinutes: 60, holidayCountryIso: 'AT', holidaySubdivisionCode: null, openingHours })),
+        )
+        await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/holidays'), (route) => route.fulfill(json({ data: [] })))
         await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
 
         await expect(page).toHaveURL(new RegExp(`/settings/${tab}$`))
         await expect(page.getByRole('heading', { level: 1, name: label })).toBeVisible()
         await expect(page.getByTestId('settings-tab-strip')).toHaveCount(0)
         await expect(page.getByTestId('settings-section-select')).toHaveCount(0)
+
+        if (tab === 'hours') {
+          await expect(page.getByRole('button', { name: deSettings.workshopHours.saveHours })).toBeVisible()
+        }
         await expectNoPageScroll(page)
 
         if (tab === 'hours') {
