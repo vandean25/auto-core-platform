@@ -2,13 +2,33 @@ import { test, expect } from "@playwright/test";
 import { DE_STATUS } from "./helpers/de-enums";
 import { DE_FINANCE } from "./helpers/de-finance";
 import { AutoCorePage } from "./pom/AutoCorePage";
-import { expectNoPageScroll } from "./utils/phone-layout";
+import { expectNoPageScroll, PHONE_WIDTHS } from "./utils/phone-layout";
 import {
   createMockPurchaseOrder,
   createMockVendor,
   createMockInventoryItem,
   createMockListResponse,
 } from "./utils/mock-factories";
+
+test('AUT-1037: mobile purchase-order cards show the number, vendor and status', async ({ page }, testInfo) => {
+  const vendor = createMockVendor({ name: 'Nordteile' });
+  const order = createMockPurchaseOrder({ order_number: 'PO-2026-7049', status: 'PARTIAL', vendor });
+  await page.route(AutoCorePage.apiRouteMatcher('/api/purchase-orders'), (route) =>
+    route.fulfill({ json: createMockListResponse([order]) }),
+  );
+
+  for (const width of PHONE_WIDTHS) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto('/purchase-orders');
+    const card = page.locator('li[data-table-row="true"]').filter({ hasText: order.order_number });
+    const number = card.getByText(order.order_number, { exact: true });
+    await expect(number).toBeInViewport({ ratio: 1 });
+    await expect(card.getByText(vendor.name, { exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(card.getByText(DE_STATUS.PARTIAL, { exact: true })).toBeInViewport({ ratio: 1 });
+    await expectNoPageScroll(page);
+    await testInfo.attach(`purchase-order-status-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
+  }
+});
 
 /**
  * Blueprint: Purchase Order Detail

@@ -11,6 +11,7 @@ import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { i18n } from '@/lib/i18n'
 import InventoryList from '@/pages/InventoryList'
 import { mockInventoryListHooks } from '@/test/inventory-list-hook-mocks'
+import * as languageRuntime from './init-i18n'
 
 vi.mock('@/api/inventory', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/inventory')>()),
@@ -70,12 +71,13 @@ function renderShell() {
   )
 }
 
-async function switchTo(language: 'de' | 'en') {
+function openAccountMenu() {
   fireEvent.keyDown(screen.getByRole('button', { name: 'admin@example.com' }), { key: 'Enter' })
+}
+
+async function switchTo(language: 'de' | 'en') {
   fireEvent.click(await screen.findByTestId(`language-option-${language}`))
   await waitFor(() => expect(i18n.language).toBe(language))
-  // The menu stays open during the switch, and an open menu hides the page from the a11y tree.
-  fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
   await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
 }
 
@@ -99,6 +101,18 @@ describe('UI language switch (AUT-718)', () => {
     expect(within(screen.getByRole('navigation', { name: 'Hauptnavigation' })).getByRole('link', { name: 'Kunden' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Artikel/ })).toBeInTheDocument()
 
+    openAccountMenu()
+    const switchLanguage = vi.spyOn(languageRuntime, 'changeUiLanguage')
+    let rejectSwitch!: (error: Error) => void
+    switchLanguage.mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectSwitch = reject }))
+    const englishOption = await screen.findByTestId('language-option-en')
+    fireEvent.click(englishOption)
+    expect(englishOption).toHaveAttribute('aria-disabled', 'true')
+    rejectSwitch(new Error('Locale bundle unavailable'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('common:language.switchError'))
+    expect(englishOption).not.toHaveAttribute('aria-disabled', 'true')
+    switchLanguage.mockRestore()
+
     await switchTo('en')
 
     await screen.findByRole('heading', { name: 'Inventory' })
@@ -109,6 +123,7 @@ describe('UI language switch (AUT-718)', () => {
     expect(screen.getByRole('button', { name: /Item/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument()
 
+    openAccountMenu()
     await switchTo('de')
 
     await screen.findByRole('heading', { name: 'Lager' })

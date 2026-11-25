@@ -167,6 +167,9 @@ test.describe('Dark mode switch (AUT-659)', () => {
     await open(page)
     await openAccountMenu(page)
     await page.getByTestId('language-option-en').click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.getByRole('menu')).toBeHidden()
+    await openAccountMenu(page)
 
     const light = page.getByTestId('theme-option-light')
     const dark = page.getByTestId('theme-option-dark')

@@ -89,17 +89,20 @@ export default function PurchaseOrderList() {
     const columns: ColumnDef<PurchaseOrder>[] = useMemo(() => [
         {
             accessorKey: 'order_number',
+            meta: { mobile: 'title' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.orderNumber')} />,
             cell: ({ row }) => <OrderNumberCell order={row.original} onDismiss={pending.dismiss} />,
         },
         {
             accessorKey: 'vendor.name',
             id: 'vendor',
+            meta: { mobile: 'subtitle' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.vendor')} />,
             cell: ({ row }) => row.original.vendor?.name,
         },
         {
             accessorKey: 'status',
+            meta: { mobile: 'status' },
             header: ({ column }) => <DataTableColumnHeader column={column} title={t('columns.status')} />,
             cell: ({ row }) => (isDataTablePendingRow(row.original) ? null : <StatusBadge status={row.original.status} />),
         },
