@@ -2,7 +2,8 @@ import type { PublicApiScope } from '../public-api/public-api-scopes.js';
 import type { PermissionId } from './permission-catalogue.js';
 
 /** Tenant member roles of ADR-0013. Recorded as the legacy effective access of an operation. */
-export type LegacyRole = 'OWNER' | 'ADMIN' | 'TECH' | 'SALES' | 'DEMO';
+export type LegacyRole =
+  'OWNER' | 'ADMIN' | 'TECH' | 'SALES' | 'DEMO' | 'ACCOUNTING';
 
 /** Who may call: a signed-in tenant member, a tenant API key (ADR-0026) or an MCP agent acting for a member. */
 export type PrincipalType = 'USER' | 'API_KEY' | 'MCP_AGENT';

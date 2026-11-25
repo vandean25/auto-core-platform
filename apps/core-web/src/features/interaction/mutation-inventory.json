@@ -195,6 +195,30 @@
       "serverConfirmedReason": "Deletion is guarded by the deletion policy (open orders, invoices, vehicles); the server decides and the client cannot predict or safely roll it back."
     },
     {
+      "operationId": "customer.note.create",
+      "owningHook": "useCreateCustomerNote",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Customer notes compute server-side GDPR retention dates and write immutable audit entries with body hashes."
+    },
+    {
+      "operationId": "customer.note.update",
+      "owningHook": "useUpdateCustomerNote",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Updating a customer note recalculates operational retention and writes a server-side audit entry."
+    },
+    {
+      "operationId": "customer.note.pin",
+      "owningHook": "usePinCustomerNote",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Pinning a customer note is audited server-side and reorders the server-confirmed note list."
+    },
+    {
+      "operationId": "customer.note.delete",
+      "owningHook": "useDeleteCustomerNote",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Deleting a customer note performs a server-side tombstone and body-free audit log write."
+    },
+    {
       "operationId": "customer.consent.record-event",
       "owningHook": "useRecordCommunicationEvent",
       "classification": "server-confirmed",

@@ -236,7 +236,37 @@ export const SALES_OPERATIONS: OperationTable = {
     ADMINS,
     'tenant',
   ),
+  'CustomerController.art20Export': op(
+    'customer.gdpr_export',
+    ADMINS,
+    'tenant',
+  ),
   'CustomerController.erase': op('customer.erase', ADMINS, 'tenant'),
+  'CustomerNotesController.list': op(
+    'customer.note.read',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.create': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.update': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.setPinned': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.remove': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
   'CustomerConsentController.getPreferences': op(
     'customer.consent.read',
     BACK_OFFICE,

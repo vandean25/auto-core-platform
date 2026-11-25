@@ -252,6 +252,7 @@
       "consents": "Einwilligungen",
       "vehicleNotices": "Fahrzeughinweise",
       "loanerBookings": "Leihwagen",
+      "notes": "Notiz",
       "audit": "Änderungsprotokoll"
     },
     "types": {
@@ -263,7 +264,34 @@
       "consent": "Einwilligung",
       "vehicle_notice": "Fahrzeughinweis",
       "loaner_booking": "Leihwagen",
+      "customer_note": "Notiz",
       "audit": "Änderungsprotokoll"
     }
+  },
+  "notes": {
+    "title": "Kundennotizen",
+    "loading": "Notizen werden geladen…",
+    "loadFailed": "Notizen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "empty": "Noch keine Notizen vorhanden.",
+    "placeholder": "Notiz erfassen…",
+    "editPlaceholder": "Notiz bearbeiten…",
+    "addAction": "Notiz speichern",
+    "saveAction": "Speichern",
+    "cancelAction": "Abbrechen",
+    "editAction": "Bearbeiten",
+    "deleteAction": "Löschen",
+    "pinAction": "Anheften",
+    "unpinAction": "Lösen",
+    "pinnedBadge": "Angeheftet",
+    "deleteConfirmTitle": "Notiz löschen?",
+    "deleteConfirmDescription": "Die Notiz wird unwiderruflich gelöscht. Im Änderungsprotokoll bleibt kein Notiztext gespeichert.",
+    "legalHint": "Hinweis: Erfassen Sie keine besonderen Kategorien personenbezogener Daten (z. B. Gesundheitsdaten gemäß Art. 9 DSGVO) und keine beleidigenden, abwertenden oder rein privaten Bemerkungen. Der Kunde kann den Wortlaut im Rahmen einer Auskunft einsehen.",
+    "createSuccess": "Notiz gespeichert.",
+    "createFailed": "Notiz konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+    "updateSuccess": "Notiz aktualisiert.",
+    "updateFailed": "Notiz konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
+    "pinFailed": "Anheften konnte nicht geändert werden. Bitte versuchen Sie es erneut.",
+    "deleteSuccess": "Notiz gelöscht.",
+    "deleteFailed": "Notiz konnte nicht gelöscht werden. Bitte versuchen Sie es erneut."
   }
 }

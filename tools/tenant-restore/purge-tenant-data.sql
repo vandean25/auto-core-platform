@@ -127,6 +127,7 @@ VALUES
   ('legacy_documents'),
   ('loaner_vehicles'),
   ('pickerl_contact_logs'),
+  ('customer_notes'),
   ('purchase_invoice_lines'),
   ('sales_orders'),
   ('tyre_sets'),
@@ -476,6 +477,9 @@ VALUES
   ('payments', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('payments', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('payments', 'users', 'recorded_by_user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('customer_notes', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('customer_notes', 'tenant_members', 'tenant_id,author_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('customer_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('pickerl_contact_logs', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('pickerl_contact_logs', 'tenant_members', 'tenant_id,actor_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('pickerl_contact_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1019,6 +1023,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoice_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."pickerl_contact_logs"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."customer_notes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

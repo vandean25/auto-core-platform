@@ -9,6 +9,7 @@ export const CUSTOMER_ACTIVITY_TYPES = [
   'consent',
   'vehicle_notice',
   'loaner_booking',
+  'customer_note',
   'audit',
 ] as const;
 

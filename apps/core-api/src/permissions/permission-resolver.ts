@@ -25,6 +25,7 @@ const LEGACY_ROLES: readonly LegacyRole[] = [
   'TECH',
   'SALES',
   'DEMO',
+  'ACCOUNTING',
 ];
 
 /**

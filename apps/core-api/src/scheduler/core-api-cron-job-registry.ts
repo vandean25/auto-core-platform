@@ -1,6 +1,7 @@
 import type { Type } from '@nestjs/common';
 import { Autoscout24DmsDeactivationRetryService } from '../vehicle/listing-export/autoscout24-dms/autoscout24-dms-deactivation-retry.service.js';
 import { CustomerConsentRetentionService } from '../customer-consent/customer-consent-retention.service.js';
+import { CustomerNoteRetentionService } from '../customer/notes/customer-note-retention.service.js';
 import { DocumentBrandingExtractionRecoveryService } from '../document-branding/document-branding-extraction-recovery.service.js';
 import { DocumentBrandingUploadRecoveryRunner } from '../document-branding/document-branding-upload-recovery.runner.js';
 import { DomainEventConsumerRecoveryService } from '../domain-event-consumer/domain-event-consumer-recovery.service.js';
@@ -25,6 +26,7 @@ import type { CoreApiCronJobRunner } from './core-api-cron-job-runner.js';
 export const CORE_API_CRON_JOB_RUNNER_TYPES = {
   'autoscout24-dms-deactivation-retry': Autoscout24DmsDeactivationRetryService,
   'customer-consent-proof-purge': CustomerConsentRetentionService,
+  'customer-note-retention-purge': CustomerNoteRetentionService,
   'document-branding-extraction-recovery':
     DocumentBrandingExtractionRecoveryService,
   'document-branding-upload-recovery': DocumentBrandingUploadRecoveryRunner,

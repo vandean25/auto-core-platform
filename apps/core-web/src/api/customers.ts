@@ -19,6 +19,7 @@ export const customerKeys = {
     lists: () => [...customerKeys.all, 'list'] as const,
     list: (queryParams?: DataTableQueryParams) => [...customerKeys.lists(), queryParams] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
+    notes: (id: string) => [...customerKeys.detail(id), 'notes'] as const,
     activity: (id: string, types?: readonly string[]) =>
         [...customerKeys.detail(id), 'activity', ...(types && types.length > 0 ? [types.join(',')] : [])] as const,
 }
@@ -214,6 +215,7 @@ export type CustomerActivityType =
     | 'consent'
     | 'vehicle_notice'
     | 'loaner_booking'
+    | 'customer_note'
     | 'audit'
 
 export type CustomerActivityItem = {
@@ -257,6 +259,119 @@ export function useCustomerActivity(customerId: string, types: readonly Customer
                 await throwApiResponseError(response, 'Failed to fetch customer activity')
             }
             return response.json()
+        },
+    })
+}
+
+export type CustomerNote = {
+    id: string
+    customer_id: string
+    body: string
+    pinned: boolean
+    author_member_id: string | null
+    author_role: string | null
+    retention_class: 'OPERATIONAL' | 'CLAIMS_3Y'
+    retain_until: string
+    legal_hold: boolean
+    created_at: string
+    updated_at: string
+}
+
+export function useCustomerNotes(customerId: string, enabled = true) {
+    return useQuery<{ data: CustomerNote[] }>({
+        queryKey: customerKeys.notes(customerId),
+        enabled: !!customerId && enabled,
+        queryFn: async () => {
+            const response = await fetchWithAuth(`/api/customers/${customerId}/notes`)
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to fetch customer notes')
+            }
+            return response.json()
+        },
+    })
+}
+
+export function useCreateCustomerNote(customerId: string) {
+    const queryClient = useQueryClient()
+    return useMutation<CustomerNote, Error, { body: string; pinned?: boolean }>({
+        mutationKey: ['customer', 'note', 'create'],
+        mutationFn: async (payload) => {
+            const response = await fetchWithAuth(`/api/customers/${customerId}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to create customer note')
+            }
+            return response.json()
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: customerKeys.notes(customerId) })
+            void queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) })
+        },
+    })
+}
+
+export function useUpdateCustomerNote(customerId: string) {
+    const queryClient = useQueryClient()
+    return useMutation<CustomerNote, Error, { noteId: string; body: string }>({
+        mutationKey: ['customer', 'note', 'update'],
+        mutationFn: async ({ noteId, body }) => {
+            const response = await fetchWithAuth(`/api/customers/${customerId}/notes/${noteId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body }),
+            })
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to update customer note')
+            }
+            return response.json()
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: customerKeys.notes(customerId) })
+            void queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) })
+        },
+    })
+}
+
+export function usePinCustomerNote(customerId: string) {
+    const queryClient = useQueryClient()
+    return useMutation<CustomerNote, Error, { noteId: string; pinned: boolean }>({
+        mutationKey: ['customer', 'note', 'pin'],
+        mutationFn: async ({ noteId, pinned }) => {
+            const response = await fetchWithAuth(`/api/customers/${customerId}/notes/${noteId}/pin`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pinned }),
+            })
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to pin customer note')
+            }
+            return response.json()
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: customerKeys.notes(customerId) })
+        },
+    })
+}
+
+export function useDeleteCustomerNote(customerId: string) {
+    const queryClient = useQueryClient()
+    return useMutation<{ id: string; deleted: boolean }, Error, { noteId: string }>({
+        mutationKey: ['customer', 'note', 'delete'],
+        mutationFn: async ({ noteId }) => {
+            const response = await fetchWithAuth(`/api/customers/${customerId}/notes/${noteId}`, {
+                method: 'DELETE',
+            })
+            if (!response.ok) {
+                await throwApiResponseError(response, 'Failed to delete customer note')
+            }
+            return response.json()
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: customerKeys.notes(customerId) })
+            void queryClient.invalidateQueries({ queryKey: customerKeys.detail(customerId) })
         },
     })
 }

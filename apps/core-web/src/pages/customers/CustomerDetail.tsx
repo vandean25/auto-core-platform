@@ -12,11 +12,16 @@ import { useTranslation } from 'react-i18next'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { CustomerContactCard } from './CustomerContactCard'
 import { CustomerDetailTabs } from './CustomerDetailTabs'
+import { CustomerNotesCard } from './CustomerNotesCard'
 import { CustomerStartService } from './CustomerStartService'
+import { canReadCustomerNotes } from '@/features/actions/action-role-predicates'
+import { useAuthRole } from '@/features/actions/use-auth-role'
 import { getCustomerDisplayName, type CustomerDetailResponse } from './customer-detail-model'
 
 export default function CustomerDetail() {
   const { t } = useTranslation('customers')
+  const role = useAuthRole()
+  const showNotes = canReadCustomerNotes(role)
   useEffect(() => {
     void ensureNamespaceLoaded('customers')
   }, [])
@@ -76,7 +81,10 @@ export default function CustomerDetail() {
       />
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
-        <CustomerContactCard customer={customer} />
+        <div className='lg:col-span-1 space-y-6'>
+          <CustomerContactCard customer={customer} />
+          {showNotes ? <CustomerNotesCard customerId={customer.id} /> : null}
+        </div>
         <div className='lg:col-span-2'>
           <CustomerDetailTabs customer={customer} />
         </div>

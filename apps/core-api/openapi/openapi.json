@@ -4583,6 +4583,29 @@
         ]
       }
     },
+    "/api/customers/{id}/art20-export": {
+      "get": {
+        "operationId": "CustomerController_art20Export",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customer"
+        ]
+      }
+    },
     "/api/customers/{id}/erase": {
       "post": {
         "operationId": "CustomerController_erase",
@@ -4603,6 +4626,199 @@
         },
         "tags": [
           "Customer"
+        ]
+      }
+    },
+    "/api/customers/{customerId}/notes": {
+      "get": {
+        "operationId": "CustomerNotesController_list",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerNoteListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerNotes"
+        ]
+      },
+      "post": {
+        "operationId": "CustomerNotesController_create",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomerNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerNotes"
+        ]
+      }
+    },
+    "/api/customers/{customerId}/notes/{noteId}": {
+      "patch": {
+        "operationId": "CustomerNotesController_update",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerNotes"
+        ]
+      },
+      "delete": {
+        "operationId": "CustomerNotesController_remove",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CustomerNotes"
+        ]
+      }
+    },
+    "/api/customers/{customerId}/notes/{noteId}/pin": {
+      "patch": {
+        "operationId": "CustomerNotesController_setPinned",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinCustomerNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CustomerNotes"
         ]
       }
     },
@@ -19704,7 +19920,8 @@
           "ADMIN",
           "TECH",
           "SALES",
-          "DEMO"
+          "DEMO",
+          "ACCOUNTING"
         ]
       },
       "AuthSessionMembershipDto": {
@@ -24732,6 +24949,7 @@
               "consent",
               "vehicle_notice",
               "loaner_booking",
+              "customer_note",
               "audit"
             ]
           },
@@ -25311,6 +25529,140 @@
             "type": "boolean"
           }
         }
+      },
+      "CustomerNoteRetentionClass": {
+        "type": "string",
+        "enum": [
+          "OPERATIONAL",
+          "CLAIMS_3Y"
+        ]
+      },
+      "CustomerNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "author_member_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "author_role": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMemberRole"
+              }
+            ]
+          },
+          "retention_class": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerNoteRetentionClass"
+              }
+            ]
+          },
+          "retain_until": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "legal_hold": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "customer_id",
+          "body",
+          "pinned",
+          "retention_class",
+          "retain_until",
+          "legal_hold",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "CustomerNoteListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerNoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateCustomerNoteDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "pinned": {
+            "type": "boolean",
+            "default": false
+          },
+          "retention_class": {
+            "default": "OPERATIONAL",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerNoteRetentionClass"
+              }
+            ]
+          },
+          "legal_hold": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "UpdateCustomerNoteDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "pinned": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PinCustomerNoteDto": {
+        "type": "object",
+        "properties": {
+          "pinned": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pinned"
+        ]
       },
       "CustomFieldEntity": {
         "type": "string",

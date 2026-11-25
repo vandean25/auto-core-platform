@@ -96,6 +96,23 @@ describe('CustomFieldsGdprService', () => {
           { id: 'inv-1', invoice_number: 'RE-2026-001', status: 'FINALIZED' },
         ]),
       },
+      customerNote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'note-1',
+            body: 'Customer prefers afternoon calls',
+            pinned: true,
+            author_role: 'SALES',
+            retention_class: 'OPERATIONAL',
+            retain_until: new Date('2029-11-25T10:00:00.000Z'),
+            legal_hold: false,
+            erasure_restricted: false,
+            created_at: new Date('2026-11-25T10:00:00.000Z'),
+            updated_at: new Date('2026-11-25T10:00:00.000Z'),
+            deleted_at: null,
+          },
+        ]),
+      },
       site: {
         findMany: jest.fn().mockResolvedValue([{ id: 'site-1' }]),
       },
@@ -137,6 +154,18 @@ describe('CustomFieldsGdprService', () => {
     expect(pkg.sales_orders).toHaveLength(1);
     expect(pkg.workshop_orders).toHaveLength(1);
     expect(pkg.invoices).toHaveLength(1);
+    expect(pkg.customer_notes).toHaveLength(1);
+    expect(pkg.customer_notes[0]).toMatchObject({
+      id: 'note-1',
+      body: 'Customer prefers afternoon calls',
+      author_role: 'SALES',
+    });
+
+    const art20 = await service.exportCustomerArt20Package(customerId);
+    expect(art20.art20_subset).toBe(true);
+    expect(art20).not.toHaveProperty('customer_notes');
+    expect(JSON.stringify(art20)).not.toContain('Customer prefers afternoon calls');
+
     expect(prisma.vehicle.findMany).toHaveBeenCalledWith({
       where: {
         tenant_id: tenantId,
@@ -156,6 +185,10 @@ describe('CustomFieldsGdprService', () => {
       },
       vehicle: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      customerNote: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       $transaction: jest.fn().mockImplementation(async (fn) => fn(prisma)),
     };
@@ -194,6 +227,15 @@ describe('CustomFieldsGdprService', () => {
       where: { tenant_id: tenantId, customer_id: customerId },
       data: { custom_fields: {} },
     });
+    expect(prisma.customerNote.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        legal_hold: false,
+        retention_class: 'OPERATIONAL',
+      },
+    });
+    expect(prisma.customerNote.updateMany).toHaveBeenCalled();
     expect(auditService.recordTenantMutation).toHaveBeenCalledWith(
       expect.objectContaining({
         entityType: 'Customer',
@@ -215,6 +257,7 @@ describe('CustomFieldsGdprService', () => {
       salesOrder: { findMany: jest.fn().mockResolvedValue([]) },
       workshopOrder: { findMany: jest.fn().mockResolvedValue([]) },
       invoice: { findMany: jest.fn().mockResolvedValue([]) },
+      customerNote: { findMany: jest.fn().mockResolvedValue([]) },
       site: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const service = new CustomFieldsGdprService(

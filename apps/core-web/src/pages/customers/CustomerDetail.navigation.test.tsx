@@ -28,8 +28,17 @@ vi.mock('@/api/customers', async (importOriginal) => {
       isFetchingNextPage: false,
       fetchNextPage: vi.fn(),
     })),
+    useCustomerNotes: vi.fn(() => ({
+      data: { data: [] },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    })),
   }
 })
+vi.mock('@/features/actions/use-auth-role', () => ({
+  useAuthRole: () => 'ADMIN',
+}))
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),

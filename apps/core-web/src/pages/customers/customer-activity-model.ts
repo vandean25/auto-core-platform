@@ -1,7 +1,7 @@
 import type { CustomerActivityType } from '@/api/customers'
 
 export type ActivityFilterChip = {
-  key: 'orders' | 'invoices' | 'emails' | 'consents' | 'vehicleNotices' | 'loanerBookings' | 'audit'
+  key: 'orders' | 'invoices' | 'emails' | 'consents' | 'vehicleNotices' | 'loanerBookings' | 'notes' | 'audit'
   types: readonly CustomerActivityType[]
 }
 
@@ -12,6 +12,7 @@ export const ACTIVITY_FILTER_CHIPS: readonly ActivityFilterChip[] = [
   { key: 'consents', types: ['consent'] },
   { key: 'vehicleNotices', types: ['vehicle_notice'] },
   { key: 'loanerBookings', types: ['loaner_booking'] },
+  { key: 'notes', types: ['customer_note'] },
   { key: 'audit', types: ['audit'] },
 ] as const
 
