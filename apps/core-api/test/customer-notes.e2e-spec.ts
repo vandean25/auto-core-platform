@@ -51,8 +51,12 @@ describe('Customer notes & GDPR (e2e)', () => {
     const tenantA = await createTestTenant(basePrisma, 'aut1040a');
     const tenantB = await createTestTenant(basePrisma, 'aut1040b');
     tenantAId = tenantA.tenantId;
-    tenantASiteId = tenantA.siteId;
     tenantBId = tenantB.tenantId;
+    const defaultSite = await basePrisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantAId },
+      select: { id: true },
+    });
+    tenantASiteId = defaultSite.id;
 
     ownerTokenA = createTestAuthToken(authService, tenantA, { role: 'OWNER' });
     tokenB = createTestAuthToken(authService, tenantB, { role: 'ADMIN' });
