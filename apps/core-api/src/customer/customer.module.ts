@@ -8,8 +8,6 @@ import { CustomerNoteRetentionService } from './notes/customer-note-retention.se
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
-import { PermissionGuard } from '../permissions/permission.guard.js';
-import { PermissionResolver } from '../permissions/permission-resolver.js';
 
 @Module({
   imports: [PrismaModule, AuditModule, CustomFieldsModule],
@@ -19,8 +17,6 @@ import { PermissionResolver } from '../permissions/permission-resolver.js';
     CustomerActivityService,
     CustomerNotesService,
     CustomerNoteRetentionService,
-    PermissionResolver,
-    PermissionGuard,
   ],
   exports: [
     CustomerService,

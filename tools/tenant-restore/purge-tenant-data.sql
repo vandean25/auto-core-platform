@@ -88,6 +88,7 @@ VALUES
   ('customer_communication_states'),
   ('customer_consent_unsubscribe_tokens'),
   ('customer_contact_points'),
+  ('customer_notes'),
   ('document_brand_extractions'),
   ('domain_events'),
   ('employee_work_schedules'),
@@ -127,7 +128,6 @@ VALUES
   ('legacy_documents'),
   ('loaner_vehicles'),
   ('pickerl_contact_logs'),
-  ('customer_notes'),
   ('purchase_invoice_lines'),
   ('sales_orders'),
   ('tyre_sets'),
@@ -273,6 +273,9 @@ VALUES
   ('customer_consents', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('customer_notes', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('customer_notes', 'tenant_members', 'tenant_id,author_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('customer_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'customers', 'tenant_id,default_bill_to_customer_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('customers', 'labor_price_groups', 'tenant_id,labor_price_group_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -477,9 +480,6 @@ VALUES
   ('payments', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('payments', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('payments', 'users', 'recorded_by_user_id', 'id', 'SET NULL', 'CASCADE'),
-  ('customer_notes', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
-  ('customer_notes', 'tenant_members', 'tenant_id,author_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
-  ('customer_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('pickerl_contact_logs', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('pickerl_contact_logs', 'tenant_members', 'tenant_id,actor_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('pickerl_contact_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -1024,8 +1024,6 @@ DELETE FROM public."purchase_invoice_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."pickerl_contact_logs"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."customer_notes"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legacy_documents"
@@ -1101,6 +1099,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."domain_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_extractions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."customer_notes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customer_contact_points"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
