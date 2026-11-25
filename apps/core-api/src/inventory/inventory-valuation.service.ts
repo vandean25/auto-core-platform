@@ -18,6 +18,7 @@ export interface ValuationBookingInput {
   quantity: Decimal | number | string;
   type: TransactionType;
   costBasis?: Decimal | number | string | null;
+  isReversal?: boolean;
 }
 
 export interface PreparedValuationBatch {
@@ -294,6 +295,7 @@ export class InventoryValuationService {
         type: b.type,
         quantity: b.quantity,
         costBasis: b.costBasis,
+        isReversal: b.isReversal,
       });
 
       stateByKey.set(key, step.state);
@@ -447,6 +449,7 @@ export class InventoryValuationService {
                 quantity: true,
                 type: true,
                 cost_basis: true,
+                reversal_of_transaction_id: true,
                 createdAt: true,
               },
             });
@@ -485,6 +488,7 @@ export class InventoryValuationService {
           type: row.type,
           quantity: row.quantity,
           costBasis: row.cost_basis,
+          isReversal: row.reversal_of_transaction_id !== null,
         });
 
         current.state = step.state;

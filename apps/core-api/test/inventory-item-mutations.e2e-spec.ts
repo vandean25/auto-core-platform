@@ -577,6 +577,56 @@ describe('Inventory item mutations (e2e)', () => {
       expect(originalAfter.note).toBe('Found on shelf B');
       expect(originalAfter.value_source).toBe('AVG');
       expect(originalAfter.created_by_user_id).toBe(adminUserId);
+
+      // Reversing an override whose unit cost differs from the prior average
+      // also restores both average_unit_cost and valued_quantity (4 @ 4.5 -> +2 @ 10.5 -> 6 @ 6.5 -> reverse -> 4 @ 4.5).
+      await request(app.getHttpServer())
+        .post(`/api/inventory/${catalogItemId}/adjust`)
+        .set('Authorization', `Bearer ${authTokenAdmin}`)
+        .send({
+          locationId: binLocationId,
+          quantity: 2,
+          reason: StockAdjustmentReason.INVENTORY_COUNT,
+          unitCost: 10.5,
+          overrideReason: 'Special batch cost',
+        })
+        .expect(204);
+
+      const valuationAfterOverride =
+        await tenantPrisma.inventoryValuation.findFirstOrThrow({
+          where: {
+            tenant_id: tenantId,
+            legal_entity_id: site.legal_entity_id,
+            catalog_item_id: catalogItemId,
+          },
+        });
+      expect(Number(valuationAfterOverride.valued_quantity)).toBe(6);
+      expect(Number(valuationAfterOverride.average_unit_cost)).toBe(6.5);
+
+      const historyWithOverride = await request(app.getHttpServer())
+        .get(`/api/inventory/${catalogItemId}/history`)
+        .set('Authorization', `Bearer ${authTokenAdmin}`)
+        .expect(200);
+      const overrideTx = historyWithOverride.body.find(
+        (tx: { type: string; value_source: string | null }) =>
+          tx.type === 'ADJUSTMENT' && tx.value_source === 'MANUAL',
+      );
+
+      await request(app.getHttpServer())
+        .post(`/api/inventory/transactions/${overrideTx.id}/reverse`)
+        .set('Authorization', `Bearer ${authTokenAdmin}`)
+        .expect(201);
+
+      const valuationAfterOverrideReversal =
+        await tenantPrisma.inventoryValuation.findFirstOrThrow({
+          where: {
+            tenant_id: tenantId,
+            legal_entity_id: site.legal_entity_id,
+            catalog_item_id: catalogItemId,
+          },
+        });
+      expect(Number(valuationAfterOverrideReversal.valued_quantity)).toBe(4);
+      expect(Number(valuationAfterOverrideReversal.average_unit_cost)).toBe(4.5);
     });
 
     it('Scenario 13 & Anti-criteria 2, 5: DB trigger rejects direct UPDATE/DELETE while clean-db purge flag allows cleanup', async () => {

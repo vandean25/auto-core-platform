@@ -159,6 +159,7 @@ export class LedgerService {
         quantity: params.quantity,
         type: params.type,
         costBasis: params.costBasis,
+        isReversal: Boolean(params.reversalOfTransactionId),
       })),
     );
 

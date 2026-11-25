@@ -251,7 +251,7 @@ export function InventoryLedgerCard({
   isLoading,
   error,
 }: InventoryLedgerCardProps) {
-  const { t } = useTranslation('inventory')
+  const { t } = useTranslation(['inventory', 'common'])
   const emDash = t('shared.emDash')
   const [reverseTargetId, setReverseTargetId] = React.useState<string | null>(null)
   const reverseMutation = useReverseInventoryTransaction(itemId ?? '')
@@ -310,8 +310,14 @@ export function InventoryLedgerCard({
             <AlertDialogDescription>{t('ledger.reverseConfirmDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('actions.keepRequest')}</AlertDialogCancel>
-            <AlertDialogAction disabled={reverseMutation.isPending} onClick={() => void handleConfirmReverse()}>
+            <AlertDialogCancel className="max-sm:min-h-11">
+              {t('common:actions.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="max-sm:min-h-11"
+              disabled={reverseMutation.isPending}
+              onClick={() => void handleConfirmReverse()}
+            >
               {t('ledger.reverseAction')}
             </AlertDialogAction>
           </AlertDialogFooter>

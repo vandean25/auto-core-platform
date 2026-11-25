@@ -135,6 +135,7 @@ function AdjustmentValuationSection({
               min="0"
               value={manualUnitCost}
               onChange={(e) => onManualUnitCostChange(e.target.value)}
+              className="max-sm:min-h-11"
               required
             />
           </div>
@@ -147,6 +148,7 @@ function AdjustmentValuationSection({
               name="overrideReason"
               value={overrideReason}
               onChange={(e) => onOverrideReasonChange(e.target.value)}
+              className="max-sm:min-h-11"
               required
             />
           </div>
@@ -381,6 +383,7 @@ export function AdjustInventoryStockDialog({
                 step="0.001"
                 value={quantityText}
                 onChange={(e) => setQuantityText(e.target.value)}
+                className="max-sm:min-h-11"
                 required
               />
               <p className="text-xs text-muted-foreground">
@@ -411,6 +414,7 @@ export function AdjustInventoryStockDialog({
                 name="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+                className="max-sm:min-h-11"
                 required={reason === 'OTHER'}
               />
               {reason === 'OTHER' ? (
