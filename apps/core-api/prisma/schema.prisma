@@ -4411,6 +4411,7 @@ model DomainEvent {
   trace_id           String                        @db.Uuid
   occurrence_key     String
   payload            Json?
+  tx_xid             Unsupported("xid8")           @default(dbgenerated("pg_current_xact_id()"))
   consumerDeliveries DomainEventConsumerDelivery[]
 
   @@unique([tenant_id, occurrence_key])
@@ -4418,6 +4419,24 @@ model DomainEvent {
   @@index([tenant_id, sequence])
   @@index([tenant_id, site_id, sequence])
   @@map("domain_events")
+}
+
+/// Read-only view over `domain_events` filtering `tx_xid < pg_snapshot_xmin(pg_current_snapshot())` (AUT-1052).
+model VisibleDomainEvent {
+  id             String   @id
+  sequence       BigInt
+  event_type     String
+  schema_version Int
+  tenant_id      String
+  site_id        String
+  entity_id      String
+  occurred_at    DateTime
+  trace_id       String   @db.Uuid
+  occurrence_key String
+  payload        Json?
+
+  @@unique([tenant_id, id])
+  @@map("visible_domain_events")
 }
 
 /// Per-tenant consumer cursor and lease (AUT-544). Progress advances only after a delivery row is

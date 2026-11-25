@@ -26,7 +26,10 @@ describe('DomainEventFeedService.listFeed', () => {
 
   it('returns an empty page when the caller has no authorized sites', async () => {
     siteContext.listAuthorizedSiteIds.mockResolvedValueOnce([]);
-    const prisma = { domainEvent: { findMany: jest.fn() } };
+    const prisma = {
+      visibleDomainEvent: { findMany: jest.fn() },
+      domainEvent: { findFirst: jest.fn() },
+    };
     const service = new DomainEventFeedService(
       prisma as never,
       tenantContext as never,
@@ -35,14 +38,14 @@ describe('DomainEventFeedService.listFeed', () => {
 
     const page = await service.listFeed({});
     expect(page).toEqual({ data: [], meta: { next_cursor: null } });
-    expect(prisma.domainEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.visibleDomainEvent.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects a cursor that does not anchor in the tenant', async () => {
     const prisma = {
+      visibleDomainEvent: { findMany: jest.fn() },
       domainEvent: {
         findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn(),
       },
     };
     const service = new DomainEventFeedService(
@@ -58,14 +61,14 @@ describe('DomainEventFeedService.listFeed', () => {
     await expect(service.listFeed({ cursor: foreignCursor })).rejects.toThrow(
       BadRequestException,
     );
-    expect(prisma.domainEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.visibleDomainEvent.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects a cursor anchored on a site the caller cannot access', async () => {
     const prisma = {
+      visibleDomainEvent: { findMany: jest.fn() },
       domainEvent: {
         findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn(),
       },
     };
     const service = new DomainEventFeedService(
@@ -88,7 +91,7 @@ describe('DomainEventFeedService.listFeed', () => {
         }),
       }),
     );
-    expect(prisma.domainEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.visibleDomainEvent.findMany).not.toHaveBeenCalled();
   });
 
   it('pages forward by sequence and returns a resumable cursor', async () => {
@@ -97,9 +100,9 @@ describe('DomainEventFeedService.listFeed', () => {
       makeRow(BigInt(2), '00000000-0000-4000-8000-000000000002'),
     ];
     const prisma = {
+      visibleDomainEvent: { findMany: jest.fn().mockResolvedValue(rows) },
       domainEvent: {
         findFirst: jest.fn(),
-        findMany: jest.fn().mockResolvedValue(rows),
       },
     };
     const service = new DomainEventFeedService(
@@ -123,14 +126,12 @@ describe('DomainEventFeedService.listFeed', () => {
     ];
     const anchor = rows[0];
     const prisma = {
+      visibleDomainEvent: { findMany: jest.fn().mockResolvedValue([rows[1]]) },
       domainEvent: {
         findFirst: jest.fn().mockResolvedValue({
           id: anchor.id,
           sequence: anchor.sequence,
         }),
-        findMany: jest
-          .fn()
-          .mockResolvedValue([rows[1]]),
       },
     };
     const service = new DomainEventFeedService(
@@ -159,9 +160,9 @@ describe('DomainEventFeedService.listFeed', () => {
       { ...makeRow(BigInt(2), '00000000-0000-4000-8000-000000000002'), occurred_at: occurredAt },
     ];
     const prisma = {
+      visibleDomainEvent: { findMany: jest.fn().mockResolvedValue(rows) },
       domainEvent: {
         findFirst: jest.fn(),
-        findMany: jest.fn().mockResolvedValue(rows),
       },
     };
     const service = new DomainEventFeedService(
