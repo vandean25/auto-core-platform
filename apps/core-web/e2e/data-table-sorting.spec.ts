@@ -169,7 +169,7 @@ test.describe('Workshop orders — DataTable click-to-sort', () => {
 
 test.describe('Vehicle stock — cursor and offset sorts (AUT-890, AUT-958)', () => {
   // AUT-958: stock_status is now a cursor sort when a draft-free status filter is active; unapproved sorts stay offset.
-  test('WHEN the sort is switched to stock_status THEN cursor mode stays active; non-cursor sorts stay on offset paging', async ({ page }) => {
+  test('WHEN the sort is switched to stock_status THEN cursor mode stays active; non-cursor sorts stay on offset paging', async ({ page }, testInfo) => {
     const rows = Array.from({ length: 30 }, (_, index) =>
       createMockVehicleStockRow({ id: `stock-${index}`, make: `Marke${String(index).padStart(2, '0')}` }),
     );
@@ -206,6 +206,10 @@ test.describe('Vehicle stock — cursor and offset sorts (AUT-890, AUT-958)', ()
     await next.click();
     await secondPage;
     await expect(page.getByText('Marke10')).toBeVisible();
+    await testInfo.attach('aut958-vehicle-stock-offset-page-two-de', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png',
+    });
 
     // A cursor sort brings the infinite list back.
     const cursorRequest = page.waitForRequest(

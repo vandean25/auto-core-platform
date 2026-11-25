@@ -116,3 +116,83 @@ WHERE v.tenant_id = :'tenant_id'
   AND v.stock_status = 'IN_STOCK'
 ORDER BY v.plate ASC NULLS LAST, v.id ASC
 LIMIT 51;
+
+SELECT v.id AS cursor_id
+FROM vehicles v
+INNER JOIN storage_locations sl
+  ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
+WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
+  AND sl.site_id = :'site_id'
+  AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
+  AND v.stock_status = 'IN_STOCK'
+ORDER BY v.id ASC
+OFFSET 2500
+LIMIT 1
+\gset
+
+\echo '=== Vehicle stock keyset first page (stock_status ASC NULLS LAST, id ASC) — location.site_id join ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT v.id, v.stock_status
+FROM vehicles v
+INNER JOIN storage_locations sl
+  ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
+WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
+  AND sl.site_id = :'site_id'
+  AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
+  AND v.stock_status = 'IN_STOCK'
+ORDER BY v.stock_status ASC NULLS LAST, v.id ASC
+LIMIT 51;
+
+\echo '=== Vehicle stock keyset continuation (stock_status IN after enum value, id tiebreak) — location.site_id join ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT v.id, v.stock_status
+FROM vehicles v
+INNER JOIN storage_locations sl
+  ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
+WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
+  AND sl.site_id = :'site_id'
+  AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
+  AND v.stock_status = 'IN_STOCK'
+  AND (
+    v.stock_status IN ('RESERVED', 'IN_PREP', 'SOLD')
+    OR (v.stock_status = 'IN_STOCK' AND v.id > :'cursor_id')
+    OR v.stock_status IS NULL
+  )
+ORDER BY v.stock_status ASC NULLS LAST, v.id ASC
+LIMIT 51;
+
+\echo '=== Vehicle stock keyset first page (stock_status DESC NULLS LAST, id DESC) — location.site_id join ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT v.id, v.stock_status
+FROM vehicles v
+INNER JOIN storage_locations sl
+  ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
+WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
+  AND sl.site_id = :'site_id'
+  AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
+  AND v.stock_status = 'IN_STOCK'
+ORDER BY v.stock_status DESC NULLS LAST, v.id DESC
+LIMIT 51;
+
+\echo '=== Vehicle stock keyset continuation (stock_status IN before enum value, id tiebreak) — location.site_id join ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT v.id, v.stock_status
+FROM vehicles v
+INNER JOIN storage_locations sl
+  ON sl.id = v.location_id AND sl.tenant_id = v.tenant_id
+WHERE v.tenant_id = :'tenant_id'
+  AND v.site_id = :'site_id'
+  AND sl.site_id = :'site_id'
+  AND v.inventory_role IN ('USED', 'NEW', 'DEMO')
+  AND v.stock_status = 'IN_STOCK'
+  AND (
+    v.stock_status IN ('ON_ORDER')
+    OR (v.stock_status = 'IN_STOCK' AND v.id < :'cursor_id')
+    OR v.stock_status IS NULL
+  )
+ORDER BY v.stock_status DESC NULLS LAST, v.id DESC
+LIMIT 51;
