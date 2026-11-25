@@ -243,6 +243,7 @@ export function buildPickerlDueColumns({
               <Button
                 variant="outline"
                 size="sm"
+                className="max-sm:min-h-11"
                 data-action-id={ENTITY_ACTION_IDS.vehiclePickerlContact}
                 onClick={() => onRecordContact(row.original)}
               >
@@ -251,6 +252,7 @@ export function buildPickerlDueColumns({
               <Button
                 variant="outline"
                 size="sm"
+                className="max-sm:min-h-11"
                 onClick={() => onRecordPickerl(row.original.id)}
               >
                 {t('pickerlDue.recordPickerl')}
@@ -259,6 +261,7 @@ export function buildPickerlDueColumns({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="max-sm:min-h-11"
                   onClick={() => onOpenOrder(row.original.openPickerlOrder!.id)}
                 >
                   {t('pickerlDue.openOrder')}
@@ -267,6 +270,7 @@ export function buildPickerlDueColumns({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="max-sm:min-h-11"
                   onClick={() => onCreateOrder(row.original.id)}
                 >
                   {t('pickerlDue.createOrder')}

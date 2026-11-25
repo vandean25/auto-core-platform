@@ -39,7 +39,10 @@ describe('Pickerl Due (e2e)', () => {
   let basePrisma: PrismaService;
   let tenantId: string;
   let otherTenantId: string;
+  let adminFirebaseUid: string;
+  let adminEmail: string;
   let adminToken: string;
+  let otherTenantToken: string;
   let techToken: string;
 
   beforeAll(async () => {
@@ -48,6 +51,8 @@ describe('Pickerl Due (e2e)', () => {
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'aut-380-fix');
     tenantId = testTenant.tenantId;
+    adminFirebaseUid = testTenant.firebaseUid;
+    adminEmail = testTenant.email;
 
     const authService = app.get(AuthService);
     adminToken = createTestAuthToken(authService, testTenant);
@@ -194,6 +199,7 @@ describe('Pickerl Due (e2e)', () => {
 
     const otherTenant = await createTestTenant(basePrisma, 'pickerl-due-other');
     otherTenantId = otherTenant.tenantId;
+    otherTenantToken = createTestAuthToken(authService, otherTenant);
     const today = new Date();
     const todayYear = today.getUTCFullYear();
     await runWithTenantContext(otherTenantId, async () => {
@@ -344,6 +350,11 @@ describe('Pickerl Due (e2e)', () => {
     let controllerLegalEntityId: string;
 
     beforeAll(async () => {
+      await basePrisma.user.update({
+        where: { firebaseUid: adminFirebaseUid },
+        data: { firstName: 'Max', lastName: 'Berater' },
+      });
+
       await runWithTenantContext(tenantId, async () => {
         const le = await basePrisma.legalEntity.findFirstOrThrow({
           where: { tenant_id: tenantId, is_active: true },
@@ -480,32 +491,15 @@ describe('Pickerl Due (e2e)', () => {
       });
     });
 
-    it('records a phone contact, shows latest on list, writes audit log, and creates no outbox row (Scenarios 1, 2, 7 & Anti-criterion 4)', async () => {
-      const outboxBefore = await runWithTenantContext(tenantId, () =>
-        basePrisma.notificationOutbox.count({
-          where: { tenant_id: tenantId },
-        }),
-      );
-
-      const firstAt = new Date(Date.now() - 3_600_000).toISOString();
+    it('records a phone contact and shows today, PHONE, and member display name on the list (Scenario 1)', async () => {
+      const contactAt = new Date().toISOString();
       await request(app.getHttpServer())
         .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           channel: 'PHONE',
           outcome: 'NO_ANSWER',
-          contacted_at: firstAt,
-        })
-        .expect(201);
-
-      const secondAt = new Date().toISOString();
-      const secondRes = await request(app.getHttpServer())
-        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          channel: 'PHONE',
-          outcome: 'REACHED',
-          contacted_at: secondAt,
+          contacted_at: contactAt,
         })
         .expect(201);
 
@@ -519,23 +513,81 @@ describe('Pickerl Due (e2e)', () => {
       );
       expect(row).toMatchObject({
         last_contact_channel: 'PHONE',
-        last_contact_outcome: 'REACHED',
+        last_contact_by: 'Max Berater',
+        last_contact_outcome: 'NO_ANSWER',
         phone_consent_allowed: true,
       });
-      expect(new Date(row.last_contacted_at).toISOString()).toBe(secondAt);
-      expect(row.last_contact_by).toBeTruthy();
+      expect(new Date(row.last_contacted_at).toISOString()).toBe(contactAt);
+    });
+
+    it('shows the latest contact when two contacts exist for the same due month (Scenario 2)', async () => {
+      const laterAt = new Date(Date.now() + 1_000).toISOString();
+      await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'REACHED',
+          contacted_at: laterAt,
+        })
+        .expect(201);
+
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const row = listRes.body.data.find(
+        (v: { id: string }) => v.id === contactVehicleId,
+      );
+      expect(row).toMatchObject({
+        last_contact_channel: 'PHONE',
+        last_contact_by: 'Max Berater',
+        last_contact_outcome: 'REACHED',
+      });
+      expect(new Date(row.last_contacted_at).toISOString()).toBe(laterAt);
+    });
+
+    it('writes an audit log entry with actor Firebase uid, email, and occurred_at (Scenario 7)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'REACHED',
+        })
+        .expect(201);
 
       const auditEntry = await runWithTenantContext(tenantId, () =>
         basePrisma.auditLog.findFirst({
           where: {
             tenant_id: tenantId,
             entity_type: 'PickerlContactLog',
-            entity_id: secondRes.body.id,
+            entity_id: res.body.id,
           },
         }),
       );
       expect(auditEntry).toBeTruthy();
       expect(auditEntry?.occurred_at).toBeTruthy();
+      expect(auditEntry?.actor_user_id).toBe(adminFirebaseUid);
+      expect(auditEntry?.actor_email).toBe(adminEmail);
+    });
+
+    it('creates no NotificationOutbox row when recording a contact (Anti-criterion 4)', async () => {
+      const outboxBefore = await runWithTenantContext(tenantId, () =>
+        basePrisma.notificationOutbox.count({
+          where: { tenant_id: tenantId },
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          channel: 'PHONE',
+          outcome: 'REACHED',
+        })
+        .expect(201);
 
       const outboxAfter = await runWithTenantContext(tenantId, () =>
         basePrisma.notificationOutbox.count({
@@ -563,7 +615,7 @@ describe('Pickerl Due (e2e)', () => {
       expect(yesIds).not.toContain(uncontactedVehicleId);
     });
 
-    it('does not count earlier contacts when due date advances (Scenario 4 & Anti-criterion 1)', async () => {
+    it('does not count earlier contacts when due date advances (Scenario 4)', async () => {
       const nextYear = new Date().getUTCFullYear() + 1;
       await runWithTenantContext(tenantId, async () => {
         await basePrisma.vehicleInspectionRecord.create({
@@ -578,6 +630,18 @@ describe('Pickerl Due (e2e)', () => {
         });
       });
 
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const row = listRes.body.data.find(
+        (v: { id: string }) => v.id === contactVehicleId,
+      );
+      expect(row).toBeTruthy();
+      expect(row.last_contacted_at).toBeNull();
+    });
+
+    it('includes vehicle in contacted=no when due date moves to a new due month (Anti-criterion 1)', async () => {
       const noRes = await request(app.getHttpServer())
         .get('/api/vehicles/pickerl-due?contacted=no&pageSize=50')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -589,7 +653,7 @@ describe('Pickerl Due (e2e)', () => {
       expect(row.last_contacted_at).toBeNull();
     });
 
-    it('enforces phone consent gate: EMAIL-only has phone_consent_allowed=false, requires reason, writes admin audit for MARKETING_CALL_WITHOUT_CONSENT (Scenarios 6, 6a, 6c & Anti-criterion 3)', async () => {
+    it('marks customer without PHONE consent as phone_consent_allowed=false (Scenario 6)', async () => {
       const listRes = await request(app.getHttpServer())
         .get('/api/vehicles/pickerl-due?pageSize=50')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -598,7 +662,9 @@ describe('Pickerl Due (e2e)', () => {
         (v: { id: string }) => v.id === emailOnlyVehicleId,
       );
       expect(emailOnlyRow.phone_consent_allowed).toBe(false);
+    });
 
+    it('requires no_consent_reason without PHONE consent and writes admin audit for MARKETING_CALL_WITHOUT_CONSENT (Scenario 6a)', async () => {
       await request(app.getHttpServer())
         .post(`/api/vehicles/${emailOnlyVehicleId}/pickerl-contacts`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -625,6 +691,19 @@ describe('Pickerl Due (e2e)', () => {
         }),
       );
       expect(auditEntry?.source).toBe('PICKERL_MARKETING_CALL_WITHOUT_CONSENT');
+      expect(auditEntry?.actor_user_id).toBe(adminFirebaseUid);
+      expect(auditEntry?.actor_email).toBe(adminEmail);
+    });
+
+    it('treats EMAIL-only consent as phone_consent_allowed=false (Scenario 6c & Anti-criterion 3)', async () => {
+      const listRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const emailOnlyRow = listRes.body.data.find(
+        (v: { id: string }) => v.id === emailOnlyVehicleId,
+      );
+      expect(emailOnlyRow.phone_consent_allowed).toBe(false);
     });
 
     it('immediately deactivates PHONE consent when revoke_phone_consent=true (Scenario 6b)', async () => {
@@ -647,23 +726,46 @@ describe('Pickerl Due (e2e)', () => {
         (v: { id: string }) => v.id === uncontactedVehicleId,
       );
       expect(row.phone_consent_allowed).toBe(false);
+
+      const revokeAudit = await runWithTenantContext(tenantId, () =>
+        basePrisma.auditLog.findFirst({
+          where: {
+            tenant_id: tenantId,
+            entity_type: 'CustomerConsent',
+            source: 'pickerl-contact-dialog.revoke',
+          },
+        }),
+      );
+      expect(revokeAudit?.actor_user_id).toBe(adminFirebaseUid);
+      expect(revokeAudit?.actor_email).toBe(adminEmail);
     });
 
-    it('returns 404 when another tenant posts a contact for this vehicle (Scenario 8 & Anti-criterion 2)', async () => {
-      const otherTenant = await createTestTenant(basePrisma, 'aut-1041-other');
-      otherTenantId = otherTenant.tenantId;
-      try {
-        const otherToken = createTestAuthToken(
-          app.get(AuthService),
-          otherTenant,
-        );
-        await request(app.getHttpServer())
-          .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
-          .set('Authorization', `Bearer ${otherToken}`)
-          .send({ channel: 'PHONE', no_consent_reason: 'CUSTOMER_CALLED' })
-          .expect(404);
-      } finally {
-        await cleanupTestTenantGraph(basePrisma, otherTenantId);
+    it('returns 404 when another tenant posts a contact for this vehicle (Scenario 8)', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/vehicles/${contactVehicleId}/pickerl-contacts`)
+        .set('Authorization', `Bearer ${otherTenantToken}`)
+        .send({ channel: 'PHONE', no_consent_reason: 'CUSTOMER_CALLED' })
+        .expect(404);
+    });
+
+    it('does not expose tenant A vehicles or contact logs in tenant B due list (Anti-criterion 2)', async () => {
+      const otherListRes = await request(app.getHttpServer())
+        .get('/api/vehicles/pickerl-due?pageSize=50')
+        .set('Authorization', `Bearer ${otherTenantToken}`)
+        .expect(200);
+
+      const otherIds = otherListRes.body.data.map((v: { id: string }) => v.id);
+      expect(otherIds).not.toContain(contactVehicleId);
+      expect(otherIds).not.toContain(uncontactedVehicleId);
+      expect(otherIds).not.toContain(emailOnlyVehicleId);
+      for (const row of otherListRes.body.data as Array<{
+        plate: string;
+        last_contacted_at: string | null;
+        last_contact_by: string | null;
+      }>) {
+        expect(row.plate).toBe('W-OTHER');
+        expect(row.last_contacted_at).toBeNull();
+        expect(row.last_contact_by).toBeNull();
       }
     });
   });

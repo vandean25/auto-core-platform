@@ -250,6 +250,21 @@ test.describe('Pickerl due list and dashboard widgets', () => {
       contentType: 'image/png',
     })
 
+    // Scenario 1: record a phone contact (without revoking) and verify today's date, "Telefon", and actor name
+    const consentedRow = page.locator('tr', { hasText: 'W-CALL-1' })
+    await consentedRow.getByRole('button', { name: 'Kontakt erfassen' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(
+      consentedRow.getByText(/^\d{2}\.\d{2}\.\d{4} · Telefon · Max Berater$/),
+    ).toBeVisible()
+    await expect(consentedRow.getByText(/20\.11\.2026/)).toHaveCount(0)
+    await testInfo.attach('pickerl-due-contact-recorded-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
     // Scenario 6a: open dialog on row without consent, choose MARKETING_CALL_WITHOUT_CONSENT
     const emailRow = page.locator('tr', { hasText: 'W-EMAIL-1' })
     await emailRow.getByRole('button', { name: 'Kontakt erfassen' }).click()
@@ -264,7 +279,6 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.getByRole('button', { name: 'Abbrechen' }).click()
 
     // Scenario 6b: revoke consent on consented row
-    const consentedRow = page.locator('tr', { hasText: 'W-CALL-1' })
     await consentedRow.getByRole('button', { name: 'Kontakt erfassen' }).click()
     await page.getByLabel('Kunde widerruft Einwilligung').click()
     await page.getByRole('button', { name: 'Speichern' }).click()
@@ -289,11 +303,15 @@ test.describe('Pickerl due list and dashboard widgets', () => {
       contentType: 'image/png',
     })
 
-    // Mobile 375px: secondary line + ⋯ sheet action with >=44px tap target
+    // Mobile 375px: secondary line + card button >=44px + ⋯ sheet action with >=44px tap target
     await page.setViewportSize({ width: 375, height: 812 })
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
     await expect(page.getByText(/Telefon · Max Berater/).first()).toBeVisible()
+    const cardContactBtn = page.getByRole('button', { name: 'Kontakt erfassen' }).first()
+    await expect(cardContactBtn).toBeVisible()
+    const cardBtnBox = await cardContactBtn.boundingBox()
+    expect(cardBtnBox?.height ?? 0).toBeGreaterThanOrEqual(44)
     const moreBtn = page.getByRole('button', { name: /Aktionen für/i }).first()
     await moreBtn.click()
     const contactMenuItem = page.getByRole('menuitem', { name: 'Kontakt erfassen' })

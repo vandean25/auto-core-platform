@@ -846,7 +846,8 @@ export class CustomerConsentService {
   }
 
   /**
-   * Batch-checks whether each customer has active PHONE consent for PICKERL_REMINDER or SERVICE_REMINDER.
+   * Batch-checks whether each customer has active PHONE consent for PICKERL_REMINDER or SERVICE_REMINDER
+   * across any active controller legal entity of the tenant.
    */
   async loadPhonePickerlConsentByCustomerIds(
     tenantId: string,
@@ -858,30 +859,42 @@ export class CustomerConsentService {
       return result;
     }
 
-    const controllerId = await resolveControllerLegalEntityId(
-      this.prisma,
-      tenantId,
-    );
+    const activeControllers = await this.prisma.legalEntity.findMany({
+      where: { tenant_id: tenantId, is_active: true },
+      select: { id: true },
+    });
+    const controllerIds = activeControllers.map((c) => c.id);
+    if (controllerIds.length === 0) {
+      for (const customerId of uniqueIds) {
+        result.set(customerId, false);
+      }
+      return result;
+    }
 
     const [states, consents] = await Promise.all([
       this.prisma.customerCommunicationState.findMany({
         where: {
           tenant_id: tenantId,
-          controller_legal_entity_id: controllerId,
+          controller_legal_entity_id: { in: controllerIds },
           customer_id: { in: uniqueIds },
         },
-        select: { customer_id: true, processing_status: true },
+        select: {
+          customer_id: true,
+          controller_legal_entity_id: true,
+          processing_status: true,
+        },
       }),
       this.prisma.customerConsent.findMany({
         where: {
           tenant_id: tenantId,
-          controller_legal_entity_id: controllerId,
+          controller_legal_entity_id: { in: controllerIds },
           customer_id: { in: uniqueIds },
           channel: 'PHONE',
           purpose: { in: ['PICKERL_REMINDER', 'SERVICE_REMINDER'] },
         },
         select: {
           customer_id: true,
+          controller_legal_entity_id: true,
           purpose: true,
           channel: true,
           status: true,
@@ -894,89 +907,105 @@ export class CustomerConsentService {
       }),
     ]);
 
-    const restrictedCustomers = new Set(
+    const restrictedByCustomerController = new Set(
       states
         .filter((state) => state.processing_status !== 'ACTIVE')
-        .map((state) => state.customer_id),
+        .map(
+          (state) => `${state.customer_id}:${state.controller_legal_entity_id}`,
+        ),
     );
-    const eventsByCustomer = new Map<string, LedgerEventSlice[]>();
-    for (const row of consents) {
-      const list = eventsByCustomer.get(row.customer_id) ?? [];
-      list.push({
-        purpose: row.purpose,
-        channel: row.channel,
-        status: row.status,
-        sequence: row.sequence,
-        basis: row.basis,
-        text_version: row.text_version,
-        text_snapshot: row.text_snapshot,
-        evidence: row.evidence as LedgerEventSlice['evidence'],
-      });
-      eventsByCustomer.set(row.customer_id, list);
-    }
+    const eventsByCustomerController =
+      indexEventsByCustomerAndController(consents);
 
     for (const customerId of uniqueIds) {
-      if (restrictedCustomers.has(customerId)) {
+      const byController = eventsByCustomerController.get(customerId);
+      if (!byController) {
         result.set(customerId, false);
         continue;
       }
-      const events = eventsByCustomer.get(customerId) ?? [];
-      const hasGrantedPhoneConsent = (
-        ['PICKERL_REMINDER', 'SERVICE_REMINDER'] as const
-      ).some((purpose) => {
-        const latest = pickLatestLedgerEvent(events, purpose, 'PHONE');
-        return (
-          latest !== null &&
-          latest.status === 'GRANTED' &&
-          marketingGrantProofComplete(latest)
-        );
-      });
-      result.set(customerId, hasGrantedPhoneConsent);
+      result.set(
+        customerId,
+        hasActivePhoneConsentOnAnyController(
+          customerId,
+          byController,
+          restrictedByCustomerController,
+        ),
+      );
     }
 
     return result;
   }
 
   /**
-   * Immediately revokes PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER for a customer.
+   * Immediately revokes PHONE consents for PICKERL_REMINDER and SERVICE_REMINDER
+   * on each controller legal entity that has a PHONE ledger for the customer.
    */
   async revokePhonePickerlConsents(params: {
     tenantId: string;
     customerId: string;
     actorMemberId: string | null;
+    actorUserId?: string | null;
     tx: Prisma.TransactionClient;
   }): Promise<void> {
-    const controllerId = await resolveControllerLegalEntityId(
-      params.tx as unknown as PrismaService,
-      params.tenantId,
-    );
-    await this.ensureCommunicationStateRowInTx(
-      params.tx,
-      params.tenantId,
-      controllerId,
-      params.customerId,
-    );
-    const state = await this.lockCommunicationState(
-      params.tx,
-      params.tenantId,
-      controllerId,
-      params.customerId,
-    );
-    const controller = await params.tx.legalEntity.findFirst({
-      where: { tenant_id: params.tenantId, id: controllerId },
-      select: { country_iso: true },
-    });
-    const now = new Date();
     const purposes: CustomerConsentPurpose[] = [
       'PICKERL_REMINDER',
       'SERVICE_REMINDER',
     ];
+    const ledgerControllers = await params.tx.customerConsent.findMany({
+      where: {
+        tenant_id: params.tenantId,
+        customer_id: params.customerId,
+        channel: 'PHONE',
+        purpose: { in: purposes },
+      },
+      distinct: ['controller_legal_entity_id'],
+      select: { controller_legal_entity_id: true },
+    });
+
+    for (const {
+      controller_legal_entity_id: controllerId,
+    } of ledgerControllers) {
+      await this.revokePhonePickerlConsentsForController({
+        ...params,
+        controllerId,
+        purposes,
+      });
+    }
+  }
+
+  private async revokePhonePickerlConsentsForController(params: {
+    tenantId: string;
+    customerId: string;
+    controllerId: string;
+    purposes: CustomerConsentPurpose[];
+    actorMemberId: string | null;
+    actorUserId?: string | null;
+    tx: Prisma.TransactionClient;
+  }): Promise<void> {
+    const { tenantId, customerId, controllerId, purposes } = params;
+    await this.ensureCommunicationStateRowInTx(
+      params.tx,
+      tenantId,
+      controllerId,
+      customerId,
+    );
+    const state = await this.lockCommunicationState(
+      params.tx,
+      tenantId,
+      controllerId,
+      customerId,
+    );
+    const controller = await params.tx.legalEntity.findFirst({
+      where: { tenant_id: tenantId, id: controllerId },
+      select: { country_iso: true },
+    });
+    const now = new Date();
 
     for (const purpose of purposes) {
       const last = await params.tx.customerConsent.findFirst({
         where: {
-          tenant_id: params.tenantId,
-          customer_id: params.customerId,
+          tenant_id: tenantId,
+          customer_id: customerId,
           controller_legal_entity_id: controllerId,
           channel: 'PHONE',
           purpose,
@@ -991,9 +1020,9 @@ export class CustomerConsentService {
       const created = await params.tx.customerConsent.create({
         data: {
           id: randomUUID(),
-          tenant_id: params.tenantId,
+          tenant_id: tenantId,
           controller_legal_entity_id: controllerId,
-          customer_id: params.customerId,
+          customer_id: customerId,
           channel: 'PHONE',
           purpose,
           status: 'REVOKED',
@@ -1009,6 +1038,7 @@ export class CustomerConsentService {
           entityType: 'CustomerConsent',
           entityId: created.id,
           action: AuditLogAction.CREATE,
+          actorUserId: params.actorUserId ?? null,
           after: this.toEventSummary(created),
           source: 'pickerl-contact-dialog.revoke',
         },
@@ -1017,9 +1047,9 @@ export class CustomerConsentService {
     }
 
     await stampProofChainRetainUntil(params.tx, {
-      tenantId: params.tenantId,
+      tenantId,
       controllerLegalEntityId: controllerId,
-      customerId: params.customerId,
+      customerId,
       channel: 'PHONE',
       purposes,
       cessationAt: now,
@@ -1057,4 +1087,67 @@ export class CustomerConsentService {
       update: {},
     });
   }
+}
+
+function indexEventsByCustomerAndController(
+  consents: Array<{
+    customer_id: string;
+    controller_legal_entity_id: string;
+    purpose: LedgerEventSlice['purpose'];
+    channel: LedgerEventSlice['channel'];
+    status: LedgerEventSlice['status'];
+    sequence: number;
+    basis: LedgerEventSlice['basis'];
+    text_version: string | null;
+    text_snapshot: string | null;
+    evidence: unknown;
+  }>,
+): Map<string, Map<string, LedgerEventSlice[]>> {
+  const byCustomer = new Map<string, Map<string, LedgerEventSlice[]>>();
+  for (const row of consents) {
+    let byController = byCustomer.get(row.customer_id);
+    if (!byController) {
+      byController = new Map<string, LedgerEventSlice[]>();
+      byCustomer.set(row.customer_id, byController);
+    }
+    const list = byController.get(row.controller_legal_entity_id) ?? [];
+    list.push({
+      purpose: row.purpose,
+      channel: row.channel,
+      status: row.status,
+      sequence: row.sequence,
+      basis: row.basis,
+      text_version: row.text_version,
+      text_snapshot: row.text_snapshot,
+      evidence: row.evidence as LedgerEventSlice['evidence'],
+    });
+    byController.set(row.controller_legal_entity_id, list);
+  }
+  return byCustomer;
+}
+
+function hasActivePhoneConsentOnAnyController(
+  customerId: string,
+  byController: Map<string, LedgerEventSlice[]>,
+  restrictedByCustomerController: Set<string>,
+): boolean {
+  for (const [controllerId, events] of byController.entries()) {
+    if (restrictedByCustomerController.has(`${customerId}:${controllerId}`)) {
+      continue;
+    }
+    const hasGrant = (['PICKERL_REMINDER', 'SERVICE_REMINDER'] as const).some(
+      (purpose) => {
+        const latest = pickLatestLedgerEvent(events, purpose, 'PHONE');
+        return (
+          latest !== null &&
+          latest.status === 'GRANTED' &&
+          marketingGrantProofComplete(latest)
+        );
+      },
+    );
+    if (hasGrant) {
+      return true;
+    }
+  }
+  return false;
 }

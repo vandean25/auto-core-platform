@@ -41,9 +41,16 @@ export function PickerlContactCell({
   const channelLabel = t(`pickerlDue.contactDialog.channels.${channel}`)
   const dateLabel = formatDate(contactedAt)
   return (
-    <div className={cn('flex items-center gap-1.5 text-sm', dimmed && 'text-muted-foreground opacity-60')}>
-      <ChannelIcon channel={channel} />
-      <span>
+    <div
+      className={cn(
+        'flex items-start gap-1.5 text-sm max-sm:whitespace-normal',
+        dimmed && 'text-muted-foreground opacity-60',
+      )}
+    >
+      <span className="mt-0.5 shrink-0">
+        <ChannelIcon channel={channel} />
+      </span>
+      <span className="min-w-0 break-words">
         {dateLabel} · {channelLabel}
         {actorName ? ` · ${actorName}` : ''}
       </span>

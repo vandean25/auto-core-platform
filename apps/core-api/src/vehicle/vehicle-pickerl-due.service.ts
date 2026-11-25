@@ -228,6 +228,7 @@ export class VehiclePickerlDueService {
           tenantId: scope.tenantId,
           customerId: vehicle.customer_id,
           actorMemberId: actorMember?.id ?? null,
+          actorUserId: scope.userId ?? null,
           tx,
         });
       }
@@ -237,7 +238,7 @@ export class VehiclePickerlDueService {
           entityType: 'PickerlContactLog',
           entityId: row.id,
           action: AuditLogAction.CREATE,
-          actorUserId: actorMember?.user?.id ?? null,
+          actorUserId: scope.userId ?? null,
           source: resolveContactAuditSource(dto.no_consent_reason),
           after: buildContactAuditAfter({
             vehicleId,
