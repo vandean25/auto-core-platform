@@ -18,10 +18,6 @@ export const ENTITY_ACTION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$/
 export const ENTITY_ACTION_IDS = {
   customerOpen: 'customer.open',
   customerDelete: 'customer.delete',
-  customerNoteCreate: 'customerNote.create',
-  customerNoteEdit: 'customerNote.edit',
-  customerNotePin: 'customerNote.pin',
-  customerNoteDelete: 'customerNote.delete',
   workOrderOpen: 'workOrder.open',
   workOrderCheckIn: 'workOrder.checkIn',
   workOrderJobCardPdf: 'workOrder.jobCardPdf',

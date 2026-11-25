@@ -25,7 +25,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { canManageCustomerNotes } from '@/features/actions/action-role-predicates'
-import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 import { useAuthRole } from '@/features/actions/use-auth-role'
 import { formatDateTime } from '@/lib/format'
 import { formatTenantMemberRole } from '@/lib/i18n'
@@ -83,7 +82,6 @@ function NoteCreateForm({
           type='submit'
           size='sm'
           className='max-sm:min-h-11'
-          data-action-id={ENTITY_ACTION_IDS.customerNoteCreate}
           disabled={createNote.isPending || !draftBody.trim()}
         >
           {createNote.isPending ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
@@ -126,7 +124,6 @@ function CustomerNoteEditForm({
           variant='outline'
           size='sm'
           className='max-sm:min-h-11'
-          data-action-id={ENTITY_ACTION_IDS.customerNoteEdit}
           onClick={onCancel}
         >
           {t('notes.cancelAction')}
@@ -135,7 +132,6 @@ function CustomerNoteEditForm({
           type='button'
           size='sm'
           className='max-sm:min-h-11'
-          data-action-id={ENTITY_ACTION_IDS.customerNoteEdit}
           disabled={isSaving || !editBody.trim()}
           onClick={() => void onSave(editBody.trim())}
         >
@@ -166,7 +162,6 @@ function CustomerNoteActions({
         variant='ghost'
         size='icon'
         className='h-8 w-8 max-sm:min-h-11 max-sm:min-w-11'
-        data-action-id={ENTITY_ACTION_IDS.customerNotePin}
         aria-label={note.pinned ? t('notes.unpinAction') : t('notes.pinAction')}
         onClick={() => onTogglePin(note)}
       >
@@ -177,7 +172,6 @@ function CustomerNoteActions({
         variant='ghost'
         size='icon'
         className='h-8 w-8 max-sm:min-h-11 max-sm:min-w-11'
-        data-action-id={ENTITY_ACTION_IDS.customerNoteEdit}
         aria-label={t('notes.editAction')}
         onClick={onEdit}
       >
@@ -188,7 +182,6 @@ function CustomerNoteActions({
         variant='ghost'
         size='icon'
         className='h-8 w-8 max-sm:min-h-11 max-sm:min-w-11 text-destructive hover:text-destructive'
-        data-action-id={ENTITY_ACTION_IDS.customerNoteDelete}
         aria-label={t('notes.deleteAction')}
         onClick={() => onDelete(note)}
       >
@@ -322,7 +315,7 @@ export function CustomerNotesCard({ customerId }: { customerId: string }) {
         {canManage ? <NoteCreateForm customerId={customerId} /> : null}
 
         {isLoading ? (
-          <div className='space-y-2' aria-label={t('notes.loading')}>
+          <div role='status' className='space-y-2' aria-label={t('notes.loading')}>
             <Skeleton className='h-14 w-full' />
             <Skeleton className='h-14 w-full' />
           </div>
@@ -332,7 +325,6 @@ export function CustomerNotesCard({ customerId }: { customerId: string }) {
             <Button
               variant='outline'
               size='sm'
-              data-action-id={ENTITY_ACTION_IDS.customerOpen}
               onClick={() => refetch()}
             >
               {t('activity.retry')}

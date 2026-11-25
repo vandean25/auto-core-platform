@@ -658,6 +658,7 @@ test.describe('Customer Notes (AUT-1040)', () => {
   });
 
   test('Scenario 9: ACCOUNTING role hides notes card and Notiz filter chip', async ({ page }, testInfo) => {
+    await page.addInitScript(() => window.localStorage.setItem('e2e-active-role', 'ACCOUNTING'));
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
       route.fulfill({
         status: 200,
