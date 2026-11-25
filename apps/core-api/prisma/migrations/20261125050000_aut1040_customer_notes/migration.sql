@@ -33,7 +33,7 @@ ALTER TABLE "customer_notes" ADD CONSTRAINT "customer_notes_tenant_id_fkey"
   FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "customer_notes" ADD CONSTRAINT "customer_notes_tenant_id_customer_id_fkey"
-  FOREIGN KEY ("tenant_id", "customer_id") REFERENCES "customers"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE;
+  FOREIGN KEY ("tenant_id", "customer_id") REFERENCES "customers"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "customer_notes" ADD CONSTRAINT "customer_notes_tenant_id_author_member_id_fkey"
   FOREIGN KEY ("tenant_id", "author_member_id") REFERENCES "tenant_members"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;

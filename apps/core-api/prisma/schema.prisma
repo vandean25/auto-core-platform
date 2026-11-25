@@ -1967,7 +1967,7 @@ model CustomerNote {
   tenant_id          String
   tenant             Tenant                     @relation(fields: [tenant_id], references: [id])
   customer_id        String
-  customer           Customer                   @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Cascade)
+  customer           Customer                   @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
   body               String?
   pinned             Boolean                    @default(false)
   author_member_id   String?

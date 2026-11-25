@@ -54,7 +54,6 @@ export class CustomerNoteRetentionService {
     const candidates = await this.prisma.customerNote.findMany({
       where: {
         tenant_id: tenantId,
-        legal_hold: false,
         retain_until: { lt: now },
       },
       select: {
@@ -131,7 +130,6 @@ export class CustomerNoteRetentionService {
       where: {
         tenant_id: tenantId,
         id: { in: toDeleteIds },
-        legal_hold: false,
       },
     });
     if (result.count > 0) {

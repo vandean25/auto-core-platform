@@ -7,24 +7,24 @@ import {
 
 describe('customer-note-retention.helpers', () => {
   describe('computeCustomerNoteRetainUntil', () => {
-    it('adds 3 UTC years from now when OPERATIONAL and no later activity exists', () => {
+    it('adds 3 UTC years from lastCustomerActivityAt when OPERATIONAL and activity exists', () => {
       const now = new Date('2026-11-25T10:00:00.000Z');
       const result = computeCustomerNoteRetainUntil({
         retentionClass: CustomerNoteRetentionClass.OPERATIONAL,
         now,
         lastCustomerActivityAt: new Date('2026-06-01T08:00:00.000Z'),
       });
-      expect(result.toISOString()).toBe('2029-11-25T10:00:00.000Z');
+      expect(result.toISOString()).toBe('2029-06-01T08:00:00.000Z');
     });
 
-    it('uses 3 years after lastCustomerActivityAt when later than now for OPERATIONAL', () => {
+    it('falls back to 3 UTC years from now when OPERATIONAL and no customer activity exists', () => {
       const now = new Date('2026-11-25T10:00:00.000Z');
       const result = computeCustomerNoteRetainUntil({
         retentionClass: CustomerNoteRetentionClass.OPERATIONAL,
         now,
-        lastCustomerActivityAt: new Date('2027-01-15T12:00:00.000Z'),
+        lastCustomerActivityAt: null,
       });
-      expect(result.toISOString()).toBe('2030-01-15T12:00:00.000Z');
+      expect(result.toISOString()).toBe('2029-11-25T10:00:00.000Z');
     });
 
     it('computes 3 years from end of year of order close for CLAIMS_3Y', () => {

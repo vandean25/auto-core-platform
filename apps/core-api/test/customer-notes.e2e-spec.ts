@@ -337,7 +337,7 @@ describe('Customer notes & GDPR (e2e)', () => {
     ).toBe(true);
   });
 
-  it('Scenario 6: retention job deletes expired stand-alone notes, refreshes notes with recent activity, and preserves legal_hold notes', async () => {
+  it('Scenario 6: retention job deletes expired operational and legal_hold/CLAIMS_3Y notes, refreshes active-customer operational notes, and retained notes block customer delete', async () => {
     const expiredNote = await prismaA.customerNote.create({
       data: {
         tenant_id: tenantAId,
@@ -346,16 +346,6 @@ describe('Customer notes & GDPR (e2e)', () => {
         retention_class: CustomerNoteRetentionClass.OPERATIONAL,
         retain_until: new Date(Date.now() - 86_400_000),
         legal_hold: false,
-      },
-    });
-    const heldNote = await prismaA.customerNote.create({
-      data: {
-        tenant_id: tenantAId,
-        customer_id: customerAId,
-        body: 'Legal hold note',
-        retention_class: CustomerNoteRetentionClass.OPERATIONAL,
-        retain_until: new Date(Date.now() - 86_400_000),
-        legal_hold: true,
       },
     });
 
@@ -369,7 +359,7 @@ describe('Customer notes & GDPR (e2e)', () => {
     expect(refreshed).not.toBeNull();
     expect(refreshed!.retain_until.getUTCFullYear()).toBe(2029);
 
-    // A customer without recent activity has expired operational notes purged
+    // A customer without recent activity has expired operational AND expired legal_hold/CLAIMS_3Y notes purged
     const inactiveCustomer = await prismaA.customer.create({
       data: {
         tenant_id: tenantAId,
@@ -388,16 +378,57 @@ describe('Customer notes & GDPR (e2e)', () => {
         legal_hold: false,
       },
     });
+    const expiredClaimsNote = await prismaA.customerNote.create({
+      data: {
+        tenant_id: tenantAId,
+        customer_id: inactiveCustomer.id,
+        body: 'Expired claims legal hold note',
+        retention_class: CustomerNoteRetentionClass.CLAIMS_3Y,
+        retain_until: new Date(Date.now() - 86_400_000),
+        legal_hold: true,
+      },
+    });
+    const activeClaimsNote = await prismaA.customerNote.create({
+      data: {
+        tenant_id: tenantAId,
+        customer_id: inactiveCustomer.id,
+        body: 'Active claims legal hold note',
+        retention_class: CustomerNoteRetentionClass.CLAIMS_3Y,
+        retain_until: new Date(Date.now() + 86_400_000),
+        legal_hold: true,
+      },
+    });
 
     await retentionService.run();
     const afterPurge = await prismaA.customerNote.findFirst({
       where: { id: trulyExpired.id, tenant_id: tenantAId },
     });
-    const heldAfter = await prismaA.customerNote.findFirst({
-      where: { id: heldNote.id, tenant_id: tenantAId },
+    const expiredClaimsAfter = await prismaA.customerNote.findFirst({
+      where: { id: expiredClaimsNote.id, tenant_id: tenantAId },
+    });
+    const activeClaimsAfter = await prismaA.customerNote.findFirst({
+      where: { id: activeClaimsNote.id, tenant_id: tenantAId },
     });
     expect(afterPurge).toBeNull();
-    expect(heldAfter).not.toBeNull();
+    expect(expiredClaimsAfter).toBeNull();
+    expect(activeClaimsAfter).not.toBeNull();
+
+    // Retained note blocks customer delete
+    const blockedDelete = await request(app.getHttpServer())
+      .delete(`/api/customers/${inactiveCustomer.id}`)
+      .set('Authorization', `Bearer ${ownerTokenA}`)
+      .expect(400);
+    expect(blockedDelete.body.code).toBe('CUSTOMER_RETENTION_BLOCKS_DELETE');
+
+    // Once note retention expires, customer delete succeeds and cleans up the expired note
+    await prismaA.customerNote.update({
+      where: { id: activeClaimsNote.id },
+      data: { retain_until: new Date(Date.now() - 86_400_000) },
+    });
+    await request(app.getHttpServer())
+      .delete(`/api/customers/${inactiveCustomer.id}`)
+      .set('Authorization', `Bearer ${ownerTokenA}`)
+      .expect(200);
   });
 
   it('Scenario 7 & tenant isolation: tenant B cannot read notes, erasure deletes unprotected notes and restricts CLAIMS_3Y working copy', async () => {

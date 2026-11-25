@@ -14,11 +14,7 @@ export function computeCustomerNoteRetainUntil(params: {
     return new Date(Date.UTC(endYear, 11, 31, 23, 59, 59, 999));
   }
 
-  const baseMs = Math.max(
-    params.now.getTime(),
-    params.lastCustomerActivityAt?.getTime() ?? 0,
-  );
-  const base = new Date(baseMs);
+  const base = params.lastCustomerActivityAt ?? params.now;
   const target = new Date(base);
   target.setUTCFullYear(target.getUTCFullYear() + 3);
   return target;

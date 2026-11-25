@@ -186,4 +186,27 @@ describe('CustomerNotesService', () => {
       }),
     );
   });
+
+  it('anchors OPERATIONAL retain_until on lastCustomerActivityAt on create and does not move it on update', async () => {
+    const lastWorkshopAt = new Date('2026-04-10T09:00:00.000Z');
+    const { service, prisma } = createService('SALES', { lastWorkshopAt });
+
+    await service.create(customerId, { body: 'Stand-alone note' });
+    expect(prisma.customerNote.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          retention_class: CustomerNoteRetentionClass.OPERATIONAL,
+          retain_until: new Date('2029-04-10T09:00:00.000Z'),
+        }),
+      }),
+    );
+
+    await service.update(customerId, 'note-1', { body: 'Edited body' });
+    const updateCall = prisma.customerNote.update.mock.calls[0][0];
+    expect(updateCall.data).toEqual({
+      body: 'Edited body',
+      pinned: false,
+    });
+    expect('retain_until' in updateCall.data).toBe(false);
+  });
 });

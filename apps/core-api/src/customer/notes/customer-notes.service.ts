@@ -214,22 +214,6 @@ export class CustomerNotesService {
       nextBody = trimmed;
     }
     const nextPinned = dto.pinned ?? existing.pinned;
-    const now = new Date();
-    let nextRetainUntil = existing.retain_until;
-    if (existing.retention_class === CustomerNoteRetentionClass.OPERATIONAL) {
-      const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
-      const lastCustomerActivityAt = await resolveLastCustomerActivityAt(
-        this.prisma,
-        tenantId,
-        customerId,
-        authorizedSiteIds,
-      );
-      nextRetainUntil = computeCustomerNoteRetainUntil({
-        retentionClass: existing.retention_class,
-        now,
-        lastCustomerActivityAt,
-      });
-    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const note = await tx.customerNote.update({
@@ -237,7 +221,6 @@ export class CustomerNotesService {
         data: {
           body: nextBody,
           pinned: nextPinned,
-          retain_until: nextRetainUntil,
         },
         select: NOTE_SELECT,
       });
