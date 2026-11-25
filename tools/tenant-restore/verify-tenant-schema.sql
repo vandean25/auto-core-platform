@@ -273,7 +273,7 @@ VALUES
   ('customer_consents', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_contact_points', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
-  ('customer_notes', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('customer_notes', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_notes', 'tenant_members', 'tenant_id,author_member_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('customer_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'customers', 'tenant_id,default_bill_to_customer_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
