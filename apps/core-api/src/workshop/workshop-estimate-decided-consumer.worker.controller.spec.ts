@@ -70,15 +70,19 @@ describe('WorkshopEstimateDecidedConsumerWorkerController', () => {
       .send(payload);
   }
 
-  it('returns 403 for an invalid signature so Cloud Tasks stops retrying', async () => {
-    await postTask({ ...VALID_TASK, signature: '0'.repeat(64) }).expect(403);
+  it('acknowledges an invalid signature with 204 so Cloud Tasks stops retrying', async () => {
+    await postTask({ ...VALID_TASK, signature: '0'.repeat(64) }).expect(204);
+
+    expect(processTenantBatch).not.toHaveBeenCalled();
   });
 
-  it('returns 403 for an empty body instead of retrying it', async () => {
-    await postTask(undefined).expect(403);
+  it('acknowledges an empty body with 204 without running the consumer', async () => {
+    await postTask(undefined).expect(204);
+
+    expect(processTenantBatch).not.toHaveBeenCalled();
   });
 
-  it('checks the worker secret before rejecting a missing signature', async () => {
+  it('checks the worker secret before acknowledging a missing signature', async () => {
     await request(app.getHttpServer())
       .post(WORKER_PATH)
       .set('x-cloud-tasks-secret', 'invalid-worker-secret')
@@ -97,8 +101,10 @@ describe('WorkshopEstimateDecidedConsumerWorkerController', () => {
       label: 'wrong-length',
       task: { ...VALID_TASK, signature: VALID_TASK.signature.slice(1) },
     },
-  ])('returns 403 for a $label signature', async ({ task }) => {
-    await postTask(task).expect(403);
+  ])('acknowledges a $label signature with 204 without running the consumer', async ({ task }) => {
+    await postTask(task).expect(204);
+
+    expect(processTenantBatch).not.toHaveBeenCalled();
   });
 
   it('returns 204 for a valid signed task', async () => {

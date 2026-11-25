@@ -7,11 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import {
-  InvalidDomainEventConsumerTaskSignatureError,
-  verifyDomainEventConsumerTaskPayload,
-  type DomainEventConsumerTaskClaims,
-} from './domain-event-consumer-task.payload.js';
+import { verifyDomainEventConsumerTaskPayload } from './domain-event-consumer-task.payload.js';
 
 @Injectable()
 export class DomainEventConsumerTaskGuard implements CanActivate {
@@ -23,15 +19,7 @@ export class DomainEventConsumerTaskGuard implements CanActivate {
       throw new InternalServerErrorException();
     }
     const request = context.switchToHttp().getRequest<Request>();
-    let claims: DomainEventConsumerTaskClaims;
-    try {
-      claims = verifyDomainEventConsumerTaskPayload(request.body, secret);
-    } catch (error) {
-      if (error instanceof InvalidDomainEventConsumerTaskSignatureError) {
-        throw new ForbiddenException();
-      }
-      throw error;
-    }
+    const claims = verifyDomainEventConsumerTaskPayload(request.body, secret);
     const routeConsumer = decodeURIComponent(
       String(request.params?.consumerKey ?? ''),
     );
