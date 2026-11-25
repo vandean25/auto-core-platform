@@ -1,6 +1,6 @@
 import {
-  BACK_OFFICE,
-  BACK_OFFICE_DEMO,
+  BACK_OFFICE_ACCOUNTING,
+  BACK_OFFICE_DEMO_ACCOUNTING,
   EVERY_ROLE,
   apiKey,
   classified,
@@ -12,12 +12,12 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
   'AppController.getHello': classified(
     'session',
     'Authenticated greeting. No tenant data, no tenant role required.',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
   ),
   'AppController.getSentryError': classified(
     'session',
     'Debug route. Answers 404 unless ENABLE_SENTRY_DEBUG_ROUTE is set.',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
   ),
   'HealthController.getHealth': classified(
     'public',
@@ -29,7 +29,7 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
   ),
   'AuthController.switchTenant': ownSession(
     'Authorized context selection among the own memberships.',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
   ),
   'AuthController.scopeContext': ownSession(
     'Fresh IdP-checked session handshake that mints the authoritative scope context.',
@@ -58,30 +58,30 @@ export const CLASSIFIED_OPERATIONS: OperationTable = {
   'PushController.listDevices': classified(
     'session',
     'Own push devices of the signed-in user.',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
   ),
   'PushController.registerDevice': ownSession(
     'Own push devices of the signed-in user.',
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
   ),
   'PushController.revokeDevice': ownSession(
     'Own push devices of the signed-in user.',
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
   ),
   'PushController.getPreferences': classified(
     'session',
     'Own push preferences of the signed-in user.',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
   ),
   'PushController.updatePreferences': classified(
     'session',
     'Own push preferences of the signed-in user.',
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
   ),
   'PushController.sendTest': classified(
     'session',
     'Test push to the own devices.',
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
   ),
   'PlatformAdminController.findAll': classified(
     'platform_admin',

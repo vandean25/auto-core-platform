@@ -25624,17 +25624,9 @@
             "type": "boolean",
             "default": false
           },
-          "retention_class": {
-            "default": "OPERATIONAL",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CustomerNoteRetentionClass"
-              }
-            ]
-          },
-          "legal_hold": {
-            "type": "boolean",
-            "default": false
+          "invoice_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [

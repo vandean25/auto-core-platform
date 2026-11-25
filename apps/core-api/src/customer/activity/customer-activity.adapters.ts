@@ -536,6 +536,7 @@ function createCustomerNoteAdapter(
             tenant_id: ctx.tenantId,
             customer_id: ctx.customerId,
             deleted_at: null,
+            erasure_restricted: false,
             body: { not: null },
           },
           keyset,

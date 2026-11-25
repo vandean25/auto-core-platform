@@ -2,6 +2,7 @@ import {
   ADMINS,
   BACK_OFFICE,
   BACK_OFFICE_DEMO,
+  BACK_OFFICE_DEMO_ACCOUNTING,
   BACK_OFFICE_TECH,
   EVERY_ROLE,
   TECH_ONLY,
@@ -62,7 +63,7 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
   ),
   'WorkshopController.search': op(
     'workshop.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'WorkshopController.getBoardResources': op(
@@ -87,17 +88,17 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
   ),
   'WorkshopOrdersController.findAll': op(
     'workshop.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'WorkshopOrdersController.cappedCount': op(
     'workshop.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'WorkshopOrdersController.findOne': op(
     'workshop.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'WorkshopOrdersController.updateOrder': op(
@@ -174,7 +175,7 @@ export const WORKSHOP_OPERATIONS: OperationTable = {
   ),
   'WorkshopOrderPdfController.getPdf': op(
     'workshop.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
     ['document_site'],
   ),

@@ -9,6 +9,11 @@ import {
 } from './operation-helpers.js';
 import type { OperationTable } from './operation-types.js';
 
+const BACK_OFFICE_TECH_ACCOUNTING = [
+  ...BACK_OFFICE_TECH,
+  'ACCOUNTING',
+] as const;
+
 export const ADMIN_OPERATIONS: OperationTable = {
   'SavedViewsController.list': classified(
     'session',
@@ -23,27 +28,27 @@ export const ADMIN_OPERATIONS: OperationTable = {
   'SavedViewsController.importViews': classified(
     'session',
     'Import local saved views once per (tenant, user) (service validates hrefs and limits).',
-    BACK_OFFICE_TECH,
+    BACK_OFFICE_TECH_ACCOUNTING,
   ),
   'SavedViewsController.create': classified(
     'session',
     'Create a personal or shared saved view (service checks list read permission and views.shared.manage).',
-    BACK_OFFICE_TECH,
+    BACK_OFFICE_TECH_ACCOUNTING,
   ),
   'SavedViewsController.update': classified(
     'session',
     'Update a personal or shared saved view (service checks ownership and views.shared.manage).',
-    BACK_OFFICE_TECH,
+    BACK_OFFICE_TECH_ACCOUNTING,
   ),
   'SavedViewsController.remove': classified(
     'session',
     'Delete a personal or shared saved view (service checks ownership and views.shared.manage).',
-    BACK_OFFICE_TECH,
+    BACK_OFFICE_TECH_ACCOUNTING,
   ),
   'SavedViewsController.copy': classified(
     'session',
     'Copy a permitted saved view into own personal views.',
-    BACK_OFFICE_TECH,
+    BACK_OFFICE_TECH_ACCOUNTING,
   ),
   'CustomFieldsController.listDefinitions': op(
     'custom_field.definition.read',

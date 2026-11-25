@@ -7835,10 +7835,8 @@ export interface components {
             body: string;
             /** @default false */
             pinned: boolean;
-            /** @default OPERATIONAL */
-            retention_class: components["schemas"]["CustomerNoteRetentionClass"];
-            /** @default false */
-            legal_hold: boolean;
+            /** Format: uuid */
+            invoice_id?: string;
         };
         UpdateCustomerNoteDto: {
             body?: string;

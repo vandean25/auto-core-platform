@@ -35,6 +35,7 @@ export const MATRIX_PRINCIPALS: readonly MatrixPrincipal[] = [
   'TECH',
   'SALES',
   'DEMO',
+  'ACCOUNTING',
   'API_KEY',
   'EMPTY_ROLE',
 ];

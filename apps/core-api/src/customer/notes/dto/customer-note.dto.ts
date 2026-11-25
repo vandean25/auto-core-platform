@@ -2,10 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CustomerNoteRetentionClass, TenantMemberRole } from '@prisma/client';
 import {
   IsBoolean,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -21,19 +21,10 @@ export class CreateCustomerNoteDto {
   @IsBoolean()
   pinned?: boolean;
 
-  @ApiPropertyOptional({
-    enum: CustomerNoteRetentionClass,
-    enumName: 'CustomerNoteRetentionClass',
-    default: CustomerNoteRetentionClass.OPERATIONAL,
-  })
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @IsEnum(CustomerNoteRetentionClass)
-  retention_class?: CustomerNoteRetentionClass;
-
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  @IsBoolean()
-  legal_hold?: boolean;
+  @IsUUID()
+  invoice_id?: string;
 }
 
 export class UpdateCustomerNoteDto {

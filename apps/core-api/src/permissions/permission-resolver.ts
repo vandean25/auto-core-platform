@@ -102,7 +102,7 @@ export function isMcpToolAllowed(
   const entry = Object.hasOwn(MCP_TOOL_TABLE, tool)
     ? MCP_TOOL_TABLE[tool]
     : undefined;
-  if (!access || !entry) {
+  if (!access || !entry || access.role === 'ACCOUNTING') {
     return false;
   }
   return entry.kind === 'protected'

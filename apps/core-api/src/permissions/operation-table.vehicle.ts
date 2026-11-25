@@ -2,6 +2,7 @@ import {
   ADMINS,
   BACK_OFFICE,
   BACK_OFFICE_DEMO,
+  BACK_OFFICE_DEMO_ACCOUNTING,
   EVERY_ROLE,
   op,
 } from './operation-helpers.js';
@@ -302,7 +303,7 @@ export const VEHICLE_OPERATIONS: OperationTable = {
   ),
   'VehicleSaleController.findOne': op(
     'vehicle_sale.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
     ['document_site'],
   ),
@@ -344,7 +345,7 @@ export const VEHICLE_OPERATIONS: OperationTable = {
   ),
   'VehicleSaleController.getKaufvertragPdf': op(
     'vehicle_sale.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
     ['document_site'],
   ),

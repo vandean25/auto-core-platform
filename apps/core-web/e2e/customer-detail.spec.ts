@@ -637,21 +637,78 @@ test.describe('Customer Notes (AUT-1040)', () => {
     );
 
     await page.goto(`/customers/${CUSTOMER_ID}`);
-    await expect(page.getByTestId('customer-notes-card')).toBeVisible();
-    await expect(page.getByTestId('customer-note-legal-hint')).toContainText('Art. 9 DSGVO');
-    const items = page.getByTestId('customer-notes-list').locator('li');
+    const notesCard = page.getByTestId('customer-notes-card');
+    const legalHint = page.getByTestId('customer-note-legal-hint');
+    const notesList = page.getByTestId('customer-notes-list');
+    const notizChip = page.getByRole('button', { name: 'Notiz', exact: true });
+
+    await expect(notesCard).toBeVisible();
+    await expect(legalHint).toContainText('Art. 9 DSGVO');
+    const items = notesList.locator('li');
     await expect(items.first()).toHaveAttribute('data-pinned', 'true');
-    await expect(page.getByRole('button', { name: 'Notiz', exact: true })).toBeVisible();
+    await expect(items.nth(1)).toHaveAttribute('data-pinned', 'false');
+    await expect(notizChip).toBeVisible();
+
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await expect(notesCard).toBeInViewport();
+    await expect(legalHint).toBeInViewport();
+    await expect(notesList).toBeInViewport();
+    await expect(items.first()).toBeInViewport();
+    await expect(items.nth(1)).toBeInViewport();
 
     await testInfo.attach('customer-notes-pinned-and-hint-de-desktop', {
-      body: await page.screenshot(),
+      body: await page.screenshot({ fullPage: true }),
       contentType: 'image/png',
     });
 
     await page.setViewportSize({ width: 375, height: 812 });
     const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(hasHorizontalOverflow).toBe(false);
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await expect(notesCard).toBeInViewport();
+    await expect(legalHint).toBeInViewport();
+    await expect(notesList).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.addAction })).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.editAction }).first()).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.deleteAction }).first()).toBeInViewport();
     await testInfo.attach('customer-notes-mobile-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('Scenario 3 (EN): shows Art 9 GDPR hint in English on open note field', async ({ page }, testInfo) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'en'));
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/notes`)), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    const notesCard = page.getByTestId('customer-notes-card');
+    const legalHint = page.getByTestId('customer-note-legal-hint');
+    await expect(notesCard).toBeVisible();
+    await expect(legalHint).toContainText('Art. 9 GDPR');
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await expect(legalHint).toBeInViewport();
+
+    await testInfo.attach('customer-notes-hint-en-desktop', {
       body: await page.screenshot(),
       contentType: 'image/png',
     });
@@ -699,8 +756,11 @@ test.describe('Customer Notes (AUT-1040)', () => {
     await expect(page.getByTestId('customer-notes-card')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Notiz', exact: true })).toHaveCount(0);
 
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(page.getByText(DE_CUSTOMERS.activity.empty)).toBeVisible();
+
     await testInfo.attach('customer-notes-accounting-hidden-de', {
-      body: await page.screenshot(),
+      body: await page.screenshot({ fullPage: true }),
       contentType: 'image/png',
     });
   });

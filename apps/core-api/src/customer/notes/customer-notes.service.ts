@@ -12,9 +12,11 @@ import {
 import { AuditService } from '../../audit/audit.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { SiteContextService } from '../../site/site-context.service.js';
 import {
   computeCustomerNoteRetainUntil,
   hashCustomerNoteBody,
+  resolveLastCustomerActivityAt,
 } from './customer-note-retention.helpers.js';
 import type {
   CreateCustomerNoteDto,
@@ -35,6 +37,11 @@ const NOTE_SELECT = {
   legal_hold: true,
   created_at: true,
   updated_at: true,
+} as const;
+
+const NOTE_MUTATION_SELECT = {
+  ...NOTE_SELECT,
+  erasure_restricted: true,
 } as const;
 
 function toResponseDto(row: {
@@ -71,6 +78,7 @@ export class CustomerNotesService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly auditService: AuditService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async list(customerId: string): Promise<CustomerNoteListResponseDto> {
@@ -83,6 +91,7 @@ export class CustomerNotesService {
         tenant_id: tenantId,
         customer_id: customerId,
         deleted_at: null,
+        erasure_restricted: false,
         body: { not: null },
       },
       orderBy: [{ pinned: 'desc' }, { created_at: 'desc' }, { id: 'desc' }],
@@ -114,13 +123,13 @@ export class CustomerNotesService {
         })
       : null;
 
-    const retentionClass =
-      dto.retention_class ?? CustomerNoteRetentionClass.OPERATIONAL;
     const now = new Date();
-    const retainUntil = computeCustomerNoteRetainUntil({
-      retentionClass,
+    const retention = await this.resolveCreateRetention(
+      tenantId,
+      customerId,
+      dto.invoice_id,
       now,
-    });
+    );
     const bodyHash = hashCustomerNoteBody(trimmedBody);
     const authorRole =
       member?.role ??
@@ -137,9 +146,9 @@ export class CustomerNotesService {
           pinned: dto.pinned ?? false,
           author_member_id: member?.id ?? null,
           author_role: authorRole,
-          retention_class: retentionClass,
-          retain_until: retainUntil,
-          legal_hold: dto.legal_hold ?? false,
+          retention_class: retention.retentionClass,
+          retain_until: retention.retainUntil,
+          legal_hold: retention.legalHold,
         },
         select: NOTE_SELECT,
       });
@@ -185,10 +194,15 @@ export class CustomerNotesService {
         customer_id: customerId,
         deleted_at: null,
       },
-      select: NOTE_SELECT,
+      select: NOTE_MUTATION_SELECT,
     });
     if (!existing) {
       throw new NotFoundException(`Customer note ${noteId} not found`);
+    }
+    if (existing.erasure_restricted) {
+      throw new ForbiddenException(
+        'Customer note is restricted after GDPR erasure.',
+      );
     }
 
     let nextBody = existing.body ?? '';
@@ -201,13 +215,21 @@ export class CustomerNotesService {
     }
     const nextPinned = dto.pinned ?? existing.pinned;
     const now = new Date();
-    const nextRetainUntil =
-      existing.retention_class === CustomerNoteRetentionClass.OPERATIONAL
-        ? computeCustomerNoteRetainUntil({
-            retentionClass: existing.retention_class,
-            now,
-          })
-        : existing.retain_until;
+    let nextRetainUntil = existing.retain_until;
+    if (existing.retention_class === CustomerNoteRetentionClass.OPERATIONAL) {
+      const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+      const lastCustomerActivityAt = await resolveLastCustomerActivityAt(
+        this.prisma,
+        tenantId,
+        customerId,
+        authorizedSiteIds,
+      );
+      nextRetainUntil = computeCustomerNoteRetainUntil({
+        retentionClass: existing.retention_class,
+        now,
+        lastCustomerActivityAt,
+      });
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const note = await tx.customerNote.update({
@@ -268,10 +290,15 @@ export class CustomerNotesService {
         customer_id: customerId,
         deleted_at: null,
       },
-      select: NOTE_SELECT,
+      select: NOTE_MUTATION_SELECT,
     });
     if (!existing) {
       throw new NotFoundException(`Customer note ${noteId} not found`);
+    }
+    if (existing.erasure_restricted) {
+      throw new ForbiddenException(
+        'Customer note is restricted after GDPR erasure.',
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -324,10 +351,15 @@ export class CustomerNotesService {
         customer_id: customerId,
         deleted_at: null,
       },
-      select: NOTE_SELECT,
+      select: NOTE_MUTATION_SELECT,
     });
     if (!existing) {
       throw new NotFoundException(`Customer note ${noteId} not found`);
+    }
+    if (existing.erasure_restricted) {
+      throw new ForbiddenException(
+        'Customer note is restricted after GDPR erasure.',
+      );
     }
 
     const now = new Date();
@@ -366,6 +398,61 @@ export class CustomerNotesService {
     });
 
     return { id: existing.id, deleted: true };
+  }
+
+  private async resolveCreateRetention(
+    tenantId: string,
+    customerId: string,
+    invoiceId: string | undefined,
+    now: Date,
+  ): Promise<{
+    retentionClass: CustomerNoteRetentionClass;
+    retainUntil: Date;
+    legalHold: boolean;
+  }> {
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    if (invoiceId) {
+      const invoice = await this.prisma.invoice.findFirst({
+        where: {
+          id: invoiceId,
+          tenant_id: tenantId,
+          customer_id: customerId,
+          site_id: { in: [...authorizedSiteIds] },
+          status: { in: ['FINALIZED', 'ISSUED', 'PAID'] },
+        },
+        select: { id: true, date: true },
+      });
+      if (!invoice) {
+        throw new BadRequestException(
+          'Linked invoice not found or not finalized for this customer.',
+        );
+      }
+      return {
+        retentionClass: CustomerNoteRetentionClass.CLAIMS_3Y,
+        retainUntil: computeCustomerNoteRetainUntil({
+          retentionClass: CustomerNoteRetentionClass.CLAIMS_3Y,
+          now,
+          orderClosedAt: invoice.date,
+        }),
+        legalHold: true,
+      };
+    }
+
+    const lastCustomerActivityAt = await resolveLastCustomerActivityAt(
+      this.prisma,
+      tenantId,
+      customerId,
+      authorizedSiteIds,
+    );
+    return {
+      retentionClass: CustomerNoteRetentionClass.OPERATIONAL,
+      retainUntil: computeCustomerNoteRetainUntil({
+        retentionClass: CustomerNoteRetentionClass.OPERATIONAL,
+        now,
+        lastCustomerActivityAt,
+      }),
+      legalHold: false,
+    };
   }
 
   private assertNoteAccess(): void {
