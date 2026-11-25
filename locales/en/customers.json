@@ -252,6 +252,7 @@
       "consents": "Consents",
       "vehicleNotices": "Vehicle notices",
       "loanerBookings": "Loaners",
+      "notes": "Note",
       "audit": "Audit log"
     },
     "types": {
@@ -263,7 +264,34 @@
       "consent": "Consent",
       "vehicle_notice": "Vehicle notice",
       "loaner_booking": "Loaner booking",
+      "customer_note": "Note",
       "audit": "Audit log"
     }
+  },
+  "notes": {
+    "title": "Customer Notes",
+    "loading": "Loading notes…",
+    "loadFailed": "Could not load notes. Please try again.",
+    "empty": "No notes recorded yet.",
+    "placeholder": "Write a note…",
+    "editPlaceholder": "Edit note…",
+    "addAction": "Save note",
+    "saveAction": "Save",
+    "cancelAction": "Cancel",
+    "editAction": "Edit",
+    "deleteAction": "Delete",
+    "pinAction": "Pin",
+    "unpinAction": "Unpin",
+    "pinnedBadge": "Pinned",
+    "deleteConfirmTitle": "Delete note?",
+    "deleteConfirmDescription": "The note will be permanently deleted. No note text will remain in the audit log.",
+    "legalHint": "Note: Do not record special categories of personal data (e.g. health data under Art. 9 GDPR) or insulting, derogatory, or purely private remarks. The customer can see the wording in an access request.",
+    "createSuccess": "Note saved.",
+    "createFailed": "Could not save note. Please try again.",
+    "updateSuccess": "Note updated.",
+    "updateFailed": "Could not update note. Please try again.",
+    "pinFailed": "Could not update pin state. Please try again.",
+    "deleteSuccess": "Note deleted.",
+    "deleteFailed": "Could not delete note. Please try again."
   }
 }

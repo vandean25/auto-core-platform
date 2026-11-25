@@ -511,6 +511,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.vehicleParty.deleteMany({});
   await tenantPrisma.vehicleNotice.deleteMany({});
   await tenantPrisma.pickerlContactLog.deleteMany({});
+  await tenantPrisma.customerNote.deleteMany({});
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});
   await tenantPrisma.inspectionExchangeEvent.deleteMany({});
   await tenantPrisma.externalInspectionResult.deleteMany({});

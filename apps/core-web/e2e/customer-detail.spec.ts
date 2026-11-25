@@ -40,6 +40,13 @@ test.describe('Blueprint: Customer Detail Page', () => {
         body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
       });
     });
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/notes`)), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      });
+    });
   });
 
   test('renders customer header with name, type badge, and contact info card', async ({
@@ -559,6 +566,201 @@ test.describe('Customer activity timeline (AUT-1039)', () => {
 
     await testInfo.attach('customer-activity-mobile-de-375', {
       body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+});
+
+test.describe('Customer Notes (AUT-1040)', () => {
+  test('Scenario 1, 2 & 3: shows Art 9 hint, pinned notes on top, and Notiz in Verlauf (desktop + 375px)', async ({ page }, testInfo) => {
+    const notes = [
+      {
+        id: 'note-1',
+        customer_id: CUSTOMER_ID,
+        body: 'Wichtige Notiz für den Kunden',
+        pinned: true,
+        author_member_id: 'mem-1',
+        author_role: 'SALES',
+        retention_class: 'OPERATIONAL',
+        retain_until: '2029-11-25T10:00:00.000Z',
+        legal_hold: false,
+        created_at: '2026-11-25T10:00:00.000Z',
+        updated_at: '2026-11-25T10:00:00.000Z',
+      },
+      {
+        id: 'note-2',
+        customer_id: CUSTOMER_ID,
+        body: 'Normale Notiz',
+        pinned: false,
+        author_member_id: 'mem-1',
+        author_role: 'SALES',
+        retention_class: 'OPERATIONAL',
+        retain_until: '2029-11-25T10:00:00.000Z',
+        legal_hold: false,
+        created_at: '2026-11-25T11:00:00.000Z',
+        updated_at: '2026-11-25T11:00:00.000Z',
+      },
+    ];
+
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/notes`)), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: notes }) }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'note-1',
+              type: 'customer_note',
+              occurred_at: '2026-11-25T10:00:00.000Z',
+              title: 'Wichtige Notiz für den Kunden',
+              ref_id: 'note-1',
+              ref_link: null,
+              summary: { pinned: true, author_role: 'SALES', retention_class: 'OPERATIONAL' },
+            },
+          ],
+          meta: { nextCursor: null, hasNextPage: false, limit: 25 },
+        }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    const notesCard = page.getByTestId('customer-notes-card');
+    const legalHint = page.getByTestId('customer-note-legal-hint');
+    const notesList = page.getByTestId('customer-notes-list');
+    const notizChip = page.getByRole('button', { name: 'Notiz', exact: true });
+
+    await expect(notesCard).toBeVisible();
+    await expect(legalHint).toContainText('Art. 9 DSGVO');
+    const items = notesList.locator('li');
+    await expect(items.first()).toHaveAttribute('data-pinned', 'true');
+    await expect(items.nth(1)).toHaveAttribute('data-pinned', 'false');
+    await expect(notizChip).toBeVisible();
+
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await expect(notesCard).toBeInViewport();
+    await expect(legalHint).toBeInViewport();
+    await expect(notesList).toBeInViewport();
+    await expect(items.first()).toBeInViewport();
+    await expect(items.nth(1)).toBeInViewport();
+
+    await testInfo.attach('customer-notes-pinned-and-hint-de-desktop', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png',
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(hasHorizontalOverflow).toBe(false);
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await expect(notesCard).toBeInViewport();
+    await expect(legalHint).toBeInViewport();
+    await expect(notesList).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.addAction })).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.editAction }).first()).toBeInViewport();
+    await expect(page.getByRole('button', { name: DE_CUSTOMERS.notes.deleteAction }).first()).toBeInViewport();
+    await testInfo.attach('customer-notes-mobile-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('Scenario 3 (EN): shows Art 9 GDPR hint in English on open note field', async ({ page }, testInfo) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'en'));
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/notes`)), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    const notesCard = page.getByTestId('customer-notes-card');
+    const legalHint = page.getByTestId('customer-note-legal-hint');
+    await expect(notesCard).toBeVisible();
+    await expect(legalHint).toContainText('Art. 9 GDPR');
+    await notesCard.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await expect(legalHint).toBeInViewport();
+
+    await testInfo.attach('customer-notes-hint-en-desktop', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('Scenario 9: ACCOUNTING role hides notes card and Notiz filter chip', async ({ page }, testInfo) => {
+    await page.addInitScript(() => window.localStorage.setItem('e2e-active-role', 'ACCOUNTING'));
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          userId: 'user-acct',
+          email: 'acct@example.com',
+          tenantId: 'tenant-1',
+          activeRole: 'ACCOUNTING',
+          activeSiteId: 'site-1',
+          defaultLocale: 'de',
+          preferredLocale: null,
+          customFieldsEnabled: false,
+          memberships: [{ tenantId: 'tenant-1', tenantName: 'Test', role: 'ACCOUNTING' }],
+        }),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(/\/api\/tyre-sets\/by-customer\/.*/), (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${CUSTOMER_ID}`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockCustomerDetailResponse({ id: CUSTOMER_ID, first_name: 'Jane', last_name: 'Smith' })),
+      }),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher(new RegExp(`/api/customers/${CUSTOMER_ID}/activity`)), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { nextCursor: null, hasNextPage: false, limit: 25 } }),
+      }),
+    );
+
+    await page.goto(`/customers/${CUSTOMER_ID}`);
+    await expect(page.getByText(DE_CUSTOMERS.detail.contactInformation)).toBeVisible();
+    await expect(page.getByTestId('customer-notes-card')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Notiz', exact: true })).toHaveCount(0);
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(page.getByText(DE_CUSTOMERS.activity.empty)).toBeVisible();
+
+    await testInfo.attach('customer-notes-accounting-hidden-de', {
+      body: await page.screenshot({ fullPage: true }),
       contentType: 'image/png',
     });
   });

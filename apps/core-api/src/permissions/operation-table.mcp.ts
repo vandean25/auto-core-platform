@@ -1,14 +1,15 @@
 import {
   ADMINS,
   BACK_OFFICE,
+  BACK_OFFICE_ACCOUNTING,
   classified,
   mcpTool,
 } from './operation-helpers.js';
 import type { McpToolTable } from './operation-types.js';
 
 export const MCP_TOOL_TABLE: McpToolTable = {
-  search_customers: mcpTool('customer.read', BACK_OFFICE, 'tenant'),
-  get_customer: mcpTool('customer.read', BACK_OFFICE, 'tenant'),
+  search_customers: mcpTool('customer.read', BACK_OFFICE_ACCOUNTING, 'tenant'),
+  get_customer: mcpTool('customer.read', BACK_OFFICE_ACCOUNTING, 'tenant'),
   search_vehicles: mcpTool('vehicle.read', BACK_OFFICE, 'tenant'),
   get_vehicle: mcpTool('vehicle.read', BACK_OFFICE, 'tenant'),
   get_vehicle_listing_status: mcpTool(
@@ -17,10 +18,17 @@ export const MCP_TOOL_TABLE: McpToolTable = {
     'site',
     ['document_site'],
   ),
-  list_workshop_orders: mcpTool('workshop.order.read', BACK_OFFICE, 'site'),
-  get_workshop_order: mcpTool('workshop.order.read', BACK_OFFICE, 'site', [
-    'document_site',
-  ]),
+  list_workshop_orders: mcpTool(
+    'workshop.order.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+  ),
+  get_workshop_order: mcpTool(
+    'workshop.order.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+    ['document_site'],
+  ),
   search_parts: mcpTool('stock.read', BACK_OFFICE, 'site'),
   get_stock_level: mcpTool('stock.read', BACK_OFFICE, 'site'),
   get_vehicle_stock_age_report: mcpTool(
@@ -33,11 +41,17 @@ export const MCP_TOOL_TABLE: McpToolTable = {
     BACK_OFFICE,
     'site',
   ),
-  list_invoices: mcpTool('invoice.read', BACK_OFFICE, 'site'),
-  get_invoice: mcpTool('invoice.read', BACK_OFFICE, 'site', ['document_site']),
+  list_invoices: mcpTool('invoice.read', BACK_OFFICE_ACCOUNTING, 'site'),
+  get_invoice: mcpTool('invoice.read', BACK_OFFICE_ACCOUNTING, 'site', [
+    'document_site',
+  ]),
   list_bays: mcpTool('bay.read', BACK_OFFICE, 'site'),
   list_bins: mcpTool('stock.location.read', BACK_OFFICE, 'site'),
-  list_workshop_tasks: mcpTool('workshop.order.read', BACK_OFFICE, 'site'),
+  list_workshop_tasks: mcpTool(
+    'workshop.order.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+  ),
   list_workshop_slots: mcpTool('workshop.planner.read', BACK_OFFICE, 'site'),
   list_available_loaners: mcpTool(
     'loaner.vehicle.availability.read',
@@ -67,7 +81,7 @@ export const MCP_TOOL_TABLE: McpToolTable = {
       'workshop.order.read',
       'vehicle_sale.read',
     ],
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
     'site',
     ['document_site'],
     true,
@@ -79,12 +93,16 @@ export const MCP_TOOL_TABLE: McpToolTable = {
       'workshop.order.read',
       'vehicle_sale.read',
     ],
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
     'site',
     ['document_site'],
     true,
   ),
-  get_tenant_settings: mcpTool('finance.settings.read', BACK_OFFICE, 'tenant'),
+  get_tenant_settings: mcpTool(
+    'finance.settings.read',
+    BACK_OFFICE_ACCOUNTING,
+    'tenant',
+  ),
   list_sites: mcpTool('site.read', BACK_OFFICE, 'tenant', ['site_membership']),
   get_legal_entity: mcpTool('legal_entity.summary.read', BACK_OFFICE, 'tenant'),
   list_purchase_orders: mcpTool('purchase.order.read', BACK_OFFICE, 'site'),

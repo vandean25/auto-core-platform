@@ -99,6 +99,7 @@ async function getCustomerReferenceCounts(
   tenantId: string,
   customerId: string,
   authorizedSiteIds: string[],
+  now: Date,
 ) {
   const siteScoped = {
     tenant_id: tenantId,
@@ -117,6 +118,7 @@ async function getCustomerReferenceCounts(
     contactPoints,
     consentEvents,
     vehicleParties,
+    retainedNotes,
   ] = await Promise.all([
     prisma.salesOrder.count({ where: siteScoped }),
     prisma.invoice.count({ where: tenantScoped }),
@@ -127,6 +129,13 @@ async function getCustomerReferenceCounts(
     prisma.customerContactPoint.count({ where: tenantScoped }),
     prisma.customerConsent.count({ where: tenantScoped }),
     prisma.vehicleParty.count({ where: tenantScoped }),
+    prisma.customerNote.count({
+      where: {
+        ...tenantScoped,
+        deleted_at: null,
+        retain_until: { gte: now },
+      },
+    }),
   ]);
   return {
     salesOrders,
@@ -138,6 +147,7 @@ async function getCustomerReferenceCounts(
     contactPoints,
     consentEvents,
     vehicleParties,
+    retainedNotes,
   };
 }
 
@@ -355,11 +365,13 @@ export class CustomerService {
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     await this.ensureCustomerExists(id);
 
+    const now = new Date();
     const counts = await getCustomerReferenceCounts(
       this.prisma,
       tenantId,
       id,
       authorizedSiteIds,
+      now,
     );
 
     const hasActiveReferences = [
@@ -394,11 +406,15 @@ export class CustomerService {
       });
     }
 
-    if (counts.contactPoints > 0 || counts.consentEvents > 0) {
+    if (
+      counts.contactPoints > 0 ||
+      counts.consentEvents > 0 ||
+      counts.retainedNotes > 0
+    ) {
       throw new BadRequestException({
         code: CUSTOMER_RETENTION_BLOCKS_DELETE_CODE,
         message:
-          'Customer cannot be deleted while contact preferences or consent proof are retained. Use erasure processing or wait for retention expiry.',
+          'Customer cannot be deleted while contact preferences, consent proof, or notes are retained. Use erasure processing or wait for retention expiry.',
       });
     }
 
@@ -414,6 +430,13 @@ export class CustomerService {
       });
       await tx.pickerlContactLog.deleteMany({
         where: { tenant_id: tenantId, customer_id: id },
+      });
+      await tx.customerNote.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          customer_id: id,
+          OR: [{ retain_until: { lt: now } }, { deleted_at: { not: null } }],
+        },
       });
       return tx.customer.deleteMany({
         where: { id, tenant_id: tenantId },

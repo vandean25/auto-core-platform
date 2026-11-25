@@ -25,6 +25,7 @@ enum TenantMemberRole {
   TECH
   SALES
   DEMO
+  ACCOUNTING
 }
 
 enum PlatformAdminRole {
@@ -158,6 +159,7 @@ model Tenant {
   catalogOemConcernMakes           CatalogOemConcernMake[]
   vehicleMakeAliases               VehicleMakeAlias[]
   auditLogs                        AuditLog[]
+  customerNotes                    CustomerNote[]
   agentActionLogs                  AgentActionLog[]
   decisionShadowLogs               DecisionShadowLog[]
   memberships                      TenantMember[]
@@ -375,6 +377,7 @@ model TenantMember {
 
   siteMemberships     SiteMembership[]
   pickerlContactLogs  PickerlContactLog[]
+  customerNotes       CustomerNote[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, user_id])
@@ -1936,6 +1939,7 @@ model Customer {
   legacyDocumentsAsBillTo    LegacyDocument[]                  @relation("LegacyDocumentBillTo")
   vehicle_parties            VehicleParty[]
   pickerl_contact_logs       PickerlContactLog[]
+  customer_notes             CustomerNote[]
   custom_fields              Json                              @default("{}")
 
   createdAt DateTime @default(now())
@@ -1951,6 +1955,36 @@ model Customer {
   @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "customers_phone_trgm_idx")
   @@index([tenant_id, phone_digits])
   @@map("customers")
+}
+
+enum CustomerNoteRetentionClass {
+  OPERATIONAL
+  CLAIMS_3Y
+}
+
+model CustomerNote {
+  id                 String                     @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                     @relation(fields: [tenant_id], references: [id])
+  customer_id        String
+  customer           Customer                   @relation(fields: [tenant_id, customer_id], references: [tenant_id, id], onDelete: Restrict)
+  body               String?
+  pinned             Boolean                    @default(false)
+  author_member_id   String?
+  author_member      TenantMember?              @relation(fields: [tenant_id, author_member_id], references: [tenant_id, id], onDelete: SetNull)
+  author_role        TenantMemberRole?
+  retention_class    CustomerNoteRetentionClass @default(OPERATIONAL)
+  retain_until       DateTime
+  legal_hold         Boolean                    @default(false)
+  deleted_at         DateTime?
+  erasure_restricted Boolean                    @default(false)
+  created_at         DateTime                   @default(now())
+  updated_at         DateTime                   @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, customer_id, deleted_at, pinned, created_at], map: "idx_customer_notes_tenant_customer_active")
+  @@index([tenant_id, retain_until, legal_hold, deleted_at], map: "idx_customer_notes_retention")
+  @@map("customer_notes")
 }
 
 model CustomerContactPoint {

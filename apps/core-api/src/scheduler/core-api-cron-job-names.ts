@@ -2,6 +2,7 @@
 export const CORE_API_CRON_JOB_NAMES = [
   'autoscout24-dms-deactivation-retry',
   'customer-consent-proof-purge',
+  'customer-note-retention-purge',
   'document-branding-extraction-recovery',
   'document-branding-upload-recovery',
   'domain-event-consumer-recovery',

@@ -404,7 +404,8 @@
     "OWNER": "Owner",
     "ADMIN": "Administrator",
     "TECH": "Mechanic",
-    "SALES": "Sales"
+    "SALES": "Sales",
+    "ACCOUNTING": "Accounting"
   },
   "vehiclePartyRole": {
     "OWNER": "Owner",

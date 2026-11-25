@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { AuditLogAction, CustomFieldEntity } from '@prisma/client';
+import {
+  AuditLogAction,
+  CustomFieldEntity,
+  CustomerNoteRetentionClass,
+} from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -60,6 +64,86 @@ export class CustomFieldsGdprService {
     return entries;
   }
 
+  private async fetchPortableCustomerData(
+    tenantId: string,
+    customerId: string,
+  ) {
+    const [customer, vehicles, definitions, contactPoints, consentEvents] =
+      await Promise.all([
+        this.prisma.customer.findFirst({
+          where: { id: customerId, tenant_id: tenantId },
+        }),
+        this.prisma.vehicle.findMany({
+          where: { tenant_id: tenantId, customer_id: customerId },
+        }),
+        this.prisma.customFieldDefinition.findMany({
+          where: { tenant_id: tenantId },
+          orderBy: [{ sort_order: 'asc' }, { createdAt: 'asc' }],
+        }),
+        this.prisma.customerContactPoint.findMany({
+          where: { tenant_id: tenantId, customer_id: customerId },
+          select: {
+            id: true,
+            channel: true,
+            is_current: true,
+            transport_validity: true,
+            created_at: true,
+            updated_at: true,
+          },
+          orderBy: { created_at: 'asc' },
+        }),
+        this.prisma.customerConsent.findMany({
+          where: { tenant_id: tenantId, customer_id: customerId },
+          select: {
+            id: true,
+            channel: true,
+            purpose: true,
+            status: true,
+            basis: true,
+            sequence: true,
+            occurred_at: true,
+            recorded_at: true,
+            source: true,
+            text_version: true,
+            text_language: true,
+            revoked_at: true,
+          },
+          orderBy: [{ occurred_at: 'asc' }, { sequence: 'asc' }],
+        }),
+      ]);
+
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+
+    const customerDefs = new Map(
+      definitions
+        .filter((d) => d.entity === CustomFieldEntity.CUSTOMER)
+        .map((d) => [d.key, d]),
+    );
+    const vehicleDefs = new Map(
+      definitions
+        .filter((d) => d.entity === CustomFieldEntity.VEHICLE)
+        .map((d) => [d.key, d]),
+    );
+
+    return {
+      customer,
+      customerDefs,
+      vehicles: vehicles.map((v) => ({
+        id: v.id,
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        vin: v.vin,
+        plate: v.plate,
+        custom_fields: this.mapCustomFieldEntries(v.custom_fields, vehicleDefs),
+      })),
+      contactPoints,
+      consentEvents,
+    };
+  }
+
   /**
    * Generates a GDPR Art. 15 access / export package for a customer, including all
    * stored custom field values (with labels) for the customer and their vehicles,
@@ -76,133 +160,87 @@ export class CustomFieldsGdprService {
     });
     const tenantSiteIds = tenantSites.map((s) => s.id);
 
-    const [
-      customer,
-      vehicles,
-      definitions,
-      contactPoints,
-      consentEvents,
-      salesOrders,
-      workshopOrders,
-      invoices,
-    ] = await Promise.all([
-      this.prisma.customer.findFirst({
-        where: { id: customerId, tenant_id: tenantId },
-      }),
-      this.prisma.vehicle.findMany({
-        where: {
-          tenant_id: tenantId,
-          customer_id: customerId,
-        },
-      }),
-      this.prisma.customFieldDefinition.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: [{ sort_order: 'asc' }, { createdAt: 'asc' }],
-      }),
-      this.prisma.customerContactPoint.findMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
-        select: {
-          id: true,
-          channel: true,
-          is_current: true,
-          transport_validity: true,
-          created_at: true,
-          updated_at: true,
-        },
-        orderBy: { created_at: 'asc' },
-      }),
-      this.prisma.customerConsent.findMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
-        select: {
-          id: true,
-          channel: true,
-          purpose: true,
-          status: true,
-          basis: true,
-          sequence: true,
-          occurred_at: true,
-          recorded_at: true,
-          source: true,
-          text_version: true,
-          text_language: true,
-          revoked_at: true,
-        },
-        orderBy: [{ occurred_at: 'asc' }, { sequence: 'asc' }],
-      }),
-      this.prisma.salesOrder.findMany({
-        where: {
-          tenant_id: tenantId,
-          customer_id: customerId,
-          OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
-        },
-        select: {
-          id: true,
-          order_number: true,
-          status: true,
-          total_amount: true,
-          notes: true,
-          vehicle_id: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.workshopOrder.findMany({
-        where: {
-          tenant_id: tenantId,
-          customer_id: customerId,
-          OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
-        },
-        select: {
-          id: true,
-          order_number: true,
-          status: true,
-          purpose: true,
-          vehicle_id: true,
-          odometer: true,
-          reported_issue: true,
-          notes: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.invoice.findMany({
-        where: { tenant_id: tenantId, customer_id: customerId },
-        select: {
-          id: true,
-          invoice_number: true,
-          draft_number: true,
-          status: true,
-          date: true,
-          due_date: true,
-          currency: true,
-          total_net: true,
-          total_tax: true,
-          total_gross: true,
-          notes: true,
-          vehicle_id: true,
-          sales_order_id: true,
-          workshop_order_id: true,
-        },
-        orderBy: { date: 'asc' },
-      }),
-    ]);
+    const [portable, salesOrders, workshopOrders, invoices, customerNotes] =
+      await Promise.all([
+        this.fetchPortableCustomerData(tenantId, customerId),
+        this.prisma.salesOrder.findMany({
+          where: {
+            tenant_id: tenantId,
+            customer_id: customerId,
+            OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
+          },
+          select: {
+            id: true,
+            order_number: true,
+            status: true,
+            total_amount: true,
+            notes: true,
+            vehicle_id: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.workshopOrder.findMany({
+          where: {
+            tenant_id: tenantId,
+            customer_id: customerId,
+            OR: [{ site_id: { in: tenantSiteIds } }, { site_id: null }],
+          },
+          select: {
+            id: true,
+            order_number: true,
+            status: true,
+            purpose: true,
+            vehicle_id: true,
+            odometer: true,
+            reported_issue: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        }),
+        this.prisma.invoice.findMany({
+          where: { tenant_id: tenantId, customer_id: customerId },
+          select: {
+            id: true,
+            invoice_number: true,
+            draft_number: true,
+            status: true,
+            date: true,
+            due_date: true,
+            currency: true,
+            total_net: true,
+            total_tax: true,
+            total_gross: true,
+            notes: true,
+            vehicle_id: true,
+            sales_order_id: true,
+            workshop_order_id: true,
+          },
+          orderBy: { date: 'asc' },
+        }),
+        this.prisma.customerNote.findMany({
+          where: { tenant_id: tenantId, customer_id: customerId },
+          select: {
+            id: true,
+            body: true,
+            pinned: true,
+            author_role: true,
+            retention_class: true,
+            retain_until: true,
+            legal_hold: true,
+            erasure_restricted: true,
+            created_at: true,
+            updated_at: true,
+            deleted_at: true,
+          },
+          orderBy: { created_at: 'asc' },
+        }),
+      ]);
 
-    if (!customer) {
-      throw new NotFoundException(`Customer with ID ${customerId} not found`);
-    }
-
-    const customerDefs = new Map(
-      definitions
-        .filter((d) => d.entity === CustomFieldEntity.CUSTOMER)
-        .map((d) => [d.key, d]),
-    );
-    const vehicleDefs = new Map(
-      definitions
-        .filter((d) => d.entity === CustomFieldEntity.VEHICLE)
-        .map((d) => [d.key, d]),
-    );
+    const { customer, customerDefs } = portable;
 
     return {
       generatedAt: new Date().toISOString(),
@@ -238,20 +276,58 @@ export class CustomFieldsGdprService {
           customerDefs,
         ),
       },
-      vehicles: vehicles.map((v) => ({
-        id: v.id,
-        make: v.make,
-        model: v.model,
-        year: v.year,
-        vin: v.vin,
-        plate: v.plate,
-        custom_fields: this.mapCustomFieldEntries(v.custom_fields, vehicleDefs),
-      })),
-      contact_points: contactPoints,
-      consent_events: consentEvents,
+      vehicles: portable.vehicles,
+      contact_points: portable.contactPoints,
+      consent_events: portable.consentEvents,
       sales_orders: salesOrders,
       workshop_orders: workshopOrders,
       invoices,
+      customer_notes: customerNotes,
+    };
+  }
+
+  /**
+   * Generates a GDPR Art. 20 data portability export for a customer.
+   * Staff-authored internal notes (CustomerNote) are strictly excluded.
+   */
+  async exportCustomerArt20Package(customerId: string) {
+    assertTenantAdmin(this.tenantContext);
+    const tenantId = await this.tenantContext.getTenantId();
+    const portable = await this.fetchPortableCustomerData(tenantId, customerId);
+    const { customer, customerDefs } = portable;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      art20_subset: true,
+      customer: {
+        id: customer.id,
+        type: customer.type,
+        company_name: customer.company_name,
+        salutation: customer.salutation,
+        title: customer.title,
+        title_suffix: customer.title_suffix,
+        letter_salutation: customer.letter_salutation,
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        email: customer.email,
+        phone: customer.phone,
+        vat_id: customer.vat_id,
+        address_street: customer.address_street,
+        address_zip: customer.address_zip,
+        address_city: customer.address_city,
+        address_country: customer.address_country,
+        preferred_language: customer.preferred_language,
+        contact_email_ok: customer.contact_email_ok,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        custom_fields: this.mapCustomFieldEntries(
+          customer.custom_fields,
+          customerDefs,
+        ),
+      },
+      vehicles: portable.vehicles,
+      contact_points: portable.contactPoints,
+      consent_events: portable.consentEvents,
     };
   }
 
@@ -310,6 +386,30 @@ export class CustomFieldsGdprService {
       await tx.vehicle.updateMany({
         where: { tenant_id: tenantId, customer_id: customerId },
         data: { custom_fields: {} },
+      });
+
+      await tx.customerNote.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          customer_id: customerId,
+          legal_hold: false,
+          retention_class: CustomerNoteRetentionClass.OPERATIONAL,
+        },
+      });
+
+      await tx.customerNote.updateMany({
+        where: {
+          tenant_id: tenantId,
+          customer_id: customerId,
+          OR: [
+            { legal_hold: true },
+            { retention_class: CustomerNoteRetentionClass.CLAIMS_3Y },
+          ],
+        },
+        data: {
+          erasure_restricted: true,
+          pinned: false,
+        },
       });
 
       await this.auditService.recordTenantMutation(

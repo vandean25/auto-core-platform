@@ -32,6 +32,15 @@ export function canOpenCustomer(role: string | null | undefined): boolean {
   return role !== ''
 }
 
+/** Mirrors backend `customer.note.read` / `customer.note.manage` (OWNER, ADMIN, SALES; excludes ACCOUNTING, TECH, DEMO). */
+export function canReadCustomerNotes(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
+export function canManageCustomerNotes(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'SALES'
+}
+
 /** Mirrors list delete access: any signed-in role that can open the customer list. */
 export function canDeleteCustomerFromList(role: string | null | undefined): boolean {
   return role !== ''

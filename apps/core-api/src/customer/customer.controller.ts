@@ -174,6 +174,11 @@ export class CustomerController {
     return this.customFieldsGdpr.exportCustomerArt15Package(id);
   }
 
+  @Get(':id/art20-export')
+  art20Export(@Param('id') id: string) {
+    return this.customFieldsGdpr.exportCustomerArt20Package(id);
+  }
+
   @Post(':id/erase')
   erase(@Param('id') id: string) {
     return this.customFieldsGdpr.eraseCustomerPersonalData(id);

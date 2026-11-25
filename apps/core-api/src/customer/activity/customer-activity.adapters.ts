@@ -28,6 +28,7 @@ export function createCustomerActivityAdapters(
     createCustomerConsentAdapter(prisma),
     createVehicleNoticeAdapter(prisma),
     createLoanerBookingAdapter(prisma),
+    createCustomerNoteAdapter(prisma),
     createAuditLogAdapter(prisma),
   ];
 }
@@ -512,6 +513,57 @@ function createAuditLogAdapter(
         ref_id: row.id,
         ref_link: null,
         summary: buildRedactedAuditSummary(row),
+      }));
+    },
+  };
+}
+
+function createCustomerNoteAdapter(
+  prisma: PrismaService,
+): CustomerActivitySourceAdapter {
+  return {
+    type: 'customer_note',
+    isPermitted: (access) => access.permissions.has('customer.note.read'),
+    async fetchItems(ctx, cursor, take): Promise<CustomerActivityItem[]> {
+      const keyset = buildActivityKeysetClause(
+        'created_at',
+        'customer_note',
+        cursor,
+      );
+      const rows = await prisma.customerNote.findMany({
+        where: combineWhere(
+          {
+            tenant_id: ctx.tenantId,
+            customer_id: ctx.customerId,
+            deleted_at: null,
+            erasure_restricted: false,
+            body: { not: null },
+          },
+          keyset,
+        ),
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        take,
+        select: {
+          id: true,
+          body: true,
+          pinned: true,
+          author_role: true,
+          retention_class: true,
+          created_at: true,
+        },
+      });
+      return rows.map((row) => ({
+        id: row.id,
+        type: 'customer_note',
+        occurred_at: row.created_at.toISOString(),
+        title: row.body ?? '',
+        ref_id: row.id,
+        ref_link: null,
+        summary: {
+          pinned: row.pinned,
+          author_role: row.author_role,
+          retention_class: row.retention_class,
+        },
       }));
     },
   };

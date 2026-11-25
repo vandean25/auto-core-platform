@@ -1409,6 +1409,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/customers/{id}/art20-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerController_art20Export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers/{id}/erase": {
         parameters: {
             query?: never;
@@ -1423,6 +1439,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/customers/{customerId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerNotesController_list"];
+        put?: never;
+        post: operations["CustomerNotesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/customers/{customerId}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["CustomerNotesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["CustomerNotesController_update"];
+        trace?: never;
+    };
+    "/api/customers/{customerId}/notes/{noteId}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["CustomerNotesController_setPinned"];
         trace?: never;
     };
     "/api/custom-fields/definitions": {
@@ -6157,7 +6221,7 @@ export interface components {
             slug: string;
         };
         /** @enum {string} */
-        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES" | "DEMO";
+        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES" | "DEMO" | "ACCOUNTING";
         AuthSessionMembershipDto: {
             tenantId: string;
             tenantName: string;
@@ -7601,7 +7665,7 @@ export interface components {
             /** @description Stable item identifier within its source */
             id: string;
             /** @enum {string} */
-            type: "workshop_order" | "sales_order" | "invoice" | "credit_note" | "email" | "consent" | "vehicle_notice" | "loaner_booking" | "audit";
+            type: "workshop_order" | "sales_order" | "invoice" | "credit_note" | "email" | "consent" | "vehicle_notice" | "loaner_booking" | "customer_note" | "audit";
             /** Format: date-time */
             occurred_at: string;
             title: string;
@@ -7745,6 +7809,41 @@ export interface components {
                 [key: string]: unknown;
             };
             contact_email_ok?: boolean;
+        };
+        /** @enum {string} */
+        CustomerNoteRetentionClass: "OPERATIONAL" | "CLAIMS_3Y";
+        CustomerNoteResponseDto: {
+            id: string;
+            customer_id: string;
+            body: string;
+            pinned: boolean;
+            author_member_id?: string | null;
+            author_role?: components["schemas"]["TenantMemberRole"] | null;
+            retention_class: components["schemas"]["CustomerNoteRetentionClass"];
+            /** Format: date-time */
+            retain_until: string;
+            legal_hold: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CustomerNoteListResponseDto: {
+            data: components["schemas"]["CustomerNoteResponseDto"][];
+        };
+        CreateCustomerNoteDto: {
+            body: string;
+            /** @default false */
+            pinned: boolean;
+            /** Format: uuid */
+            invoice_id?: string;
+        };
+        UpdateCustomerNoteDto: {
+            body?: string;
+            pinned?: boolean;
+        };
+        PinCustomerNoteDto: {
+            pinned: boolean;
         };
         /** @enum {string} */
         CustomFieldEntity: "CUSTOMER" | "VEHICLE";
@@ -16528,6 +16627,25 @@ export interface operations {
             };
         };
     };
+    CustomerController_art20Export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CustomerController_erase: {
         parameters: {
             query?: never;
@@ -16544,6 +16662,124 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CustomerNotesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerNoteListResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerNotesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomerNoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerNotesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CustomerNotesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomerNoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerNotesController_setPinned: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinCustomerNoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerNoteResponseDto"];
+                };
             };
         };
     };

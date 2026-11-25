@@ -1,7 +1,10 @@
 import {
   ADMINS,
+  ADMINS_ACCOUNTING,
   BACK_OFFICE,
+  BACK_OFFICE_ACCOUNTING,
   BACK_OFFICE_DEMO,
+  BACK_OFFICE_DEMO_ACCOUNTING,
   op,
 } from './operation-helpers.js';
 import type { OperationTable } from './operation-types.js';
@@ -19,9 +22,21 @@ export const SALES_OPERATIONS: OperationTable = {
     'fiscal_lock',
     'business_state',
   ]),
-  'SalesController.findAll': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
-  'SalesController.cappedCount': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
-  'SalesController.findOne': op('invoice.read', BACK_OFFICE_DEMO, 'site'),
+  'SalesController.findAll': op(
+    'invoice.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'site',
+  ),
+  'SalesController.cappedCount': op(
+    'invoice.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'site',
+  ),
+  'SalesController.findOne': op(
+    'invoice.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'site',
+  ),
   'InvoicesController.createDraft': op(
     'invoice.draft.create',
     BACK_OFFICE,
@@ -43,18 +58,21 @@ export const SALES_OPERATIONS: OperationTable = {
     'site',
     ['document_site'],
   ),
-  'InvoicesController.getPdf': op('invoice.read', BACK_OFFICE_DEMO, 'site', [
-    'document_site',
-  ]),
+  'InvoicesController.getPdf': op(
+    'invoice.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'site',
+    ['document_site'],
+  ),
   'SalesOrderController.create': op('sales.order.create', BACK_OFFICE, 'site'),
   'SalesOrderController.findAll': op(
     'sales.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'SalesOrderController.findOne': op(
     'sales.order.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'SalesOrderController.update': op('sales.order.update', BACK_OFFICE, 'site', [
@@ -69,15 +87,24 @@ export const SALES_OPERATIONS: OperationTable = {
     'site',
     ['business_state'],
   ),
-  'CreditNotesController.list': op('credit_note.read', BACK_OFFICE, 'site', [
-    'site_membership',
-  ]),
-  'CreditNotesController.getPdf': op('credit_note.read', BACK_OFFICE, 'site', [
-    'document_site',
-  ]),
-  'CreditNotesController.findOne': op('credit_note.read', BACK_OFFICE, 'site', [
-    'document_site',
-  ]),
+  'CreditNotesController.list': op(
+    'credit_note.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+    ['site_membership'],
+  ),
+  'CreditNotesController.getPdf': op(
+    'credit_note.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+    ['document_site'],
+  ),
+  'CreditNotesController.findOne': op(
+    'credit_note.read',
+    BACK_OFFICE_ACCOUNTING,
+    'site',
+    ['document_site'],
+  ),
   'CreditNotesController.updateDraft': op('credit_note.edit', ADMINS, 'site', [
     'document_site',
     'business_state',
@@ -100,7 +127,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'InvoiceCreditNotesController.listForInvoice': op(
     'credit_note.read',
-    BACK_OFFICE,
+    BACK_OFFICE_ACCOUNTING,
     'site',
     ['document_site'],
   ),
@@ -112,7 +139,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'SettlementController.getSettlement': op(
     'invoice.settlement.read',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'site',
     ['document_site'],
   ),
@@ -136,7 +163,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'FinanceController.getSettings': op(
     'finance.settings.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'tenant',
   ),
   'FinanceController.updateSettings': op(
@@ -147,7 +174,7 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'FinanceController.getRevenueGroups': op(
     'finance.revenue_group.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'tenant',
   ),
   'FinanceController.createRevenueGroup': op(
@@ -157,39 +184,39 @@ export const SALES_OPERATIONS: OperationTable = {
   ),
   'FinanceController.getRevenueAnalytics': op(
     'finance.revenue_analytics.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
   'AccountingExportReadinessController.readiness': op(
     'accounting_export.read',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
   ),
   'AccountingExportController.preview': op(
     'accounting_export.preview',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
     ['fiscal_lock'],
   ),
   'AccountingExportController.generate': op(
     'accounting_export.create',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
     ['fiscal_lock'],
   ),
   'AccountingExportController.list': op(
     'accounting_export.read',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
   ),
   'AccountingExportController.findOne': op(
     'accounting_export.read',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
   ),
   'AccountingExportController.download': op(
     'accounting_export.download',
-    ADMINS,
+    ADMINS_ACCOUNTING,
     'tenant',
   ),
   'MarginRuleController.findAll': op(
@@ -216,11 +243,19 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO,
     'tenant',
   ),
-  'CustomerController.findAll': op('customer.read', BACK_OFFICE_DEMO, 'tenant'),
-  'CustomerController.findOne': op('customer.read', BACK_OFFICE_DEMO, 'tenant'),
+  'CustomerController.findAll': op(
+    'customer.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'tenant',
+  ),
+  'CustomerController.findOne': op(
+    'customer.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'tenant',
+  ),
   'CustomerController.getActivity': op(
     'customer.read',
-    BACK_OFFICE_DEMO,
+    BACK_OFFICE_DEMO_ACCOUNTING,
     'tenant',
   ),
   'CustomerController.update': op(
@@ -236,7 +271,37 @@ export const SALES_OPERATIONS: OperationTable = {
     ADMINS,
     'tenant',
   ),
+  'CustomerController.art20Export': op(
+    'customer.gdpr_export',
+    ADMINS,
+    'tenant',
+  ),
   'CustomerController.erase': op('customer.erase', ADMINS, 'tenant'),
+  'CustomerNotesController.list': op(
+    'customer.note.read',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.create': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.update': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.setPinned': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
+  'CustomerNotesController.remove': op(
+    'customer.note.manage',
+    BACK_OFFICE,
+    'tenant',
+  ),
   'CustomerConsentController.getPreferences': op(
     'customer.consent.read',
     BACK_OFFICE,

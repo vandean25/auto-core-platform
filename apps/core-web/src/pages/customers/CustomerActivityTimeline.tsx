@@ -10,8 +10,11 @@ import {
   Receipt,
   ShieldCheck,
   ShoppingBag,
+  StickyNote,
   Wrench,
 } from 'lucide-react'
+import { canReadCustomerNotes } from '@/features/actions/action-role-predicates'
+import { useAuthSession } from '@/api/auth-session'
 import {
   customerKeys,
   useCustomerActivity,
@@ -45,6 +48,7 @@ const ACTIVITY_TYPE_KEYS = {
   consent: 'activity.types.consent',
   vehicle_notice: 'activity.types.vehicle_notice',
   loaner_booking: 'activity.types.loaner_booking',
+  customer_note: 'activity.types.customer_note',
   audit: 'activity.types.audit',
 } as const satisfies Record<CustomerActivityType, string>
 
@@ -55,6 +59,7 @@ const ACTIVITY_FILTER_KEYS = {
   consents: 'activity.filters.consents',
   vehicleNotices: 'activity.filters.vehicleNotices',
   loanerBookings: 'activity.filters.loanerBookings',
+  notes: 'activity.filters.notes',
   audit: 'activity.filters.audit',
 } as const
 
@@ -67,6 +72,7 @@ const TYPE_ICONS: Record<CustomerActivityType, typeof Wrench> = {
   consent: ShieldCheck,
   vehicle_notice: AlertTriangle,
   loaner_booking: Car,
+  customer_note: StickyNote,
   audit: History,
 }
 
@@ -275,6 +281,9 @@ function ActivityTimelineBody({
 
 export function CustomerActivityTimeline({ customerId }: { customerId: string }) {
   const { t } = useTranslation('customers')
+  const { data: session } = useAuthSession()
+  const showNotesChip = canReadCustomerNotes(session?.activeRole)
+  const visibleChips = ACTIVITY_FILTER_CHIPS.filter((chip) => chip.key !== 'notes' || showNotesChip)
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedTypes = parseActivityTypesParam(searchParams.get('types'))
   const queryKey = customerKeys.activity(customerId, selectedTypes)
@@ -322,7 +331,7 @@ export function CustomerActivityTimeline({ customerId }: { customerId: string })
         aria-label={t('activity.filterLabel')}
         className='flex flex-wrap gap-2'
       >
-        {ACTIVITY_FILTER_CHIPS.map((chip) => {
+        {visibleChips.map((chip) => {
           const active = isChipSelected(chip, selectedTypes)
           return (
             <button

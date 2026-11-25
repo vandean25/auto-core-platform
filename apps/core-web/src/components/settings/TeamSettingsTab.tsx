@@ -38,7 +38,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatTenantMemberRole } from '@/lib/i18n'
 
-const TEAM_ROLE_OPTIONS = ['OWNER', 'ADMIN', 'TECH', 'SALES'] as const
+const TEAM_ROLE_OPTIONS = ['OWNER', 'ADMIN', 'TECH', 'SALES', 'ACCOUNTING'] as const
 
 type InviteMemberFormState = {
   email: string

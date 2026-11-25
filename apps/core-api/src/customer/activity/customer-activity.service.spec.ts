@@ -17,6 +17,7 @@ function createMockPrisma() {
     customerConsent: { findMany: jest.fn().mockResolvedValue([]) },
     vehicleNotice: { findMany: jest.fn().mockResolvedValue([]) },
     loanerBooking: { findMany: jest.fn().mockResolvedValue([]) },
+    customerNote: { findMany: jest.fn().mockResolvedValue([]) },
     auditLog: { findMany: jest.fn().mockResolvedValue([]) },
   };
 }

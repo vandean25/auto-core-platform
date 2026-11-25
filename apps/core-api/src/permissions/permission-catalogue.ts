@@ -1,5 +1,5 @@
 /** Version of the permission catalogue. Raise it with every added, renamed or removed identifier. */
-export const PERMISSION_CATALOGUE_VERSION = 9;
+export const PERMISSION_CATALOGUE_VERSION = 10;
 
 /**
  * Operation-based permission identifiers (ADR-0034 section 1): `[id, German (de-AT) label, English label]`.
@@ -115,6 +115,8 @@ const DEFINITIONS = [
     'DSGVO-Auskunft exportieren',
     'Export GDPR Art. 15 package',
   ],
+  ['customer.note.manage', 'Kundennotizen verwalten', 'Manage customer notes'],
+  ['customer.note.read', 'Kundennotizen ansehen', 'View customer notes'],
   ['customer.read', 'Kunden ansehen', 'View customers'],
   ['customer.update', 'Kunde ändern', 'Edit customer'],
   [

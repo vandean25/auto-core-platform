@@ -35,6 +35,10 @@ describe('CustomerService', () => {
   const pickerlContactLog = {
     deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
   };
+  const customerNote = {
+    count: jest.fn(),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+  };
   const mockPrisma = {
     registrationDocumentIntake,
     customer,
@@ -42,6 +46,7 @@ describe('CustomerService', () => {
     customerConsentUnsubscribeToken,
     customerCommunicationState,
     pickerlContactLog,
+    customerNote,
     $transaction: jest.fn(
       async (
         fn: (tx: {
@@ -50,6 +55,7 @@ describe('CustomerService', () => {
           customerConsentUnsubscribeToken: typeof customerConsentUnsubscribeToken;
           customerCommunicationState: typeof customerCommunicationState;
           pickerlContactLog: typeof pickerlContactLog;
+          customerNote: typeof customerNote;
         }) => Promise<unknown>,
       ) =>
         fn({
@@ -58,6 +64,7 @@ describe('CustomerService', () => {
           customerConsentUnsubscribeToken,
           customerCommunicationState,
           pickerlContactLog,
+          customerNote,
         }),
     ),
     salesOrder: { count: jest.fn() },
@@ -94,6 +101,7 @@ describe('CustomerService', () => {
     mockPrisma.customerContactPoint.count.mockResolvedValue(0);
     mockPrisma.vehicleParty.count.mockResolvedValue(0);
     mockPrisma.customerConsent.count.mockResolvedValue(0);
+    mockPrisma.customerNote.count.mockResolvedValue(0);
     customer.findMany.mockResolvedValue([]);
     mockPrisma.externalIdMapping.findMany.mockResolvedValue([]);
   });
@@ -393,6 +401,31 @@ describe('CustomerService', () => {
   it('throws not found when customer does not exist', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue(null);
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('blocks delete with CUSTOMER_RETENTION_BLOCKS_DELETE when retained notes exist', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: 'c-1' });
+    mockPrisma.salesOrder.count.mockResolvedValue(0);
+    mockPrisma.invoice.count.mockResolvedValue(0);
+    mockPrisma.workshopOrder.count.mockResolvedValue(0);
+    mockPrisma.vehicle.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vehicleSale.count.mockResolvedValue(0);
+    mockPrisma.customerNote.count.mockResolvedValue(1);
+
+    const error = await service.remove('c-1').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error).toMatchObject({
+      response: { code: 'CUSTOMER_RETENTION_BLOCKS_DELETE' },
+    });
+    expect(mockPrisma.customerNote.count).toHaveBeenCalledWith({
+      where: {
+        tenant_id: 'tenant-1',
+        customer_id: 'c-1',
+        deleted_at: null,
+        retain_until: { gte: expect.any(Date) },
+      },
+    });
   });
 
   it('rejects invalid customer vat_id on create with stable code', async () => {

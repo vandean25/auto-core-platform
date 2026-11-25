@@ -12,13 +12,26 @@ import type {
 
 /** Legacy role sets. TECH and DEMO appear only where the global restrictions or the service let them through. */
 export const ADMINS: readonly LegacyRole[] = ['OWNER', 'ADMIN'];
+export const ADMINS_ACCOUNTING: readonly LegacyRole[] = [
+  ...ADMINS,
+  'ACCOUNTING',
+];
 export const BACK_OFFICE: readonly LegacyRole[] = ['OWNER', 'ADMIN', 'SALES'];
+export const BACK_OFFICE_ACCOUNTING: readonly LegacyRole[] = [
+  ...BACK_OFFICE,
+  'ACCOUNTING',
+];
 export const BACK_OFFICE_DEMO: readonly LegacyRole[] = [...BACK_OFFICE, 'DEMO'];
+export const BACK_OFFICE_DEMO_ACCOUNTING: readonly LegacyRole[] = [
+  ...BACK_OFFICE_DEMO,
+  'ACCOUNTING',
+];
 export const BACK_OFFICE_TECH: readonly LegacyRole[] = [...BACK_OFFICE, 'TECH'];
 export const EVERY_ROLE: readonly LegacyRole[] = [
   ...BACK_OFFICE,
   'TECH',
   'DEMO',
+  'ACCOUNTING',
 ];
 export const TECH_ONLY: readonly LegacyRole[] = ['TECH'];
 
@@ -91,6 +104,6 @@ export function apiKey(
     policy,
     apiKeyScope,
     permissions: [permission],
-    legacy: BACK_OFFICE_DEMO,
+    legacy: BACK_OFFICE_DEMO_ACCOUNTING,
   };
 }
