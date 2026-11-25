@@ -103,6 +103,23 @@ If an e2e already covers the flow, extend that e2e or extract the pure logic and
 
 Ticket WHEN/THEN scenarios map to exactly one test, preferably in the existing spec (`agents.md`).
 
+## THEN screenshots (Playwright)
+
+Every UI-relevant WHEN/THEN scenario ends in the THEN state and attaches a named screenshot via `testInfo.attach` (see `agents.md` "PR body (checked by CI)" — never commit PNGs or paste image links into the PR body):
+
+- **Loaded control, no skeleton or `h1`-only shell:** wait until the control/data under test is rendered and ready (assert on the visible target element or loaded state) before calling `page.screenshot()`.
+- **Subject inside the viewport:** verify the target element's bounding box fits inside the viewport (or scroll it into view first). Use `fullPage: true` only when the scenario specifically tests full-page layout or overflow.
+- **One shot per UI scenario, including `375 px`:** capture one THEN screenshot per UI-relevant WHEN/THEN scenario (and tested locale/state), covering both desktop and `375 px` (e.g., `375 × 812`) viewports.
+- **Stable name or documented template:** pass a descriptive, stable kebab-case name (e.g., `pickerl-due-mobile-375-de`) or a documented template (e.g., `<feature>-<state>-<lang>-<width>`) that matches the PR body's `Screenshots: Playwright attachments – <attachment names>` line and DoD table.
+
+```ts
+await expect(targetControl).toBeVisible();
+await testInfo.attach('feature-state-de-375', {
+  body: await page.screenshot(),
+  contentType: 'image/png',
+});
+```
+
 ## Anti-patterns (repo-real)
 
 | Don't | Why | Do instead |
@@ -135,6 +152,7 @@ Before pushing a change that adds or edits tests:
 - [ ] No new skip, suppression, or baseline growth.
 - [ ] Tenant-scoped data; no dependency on run order or on a seeded `auto_core_test`.
 - [ ] Assertions go through the public API and check behaviour, not mocks or `toBeDefined`.
+- [ ] UI-relevant WHEN/THEN scenarios (Playwright): screenshot attached at the THEN state via `testInfo.attach` after the control has loaded, subject inside the viewport, one shot per scenario including `375 px`, using a stable name or documented template.
 - [ ] I ran only the local checks in `agents.md`: lint and typecheck/build for the workspace, related unit tests, and only the e2e/Playwright files I added or changed (backend e2e: migrate a fresh unseeded `auto_core_test`, then `npm run test:e2e --workspace=core-api -- --ci --runInBand test/<file>.e2e-spec.ts`). I did not run the full e2e suites.
 
 ## Bug Regression at Base (CI)

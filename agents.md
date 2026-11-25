@@ -100,7 +100,7 @@ A change is done when:
 
 ### List Page UI Standard (Required for New Lists)
 - **Header**: the standard title/subtitle block from Page Layout Defaults.
-- **Top-right create action**: Use a plus icon with either the entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`) or a sentence-case `New <entity>` label (examples: `New order`, `New transfer`). Do not use `Add` or `Create` in the button label.
+- **Top-right create action**: Use a plus icon **or** a leading `+` in the label, never both (to avoid `++`). Prefer a `<Plus>` icon with the entity-only label `<Entity>` (examples: `Customer`, `Vendor`, `Order`, `Purchase Order`) or a sentence-case `New <entity>` label (examples: `New order`, `New transfer`); if a locale string already starts with `+`, omit the `<Plus>` icon. Do not use `Add` or `Create` in the button label.
 - **Search behavior**: Every list must include a search bar and it must search across all relevant visible fields (not only a single column), matching the Item list behavior.
 - **Sorting**: Every list must support sortable column headers via the shared `DataTable`/`DataTableColumnHeader` pattern, consistent with other primary lists.
 - **Column sizing**: Keep column widths consistent across lists and use the Item list proportions as the reference baseline to avoid layout drift between modules.
