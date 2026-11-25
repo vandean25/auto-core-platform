@@ -20,7 +20,7 @@ type VehicleStockCursorParams = VehicleStockCursorFilters & { sortField?: string
 /** Statuses of the filter select. ON_ORDER also lists the draft purchases, which only the offset list can merge in. */
 export const VEHICLE_STOCK_STATUS_OPTIONS = ['IN_STOCK', 'RESERVED', 'IN_PREP', 'SOLD', 'ON_ORDER'] as const
 export const VEHICLE_STOCK_SEARCH_FILTER_FIELDS = ['vin', 'plate', 'make', 'model', 'color']
-const VEHICLE_STOCK_CURSOR_SORT_FIELDS = new Set(['make', 'model', 'year', 'vin', 'plate', 'color', 'updatedAt'])
+const VEHICLE_STOCK_CURSOR_SORT_FIELDS = new Set(['make', 'model', 'year', 'vin', 'plate', 'color', 'stock_status', 'updatedAt'])
 
 /**
  * Cursor paging needs a status that excludes the draft purchases and a whitelisted sort (ADR-0035, AUT-888);

@@ -185,5 +185,33 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       const loadMoreBox = await loadMore.boundingBox();
       expect(loadMoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     });
+
+    test('WHEN the viewport is 375px on stock_status sort THEN the next block loads without page buttons', async ({ page }, testInfo) => {
+      const requests = await mockCursorList(page, { path: '/api/vehicle-stock', rows: stockRows });
+      await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate(
+        '/vehicle-stock?filter_stock_status=IN_STOCK&sortField=stock_status&sortDirection=asc',
+      );
+
+      await expect(page.locator('li[data-table-row="true"]').first()).toBeVisible();
+      await expect(pageButtons(page)).toHaveCount(0);
+      expect(
+        requests.list.some(
+          (url) =>
+            url.searchParams.get('pagination') === 'cursor' &&
+            url.searchParams.get('sortField') === 'stock_status',
+        ),
+      ).toBe(true);
+
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
+      }).toPass();
+      await expect(pageButtons(page)).toHaveCount(0);
+
+      await testInfo.attach('vehicle-stock-status-sort-infinite-de-375', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
   });
 });

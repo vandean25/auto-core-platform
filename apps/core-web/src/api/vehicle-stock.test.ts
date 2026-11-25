@@ -26,7 +26,7 @@ describe('isVehicleStockCursorMode', () => {
     ['RESERVED', 'updatedAt', true],
     [undefined, undefined, false],
     ['ON_ORDER', 'make', false],
-    ['IN_STOCK', 'stock_status', false],
+    ['IN_STOCK', 'stock_status', true],
     ['unknown', 'make', false],
   ])('status %s + sortField %s -> cursor mode %s', (stockStatus, sortField, expected) => {
     expect(isVehicleStockCursorMode({ stockStatus, sortField })).toBe(expected)
