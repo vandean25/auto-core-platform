@@ -24,6 +24,7 @@ describe('Customer notes & GDPR (e2e)', () => {
   let prismaA: PrismaService;
   let retentionService: CustomerNoteRetentionService;
   let tenantAId: string;
+  let tenantASiteId: string;
   let tenantBId: string;
   let salesTokenA: string;
   let ownerTokenA: string;
@@ -50,6 +51,7 @@ describe('Customer notes & GDPR (e2e)', () => {
     const tenantA = await createTestTenant(basePrisma, 'aut1040a');
     const tenantB = await createTestTenant(basePrisma, 'aut1040b');
     tenantAId = tenantA.tenantId;
+    tenantASiteId = tenantA.siteId;
     tenantBId = tenantB.tenantId;
 
     ownerTokenA = createTestAuthToken(authService, tenantA, { role: 'OWNER' });
@@ -109,14 +111,20 @@ describe('Customer notes & GDPR (e2e)', () => {
   });
 
   it('Scenario 1: creates a note and exposes it on the customer file and in Verlauf as customer_note', async () => {
-    const created = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/customers/${customerAId}/notes`)
       .set('Authorization', `Bearer ${salesTokenA}`)
       .send({
-        body: 'First customer note',
+        body: 'Rejected client retention override',
         retention_class: CustomerNoteRetentionClass.CLAIMS_3Y,
         legal_hold: true,
       })
+      .expect(400);
+
+    const created = await request(app.getHttpServer())
+      .post(`/api/customers/${customerAId}/notes`)
+      .set('Authorization', `Bearer ${salesTokenA}`)
+      .send({ body: 'First customer note' })
       .expect(201);
 
     expect(created.body.retention_class).toBe(
@@ -268,6 +276,7 @@ describe('Customer notes & GDPR (e2e)', () => {
     const invoice = await prismaA.invoice.create({
       data: {
         tenant_id: tenantAId,
+        site_id: tenantASiteId,
         customer_id: customerAId,
         invoice_number: `RE-2026-ACCT-${Date.now()}`,
         status: 'FINALIZED',
