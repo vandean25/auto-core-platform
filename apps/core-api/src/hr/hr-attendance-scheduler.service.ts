@@ -94,19 +94,43 @@ export class HrAttendanceSchedulerService {
     );
 
     const results = await chunkedPromiseAll(orphaned, (event) =>
-      this.systemPrisma.attendanceEvent.create({
-        data: {
-          tenant_id: event.tenant_id,
-          employee_id: event.employee_id,
-          type: AttendanceEventType.CLOCK_OUT,
-          source: AttendanceEventSource.AUTO_SHIFT_CLOSE,
-          occurred_at: now,
+      this.systemPrisma.$transaction(
+        async (tx) => {
+          const latest = await tx.attendanceEvent.findFirst({
+            where: {
+              tenant_id: event.tenant_id,
+              employee_id: event.employee_id,
+            },
+            orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
+            select: { type: true, occurred_at: true },
+          });
+
+          if (
+            !latest ||
+            latest.type === AttendanceEventType.CLOCK_OUT ||
+            new Date(latest.occurred_at) >= now
+          ) {
+            return false;
+          }
+
+          await tx.attendanceEvent.create({
+            data: {
+              tenant_id: event.tenant_id,
+              employee_id: event.employee_id,
+              type: AttendanceEventType.CLOCK_OUT,
+              source: AttendanceEventSource.AUTO_SHIFT_CLOSE,
+              occurred_at: now,
+            },
+          });
+          return true;
         },
-      }),
+        { isolationLevel: 'Serializable' },
+      ),
     );
 
+    const closedCount = results.filter(Boolean).length;
     this.logger.log(
-      `HR shift-close job completed: closed ${results.length} shifts.`,
+      `HR shift-close job completed: closed ${closedCount} shifts.`,
     );
   }
 }

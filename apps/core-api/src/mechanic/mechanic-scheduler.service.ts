@@ -54,9 +54,10 @@ export class MechanicSchedulerService {
 
         // Use chunkedPromiseAll to close entries concurrently in bounded batches
         // rather than one unbounded Promise.all (ADR-0014 §4.1.1 + performance rule).
+        // Filter on ended_at: null so entries closed in between are skipped (count === 0).
         const results = await chunkedPromiseAll(openEntries, (entry) =>
-          this.systemPrisma.laborEntry.update({
-            where: { id: entry.id },
+          this.systemPrisma.laborEntry.updateMany({
+            where: { id: entry.id, ended_at: null },
             data: {
               ended_at: now,
               pause_reason: LaborPauseReason.AUTO_SHIFT_CLOSE,
@@ -64,8 +65,12 @@ export class MechanicSchedulerService {
           }),
         );
 
+        const closedCount = results.reduce(
+          (sum, result) => sum + result.count,
+          0,
+        );
         this.logger.log(
-          `Shift-close job completed: closed ${results.length} labor entries.`,
+          `Shift-close job completed: closed ${closedCount} labor entries.`,
         );
       },
       this.logger,
