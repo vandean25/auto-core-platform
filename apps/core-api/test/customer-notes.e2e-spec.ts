@@ -96,6 +96,17 @@ describe('Customer notes & GDPR (e2e)', () => {
       role: 'ACCOUNTING',
     });
 
+    await prismaA.siteMembership.createMany({
+      data: [
+        { tenant_id: tenantAId, user_id: salesUser.id, site_id: tenantASiteId },
+        {
+          tenant_id: tenantAId,
+          user_id: accountingUser.id,
+          site_id: tenantASiteId,
+        },
+      ],
+    });
+
     const customerA = await prismaA.customer.create({
       data: {
         tenant_id: tenantAId,
