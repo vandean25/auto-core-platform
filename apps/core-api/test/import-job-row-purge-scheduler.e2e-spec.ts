@@ -70,6 +70,12 @@ describe('Import Job Row Purge Scheduler (e2e)', () => {
       SALES: await createMemberBearer(basePrisma, authService, tenant, 'SALES'),
       TECH: await createMemberBearer(basePrisma, authService, tenant, 'TECH'),
       DEMO: await createMemberBearer(basePrisma, authService, tenant, 'DEMO'),
+      ACCOUNTING: await createMemberBearer(
+        basePrisma,
+        authService,
+        tenant,
+        'ACCOUNTING',
+      ),
     };
   });
 
