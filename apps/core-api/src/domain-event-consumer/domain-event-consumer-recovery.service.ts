@@ -71,12 +71,15 @@ export class DomainEventConsumerRecoveryService {
         select: { cursor_sequence: true },
       });
       const cursor = progress?.cursor_sequence ?? BigInt(0);
-      const pending = await queryVisibleDomainEvents({
-        tenantId,
-        eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
-        afterSequence: cursor,
-        limit: 1,
-      });
+      const pending = await queryVisibleDomainEvents(
+        {
+          tenantId,
+          eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+          afterSequence: cursor,
+          limit: 1,
+        },
+        this.prisma.pool,
+      );
       return pending.length > 0;
     });
   }

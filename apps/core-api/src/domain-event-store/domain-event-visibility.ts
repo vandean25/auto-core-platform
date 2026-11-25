@@ -1,5 +1,4 @@
 import type { DomainEvent, Prisma } from '@prisma/client';
-import { getSharedRuntimePool } from '../prisma/shared-pg-pool.js';
 
 export const DOMAIN_EVENT_QUERY_POOL = Symbol('DOMAIN_EVENT_QUERY_POOL');
 
@@ -39,7 +38,7 @@ type RawDomainEventRow = {
  */
 export async function queryVisibleDomainEvents(
   query: VisibleDomainEventsQuery,
-  pool: DomainEventQueryPool = getSharedRuntimePool(),
+  pool: DomainEventQueryPool,
 ): Promise<DomainEvent[]> {
   if (query.siteIds && query.siteIds.length === 0) {
     return [];

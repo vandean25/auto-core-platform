@@ -10,8 +10,9 @@ describe('DomainEventStoreService.appendInTx', () => {
   });
 
   it('creates a row in the caller transaction when not in dry-run', async () => {
+    const $executeRaw = jest.fn().mockResolvedValue(1);
     const create = jest.fn().mockResolvedValue({ id: 'ev-1', sequence: BigInt(7) });
-    const tx = { domainEvent: { create } };
+    const tx = { $executeRaw, domainEvent: { create } };
 
     const result = await service.appendInTx(tx as never, {
       tenantId: 'tenant-1',
@@ -23,13 +24,15 @@ describe('DomainEventStoreService.appendInTx', () => {
       traceId: '00000000-0000-4000-8000-000000000001',
     });
 
+    expect($executeRaw).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ eventId: 'ev-1', sequence: BigInt(7) });
   });
 
   it('skips the insert during dry-run preview', async () => {
+    const $executeRaw = jest.fn();
     const create = jest.fn();
-    const tx = { domainEvent: { create } };
+    const tx = { $executeRaw, domainEvent: { create } };
 
     const result = await DryRunStorage.run({ isDryRun: true }, () =>
       service.appendInTx(tx as never, {
@@ -43,6 +46,7 @@ describe('DomainEventStoreService.appendInTx', () => {
       }),
     );
 
+    expect($executeRaw).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
     expect(result).toBeNull();
   });

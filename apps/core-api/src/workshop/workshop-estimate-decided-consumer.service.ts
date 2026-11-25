@@ -79,12 +79,15 @@ export class WorkshopEstimateDecidedConsumerService {
       if (!progress) {
         return 0;
       }
-      const events = await queryVisibleDomainEvents({
-        tenantId,
-        eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
-        afterSequence: progress.cursor_sequence,
-        limit: DOMAIN_EVENT_CONSUMER_BATCH_SIZE,
-      });
+      const events = await queryVisibleDomainEvents(
+        {
+          tenantId,
+          eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+          afterSequence: progress.cursor_sequence,
+          limit: DOMAIN_EVENT_CONSUMER_BATCH_SIZE,
+        },
+        this.prisma.pool,
+      );
       for (const event of events) {
         await this.processOneEvent(tenantId, event.id, now, claimToken);
         processed += 1;

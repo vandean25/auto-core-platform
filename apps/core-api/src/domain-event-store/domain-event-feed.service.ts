@@ -66,7 +66,7 @@ export class DomainEventFeedService {
         afterCursor: cursor ?? undefined,
         limit: pageSize + 1,
       },
-      this.queryPool,
+      this.queryPool ?? this.prisma.pool,
     );
 
     const hasMore = rows.length > pageSize;
