@@ -4411,7 +4411,6 @@ model DomainEvent {
   trace_id           String                        @db.Uuid
   occurrence_key     String
   payload            Json?
-  tx_xid             Unsupported("xid8")           @default(dbgenerated("pg_current_xact_id()"))
   consumerDeliveries DomainEventConsumerDelivery[]
 
   @@unique([tenant_id, occurrence_key])

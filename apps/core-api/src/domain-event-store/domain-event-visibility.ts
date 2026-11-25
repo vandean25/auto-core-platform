@@ -33,8 +33,9 @@ type RawDomainEventRow = {
 };
 
 /**
- * Queries `domain_events` with `tx_xid < pg_snapshot_xmin(pg_current_snapshot())`
- * so readers never observe or advance cursors past uncommitted out-of-order transactions (AUT-1052).
+ * Queries `domain_events` in monotonic `(sequence, id)` order. Because `appendInTx` holds a
+ * per-tenant `pg_advisory_xact_lock` until commit, same-tenant commit order follows `sequence`
+ * order and standard MVCC visibility prevents readers from skipping uncommitted events (AUT-1052).
  */
 export async function queryVisibleDomainEvents(
   query: VisibleDomainEventsQuery,
@@ -45,10 +46,7 @@ export async function queryVisibleDomainEvents(
   }
 
   const values: unknown[] = [query.tenantId];
-  const conditions: string[] = [
-    '"tenant_id" = $1',
-    '"tx_xid" < pg_snapshot_xmin(pg_current_snapshot())',
-  ];
+  const conditions: string[] = ['"tenant_id" = $1'];
 
   if (query.siteIds) {
     values.push([...query.siteIds]);
