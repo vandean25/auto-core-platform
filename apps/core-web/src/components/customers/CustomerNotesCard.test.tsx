@@ -40,8 +40,8 @@ const mocks = vi.hoisted(() => ({
   pinMutateAsync: vi.fn().mockResolvedValue({}),
 }))
 
-vi.mock('@/features/actions/use-auth-role', () => ({
-  useAuthRole: () => mocks.role,
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({ data: { activeRole: mocks.role } }),
 }))
 
 vi.mock('@/api/customers', () => ({

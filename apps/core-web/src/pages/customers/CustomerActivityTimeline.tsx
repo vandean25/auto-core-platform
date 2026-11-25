@@ -14,7 +14,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { canReadCustomerNotes } from '@/features/actions/action-role-predicates'
-import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useAuthSession } from '@/api/auth-session'
 import {
   customerKeys,
   useCustomerActivity,
@@ -281,8 +281,8 @@ function ActivityTimelineBody({
 
 export function CustomerActivityTimeline({ customerId }: { customerId: string }) {
   const { t } = useTranslation('customers')
-  const role = useAuthRole()
-  const showNotesChip = canReadCustomerNotes(role)
+  const { data: session } = useAuthSession()
+  const showNotesChip = canReadCustomerNotes(session?.activeRole)
   const visibleChips = ACTIVITY_FILTER_CHIPS.filter((chip) => chip.key !== 'notes' || showNotesChip)
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedTypes = parseActivityTypesParam(searchParams.get('types'))

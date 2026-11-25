@@ -36,8 +36,8 @@ vi.mock('@/api/customers', async (importOriginal) => {
     })),
   }
 })
-vi.mock('@/features/actions/use-auth-role', () => ({
-  useAuthRole: () => 'ADMIN',
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({ data: { activeRole: 'ADMIN' } }),
 }))
 vi.mock('sonner', () => ({
   toast: {

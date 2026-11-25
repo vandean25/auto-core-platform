@@ -15,13 +15,13 @@ import { CustomerDetailTabs } from './CustomerDetailTabs'
 import { CustomerNotesCard } from '@/components/customers/CustomerNotesCard'
 import { CustomerStartService } from './CustomerStartService'
 import { canReadCustomerNotes } from '@/features/actions/action-role-predicates'
-import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useAuthSession } from '@/api/auth-session'
 import { getCustomerDisplayName, type CustomerDetailResponse } from './customer-detail-model'
 
 export default function CustomerDetail() {
   const { t } = useTranslation('customers')
-  const role = useAuthRole()
-  const showNotes = canReadCustomerNotes(role)
+  const { data: session } = useAuthSession()
+  const showNotes = canReadCustomerNotes(session?.activeRole)
   useEffect(() => {
     void ensureNamespaceLoaded('customers')
   }, [])

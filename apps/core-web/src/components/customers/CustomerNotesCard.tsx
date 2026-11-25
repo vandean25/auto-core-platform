@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { canManageCustomerNotes } from '@/features/actions/action-role-predicates'
-import { useAuthRole } from '@/features/actions/use-auth-role'
+import { useAuthSession } from '@/api/auth-session'
 import { formatDateTime } from '@/lib/format'
 import { formatTenantMemberRole } from '@/lib/i18n'
 
@@ -263,8 +263,8 @@ function CustomerNoteRow({
 
 export function CustomerNotesCard({ customerId }: { customerId: string }) {
   const { t } = useTranslation('customers')
-  const role = useAuthRole()
-  const canManage = canManageCustomerNotes(role)
+  const { data: session } = useAuthSession()
+  const canManage = canManageCustomerNotes(session?.activeRole)
   const { data, isLoading, error, refetch } = useCustomerNotes(customerId)
   const updateNote = useUpdateCustomerNote(customerId)
   const pinNote = usePinCustomerNote(customerId)
