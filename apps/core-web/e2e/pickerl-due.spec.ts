@@ -390,18 +390,29 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.getByRole('option', { name: 'Kontaktiert: Nein' }).click()
     await expect(page).toHaveURL(/filter_contacted=no/)
 
-    await page.getByRole('button', { name: 'Aktuelle Ansicht für Pickerl fällig speichern' }).click()
-    const saveDialog = page.getByRole('dialog')
-    await saveDialog.getByLabel('Name').fill('Nicht kontaktiert')
-    await saveDialog.getByRole('button', { name: 'Speichern' }).click()
+    await page
+      .getByRole('button', {
+        name: DE_COMMON.savedViews.saveAria.replace('{{title}}', DE_VEHICLES.pickerlDue.title),
+      })
+      .click()
+    const saveDialog = page.getByRole('dialog', { name: DE_COMMON.savedViews.title })
+    await saveDialog.getByLabel(DE_COMMON.savedViews.nameLabel, { exact: true }).fill('Nicht kontaktiert')
+    await saveDialog.getByRole('button', { name: DE_COMMON.actions.save, exact: true }).click()
     await expect(saveDialog).toBeHidden()
 
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
     await expect(page.getByText('W-CALL-1').first()).toBeVisible()
 
-    await page.getByRole('button', { name: 'Gespeicherte Ansichten für Pickerl fällig' }).click()
-    await page.getByRole('button', { name: 'Nicht kontaktiert', exact: true }).click()
+    await page
+      .getByRole('button', {
+        name: DE_COMMON.savedViews.menuAria.replace('{{title}}', DE_VEHICLES.pickerlDue.title),
+      })
+      .click()
+    await page
+      .getByRole('dialog', { name: DE_COMMON.savedViews.menuTitle })
+      .getByRole('button', { name: 'Nicht kontaktiert', exact: true })
+      .click()
 
     await expect(page).toHaveURL(/filter_contacted=no/)
     await expect(page.getByText('W-EMAIL-1').first()).toBeVisible()
@@ -447,7 +458,7 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     const row = page.locator('tr', { hasText: 'W-CALL-1' })
     await expect(row).toBeVisible()
     await expect(row.getByText('2027-01')).toBeVisible()
-    await expect(row.getByText('—')).toBeVisible()
+    await expect(row.locator('td').nth(6)).toHaveText('—')
     await expect(row.getByText(/Telefon ·/)).toHaveCount(0)
 
     await testInfo.attach('pickerl-due-rollover-uncontacted-de', {

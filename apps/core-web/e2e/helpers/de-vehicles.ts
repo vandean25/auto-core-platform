@@ -23,6 +23,7 @@ export const DE_VEHICLES = {
     pickerlDueTitle: vehiclesDe.dashboardWidgets.pickerlDueTitle,
   },
   pickerlDue: {
+    title: vehiclesDe.pickerlDue.title,
     exportCsv: vehiclesDe.pickerlDue.exportCsv,
     createOrder: vehiclesDe.pickerlDue.createOrder,
   },
