@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { AttendanceEventSource, AttendanceEventType } from '@prisma/client';
+import { isRetryableTransactionError } from '../common/prisma/is-retryable-transaction-error.js';
 import { chunkedPromiseAll } from '../common/utils/promise.util.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+
+const MAX_CLOSE_SHIFT_ATTEMPTS = 3;
 
 /**
  * Nightly scheduled job that force-closes open/orphaned attendance shifts.
@@ -94,19 +97,66 @@ export class HrAttendanceSchedulerService {
     );
 
     const results = await chunkedPromiseAll(orphaned, (event) =>
-      this.systemPrisma.attendanceEvent.create({
-        data: {
-          tenant_id: event.tenant_id,
-          employee_id: event.employee_id,
-          type: AttendanceEventType.CLOCK_OUT,
-          source: AttendanceEventSource.AUTO_SHIFT_CLOSE,
-          occurred_at: now,
-        },
-      }),
+      this.closeEmployeeShiftWithRetry(event.tenant_id, event.employee_id, now),
     );
 
+    const closedCount = results.filter(Boolean).length;
     this.logger.log(
-      `HR shift-close job completed: closed ${results.length} shifts.`,
+      `HR shift-close job completed: closed ${closedCount} shifts.`,
     );
+  }
+
+  private async closeEmployeeShiftWithRetry(
+    tenantId: string,
+    employeeId: string,
+    now: Date,
+  ): Promise<boolean> {
+    for (let attempt = 1; attempt <= MAX_CLOSE_SHIFT_ATTEMPTS; attempt++) {
+      try {
+        return await this.systemPrisma.$transaction(
+          async (tx) => {
+            const latest = await tx.attendanceEvent.findFirst({
+              where: {
+                tenant_id: tenantId,
+                employee_id: employeeId,
+              },
+              orderBy: [{ occurred_at: 'desc' }, { createdAt: 'desc' }],
+              select: { type: true, occurred_at: true },
+            });
+
+            if (
+              !latest ||
+              latest.type === AttendanceEventType.CLOCK_OUT ||
+              new Date(latest.occurred_at) >= now
+            ) {
+              return false;
+            }
+
+            await tx.attendanceEvent.create({
+              data: {
+                tenant_id: tenantId,
+                employee_id: employeeId,
+                type: AttendanceEventType.CLOCK_OUT,
+                source: AttendanceEventSource.AUTO_SHIFT_CLOSE,
+                occurred_at: now,
+              },
+            });
+            return true;
+          },
+          { isolationLevel: 'Serializable' },
+        );
+      } catch (error) {
+        if (!isRetryableTransactionError(error)) {
+          throw error;
+        }
+        if (attempt === MAX_CLOSE_SHIFT_ATTEMPTS) {
+          this.logger.warn(
+            `HR shift-close job: exhausted ${MAX_CLOSE_SHIFT_ATTEMPTS} serialization attempts for employee ${employeeId} (tenant ${tenantId}); skipping.`,
+          );
+          return false;
+        }
+      }
+    }
+    return false;
   }
 }
