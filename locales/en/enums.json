@@ -143,6 +143,19 @@
     "INITIAL_BALANCE": "Initial balance",
     "WORKSHOP_CONSUMPTION": "Workshop consumption"
   },
+  "stockAdjustmentReason": {
+    "INVENTORY_COUNT": "Inventory count difference",
+    "BREAKAGE": "Breakage / damage",
+    "SHRINKAGE": "Shrinkage / theft",
+    "FOUND": "Found stock",
+    "BOOKING_ERROR": "Booking error",
+    "OTHER": "Other"
+  },
+  "stockAdjustmentValueSource": {
+    "AVG": "Moving average",
+    "LAST_EK": "Last purchase cost",
+    "MANUAL": "Manual value"
+  },
   "attendanceEventType": {
     "CLOCK_IN": "Come to work",
     "PAUSE": "Pause",

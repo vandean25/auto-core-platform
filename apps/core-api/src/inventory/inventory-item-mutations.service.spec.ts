@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { TransactionType } from '@prisma/client';
+import {
+  LocationType,
+  StockAdjustmentReason,
+  TransactionType,
+} from '@prisma/client';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LedgerService } from './ledger.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
+import { InventoryValuationService } from './inventory-valuation.service.js';
 
 describe('InventoryItemMutationsService', () => {
   let service: InventoryItemMutationsService;
@@ -15,9 +21,24 @@ describe('InventoryItemMutationsService', () => {
     getTenantId: jest.fn().mockResolvedValue('tenant-1'),
     getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'ADMIN' }),
   };
+  const siteContext = {
+    listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+  };
+  const valuationService = {
+    resolveLastEk: jest.fn().mockResolvedValue(null),
+  };
   const tx = {
     catalogItem: {
       update: jest.fn(),
+    },
+    storageLocation: {
+      findFirst: jest.fn(),
+    },
+    site: {
+      findFirst: jest.fn(),
+    },
+    inventoryValuation: {
+      findFirst: jest.fn(),
     },
   };
   const prisma = {
@@ -29,11 +50,24 @@ describe('InventoryItemMutationsService', () => {
       update: jest.fn(),
     },
     brand: { findFirst: jest.fn() },
+    user: { findFirst: jest.fn() },
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     tenantContext.getAuthenticatedUser.mockReturnValue({ role: 'ADMIN' });
+    siteContext.listAuthorizedSiteIds.mockResolvedValue(['site-1']);
+    valuationService.resolveLastEk.mockResolvedValue(null);
+    tx.storageLocation.findFirst.mockResolvedValue({
+      id: 'loc-1',
+      site_id: 'site-1',
+      type: LocationType.bin,
+      name: 'Bin 1',
+    });
+    tx.site.findFirst.mockResolvedValue({ legal_entity_id: 'le-1' });
+    tx.inventoryValuation.findFirst.mockResolvedValue({
+      average_unit_cost: '10.0000',
+    });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InventoryItemMutationsService,
@@ -41,6 +75,8 @@ describe('InventoryItemMutationsService', () => {
         { provide: LedgerService, useValue: ledgerService },
         { provide: AuditService, useValue: auditService },
         { provide: TenantContextService, useValue: tenantContext },
+        { provide: SiteContextService, useValue: siteContext },
+        { provide: InventoryValuationService, useValue: valuationService },
       ],
     }).compile();
 
@@ -87,7 +123,8 @@ describe('InventoryItemMutationsService', () => {
     await service.adjustStock('item-1', {
       locationId: 'loc-1',
       quantity: -1,
-      reason: ' Cycle count ',
+      reason: StockAdjustmentReason.INVENTORY_COUNT,
+      note: ' Cycle count ',
     });
 
     expect(ledgerService.recordTransactions).toHaveBeenCalledWith(
@@ -95,6 +132,8 @@ describe('InventoryItemMutationsService', () => {
         expect.objectContaining({
           type: TransactionType.ADJUSTMENT,
           referenceId: 'manual-adjustment',
+          reason: StockAdjustmentReason.INVENTORY_COUNT,
+          note: 'Cycle count',
         }),
       ],
       tx,
@@ -102,7 +141,10 @@ describe('InventoryItemMutationsService', () => {
     expect(auditService.recordTenantMutation).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'inventory.adjustment',
-        after: expect.objectContaining({ reason: 'Cycle count' }),
+        after: expect.objectContaining({
+          reason: StockAdjustmentReason.INVENTORY_COUNT,
+          note: 'Cycle count',
+        }),
       }),
       tx,
     );
@@ -113,17 +155,18 @@ describe('InventoryItemMutationsService', () => {
       service.adjustStock('item-1', {
         locationId: 'loc-1',
         quantity: 0,
-        reason: 'Cycle count',
+        reason: StockAdjustmentReason.INVENTORY_COUNT,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('rejects blank adjustment reasons after trim', async () => {
+  it('rejects OTHER adjustment reason when note is blank after trim', async () => {
     await expect(
       service.adjustStock('item-1', {
         locationId: 'loc-1',
         quantity: 1,
-        reason: '   ',
+        reason: StockAdjustmentReason.OTHER,
+        note: '   ',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

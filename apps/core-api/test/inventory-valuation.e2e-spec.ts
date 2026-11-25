@@ -11,6 +11,7 @@ import { AtpService } from '../src/inventory/atp.service.js';
 import { InventoryValuationService } from '../src/inventory/inventory-valuation.service.js';
 import { LedgerService } from '../src/inventory/ledger.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { enableLegacyMigrationPurgeFlag } from '../src/prisma/fixtures/legacy-migration-purge-flag.js';
 import { processSaleInventoryDeduction } from '../src/sales/helpers/invoice-inventory.helpers.js';
 import { WorkshopKpiReportsService } from '../src/workshop/workshop-kpi-reports.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
@@ -762,9 +763,21 @@ describe('Inventory Valuation (e2e)', () => {
 
     // After: backfill + outbound stamping on consumption (cost_basis = 20.0000)
     await runInTenantContext(() => valuationService.backfillTenant(tenantId));
-    await prisma.inventoryTransaction.update({
-      where: { id: legacyConsume.id },
-      data: { cost_basis: new Decimal('20.0000') },
+    await prisma.$transaction(async (tx) => {
+      await enableLegacyMigrationPurgeFlag(tx);
+      await tx.inventoryTransaction.delete({ where: { id: legacyConsume.id } });
+      await tx.inventoryTransaction.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: kpiSite.id,
+          item_id: kpiItem.id,
+          location_id: kpiBin.id,
+          quantity: new Decimal(-4),
+          type: TransactionType.WORKSHOP_CONSUMPTION,
+          cost_basis: new Decimal('20.0000'),
+          createdAt: day2,
+        },
+      });
     });
 
     const afterReport = await runInTenantContext(

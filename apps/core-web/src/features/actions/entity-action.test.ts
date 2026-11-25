@@ -20,6 +20,7 @@ import {
   type EntityActionDefinition,
 } from './entity-action'
 import { createInventoryBulkActions } from './inventory-bulk-actions'
+import { createInventoryLedgerActions } from './inventory-ledger-actions'
 import { createImportJobRowActions } from './import-job-row-actions'
 import { createVehicleRowActions } from './vehicle-row-actions'
 import { createWorkshopOrderRowActions } from './work-order-row-actions'
@@ -100,6 +101,7 @@ describe('entity action registry helpers', () => {
       createCreditNotePrintAction(passthroughT as TFunction<'finance'>),
       ...createSavedViewActions(passthroughT as TFunction<'common'>),
       ...createInventoryBulkActions(passthroughT as TFunction<'inventory'>),
+      ...createInventoryLedgerActions(passthroughT as TFunction<'inventory'>),
       ...createSalesOrderRowActions(passthroughT as TFunction<'sales'>),
     ]
 

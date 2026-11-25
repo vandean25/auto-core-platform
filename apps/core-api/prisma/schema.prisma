@@ -346,6 +346,7 @@ model User {
   pushPreferences                   PushPreference[]
   savedViews                        SavedView[]
   savedViewImports                  SavedViewImport[]
+  inventoryTransactionsCreated      InventoryTransaction[]       @relation("InventoryTransactionCreatedBy")
   createdAt                         DateTime                     @default(now())
   updatedAt                         DateTime                     @updatedAt
 
@@ -1395,28 +1396,53 @@ enum AuditActorType {
   MIGRATION
 }
 
+enum StockAdjustmentReason {
+  INVENTORY_COUNT
+  BREAKAGE
+  SHRINKAGE
+  FOUND
+  BOOKING_ERROR
+  OTHER
+}
+
+enum StockAdjustmentValueSource {
+  AVG
+  LAST_EK
+  MANUAL
+}
+
 model InventoryTransaction {
-  id                   String            @id @default(uuid())
-  seq                  BigInt            @default(autoincrement())
-  tenant_id            String
-  tenant               Tenant            @relation(fields: [tenant_id], references: [id])
-  site_id              String
-  item_id              String
-  item                 CatalogItem       @relation(fields: [item_id], references: [id])
-  location_id          String
-  location             StorageLocation   @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id])
-  quantity             Decimal           @db.Decimal(10, 3) // Signed: positive = add, negative = remove
-  type                 TransactionType
-  reference_id         String? // Invoice #, Workshop Order #, User ID, etc.
-  cost_basis           Decimal?          @db.Decimal(12, 4) // For profit calculation (4 decimal places)
-  parts_reservation_id String?
-  parts_reservation    PartsReservation? @relation(fields: [parts_reservation_id], references: [id], onDelete: Restrict)
-  movement_group_id    String? // Pairs transfer ledger movements (ship/receive/return)
-  stock_transfer_id    String?
-  stock_transfer       StockTransfer?    @relation(fields: [tenant_id, stock_transfer_id], references: [tenant_id, id])
-  createdAt            DateTime          @default(now())
+  id                         String                      @id @default(uuid())
+  seq                        BigInt                      @default(autoincrement())
+  tenant_id                  String
+  tenant                     Tenant                      @relation(fields: [tenant_id], references: [id])
+  site_id                    String
+  item_id                    String
+  item                       CatalogItem                 @relation(fields: [item_id], references: [id])
+  location_id                String
+  location                   StorageLocation             @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id])
+  quantity                   Decimal                     @db.Decimal(10, 3) // Signed: positive = add, negative = remove
+  type                       TransactionType
+  reference_id               String? // Invoice #, Workshop Order #, User ID, etc.
+  cost_basis                 Decimal?                    @db.Decimal(12, 4) // For profit calculation (4 decimal places)
+  reason                     StockAdjustmentReason?
+  note                       String?
+  value_source               StockAdjustmentValueSource?
+  override_reason            String?
+  created_by_user_id         String?
+  created_by                 User?                       @relation("InventoryTransactionCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  reversal_of_transaction_id String?
+  reversal_of                InventoryTransaction?       @relation("InventoryTransactionReversal", fields: [reversal_of_transaction_id], references: [id], onDelete: Restrict)
+  reversed_by                InventoryTransaction[]      @relation("InventoryTransactionReversal")
+  parts_reservation_id       String?
+  parts_reservation          PartsReservation?           @relation(fields: [parts_reservation_id], references: [id], onDelete: Restrict)
+  movement_group_id          String? // Pairs transfer ledger movements (ship/receive/return)
+  stock_transfer_id          String?
+  stock_transfer             StockTransfer?              @relation(fields: [tenant_id, stock_transfer_id], references: [tenant_id, id])
+  createdAt                  DateTime                    @default(now())
 
   @@unique([tenant_id, seq])
+  @@unique([tenant_id, reversal_of_transaction_id])
   @@index([tenant_id])
   @@index([tenant_id, site_id])
   @@index([item_id, location_id])
@@ -1424,6 +1450,7 @@ model InventoryTransaction {
   @@index([createdAt])
   @@index([seq])
   @@index([movement_group_id])
+  @@index([created_by_user_id])
   @@map("inventory_transactions")
 }
 

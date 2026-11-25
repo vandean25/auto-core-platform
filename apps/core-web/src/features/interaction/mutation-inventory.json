@@ -37,6 +37,13 @@
       "serverConfirmedReason": "A stock adjustment writes a signed ledger entry. On-hand quantity is derived and must not be shown before the server confirms it."
     },
     {
+      "operationId": "inventory.transaction.reverse",
+      "owningHook": "useReverseInventoryTransaction",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A Gegenbuchung writes an immutable counter-booking ledger entry and updates moving-average valuation. On-hand quantity and ledger rows must not be shown before the server confirms it."
+    },
+    {
       "operationId": "inventory.item.update",
       "owningHook": "useUpdateInventoryItem",
       "sourceFile": "api/inventory.ts",

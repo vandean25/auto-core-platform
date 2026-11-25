@@ -27,7 +27,12 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'tyre_measurements', clean: (p) => p.tyreMeasurement.deleteMany() },
   {
     table: 'inventory_transactions',
-    clean: (p) => p.inventoryTransaction.deleteMany(),
+    clean: async (p) => {
+      await p.inventoryTransaction.deleteMany({
+        where: { reversal_of_transaction_id: { not: null } },
+      });
+      await p.inventoryTransaction.deleteMany();
+    },
   },
   {
     table: 'parts_reservations',
