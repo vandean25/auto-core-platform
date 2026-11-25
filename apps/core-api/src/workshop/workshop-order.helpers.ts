@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { mapWorkshopOrderLoanerBookingSummary } from '../loaner-vehicles/loaner.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 
 export type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
   include: {
@@ -68,8 +69,11 @@ export function normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
   return {
     ...rest,
     loanerBooking: mapWorkshopOrderLoanerBookingSummary(loaner_bookings ?? []),
+    customer: order.customer
+      ? omitCustomFields(order.customer)
+      : order.customer,
     vehicle: order.vehicle
-      ? stripVehicleIdentityResolutionState(order.vehicle)
+      ? omitCustomFields(stripVehicleIdentityResolutionState(order.vehicle))
       : order.vehicle,
     tasks:
       order.tasks?.map((task) => ({

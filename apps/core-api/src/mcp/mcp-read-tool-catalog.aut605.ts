@@ -1,6 +1,6 @@
 import { MCP_READ_TOOL_NAMES, MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
 
-/** AUT-605 read tools (kept out of {@link MCP_READ_TOOL_NAMES} for repowise). */
+/** AUT-605 read tools (kept out of {@link MCP_READ_TOOL_NAMES}). */
 export const MCP_COMPLIANCE_READ_TOOL_NAMES = [
   'check_contact_permission',
   'list_gewaehrleistung_due',

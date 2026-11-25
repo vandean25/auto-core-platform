@@ -41,7 +41,7 @@ const DRY_RUN_CREATE_TOTALS = {
   error: 0,
   flagged_jumps: 0,
 };
-/** ImportService getTemplate characterization (split for repowise; AUT-602). */
+/** ImportService getTemplate characterization (AUT-602). */
 
 describe('ImportService job lifecycle — getJob', () => {
   const h = setupImportHarness();

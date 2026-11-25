@@ -1,8 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  downloadPdfFromGetUrl,
-  generateAndDownloadPdfBlob,
-} from '@/lib/async-pdf'
+import { generateAndDownloadPdfBlob } from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
 import type { DiscountType, Invoice } from './types'
@@ -114,29 +111,6 @@ export function useIssueInvoice() {
   })
 }
 
-export function useGenerateInvoicePdf() {
-  return useMutation({
-    mutationKey: [...invoiceKeys.all, 'pdf'],
-    mutationFn: async (invoiceId: string) => {
-      const response = await fetchWithAuth(
-        `${INVOICES_API}/${invoiceId}/pdf`,
-        { method: 'POST' },
-      )
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({
-          message: 'Failed to generate PDF',
-        }))
-        throw new Error(payload.message || 'Failed to generate PDF')
-      }
-      return response.json() as Promise<{
-        mode: 'cached' | 'enqueued' | 'generated'
-        invoiceId: string
-        taskId?: string
-      }>
-    },
-  })
-}
-
 export async function fetchInvoicePdfGenerationError(
   invoiceId: string,
 ): Promise<string | null> {
@@ -146,21 +120,6 @@ export async function fetchInvoicePdfGenerationError(
   }
   const invoice = (await response.json()) as Invoice
   return invoice.pdf_generation_error ?? null
-}
-
-export async function downloadInvoicePdf(
-  invoiceId: string,
-  options?: { poll?: boolean },
-): Promise<Blob> {
-  return downloadPdfFromGetUrl(`${INVOICES_API}/${invoiceId}/pdf`, {
-    poll: options?.poll,
-    pollOptions: options?.poll
-      ? {
-          checkGenerationFailed: () =>
-            fetchInvoicePdfGenerationError(invoiceId),
-        }
-      : undefined,
-  })
 }
 
 export async function generateAndDownloadInvoicePdf(

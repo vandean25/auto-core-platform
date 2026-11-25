@@ -9,6 +9,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  purgeTestInventoryTransactions,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -49,7 +50,7 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
     // Clean up test data
-    await prisma.inventoryTransaction.deleteMany();
+    await purgeTestInventoryTransactions(basePrisma, tenantId);
     await prisma.inventoryValuation.deleteMany();
     await prisma.inventoryStock.deleteMany();
     await prisma.purchaseOrderItem.deleteMany();

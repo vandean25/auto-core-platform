@@ -161,12 +161,3 @@ export function PlannerWeekGrid({
     </div>
   )
 }
-
-export function parsePlannerWeekSlotId(id: string): { bayId: string; date: string } | null {
-  const prefix = 'planner-week-slot-'
-  if (!id.startsWith(prefix)) return null
-  const remainder = id.slice(prefix.length)
-  const [bayId, date] = remainder.split('__')
-  if (!bayId || !date) return null
-  return { bayId, date }
-}

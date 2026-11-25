@@ -46,11 +46,21 @@
       "reference": "Reference",
       "location": "Location",
       "qty": "Qty",
-      "cost": "Cost"
+      "cost": "Cost",
+      "value": "Value",
+      "reason": "Reason",
+      "actions": "Actions"
     },
     "loadingLedger": "Loading ledger…",
     "loadLedgerFailed": "Failed to load ledger.",
-    "noLedgerActivity": "No ledger activity yet."
+    "noLedgerActivity": "No ledger activity yet.",
+    "reverseAction": "Counter-booking",
+    "reversedBadge": "Reversed",
+    "reversalOfBadge": "Counter-booking",
+    "reverseConfirmTitle": "Reverse stock adjustment?",
+    "reverseConfirmDescription": "This creates an immutable counter-booking with opposite quantity and opposite value.",
+    "reverseSuccess": "Counter-booking posted",
+    "reverseFailed": "Failed to post counter-booking"
   },
   "itemInfoCard": {
     "title": "Item Info",
@@ -167,7 +177,19 @@
       "signedQuantity": "Signed quantity",
       "signedQuantityHint": "Use a negative value to remove stock. Resulting on-hand quantity cannot go below zero.",
       "reason": "Reason",
+      "selectReason": "Select reason",
+      "note": "Note",
+      "noteRequiredHint": "A note is required for Other.",
+      "automaticValue": "Automatic unit value",
+      "extendedValuePreview": "Total adjustment value",
+      "noAutomaticValue": "No average or last purchase cost available.",
+      "overrideToggle": "Override value manually",
+      "manualUnitCost": "Unit value (€)",
+      "overrideReason": "Override reason",
+      "overridePermissionRequired": "Permission is required to enter a manual value.",
       "validationRequired": "Bin, non-zero quantity, and reason are required.",
+      "validationNoteRequired": "Please enter a note for Other.",
+      "validationManualValueRequired": "Please enter a unit value and an override reason.",
       "success": "Stock adjusted",
       "failed": "Failed to adjust stock"
     },

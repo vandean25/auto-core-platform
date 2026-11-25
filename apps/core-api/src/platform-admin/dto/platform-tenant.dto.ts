@@ -94,6 +94,11 @@ export class UpdatePlatformTenantDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  customFieldsEnabled?: boolean;
 }
 
 export class PlatformTenantResponseDto {
@@ -108,6 +113,9 @@ export class PlatformTenantResponseDto {
 
   @ApiProperty()
   isActive!: boolean;
+
+  @ApiProperty()
+  customFieldsEnabled!: boolean;
 
   @ApiProperty()
   memberCount!: number;

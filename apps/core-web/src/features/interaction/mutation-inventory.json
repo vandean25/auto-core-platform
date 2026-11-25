@@ -37,6 +37,13 @@
       "serverConfirmedReason": "A stock adjustment writes a signed ledger entry. On-hand quantity is derived and must not be shown before the server confirms it."
     },
     {
+      "operationId": "inventory.transaction.reverse",
+      "owningHook": "useReverseInventoryTransaction",
+      "sourceFile": "api/inventory.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "A Gegenbuchung writes an immutable counter-booking ledger entry and updates moving-average valuation. On-hand quantity and ledger rows must not be shown before the server confirms it."
+    },
+    {
       "operationId": "inventory.item.update",
       "owningHook": "useUpdateInventoryItem",
       "sourceFile": "api/inventory.ts",
@@ -347,13 +354,6 @@
       "serverConfirmedReason": "Issuing posts the invoice. The number and the status are assigned by the server."
     },
     {
-      "operationId": "invoice.pdf.generate",
-      "owningHook": "useGenerateInvoicePdf",
-      "sourceFile": "api/invoices.ts",
-      "classification": "server-confirmed",
-      "serverConfirmedReason": "The PDF is the customer delivery of the invoice. The server builds the document."
-    },
-    {
       "operationId": "invoice.draft.update",
       "owningHook": "useUpdateInvoice",
       "sourceFile": "api/sales.ts",
@@ -483,6 +483,27 @@
       "sourceFile": "api/saved-views.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "One-time import writes the server saved_view_imports marker, validates each view, enforces per-list limits, and returns imported/skipped counts."
+    },
+    {
+      "operationId": "custom-field.create",
+      "owningHook": "useCreateCustomFieldDefinition",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Creating a custom field definition enforces OWNER/ADMIN role, Art. 9 keyword blocking/confirmation, per-entity field limits, key uniqueness, and audit logging on the server."
+    },
+    {
+      "operationId": "custom-field.update",
+      "owningHook": "useUpdateCustomFieldDefinition",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Updating or archiving a custom field definition enforces OWNER/ADMIN role, Art. 9 keyword checks, and writes an audit log entry on the server."
+    },
+    {
+      "operationId": "custom-field.reorder",
+      "owningHook": "useReorderCustomFieldDefinitions",
+      "sourceFile": "api/custom-fields.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Reordering custom field definitions updates server sort_order atomically in a transaction and records an audit entry."
     }
   ]
 }

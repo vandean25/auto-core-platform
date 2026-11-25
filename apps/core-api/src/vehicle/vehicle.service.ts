@@ -1,6 +1,13 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
+import { CustomFieldEntity } from '@prisma/client';
 import type { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto.js';
+import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import type {
@@ -38,7 +45,37 @@ export class VehicleService {
     private readonly writes: VehicleWriteService,
     private readonly pickerlDue: VehiclePickerlDueService,
     private readonly pickerlBarriers: VehiclePickerlBarrierService,
+    @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
+
+  private maskVehicleCustomFieldsWithDefs<
+    T extends { custom_fields?: unknown },
+  >(vehicle: T, activeDefs: ReadonlyArray<{ key: string }> | null): T {
+    if (!this.customFields || activeDefs === null) {
+      const rest = { ...vehicle };
+      delete rest.custom_fields;
+      return rest;
+    }
+    const visible = this.customFields.projectVisibleCustomFieldsWithDefs(
+      vehicle.custom_fields,
+      activeDefs,
+    );
+    if (visible === undefined) {
+      const rest = { ...vehicle };
+      delete rest.custom_fields;
+      return rest;
+    }
+    return { ...vehicle, custom_fields: visible };
+  }
+
+  private async maskVehicleCustomFields<T extends { custom_fields?: unknown }>(
+    vehicle: T,
+  ): Promise<T> {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+      : null;
+    return this.maskVehicleCustomFieldsWithDefs(vehicle, activeDefs);
+  }
 
   async getPickerlDueData(
     query: PickerlDueListQueryDto | PickerlDueListExportQueryDto,
@@ -83,12 +120,30 @@ export class VehicleService {
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const data = await this.writes.prepareCreate(createVehicleDto, tenantId);
+    const validatedCustomFields =
+      createVehicleDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.VEHICLE,
+            {},
+            createVehicleDto.custom_fields,
+          )
+        : undefined;
+    const data = await this.writes.prepareCreate(
+      {
+        ...createVehicleDto,
+        ...(validatedCustomFields !== undefined
+          ? { custom_fields: validatedCustomFields }
+          : {}),
+      },
+      tenantId,
+    );
 
     try {
       const createdVehicle = await this.persistence.createVehicle(data);
 
-      return stripVehicleIdentityResolutionState(createdVehicle);
+      return this.maskVehicleCustomFields(
+        stripVehicleIdentityResolutionState(createdVehicle),
+      );
     } catch (error: unknown) {
       rethrowVehiclePrismaError(error);
     }
@@ -121,13 +176,22 @@ export class VehicleService {
       take,
     });
 
-    return toVehicleListResponse({
+    const response = toVehicleListResponse({
       rows,
       total,
       page,
       pageSize,
       authorizedSiteIds,
     });
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+      : null;
+    return {
+      ...response,
+      data: (response.data ?? []).map((row) =>
+        this.maskVehicleCustomFieldsWithDefs(row, activeDefs),
+      ),
+    };
   }
 
   async findOne(id: string) {
@@ -145,11 +209,8 @@ export class VehicleService {
     }
 
     const barriers = await this.pickerlBarriers.loadBarrierFlags(tenantId, id);
-    return toVehicleDetailResponse(
-      vehicle,
-      authorizedSiteIds,
-      new Date(),
-      barriers,
+    return this.maskVehicleCustomFields(
+      toVehicleDetailResponse(vehicle, authorizedSiteIds, new Date(), barriers),
     );
   }
 
@@ -159,9 +220,22 @@ export class VehicleService {
       id,
       tenantId,
     );
+    const validatedCustomFields =
+      updateVehicleDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.VEHICLE,
+            await this.persistence.findVehicleCustomFields(id, tenantId),
+            updateVehicleDto.custom_fields,
+          )
+        : undefined;
     const data = await this.writes.prepareUpdate(
       existingVehicle,
-      updateVehicleDto,
+      {
+        ...updateVehicleDto,
+        ...(validatedCustomFields !== undefined
+          ? { custom_fields: validatedCustomFields }
+          : {}),
+      },
       tenantId,
     );
 
@@ -173,7 +247,9 @@ export class VehicleService {
         data,
       );
 
-      return stripVehicleIdentityResolutionState(updatedVehicle);
+      return this.maskVehicleCustomFields(
+        stripVehicleIdentityResolutionState(updatedVehicle),
+      );
     } catch (error: unknown) {
       rethrowVehiclePrismaError(error);
     }

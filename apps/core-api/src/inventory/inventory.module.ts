@@ -17,6 +17,7 @@ import { InventoryPriceOperationsController } from './inventory-price-operations
 import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
 import { InventoryValuationService } from './inventory-valuation.service.js';
+import { PermissionResolver } from '../permissions/permission-resolver.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { InventoryValuationService } from './inventory-valuation.service.js';
     InventoryValuationService,
     LocationService,
     AtpService,
+    PermissionResolver,
   ],
   exports: [
     LedgerService,

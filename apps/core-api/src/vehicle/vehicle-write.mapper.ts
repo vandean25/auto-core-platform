@@ -19,12 +19,15 @@ export function buildVehicleCreatePayload(
   dto: CreateVehicleDto,
   tenantId: string,
 ): Prisma.VehicleUncheckedCreateInput {
-  const { customer_id, vin, ...scalarData } = dto;
+  const { customer_id, vin, custom_fields, ...scalarData } = dto;
 
   return {
     ...scalarData,
     ...(vin !== undefined
       ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
+      : {}),
+    ...(custom_fields !== undefined
+      ? { custom_fields: custom_fields as Prisma.InputJsonValue }
       : {}),
     tenant_id: tenantId,
     customer_id: customer_id ?? null,
@@ -35,7 +38,7 @@ export function buildVehicleUpdatePayload(
   existingVehicle: ExistingVehicleIdentity,
   updateVehicleDto: UpdateVehicleDto,
 ): Prisma.VehicleUncheckedUpdateManyInput {
-  const { customer_id, vin, ...scalarData } = updateVehicleDto;
+  const { customer_id, vin, custom_fields, ...scalarData } = updateVehicleDto;
   const identityChanged = hasVehicleIdentityChanged(
     existingVehicle,
     updateVehicleDto,
@@ -45,6 +48,9 @@ export function buildVehicleUpdatePayload(
     ...scalarData,
     ...(vin !== undefined
       ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
+      : {}),
+    ...(custom_fields !== undefined
+      ? { custom_fields: custom_fields as Prisma.InputJsonValue }
       : {}),
     ...(customer_id !== undefined ? { customer_id } : {}),
     ...(identityChanged

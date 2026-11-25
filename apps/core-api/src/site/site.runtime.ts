@@ -20,7 +20,7 @@ import { SiteLifecycleService } from './site-lifecycle.service.js';
 import { SiteMembershipService } from './site-membership.service.js';
 import { SiteSessionService } from './site-session.service.js';
 
-/** Facade wiring for {@link SiteService}; kept out of site.service.ts for repowise. */
+/** Facade wiring for {@link SiteService}; kept out of site.service.ts. */
 @Injectable()
 export class SiteServiceRuntime {
   private readonly directory: SiteDirectoryService;
@@ -114,10 +114,6 @@ export class SiteServiceRuntime {
     return this.defaults.resolveDefaultSiteId(tenantId);
   }
 
-  resolveDefaultSite(tenantId: string) {
-    return this.defaults.resolveDefaultSite(tenantId);
-  }
-
   listMySites() {
     return this.session.listMySites();
   }
@@ -136,13 +132,6 @@ export class SiteServiceRuntime {
 
   removeSiteMembership(siteId: string, userId: string) {
     return this.memberships.removeSiteMembership(siteId, userId);
-  }
-
-  guardLegalEntityDeactivation(tenantId: string, legalEntityId: string) {
-    return this.legalEntities.guardLegalEntityDeactivation(
-      tenantId,
-      legalEntityId,
-    );
   }
 
   guardSiteDeactivation(tenantId: string, siteId: string) {

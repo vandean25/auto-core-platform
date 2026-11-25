@@ -8,6 +8,7 @@ import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warra
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import type { PickerlBarrierFlags } from './pickerl/apply-pickerl-record-selection.js';
 import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import { toPartyResponse } from './vehicle-party-response.mapper.js';
 import { dateToDay } from './vehicle-party-date.util.js';
 import type { VehiclePersistenceService } from './vehicle-persistence.service.js';
@@ -29,7 +30,15 @@ export function toVehicleListResponse(input: {
 }) {
   return {
     data: projectVehicleListOperationalFields(
-      input.rows.map(stripVehicleIdentityResolutionState),
+      input.rows.map((row) => {
+        const stripped = stripVehicleIdentityResolutionState(row);
+        return {
+          ...stripped,
+          ...(stripped.customer
+            ? { customer: omitCustomFields(stripped.customer) }
+            : {}),
+        };
+      }),
       input.authorizedSiteIds,
     ),
     meta: {
@@ -49,14 +58,27 @@ export function toVehicleDetailResponse(
 ) {
   const today = viennaIsoDay(onDate);
   const { parties, notices, ...rest } = vehicle;
+  const stripped = stripVehicleIdentityResolutionState({
+    ...rest,
+    sales: vehicle.sales.map((sale) => ({
+      ...omitKaufvertragArchiveInternals(sale),
+      ...toGewaehrleistungReadFields(sale, today),
+    })),
+  });
   const projected = projectVehicleOperationalFields(
-    stripVehicleIdentityResolutionState({
-      ...rest,
-      sales: vehicle.sales.map((sale) => ({
-        ...omitKaufvertragArchiveInternals(sale),
-        ...toGewaehrleistungReadFields(sale, today),
-      })),
-    }),
+    {
+      ...stripped,
+      ...(stripped.customer
+        ? { customer: omitCustomFields(stripped.customer) }
+        : {}),
+      ...(stripped.reserved_for_customer
+        ? {
+            reserved_for_customer: omitCustomFields(
+              stripped.reserved_for_customer,
+            ),
+          }
+        : {}),
+    },
     authorizedSiteIds,
   );
 

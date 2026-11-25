@@ -149,4 +149,56 @@ describe('inventory-valuation.math', () => {
     expect(computeExtendedValue('2', '10.1255').toFixed(2)).toBe('20.25');
     expect(computeExtendedValue('1', '10.1250').toFixed(2)).toBe('10.13');
   });
+
+  it('recomputes moving average on negative adjustment with differing unit cost and restores on reversal', () => {
+    const initial: ValuationState = {
+      averageUnitCost: new Decimal('4.0000'),
+      valuedQuantity: new Decimal('10.000'),
+    };
+
+    // -2 manual override at €10 on 10 units @ €4 -> 8 units @ €2.50 (Lagerwert falls by €20)
+    const negativeOverride = applyValuationStep(initial, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: -2,
+      costBasis: '10.0000',
+    });
+    expect(negativeOverride.state.valuedQuantity.toFixed(3)).toBe('8.000');
+    expect(negativeOverride.state.averageUnitCost?.toFixed(4)).toBe('2.5000');
+
+    // Immediate reversal (+2 @ €10) restores 10 units @ €4
+    const reversed = applyValuationStep(negativeOverride.state, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: 2,
+      costBasis: '10.0000',
+      isReversal: true,
+    });
+    expect(reversed.state.valuedQuantity.toFixed(3)).toBe('10.000');
+    expect(reversed.state.averageUnitCost?.toFixed(4)).toBe('4.0000');
+  });
+
+  it('restores moving average when reversing a positive override adjustment', () => {
+    const initial: ValuationState = {
+      averageUnitCost: new Decimal('4.0000'),
+      valuedQuantity: new Decimal('10.000'),
+    };
+
+    // +2 override at €10 on 10 units @ €4 -> 12 units @ €5
+    const positiveOverride = applyValuationStep(initial, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: 2,
+      costBasis: '10.0000',
+    });
+    expect(positiveOverride.state.valuedQuantity.toFixed(3)).toBe('12.000');
+    expect(positiveOverride.state.averageUnitCost?.toFixed(4)).toBe('5.0000');
+
+    // Reversal (-2 @ €10) restores 10 units @ €4
+    const reversed = applyValuationStep(positiveOverride.state, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: -2,
+      costBasis: '10.0000',
+      isReversal: true,
+    });
+    expect(reversed.state.valuedQuantity.toFixed(3)).toBe('10.000');
+    expect(reversed.state.averageUnitCost?.toFixed(4)).toBe('4.0000');
+  });
 });

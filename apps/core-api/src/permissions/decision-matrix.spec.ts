@@ -110,6 +110,12 @@ describe('legacy/new decision matrix', () => {
               }),
           },
         },
+        {
+          provide: (
+            await import('../custom-fields/custom-fields-gdpr.service.js')
+          ).CustomFieldsGdprService,
+          useValue: {},
+        },
         { provide: PrismaService, useValue: prisma },
         PermissionResolver,
         { provide: APP_GUARD, useClass: PermissionGuard },

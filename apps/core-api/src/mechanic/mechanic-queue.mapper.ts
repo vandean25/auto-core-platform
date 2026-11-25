@@ -20,14 +20,6 @@ export const ACTIVE_OR_BLOCKED_STATUSES: WorkshopTaskStatus[] = [
   WorkshopTaskStatus.PAUSED,
 ];
 
-/** Part-line statuses that the mechanic view exposes (no financial context). */
-export const VISIBLE_PART_LINE_STATUSES: WorkshopPartLineExecutionStatus[] = [
-  WorkshopPartLineExecutionStatus.PENDING_PICK,
-  WorkshopPartLineExecutionStatus.STAGED,
-  WorkshopPartLineExecutionStatus.CONSUMED,
-  WorkshopPartLineExecutionStatus.CANCELLED,
-];
-
 /**
  * Builds the scheduled-date OR filter for the mechanic queue (ADR-0014 §3.1):
  *  - Unscheduled tasks are always included.

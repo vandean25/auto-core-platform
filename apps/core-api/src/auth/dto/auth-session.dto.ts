@@ -103,4 +103,7 @@ export class AuthSessionResponseDto {
 
   @ApiProperty()
   bankReconciliationEnabled!: boolean;
+
+  @ApiPropertyOptional()
+  customFieldsEnabled?: boolean;
 }

@@ -367,7 +367,8 @@ function SearchPalette({
   // Cmd/Ctrl+Enter or Cmd/Ctrl+click opens a new tab. cmdk's onSelect carries no event, so the modifier is read first.
   const newTabRef = React.useRef(false)
   const navigate = useNavigate()
-  const sessionMeta = getSessionSearchMeta(useAuthSession().data)
+  const authSession = useAuthSession().data
+  const sessionMeta = getSessionSearchMeta(authSession)
   const sites = useMySites().data ?? []
   const { groups, isLoading, error } = useGlobalSearch(search)
   const recent = useRecentItems(sessionMeta.recentKey, open)
@@ -392,7 +393,13 @@ function SearchPalette({
   const selectionItems = selectionPublished ? filterPaletteContextActions(selectionPublished.items, query) : []
   const selectionSection = selectionPublished && selectionItems.length > 0 ? { ...selectionPublished, items: selectionItems } : null
   const savedViewActions = useSavedViewActions()
-  const sections = getPaletteSections(sessionMeta.roleInfo, query, paletteContext.intakePrefill, savedViewActions.savedViews)
+  const sections = getPaletteSections(
+    sessionMeta.roleInfo,
+    query,
+    paletteContext.intakePrefill,
+    savedViewActions.savedViews,
+    Boolean(authSession?.customFieldsEnabled),
+  )
   const savedViewManageSection = getSavedViewManageSection(
     sessionMeta.roleInfo,
     query,

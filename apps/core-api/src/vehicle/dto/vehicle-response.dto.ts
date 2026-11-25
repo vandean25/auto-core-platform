@@ -134,6 +134,13 @@ export class VehicleResponseDto extends DryRunMetaDto {
       'Detail only: open service-due notices, soonest first (read only).',
   })
   open_due_dates?: VehicleOpenDueDateDto[];
+
+  @ApiProperty({
+    type: Object,
+    additionalProperties: true,
+    required: false,
+  })
+  custom_fields?: Record<string, unknown>;
 }
 
 export class VehicleListItemDto extends VehicleResponseDto {}

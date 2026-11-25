@@ -7,6 +7,7 @@ import { fetchWithAuth } from '@/api/client'
 import { inventoryKeys, useInventoryItem } from '@/api/inventory'
 import { useShipStockTransfer, stockTransferKeys } from '@/api/stock-transfers'
 import { SubmitButtonPending } from '@/components/data-table/data-table-states'
+import deEnums from '../../../../../locales/de/enums.json'
 import deInventory from '../../../../../locales/de/inventory.json'
 import { AdjustInventoryStockDialog } from './AdjustInventoryStockDialog'
 
@@ -55,6 +56,9 @@ beforeEach(() => {
     if (url.includes('/locations')) {
       return Promise.resolve(jsonResponse([{ id: 'bin-1', name: 'Fach 1', code: 'F1', type: 'bin' }]))
     }
+    if (url.includes('/adjustment-valuation')) {
+      return Promise.resolve(jsonResponse({ unitCost: '8.0000', valueSource: 'AVG', canOverrideValue: false }))
+    }
     if (url.includes('/stock-transfers/transfer-1')) {
       return Promise.resolve(jsonResponse({ id: 'transfer-1', status: 'APPROVED', version: 1, lines: [] }))
     }
@@ -79,10 +83,11 @@ describe('server-confirmed stock and transfers (ADR-0036 R1)', () => {
     )
 
     expect(screen.getByTestId('on-hand')).toHaveTextContent('4')
-    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(screen.getAllByRole('combobox')[0])
     fireEvent.click(await screen.findByRole('option', { name: 'Fach 1' }))
     fireEvent.change(screen.getByLabelText(deInventory.dialogs.adjustStock.signedQuantity), { target: { value: '9' } })
-    fireEvent.change(screen.getByLabelText(deInventory.dialogs.adjustStock.reason), { target: { value: 'Zählung' } })
+    fireEvent.click(screen.getAllByRole('combobox')[1])
+    fireEvent.click(await screen.findByRole('option', { name: deEnums.stockAdjustmentReason.INVENTORY_COUNT }))
     fireEvent.click(screen.getByRole('button', { name: deInventory.actions.applyAdjustment }))
 
     const apply = await screen.findByRole('button', { name: deInventory.actions.applyAdjustment })

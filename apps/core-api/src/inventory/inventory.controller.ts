@@ -29,6 +29,7 @@ import { LedgerService } from './ledger.service.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto.js';
 import {
+  AdjustmentValuationResponseDto,
   AvailabilityCheckResultDto,
   CatalogItemResponseDto,
   InventoryItemDetailResponseDto,
@@ -121,6 +122,31 @@ export class InventoryController {
     @Body() dto: ReceiveInventoryStockDto,
   ) {
     await this.inventoryItemMutations.receiveStock(id, dto);
+  }
+
+  @Get(':id/adjustment-valuation')
+  @ApiQuery({
+    name: 'locationId',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOkResponse({ type: AdjustmentValuationResponseDto })
+  async getAdjustmentValuation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('locationId', ParseUUIDPipe) locationId: string,
+  ) {
+    return await this.inventoryItemMutations.getAdjustmentValuation(
+      id,
+      locationId,
+    );
+  }
+
+  @Post('transactions/:transactionId/reverse')
+  @ApiCreatedResponse({ type: InventoryTransactionResponseDto })
+  async reverseTransaction(
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+  ) {
+    return await this.inventoryItemMutations.reverseTransaction(transactionId);
   }
 
   @Post(':id/adjust')

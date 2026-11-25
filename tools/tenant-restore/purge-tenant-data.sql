@@ -27,6 +27,7 @@ VALUES
   ('brands'),
   ('catalog_oem_concerns'),
   ('credit_note_sequences'),
+  ('custom_field_definitions'),
   ('decision_shadow_logs'),
   ('document_brand_quota_events'),
   ('document_brand_quota_locks'),
@@ -257,6 +258,7 @@ VALUES
   ('credit_notes', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('credit_notes', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('credit_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('custom_field_definitions', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
   ('customer_communication_states', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_communication_states', 'legal_entities', 'tenant_id,controller_legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('customer_communication_states', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -385,10 +387,12 @@ VALUES
   ('inventory_stocks', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_stocks', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'catalog_items', 'item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_transactions', 'inventory_transactions', 'reversal_of_transaction_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'parts_reservations', 'parts_reservation_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'stock_transfers', 'tenant_id,stock_transfer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_transactions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('inventory_transactions', 'users', 'created_by_user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'catalog_items', 'tenant_id,catalog_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inventory_valuations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -877,6 +881,9 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."storage_locations"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+UPDATE public."inventory_transactions"
+SET "reversal_of_transaction_id" = NULL
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."agent_action_logs"
 SET "reverted_by_log_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -1202,6 +1209,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_quota_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."decision_shadow_logs"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."custom_field_definitions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."credit_note_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

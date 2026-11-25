@@ -92,4 +92,44 @@ describe('projectCustomerDetail', () => {
       }),
     ]);
   });
+
+  it('strips custom_fields from nested vehicles, reserved_for_customer, and workshop_orders.vehicle', () => {
+    const reservedCustomer = {
+      id: 'cust-reserved',
+      first_name: 'Reserved',
+      custom_fields: { flottennummer: 'RES-1' },
+    };
+    const vehicle = {
+      id: 'vehicle-1',
+      custom_fields: { stellplatz: 'B4' },
+      reserved_for_customer: reservedCustomer,
+    };
+
+    const result = projectCustomerDetail(
+      {
+        id: 'customer-1',
+        custom_fields: { flottennummer: 'TOP-1' },
+        vehicles: [vehicle],
+        sales_orders: [],
+        workshop_orders: [
+          {
+            id: 'order-1',
+            vehicle: { id: 'vehicle-1', custom_fields: { stellplatz: 'B4' } },
+          },
+        ],
+        invoices: [],
+      } as never,
+      { page: 1, limit: 10, skip: 0 },
+      { workshopOrders: 1, invoices: 0 },
+      [],
+    );
+
+    expect(result.vehicles?.[0]).not.toHaveProperty('custom_fields');
+    expect(
+      (result.vehicles?.[0] as Record<string, unknown>)?.reserved_for_customer,
+    ).not.toHaveProperty('custom_fields');
+    expect(result.workshop_orders?.[0]?.vehicle).not.toHaveProperty(
+      'custom_fields',
+    );
+  });
 });
