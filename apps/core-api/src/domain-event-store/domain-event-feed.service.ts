@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -8,7 +13,11 @@ import {
   sequenceFromCursor,
 } from './domain-event.cursor.js';
 import { toDomainEventEnvelope } from './domain-event-feed.mapper.js';
-import { queryVisibleDomainEvents } from './domain-event-visibility.js';
+import {
+  DOMAIN_EVENT_QUERY_POOL,
+  type DomainEventQueryPool,
+  queryVisibleDomainEvents,
+} from './domain-event-visibility.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 25;
@@ -30,6 +39,9 @@ export class DomainEventFeedService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    @Optional()
+    @Inject(DOMAIN_EVENT_QUERY_POOL)
+    private readonly queryPool?: DomainEventQueryPool,
   ) {}
 
   async listFeed(query: ListDomainEventsQuery): Promise<DomainEventFeedPage> {
@@ -46,13 +58,16 @@ export class DomainEventFeedService {
       query.cursor,
     );
 
-    const rows = await queryVisibleDomainEvents(this.prisma, {
-      tenantId,
-      siteIds: authorizedSiteIds,
-      eventType: query.eventType,
-      afterCursor: cursor ?? undefined,
-      limit: pageSize + 1,
-    });
+    const rows = await queryVisibleDomainEvents(
+      {
+        tenantId,
+        siteIds: authorizedSiteIds,
+        eventType: query.eventType,
+        afterCursor: cursor ?? undefined,
+        limit: pageSize + 1,
+      },
+      this.queryPool,
+    );
 
     const hasMore = rows.length > pageSize;
     const page = hasMore ? rows.slice(0, pageSize) : rows;

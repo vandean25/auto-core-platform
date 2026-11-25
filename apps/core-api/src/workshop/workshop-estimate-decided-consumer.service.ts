@@ -79,7 +79,7 @@ export class WorkshopEstimateDecidedConsumerService {
       if (!progress) {
         return 0;
       }
-      const events = await queryVisibleDomainEvents(this.prisma, {
+      const events = await queryVisibleDomainEvents({
         tenantId,
         eventType: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
         afterSequence: progress.cursor_sequence,

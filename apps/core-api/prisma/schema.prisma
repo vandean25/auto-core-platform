@@ -4421,24 +4421,6 @@ model DomainEvent {
   @@map("domain_events")
 }
 
-/// Read-only view over `domain_events` filtering `tx_xid < pg_snapshot_xmin(pg_current_snapshot())` (AUT-1052).
-model VisibleDomainEvent {
-  id             String   @id
-  sequence       BigInt
-  event_type     String
-  schema_version Int
-  tenant_id      String
-  site_id        String
-  entity_id      String
-  occurred_at    DateTime
-  trace_id       String   @db.Uuid
-  occurrence_key String
-  payload        Json?
-
-  @@unique([tenant_id, id])
-  @@map("visible_domain_events")
-}
-
 /// Per-tenant consumer cursor and lease (AUT-544). Progress advances only after a delivery row is
 /// committed for the event; a claim prevents two workers from processing the same tenant batch.
 model DomainEventConsumerProgress {

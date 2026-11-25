@@ -1,8 +1,4 @@
-import type {
-  DomainEvent,
-  EstimateApprovalDecision,
-  VisibleDomainEvent,
-} from '@prisma/client';
+import type { DomainEvent, EstimateApprovalDecision } from '@prisma/client';
 import { DOMAIN_EVENT_TYPES } from './domain-event.constants.js';
 
 export type DomainEventEnvelopeDto = {
@@ -20,7 +16,7 @@ export type DomainEventEnvelopeDto = {
 };
 
 export function toDomainEventEnvelope(
-  row: DomainEvent | VisibleDomainEvent,
+  row: DomainEvent,
 ): DomainEventEnvelopeDto {
   const base: DomainEventEnvelopeDto = {
     event_id: row.id,
