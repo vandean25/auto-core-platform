@@ -140,6 +140,7 @@ export default function PickerlDueList() {
       <DataTable
         columns={columns}
         data={filteredRows}
+        saveViewTitle={t('pickerlDue.title')}
         isLoading={isLoading}
         isFetching={pickerlQuery.isFetching}
         isError={pickerlQuery.isError}

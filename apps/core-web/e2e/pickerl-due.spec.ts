@@ -305,4 +305,154 @@ test.describe('Pickerl due list and dashboard widgets', () => {
       contentType: 'image/png',
     })
   })
+
+  test('saves and reopens contacted=no view (Scenario 5)', async ({ page }, testInfo) => {
+    const savedViews: Array<Record<string, unknown>> = []
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: savedViews }),
+        })
+        return
+      }
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { name: string; href: string; listPath: string }
+        const created = {
+          id: 'sv-pickerl-1',
+          listPath: body.listPath,
+          name: body.name,
+          href: body.href,
+          visibility: 'PERSONAL',
+          ownerUserId: 'test-user',
+          version: 1,
+          createdAt: '2026-11-25T08:00:00.000Z',
+          updatedAt: '2026-11-25T08:00:00.000Z',
+        }
+        savedViews.push(created)
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(created),
+        })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due'), async (route) => {
+      const url = new URL(route.request().url())
+      const contactedParam = url.searchParams.get('contacted')
+      const rows = [
+        {
+          id: 'v-consented',
+          make: 'Audi',
+          model: 'A4',
+          plate: 'W-CALL-1',
+          customer: { first_name: 'Anna', last_name: 'Telefon', phone: '+43660111222', type: 'PRIVATE' },
+          pickerl_due: { status: 'OVERDUE', due_month: '2026-01', warnings: [] },
+          last_contacted_at: '2026-11-20T10:00:00.000Z',
+          last_contact_channel: 'PHONE',
+          last_contact_by: 'Max Berater',
+          phone_consent_allowed: true,
+        },
+        {
+          id: 'v-email-only',
+          make: 'VW',
+          model: 'Golf',
+          plate: 'W-EMAIL-1',
+          customer: { first_name: 'Bernd', last_name: 'NurEmail', phone: '+43660333444', type: 'PRIVATE' },
+          pickerl_due: { status: 'DUE_SOON', due_month: '2026-12', warnings: [] },
+          last_contacted_at: null,
+          last_contact_channel: null,
+          last_contact_by: null,
+          phone_consent_allowed: false,
+        },
+      ].filter((r) => {
+        if (contactedParam === 'no') return !r.last_contacted_at
+        if (contactedParam === 'yes') return Boolean(r.last_contacted_at)
+        return true
+      })
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse(rows, rows.length)),
+      })
+    })
+
+    await page.goto('/vehicles/pickerl-due')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByLabel('Kontaktstatus').click()
+    await page.getByRole('option', { name: 'Kontaktiert: Nein' }).click()
+    await expect(page).toHaveURL(/filter_contacted=no/)
+
+    await page.getByRole('button', { name: 'Aktuelle Ansicht für Pickerl fällig speichern' }).click()
+    const saveDialog = page.getByRole('dialog')
+    await saveDialog.getByLabel('Name').fill('Nicht kontaktiert')
+    await saveDialog.getByRole('button', { name: 'Speichern' }).click()
+    await expect(saveDialog).toBeHidden()
+
+    await page.goto('/vehicles/pickerl-due')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText('W-CALL-1').first()).toBeVisible()
+
+    await page.getByRole('button', { name: 'Gespeicherte Ansichten für Pickerl fällig' }).click()
+    await page.getByRole('button', { name: 'Nicht kontaktiert', exact: true }).click()
+
+    await expect(page).toHaveURL(/filter_contacted=no/)
+    await expect(page.getByText('W-EMAIL-1').first()).toBeVisible()
+    await expect(page.getByText('W-CALL-1')).toHaveCount(0)
+    await testInfo.attach('pickerl-due-saved-view-reopened-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('lists vehicle as uncontacted with empty contact cell after due month advances (Scenario 4 & Anti-criterion 1)', async ({ page }, testInfo) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due'), async (route) => {
+      const url = new URL(route.request().url())
+      const contactedParam = url.searchParams.get('contacted')
+      const rows = [
+        {
+          id: 'v-rolled-over',
+          make: 'Audi',
+          model: 'A4',
+          plate: 'W-CALL-1',
+          customer: { first_name: 'Anna', last_name: 'Telefon', phone: '+43660111222', type: 'PRIVATE' },
+          pickerl_due: { status: 'DUE_SOON', due_month: '2027-01', warnings: [] },
+          last_contacted_at: null,
+          last_contact_channel: null,
+          last_contact_by: null,
+          phone_consent_allowed: true,
+        },
+      ].filter((r) => {
+        if (contactedParam === 'no') return !r.last_contacted_at
+        return true
+      })
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse(rows, rows.length)),
+      })
+    })
+
+    await page.goto('/vehicles/pickerl-due?filter_contacted=no')
+    await page.waitForLoadState('networkidle')
+
+    const row = page.locator('tr', { hasText: 'W-CALL-1' })
+    await expect(row).toBeVisible()
+    await expect(row.getByText('2027-01')).toBeVisible()
+    await expect(row.getByText('—')).toBeVisible()
+    await expect(row.getByText(/Telefon ·/)).toHaveCount(0)
+
+    await testInfo.attach('pickerl-due-rollover-uncontacted-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
 })

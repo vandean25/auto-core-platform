@@ -25,6 +25,20 @@ describe('saved-views registry & href validation', () => {
     });
   });
 
+  it('accepts /vehicles/pickerl-due?filter_contacted=no as a saved view href', () => {
+    const result = validateSavedViewInput({
+      listPath: '/vehicles/pickerl-due',
+      name: 'Unkontaktiert',
+      href: '/vehicles/pickerl-due?filter_contacted=no',
+    });
+
+    expect(result).toEqual({
+      listPath: '/vehicles/pickerl-due',
+      name: 'Unkontaktiert',
+      href: '/vehicles/pickerl-due?filter_contacted=no',
+    });
+  });
+
   it.each(['/customers', '/inventory', '/workshop/orders'])(
     'accepts column visibility and density for %s',
     (listPath) => {

@@ -212,4 +212,45 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
       before.getUTCFullYear() + 5,
     );
   });
+
+  it('mintMarketingUnsubscribeToken stamps 5-year retain_until when controller legal entity is in DE', async () => {
+    const before = new Date();
+    const createToken = jest.fn().mockResolvedValue({});
+    const prisma = {
+      legalEntity: {
+        findFirst: jest.fn().mockResolvedValue({ country_iso: 'DE' }),
+      },
+      customerConsentUnsubscribeToken: {
+        create: createToken,
+      },
+    };
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(tenantId),
+    };
+    const service = new CustomerConsentService(
+      prisma as never,
+      {} as never,
+      tenantContext as never,
+      {} as never,
+    );
+
+    await service.mintMarketingUnsubscribeToken({
+      customerId,
+      controllerLegalEntityId: controllerId,
+      channel: 'EMAIL',
+      contactFingerprint: 'fp',
+    });
+
+    expect(createToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          retain_until: expect.any(Date),
+        }),
+      }),
+    );
+    const retainUntil = createToken.mock.calls[0][0].data.retain_until as Date;
+    expect(retainUntil.getUTCFullYear()).toBeGreaterThanOrEqual(
+      before.getUTCFullYear() + 5,
+    );
+  });
 });

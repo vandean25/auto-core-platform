@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { assertValidCommunicationEventRequest } from './customer-consent-event-validation.js';
+import {
+  assertValidCommunicationEventRequest,
+  marketingGrantProofComplete,
+} from './customer-consent-event-validation.js';
 import {
   anyMarketingPurposeNeedsUnsubscribe,
   buildUnsubscribeIdempotencyKey,
@@ -36,6 +39,7 @@ import {
 } from './customer-consent.controller-context.js';
 import {
   canContact,
+  pickLatestLedgerEvent,
   type LedgerEventSlice,
 } from './customer-consent.permissions.js';
 import {
@@ -374,7 +378,14 @@ export class CustomerConsentService {
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const token = mintUnsubscribeToken();
-    const retainUntil = consentProofRetainUntil(new Date());
+    const controller = await this.prisma.legalEntity.findFirst({
+      where: { tenant_id: tenantId, id: params.controllerLegalEntityId },
+      select: { country_iso: true },
+    });
+    const retainUntil = consentProofRetainUntil(
+      new Date(),
+      controller?.country_iso,
+    );
     await this.prisma.customerConsentUnsubscribeToken.create({
       data: {
         id: randomUUID(),
@@ -905,22 +916,22 @@ export class CustomerConsentService {
     }
 
     for (const customerId of uniqueIds) {
-      const processingRestricted = restrictedCustomers.has(customerId);
+      if (restrictedCustomers.has(customerId)) {
+        result.set(customerId, false);
+        continue;
+      }
       const events = eventsByCustomer.get(customerId) ?? [];
-      const allowed =
-        canContact({
-          purpose: 'PICKERL_REMINDER',
-          channel: 'PHONE',
-          events,
-          processingRestricted,
-        }).allowed ||
-        canContact({
-          purpose: 'SERVICE_REMINDER',
-          channel: 'PHONE',
-          events,
-          processingRestricted,
-        }).allowed;
-      result.set(customerId, allowed);
+      const hasGrantedPhoneConsent = (
+        ['PICKERL_REMINDER', 'SERVICE_REMINDER'] as const
+      ).some((purpose) => {
+        const latest = pickLatestLedgerEvent(events, purpose, 'PHONE');
+        return (
+          latest !== null &&
+          latest.status === 'GRANTED' &&
+          marketingGrantProofComplete(latest)
+        );
+      });
+      result.set(customerId, hasGrantedPhoneConsent);
     }
 
     return result;

@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as vehiclesApi from "@/api/vehicles";
 import * as authApi from "@/api/auth-session";
 import { fetchWithAuth } from "@/api/client";
+import { SavedViewsProvider } from "@/features/saved-views/SavedViewsProvider";
 
 vi.mock("@/api/vehicles");
 vi.mock("@/api/auth-session");
@@ -40,7 +41,9 @@ function renderList(initialEntry = "/vehicles/pickerl-due") {
   return render(
     <QueryClientProvider client={mockQueryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
-        <PickerlDueList />
+        <SavedViewsProvider userKey="test-user">
+          <PickerlDueList />
+        </SavedViewsProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
