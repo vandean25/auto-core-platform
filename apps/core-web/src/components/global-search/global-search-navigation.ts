@@ -6,7 +6,7 @@ import { savedViewPath, type SavedView } from '@/features/saved-views/SavedViews
 import type { PaletteContextActionSection } from './global-search-context-actions'
 import { i18n } from '@/lib/i18n'
 import { getVisibleNavGroups, type NavAccessContext } from '@/components/navigation/nav-config'
-import { getVisibleTabs, type SettingsTab } from '@/pages/settings-page-tabs'
+import { getSettingsSectionPath, getVisibleTabs, type SettingsTab } from '@/pages/settings-page-tabs'
 import { filterQuickActionSections, type QuickActionSection } from './global-search-quick-actions'
 import { getGlobalSearchQuickActionSections } from './global-search-quick-actions-data'
 import { parseSearchInput } from './global-search-types'
@@ -65,7 +65,7 @@ export function getSettingsSection(
     heading: i18n.t('nav:modules.settings'),
     items: getVisibleTabs(canManage, customFieldsEnabled)
       .map((tab) => ({
-        href: `/settings?tab=${tab}`,
+        href: getSettingsSectionPath(tab),
         icon: Settings,
         label: i18n.t(`settings:${SETTINGS_TAB_LABEL_KEYS[tab]}`),
         description: i18n.t('nav:modules.settings'),

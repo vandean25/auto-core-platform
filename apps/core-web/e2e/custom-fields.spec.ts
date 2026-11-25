@@ -104,7 +104,7 @@ test.describe("Custom fields (AUT-1043)", () => {
       });
     });
 
-    await page.goto("/settings?tab=custom-fields");
+    await page.goto("/settings/custom-fields");
     await expect(page.getByText(/Verantwortlicher für diese Felder/i)).toBeVisible();
     await expect(page.getByText("Flottennummer", { exact: true })).toBeVisible();
 

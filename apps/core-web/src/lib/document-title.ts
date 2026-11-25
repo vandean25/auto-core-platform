@@ -74,6 +74,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
   [APP_ROUTE_PATHS.accountingExportReadiness]: 'modules.accountingExportReadiness',
   [APP_ROUTE_PATHS.purchaseInvoiceNew]: 'routeTitles.purchaseInvoiceNew',
   [APP_ROUTE_PATHS.settings]: 'modules.settings',
+  [APP_ROUTE_PATHS.settingsSection]: 'modules.settings',
   [APP_ROUTE_PATHS.hr]: 'modules.hr',
   [APP_ROUTE_PATHS.hrEmployees]: 'routeTitles.hrEmployees',
   [APP_ROUTE_PATHS.hrClock]: 'routeTitles.hrClock',

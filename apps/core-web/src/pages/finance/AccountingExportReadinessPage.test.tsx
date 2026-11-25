@@ -90,7 +90,7 @@ function mockReadiness(result: { data?: unknown; error?: Error | null } = {}) {
 
 function SettingsLocationProbe() {
   const location = useLocation()
-  return <div>settings?{location.search.replace(/^\?/, '')}</div>
+  return <div>{`${location.pathname}${location.search}`}</div>
 }
 
 function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadiness) {
@@ -111,6 +111,7 @@ function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadin
             element={<div>Invoice detail page</div>}
           />
           <Route path={APP_ROUTE_PATHS.settings} element={<SettingsLocationProbe />} />
+          <Route path={APP_ROUTE_PATHS.settingsSection} element={<SettingsLocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -298,15 +299,15 @@ describe('AccountingExportReadinessPage', () => {
       screen.getByText(deFinance.accountingExportReadiness.exportProfileMissing),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: deFinance.actions.openSettings }),
+      screen.getByRole('link', { name: deFinance.actions.openSettings }),
     ).toBeInTheDocument()
   })
 
   it('opens the accounting export profile from the settings action instead of plain /settings (AUT-852)', async () => {
     renderPage()
 
-    fireEvent.click(await screen.findByRole('button', { name: deFinance.actions.openSettings }))
+    fireEvent.click(await screen.findByRole('link', { name: deFinance.actions.openSettings }))
 
-    expect(await screen.findByText('settings?tab=finance&subtab=accounting-export')).toBeInTheDocument()
+    expect(await screen.findByText('/settings/finance?subtab=accounting-export')).toBeInTheDocument()
   })
 })

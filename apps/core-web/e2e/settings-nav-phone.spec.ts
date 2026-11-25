@@ -3,7 +3,7 @@ import { AutoCorePage } from './pom/AutoCorePage'
 import { expectNoPageScroll, PHONE_WIDTHS } from './utils/phone-layout'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 
-/** AUT-754: the settings sections are reachable on a phone, and empty states and tables fit 375/390px. */
+/** AUT-754 & AUT-1051: settings grouped overview, search, section subpages, and phone layout. */
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
 
@@ -26,114 +26,85 @@ async function mockApi(page: Page) {
   await page.route(/\/api\/sites\/[^/]+\/memberships/, (route) => route.fulfill(json([])))
 }
 
-test.describe('Settings navigation on a phone (AUT-754)', () => {
-  test.use({ viewport: { width: 375, height: 812 } })
+for (const width of [1280, 375] as const) {
+  test.describe(`Settings overview and navigation at ${width}px (AUT-1051)`, () => {
+    test.use({ viewport: { width, height: 900 } })
 
-  test('a select lists every section and switches the tab; the strip is hidden', async ({ page }) => {
-    await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings')
-
-    const select = page.getByTestId('settings-section-select')
-    await expect(select).toBeVisible()
-    await expect(page.getByTestId('settings-tab-strip')).toBeHidden()
-    expect((await select.boundingBox())!.height).toBeGreaterThanOrEqual(44)
-    await expect(select).toContainText(deSettings.tabs.finance)
-
-    await select.click()
-    const options = page.getByRole('option')
-    // All sections of an admin are in the list, including the ones the strip used to hide.
-    await expect(options).toHaveCount(18)
-    expect((await options.first().boundingBox())!.height, 'option height').toBeGreaterThanOrEqual(44)
-    await options.filter({ hasText: deSettings.tabs.auditLogs }).click()
-
-    await expect(page).toHaveURL(/tab=audit-logs/)
-    await expect(select).toContainText(deSettings.tabs.auditLogs)
-    await expect(page.getByLabel('Nach Objekttyp filtern')).toBeVisible()
-    await expectNoPageScroll(page)
-  })
-
-  for (const [tab, label] of [
-    ['locations', deSettings.tabs.locations],
-    ['labor', deSettings.tabs.labor],
-    ['hours', deSettings.tabs.hours],
-    ['audit-logs', deSettings.tabs.auditLogs],
-  ] as const) {
-    test(`a direct link ?tab=${tab} opens with that section selected, not Finanzen`, async ({ page }) => {
+    test('admin sees all 18 tiles in 4 groups, search filters them, and clicking a tile opens the subpage with breadcrumb', async ({ page }, testInfo) => {
       await mockApi(page)
-      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+      await new AutoCorePage(page, '').navigate('/settings')
 
-      const select = page.getByTestId('settings-section-select')
-      await expect(select).toContainText(label)
-      await expect(select).not.toContainText(deSettings.tabs.finance)
-      await expect(page.getByRole('tabpanel')).toBeVisible()
-      await expect(page.locator('[role="tabpanel"][data-state="active"]')).toHaveAttribute('id', new RegExp(`content-${tab}$`))
+      await expect(page.getByTestId('settings-tab-strip')).toHaveCount(0)
+      await expect(page.getByTestId('settings-section-select')).toHaveCount(0)
+
+      const search = page.getByRole('searchbox', { name: deSettings.overview.searchLabel })
+      await expect(search).toBeVisible()
+
+      for (const groupId of ['company', 'workshop', 'finance', 'system']) {
+        await expect(page.getByTestId(`settings-group-${groupId}`)).toBeVisible()
+      }
+
+      const tiles = page.locator('[data-testid^="settings-group-"] a')
+      await expect(tiles).toHaveCount(18)
+
+      if (width === 375) {
+        const firstBox = (await tiles.first().boundingBox())!
+        expect(firstBox.height).toBeGreaterThanOrEqual(44)
+      }
       await expectNoPageScroll(page)
+
+      await testInfo.attach(`settings-overview-admin-${width}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      if (width === 1280) {
+        await search.fill('Hebebühnen')
+        await expect(tiles).toHaveCount(1)
+        await expect(page.getByTestId('settings-group-workshop')).toBeVisible()
+        await expect(page.getByTestId('settings-group-company')).toHaveCount(0)
+        await testInfo.attach('settings-overview-search-1280', {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        })
+        await search.fill('')
+        await expect(tiles).toHaveCount(18)
+      }
+
+      await page.getByRole('link', { name: new RegExp(deSettings.tabs.hours) }).click()
+      await expect(page).toHaveURL(/\/settings\/hours$/)
+      await expect(page.getByTestId('settings-tab-strip')).toHaveCount(0)
+      await expect(page.getByTestId('settings-section-select')).toHaveCount(0)
+
+      const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' })
+      await expect(breadcrumb).toContainText(deSettings.page.title)
+      await expect(breadcrumb).toContainText(deSettings.tabs.hours)
+      await expect(page.getByRole('link', { name: deSettings.page.backToOverview })).toHaveAttribute('href', '/settings')
+      await expectNoPageScroll(page)
+
+      await testInfo.attach(`settings-subpage-hours-breadcrumb-${width}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
     })
-  }
-
-  test('an unknown ?tab= falls back to Finanzen', async ({ page }) => {
-    await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=does-not-exist')
-
-    await expect(page.getByTestId('settings-section-select')).toContainText(deSettings.tabs.finance)
   })
+}
 
-  test('Esc closes the select and focus returns to it', async ({ page }) => {
-    await mockApi(page)
+test.describe('Settings overview non-admin visibility (AUT-1051)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('non-admin sees only non-admin tiles in their groups', async ({ page }, testInfo) => {
+    await page.addInitScript(() => window.localStorage.setItem('e2e-active-role', 'SALES'))
     await new AutoCorePage(page, '').navigate('/settings')
-    const select = page.getByTestId('settings-section-select')
-    await select.click()
-    await expect(page.getByRole('option').first()).toBeVisible()
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('option')).toHaveCount(0)
-    await expect(select).toBeFocused()
-  })
-})
 
-test.describe('Settings tab strip on a tablet (AUT-754)', () => {
-  test.use({ viewport: { width: 768, height: 900 } })
-
-  for (const [tab, label] of [
-    ['locations', deSettings.tabs.locations],
-    ['labor', deSettings.tabs.labor],
-    ['hours', deSettings.tabs.hours],
-  ] as const) {
-    test(`a direct link ?tab=${tab} highlights its tab and scrolls it into view`, async ({ page }) => {
-      await mockApi(page)
-      await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
-
-      const strip = page.getByTestId('settings-tab-strip')
-      await expect(strip).toBeVisible()
-      await expect(strip.getByRole('tab', { selected: true })).toHaveCount(1)
-      const active = strip.getByRole('tab', { name: label, exact: true })
-      await expect(active).toHaveAttribute('data-state', 'active')
-      await expect(strip.getByRole('tab', { name: deSettings.tabs.finance })).toHaveAttribute('data-state', 'inactive')
-      await expect.poll(async () => {
-        const stripBox = (await strip.boundingBox())!
-        const tabBox = (await active.boundingBox())!
-        return tabBox.x >= stripBox.x - 1 && tabBox.x + tabBox.width <= stripBox.x + stripBox.width + 1
-      }).toBe(true)
+    const tiles = page.locator('[data-testid^="settings-group-"] a')
+    await expect(tiles).toHaveCount(10)
+    await expect(page.getByRole('link', { name: new RegExp(deSettings.tabs.auditLogs) })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: new RegExp(deSettings.tabs.team) })).toHaveCount(0)
+    await testInfo.attach('settings-overview-non-admin-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
     })
-  }
-})
-
-test.describe('Settings tab strip on a laptop (AUT-754)', () => {
-  test.use({ viewport: { width: 1280, height: 800 } })
-
-  test('the strip is shown, the select is hidden and the active tab is scrolled into view', async ({ page }) => {
-    await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=audit-logs')
-
-    await expect(page.getByTestId('settings-section-select')).toBeHidden()
-    const strip = page.getByTestId('settings-tab-strip')
-    const active = strip.getByRole('tab', { name: deSettings.tabs.auditLogs })
-    await expect(active).toHaveAttribute('data-state', 'active')
-    const stripBox = (await strip.boundingBox())!
-    const tabBox = (await active.boundingBox())!
-    expect(tabBox.x).toBeGreaterThanOrEqual(stripBox.x - 1)
-    expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(stripBox.x + stripBox.width + 1)
-    // Only the strip scrolls, never the page.
-    expect(await page.evaluate(() => window.scrollX), 'page scrolled sideways').toBe(0)
   })
 })
 
@@ -142,7 +113,7 @@ test.describe('Empty states and tables on a phone (AUT-754)', () => {
     test(`Margenregeln: the empty text is fully visible at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 812 })
       await mockApi(page)
-      await new AutoCorePage(page, '').navigate('/settings?tab=margin-rules')
+      await new AutoCorePage(page, '').navigate('/settings/margin-rules')
 
       const empty = page.getByText(/Keine Margenregeln definiert/)
       await expect(empty).toBeVisible()
@@ -156,11 +127,10 @@ test.describe('Empty states and tables on a phone (AUT-754)', () => {
     test(`Erlösgruppen: one readable row per group at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 812 })
       await mockApi(page)
-      await new AutoCorePage(page, '').navigate('/settings?tab=revenue-groups')
+      await new AutoCorePage(page, '').navigate('/settings/revenue-groups')
 
       const row = page.getByRole('listitem').filter({ hasText: 'Werkstattleistungen Arbeit' })
       await expect(row).toBeVisible()
-      // Every field of the group is on screen: tax rate, account number and the default badge.
       await expect(row).toContainText('20%')
       await expect(row).toContainText('4000')
       await expect(row).toContainText(deSettings.revenueGroups.table.defaultBadge)
@@ -172,7 +142,7 @@ test.describe('Empty states and tables on a phone (AUT-754)', () => {
     test(`Standorte: one tappable row per site at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 812 })
       await mockApi(page)
-      await new AutoCorePage(page, '').navigate('/settings?tab=sites')
+      await new AutoCorePage(page, '').navigate('/settings/sites')
 
       const row = page.getByRole('button', { name: /WIE/ }).filter({ hasText: 'Wien' })
       await expect(row).toBeVisible()

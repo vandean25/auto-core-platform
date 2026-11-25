@@ -64,8 +64,8 @@ export function useDataImportSettingsTabWorkflow(core: Core) {
       ?.price_jump_threshold_percent ?? configuredThreshold
 
   const auditLogHref = wizard.dryRunJob
-    ? `/settings?tab=audit-logs&auditEntityType=ImportJob&auditEntityId=${encodeURIComponent(wizard.dryRunJob.id)}`
-    : '/settings?tab=audit-logs'
+    ? `/settings/audit-logs?auditEntityType=ImportJob&auditEntityId=${encodeURIComponent(wizard.dryRunJob.id)}`
+    : '/settings/audit-logs'
 
   const canRunDryRun =
     Boolean(wizard.file) &&

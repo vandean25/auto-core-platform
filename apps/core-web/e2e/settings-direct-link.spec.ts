@@ -1,68 +1,95 @@
 import { expect, test } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { elementsPastTheScreen, pageOverflow } from './utils/phone-layout'
+import { expectNoPageScroll } from './utils/phone-layout'
 import deSettings from '../../../locales/de/settings.json' with { type: 'json' }
 
 /**
- * AUT-778: a direct /settings?tab=<section> link opens its own section (not Finanzen): in the phone select below md,
- * and in the tab strip from md, which scrolls that tab into view.
+ * AUT-778 & AUT-1051: legacy /settings?tab=<section> links redirect to /settings/<section>
+ * (preserving extra query params), unknown ?tab= / unknown paths redirect to /settings overview,
+ * and non-admins are redirected from admin-only sections to /settings overview.
  */
 const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const list = { data: [], meta: { total: 0, page: 1, limit: 20, pageCount: 1 } }
 
-const TABS = [
+const REDIRECT_TABS = [
   ['locations', deSettings.tabs.locations],
   ['labor', deSettings.tabs.labor],
   ['hours', deSettings.tabs.hours],
   ['api-keys', deSettings.tabs.apiKeys],
 ] as const
 
-const PHONE_WIDTHS_BELOW_MD = [375, 390]
-const STRIP_WIDTHS = [768, 1280]
-
-for (const width of PHONE_WIDTHS_BELOW_MD) {
-  test.describe(`Settings direct links at ${width}px (AUT-778)`, () => {
+for (const width of [375, 1280] as const) {
+  test.describe(`Settings legacy ?tab= redirects at ${width}px (AUT-778 / AUT-1051)`, () => {
     test.use({ viewport: { width, height: 900 } })
 
-    for (const [tab, label] of TABS) {
-      // On a phone the sections are one select (AUT-754); a direct link must show its own section there.
-      test(`?tab=${tab} is the selected section and the page does not scroll sideways`, async ({ page }) => {
-        await page.route(/\/api\/(sites|margin-rules|audit-logs|locations)/, (route) => route.fulfill(json(list)))
+    for (const [tab, label] of REDIRECT_TABS) {
+      test(`?tab=${tab} redirects to /settings/${tab} and never renders tab strip or select`, async ({ page }, testInfo) => {
+        await page.route(/\/api\/(margin-rules|audit-logs|locations|api-keys|labor)/, (route) => route.fulfill(json(list)))
+        await page.route(/\/api\/sites(\?.*)?$/, (route) => route.fulfill(json([])))
         await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
 
-        await expect(page.getByTestId('settings-section-select')).toContainText(label)
-        await expect(page.getByTestId('settings-section-select')).not.toContainText(deSettings.tabs.finance)
-        await expect(page.getByTestId('settings-tab-strip')).toBeHidden()
-        expect(await elementsPastTheScreen(page), 'elements past the right edge').toEqual([])
-        expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
+        await expect(page).toHaveURL(new RegExp(`/settings/${tab}$`))
+        await expect(page.getByRole('heading', { level: 1, name: label })).toBeVisible()
+        await expect(page.getByTestId('settings-tab-strip')).toHaveCount(0)
+        await expect(page.getByTestId('settings-section-select')).toHaveCount(0)
+        await expectNoPageScroll(page)
+
+        if (tab === 'hours') {
+          await testInfo.attach(`settings-redirect-hours-${width}`, {
+            body: await page.screenshot(),
+            contentType: 'image/png',
+          })
+        }
       })
     }
   })
 }
 
-for (const width of STRIP_WIDTHS) {
-  test.describe(`Settings direct links at ${width}px (AUT-778)`, () => {
-    test.use({ viewport: { width, height: 900 } })
+test.describe('Settings deep-link edge cases (AUT-1051)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
 
-    for (const [tab, label] of TABS) {
-      test(`?tab=${tab} highlights its tab and brings it into view`, async ({ page }) => {
-        await page.route(/\/api\/(sites|margin-rules|audit-logs|locations)/, (route) => route.fulfill(json(list)))
-        await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+  test('preserves extra query params when redirecting /settings?tab=data-import', async ({ page }, testInfo) => {
+    await page.route(/\/api\/(vendors|data-import|margin-rules)/, (route) => route.fulfill(json(list)))
+    await new AutoCorePage(page, '').navigate('/settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-42')
 
-        const strip = page.getByTestId('settings-tab-strip')
-        const active = strip.getByRole('tab', { name: label, exact: true })
-        await expect(active).toHaveAttribute('data-state', 'active')
-        await expect(strip.getByRole('tab', { name: deSettings.tabs.finance, exact: true })).toHaveAttribute('data-state', 'inactive')
-        await expect(strip.locator('[role="tab"][data-state="active"]')).toHaveCount(1)
-
-        await expect
-          .poll(async () => {
-            const stripBox = (await strip.boundingBox())!
-            const tabBox = (await active.boundingBox())!
-            return tabBox.x >= stripBox.x - 1 && tabBox.x + tabBox.width <= stripBox.x + stripBox.width + 1
-          }, { message: 'active tab inside the visible part of the strip' })
-          .toBe(true)
-      })
-    }
+    await expect(page).toHaveURL(/\/settings\/data-import\?entity=SUPPLIER_PRICE_LIST&vendorId=vendor-42$/)
+    await expect(page.getByRole('heading', { level: 1, name: deSettings.tabs.dataImport })).toBeVisible()
+    await testInfo.attach('settings-redirect-data-import-params', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
   })
-}
+
+  for (const unknownPath of ['/settings?tab=does-not-exist', '/settings/does-not-exist']) {
+    test(`unknown ${unknownPath} redirects to /settings overview, not finance`, async ({ page }, testInfo) => {
+      await new AutoCorePage(page, '').navigate(unknownPath)
+
+      await expect(page).toHaveURL(/\/settings$/)
+      await expect(page.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+      await expect(page.getByLabel(deSettings.finance.invoicing.prefix)).toHaveCount(0)
+      if (unknownPath.includes('?tab=')) {
+        await testInfo.attach('settings-redirect-unknown-to-overview', {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        })
+      }
+    })
+  }
+
+  for (const adminPath of ['/settings/audit-logs', '/settings?tab=audit-logs']) {
+    test(`non-admin opening ${adminPath} is redirected to /settings overview`, async ({ page }, testInfo) => {
+      await page.addInitScript(() => window.localStorage.setItem('e2e-active-role', 'SALES'))
+      await new AutoCorePage(page, '').navigate(adminPath)
+
+      await expect(page).toHaveURL(/\/settings$/)
+      await expect(page.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+      await expect(page.getByLabel('Nach Objekttyp filtern')).toHaveCount(0)
+      if (adminPath === '/settings/audit-logs') {
+        await testInfo.attach('settings-redirect-non-admin-to-overview', {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        })
+      }
+    })
+  }
+})

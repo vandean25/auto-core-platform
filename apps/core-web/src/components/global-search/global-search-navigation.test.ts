@@ -47,18 +47,18 @@ describe('global search navigation targets', () => {
     const admin = hrefs(getSettingsSection(context('ADMIN'), getNavigationSection(context('ADMIN'))))
     const sales = hrefs(getSettingsSection(context('SALES'), getNavigationSection(context('SALES'))))
 
-    expect(admin).toContain('/settings?tab=team')
-    expect(admin).toContain('/settings?tab=sites')
-    expect(sales).toContain('/settings?tab=brands')
-    expect(sales).not.toContain('/settings?tab=team')
-    expect(sales).not.toContain('/settings?tab=api-keys')
+    expect(admin).toContain('/settings/team')
+    expect(admin).toContain('/settings/sites')
+    expect(sales).toContain('/settings/brands')
+    expect(sales).not.toContain('/settings/team')
+    expect(sales).not.toContain('/settings/api-keys')
   })
 
   it('does not repeat the finance tab the sidebar already links', () => {
     const navigation = getNavigationSection(context('ADMIN'))
 
-    expect(hrefs(navigation)).toContain('/settings?tab=finance')
-    expect(hrefs(getSettingsSection(context('ADMIN'), navigation))).not.toContain('/settings?tab=finance')
+    expect(hrefs(navigation)).toContain('/settings/finance')
+    expect(hrefs(getSettingsSection(context('ADMIN'), navigation))).not.toContain('/settings/finance')
   })
 
   it('labels settings tabs with the settings page wording', () => {
@@ -74,13 +74,13 @@ describe('global search navigation targets', () => {
     const salesNav = getNavigationSection(context('SALES'))
 
     expect(hrefs(getSettingsSection(context('ADMIN'), adminNav, false))).not.toContain(
-      '/settings?tab=custom-fields',
+      '/settings/custom-fields',
     )
     expect(hrefs(getSettingsSection(context('ADMIN'), adminNav, true))).toContain(
-      '/settings?tab=custom-fields',
+      '/settings/custom-fields',
     )
     expect(hrefs(getSettingsSection(context('SALES'), salesNav, true))).not.toContain(
-      '/settings?tab=custom-fields',
+      '/settings/custom-fields',
     )
   })
 })

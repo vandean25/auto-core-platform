@@ -39,7 +39,7 @@ async function mockApi(page: Page) {
 }
 
 const LISTS = [
-  ['Audit-Logs', '/settings?tab=audit-logs', deSettings.auditLogs.searchPlaceholder, 'audit-logs'],
+  ['Audit-Logs', '/settings/audit-logs', deSettings.auditLogs.searchPlaceholder, 'audit-logs'],
   ['Gewährleistung fällig', '/vehicles/gewaehrleistung-due', deVehicles.gewaehrleistungDue.searchPlaceholder, 'gewaehrleistung-due'],
   ['Kostenvoranschläge', '/workshop/estimates', deWorkshop.estimateList.searchPlaceholder, 'estimates'],
   ['Annahme-Suche', '/workshop/intake', deWorkshop.intakeDashboard.searchPlaceholder, 'intake'],

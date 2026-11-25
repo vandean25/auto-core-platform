@@ -54,7 +54,7 @@ function toResult({ row, score }: ScoredRow<SiteRow>): SearchResult {
     id: row.id,
     title: row.name,
     subtitle: joinParts([row.code, row.address_city]),
-    href: '/settings?tab=sites',
+    href: '/settings/sites',
     score,
   };
 }

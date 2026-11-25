@@ -56,7 +56,7 @@ function toResult({ row, score }: ScoredRow<LaborOperationRow>): SearchResult {
     id: row.id,
     title: row.description,
     subtitle: row.code,
-    href: '/settings?tab=labor',
+    href: '/settings/labor',
     score,
   };
 }

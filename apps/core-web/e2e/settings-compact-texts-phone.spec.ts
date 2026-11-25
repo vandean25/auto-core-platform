@@ -78,7 +78,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       await route.fulfill(json(list))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=data-import')
+    await new AutoCorePage(page, '').navigate('/settings/data-import')
     await expect(page.getByRole('heading', { level: 2, name: deSettings.dataImport.title })).toBeVisible()
 
     // Intro and consent alert must not be present
@@ -107,7 +107,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       route.fulfill(json(route.request().url().includes('threshold') ? { thresholdPercent: 10 } : [])),
     )
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=margin-rules')
+    await new AutoCorePage(page, '').navigate('/settings/margin-rules')
     await expect(page.getByRole('heading', { name: deSettings.marginRules.title })).toBeVisible()
 
     // Evaluation rule info button is visible
@@ -134,7 +134,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       }))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=voice-translation')
+    await new AutoCorePage(page, '').navigate('/settings/voice-translation')
     await expect(page.getByText(deSettings.voiceTranslation.credentialNotConfigured)).toBeVisible()
     await expect(page.getByText(/Die Zugangsdaten werden verschlüsselt/)).toBeHidden()
 
@@ -160,7 +160,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       await route.fulfill(json(list))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=finance')
+    await new AutoCorePage(page, '').navigate('/settings/finance')
     await page.getByRole('tab', { name: deSettings.finance.subTabs.accountingExport }).click()
     await expect(page.getByRole('heading', { level: 2, name: deSettings.accountingExport.header.title })).toBeVisible()
 
@@ -188,7 +188,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       await route.fulfill(json([]))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=legal-entities')
+    await new AutoCorePage(page, '').navigate('/settings/legal-entities')
     await expect(page.getByRole('heading', { level: 2, name: deSettings.legalEntities.title })).toBeVisible()
 
     // Country info icon in create form
@@ -243,7 +243,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       }))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=legal-entities')
+    await new AutoCorePage(page, '').navigate('/settings/legal-entities')
 
     for (const language of ['de', 'en'] as const) {
       await ensureUiLanguage(page, language)
@@ -312,7 +312,7 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       }))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=labor')
+    await new AutoCorePage(page, '').navigate('/settings/labor')
     await expect(page.getByRole('heading', { level: 3, name: deSettings.labor.categories.title })).toBeVisible()
 
     // Delete button is discoverable on the row
@@ -335,11 +335,11 @@ test.describe('Settings compact texts on 375px mobile (AUT-843)', () => {
       await route.fulfill(json(list))
     })
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=api-keys')
+    await new AutoCorePage(page, '').navigate('/settings/api-keys')
     await expect(page.getByRole('heading', { name: deSettings.apiKeys.title })).toBeVisible()
     await expect(page.getByText('Nur-Lese-Schlüssel für Integrationen')).toBeHidden()
 
-    await new AutoCorePage(page, '').navigate('/settings?tab=audit-logs')
+    await new AutoCorePage(page, '').navigate('/settings/audit-logs')
     await expect(page.getByRole('heading', { name: deSettings.auditLogs.title })).toBeVisible()
     await expect(page.getByText('Unveränderliches, nur ergänzbares Audit-Protokoll')).toBeHidden()
 
@@ -365,7 +365,7 @@ async function openVoiceTranslationTab(page: Page, width: number, language: 'de'
   await page.route(AutoCorePage.apiRouteMatcher('/api/voice-translation/settings'), async (route) => {
     await route.fulfill(json({ targetLanguageCode: 'de', googleProjectId: '', googleLocation: 'global', hasGoogleCredential: false }))
   })
-  await new AutoCorePage(page, '').navigate('/settings?tab=voice-translation')
+  await new AutoCorePage(page, '').navigate('/settings/voice-translation')
   await ensureUiLanguage(page, language)
   await expect(page.locator('#voice-google-credential')).toBeVisible()
   // The canvas measures with the font the page has loaded by now, not a fallback.
@@ -448,7 +448,7 @@ test.describe('Settings repeated OK-state badges (AUT-952)', () => {
     for (const language of ['de', 'en'] as const) {
       const okBadgeLabel = language === 'de' ? 'Aktiv' : 'Active'
       for (const { tab, rowText } of tabs) {
-        await new AutoCorePage(page, '').navigate(`/settings?tab=${tab}`)
+        await new AutoCorePage(page, '').navigate(`/settings/${tab}`)
         await ensureUiLanguage(page, language)
 
         if (tab === 'labor') {

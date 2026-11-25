@@ -99,7 +99,7 @@ This module does not use a status state machine. Brands are simple master data r
 
 ### Layout & Actions
 
-- [x] Brand management lives in the **Settings page** (`/settings?tab=brands`), not a standalone page.
+- [x] Brand management lives in the **Settings page** (`/settings/brands`), not a standalone page.
 - [x] Create action: `+ Brand` button top-right of the brands tab.
 - [x] Uses `AddBrandDialog` modal for creation (inline with Settings page patterns).
 

@@ -717,7 +717,7 @@ describe('Global search (e2e)', () => {
         'labor_operation',
         `AW-SRCH-${SUFFIX}`,
         'labor_operation',
-        `/settings?tab=labor`,
+        `/settings/labor`,
       ],
       ['vendor', `VND-${SUFFIX}`, 'vendor', `/vendors/`],
       [
@@ -733,14 +733,14 @@ describe('Global search (e2e)', () => {
         `/purchase-bills/`,
       ],
       ['employee', `Searchable Mechanic ${SUFFIX}`, 'employee', `/hr/employees`],
-      ['user', `User${SUFFIX}`, 'user', `/settings?tab=team`],
+      ['user', `User${SUFFIX}`, 'user', `/settings/team`],
       [
         'legal_entity',
         `ATU${SUFFIX}`,
         'legal_entity',
-        `/settings?tab=legal-entities`,
+        `/settings/legal-entities`,
       ],
-      ['site', `Searchable Standort ${SUFFIX}`, 'site', `/settings?tab=sites`],
+      ['site', `Searchable Standort ${SUFFIX}`, 'site', `/settings/sites`],
     ])('%s is found by %s', async (type, q, idKey, hrefPrefix) => {
       const groups = await groupsFor(adminToken, q);
       const group = groups.find((g) => g.type === type)!;

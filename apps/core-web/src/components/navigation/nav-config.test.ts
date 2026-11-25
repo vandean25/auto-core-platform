@@ -35,7 +35,7 @@ const FORMER_SIDEBAR_ROUTES = [
   '/finance/credit-notes',
   '/finance/accounting-export-readiness',
   '/purchase-bills',
-  '/settings?tab=finance',
+  '/settings/finance',
   '/settings',
 ] as const
 
@@ -62,7 +62,7 @@ const UNGATED_ROUTES = [
   '/purchase-orders',
   '/purchase-bills',
   '/settings',
-  '/settings?tab=finance',
+  '/settings/finance',
 ]
 
 const AGENT = '/agent/supervision'
@@ -234,9 +234,9 @@ describe('nav config: active state carried over from the former list', () => {
 
   it.each([
     ['/settings', '', ['settings']],
-    ['/settings', 'tab=finance', ['finance']],
-    ['/settings', 'tab=api-keys', ['settings']],
-  ])('splits the settings entries by tab on %s?%s', (pathname, search, expected) => {
+    ['/settings/finance', '', ['finance']],
+    ['/settings/api-keys', '', ['settings']],
+  ])('splits the settings entries by path on %s', (pathname, search, expected) => {
     expect(activeItemIds(pathname, search)).toEqual(expected)
   })
 })

@@ -72,10 +72,6 @@ function prefixMatch(prefix: string) {
   return (pathname: string) => pathname.startsWith(prefix)
 }
 
-function isSettingsTab(search: string, tab: string) {
-  return new URLSearchParams(search).get('tab') === tab
-}
-
 /**
  * The sidebar's navigation. Every entry the former flat list had is here with the same visibility
  * and active rules; the groups only change how they are shown. Every icon is unique across the
@@ -329,10 +325,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       {
         id: 'finance',
         labelKey: 'modules.finance',
-        to: '/settings?tab=finance',
+        to: '/settings/finance',
         icon: Landmark,
         isVisible: alwaysVisible,
-        isActive: (pathname, search) => pathname.startsWith('/settings') && isSettingsTab(search, 'finance'),
+        isActive: (pathname) => pathname.startsWith('/settings/finance'),
       },
     ],
   },
@@ -354,8 +350,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         to: APP_ROUTE_PATHS.settings,
         icon: Settings,
         isVisible: alwaysVisible,
-        // The finance tab has its own entry above, so Einstellungen is current on every other tab.
-        isActive: (pathname, search) => pathname.startsWith('/settings') && !isSettingsTab(search, 'finance'),
+        // The finance section has its own entry above, so Einstellungen is current on the overview and every other section.
+        isActive: (pathname) => pathname.startsWith('/settings') && !pathname.startsWith('/settings/finance'),
       },
       {
         id: 'platform-tenants',

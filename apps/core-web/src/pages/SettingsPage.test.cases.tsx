@@ -1,108 +1,126 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import deSettings from '../../../../locales/de/settings.json'
 import SettingsPage from './SettingsPage'
+import { authSessionResult } from './SettingsPage.test.support.test'
 
 function LocationProbe() {
   const location = useLocation()
-  return <div data-testid='location-search'>{location.search}</div>
+  return (
+    <>
+      <div data-testid='location-pathname'>{location.pathname}</div>
+      <div data-testid='location-search'>{location.search}</div>
+      <div data-testid='location-hash'>{location.hash}</div>
+    </>
+  )
 }
 
-describe('SettingsPage tab integration', () => {
-  it('keeps the settings tab bar scrollable without shrinking tab labels', () => {
-    render(
-      <MemoryRouter initialEntries={['/settings']}>
-        <Routes>
-          <Route path='/settings' element={<SettingsPage />} />
-        </Routes>
-      </MemoryRouter>,
-    )
+function renderSettingsRouter(initialEntry: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route
+          path='/settings'
+          element={
+            <>
+              <SettingsPage />
+              <LocationProbe />
+            </>
+          }
+        />
+        <Route
+          path='/settings/:section'
+          element={
+            <>
+              <SettingsPage />
+              <LocationProbe />
+            </>
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
-    const [mainTabList] = screen.getAllByRole('tablist')
-    expect(mainTabList).toHaveClass('h-auto', 'overflow-x-auto')
-    expect(screen.getByRole('tab', { name: deSettings.tabs.voiceTranslation })).toHaveClass('shrink-0')
-    expect(screen.getByRole('tab', { name: deSettings.tabs.locations })).toHaveClass('shrink-0')
+beforeEach(() => {
+  authSessionResult.data = { activeRole: 'ADMIN' }
+  authSessionResult.isLoading = false
+})
+
+describe('SettingsPage overview & subpage routing (AUT-1051)', () => {
+  it('renders the grouped overview on /settings without tab strip or select', () => {
+    renderSettingsRouter('/settings')
+
+    expect(screen.queryByTestId('settings-tab-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-section-select')).not.toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 2, name: deSettings.groups.company })).toBeVisible()
   })
 
-  it('renders Employees, Bays, and Audit Logs triggers and respects the initial employees query param', async () => {
-    render(
-      <MemoryRouter initialEntries={['/settings?tab=employees']}>
-        <Routes>
-          <Route
-            path='/settings'
-            element={
-              <>
-                <SettingsPage />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
-    )
+  it('opens a section subpage when clicking a tile with breadcrumb and back link', async () => {
+    renderSettingsRouter('/settings')
 
-    expect(screen.getByRole('tab', { name: deSettings.tabs.employees })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.bays })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.hours })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.vehicleData })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.legalEntities })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.sites })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.marginRules })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.team })).toBeVisible()
-    expect(screen.getByRole('tab', { name: deSettings.tabs.auditLogs })).toBeVisible()
-    expect(screen.getByText('Employees tab content')).toBeVisible()
-    expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=employees')
-
-    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.bays }))
+    fireEvent.click(screen.getByRole('link', { name: new RegExp(deSettings.tabs.hours) }))
 
     await waitFor(() => {
-      expect(screen.getByText('Bays tab content')).toBeVisible()
-      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=bays')
+      expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings/hours')
     })
-
-    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.vehicleData }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Vehicle data tab content')).toBeVisible()
-      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=vehicle-data')
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.marginRules }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Margin rules tab content')).toBeVisible()
-      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: deSettings.tabs.auditLogs }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Audit logs tab content')).toBeVisible()
-      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=audit-logs')
-    })
+    expect(screen.getByText('Hours tab content')).toBeVisible()
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(breadcrumb).toHaveTextContent(deSettings.page.title)
+    expect(breadcrumb).toHaveTextContent(deSettings.tabs.hours)
+    expect(screen.getByRole('link', { name: deSettings.page.backToOverview })).toHaveAttribute('href', '/settings')
+    expect(screen.queryByTestId('settings-tab-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-section-select')).not.toBeInTheDocument()
   })
 
-  it('activates Margenregeln tab panel when initial tab is margin-rules', async () => {
-    render(
-      <MemoryRouter initialEntries={['/settings?tab=margin-rules']}>
-        <Routes>
-          <Route
-            path='/settings'
-            element={
-              <>
-                <SettingsPage />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
-    )
+  it('redirects /settings?tab=hours to /settings/hours', async () => {
+    renderSettingsRouter('/settings?tab=hours')
 
-    expect(screen.getByRole('tab', { name: deSettings.tabs.marginRules })).toBeVisible()
-    expect(screen.getByText('Margin rules tab content')).toBeVisible()
-    expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
+    await waitFor(() => {
+      expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings/hours')
+    })
+    expect(screen.getByText('Hours tab content')).toBeVisible()
   })
+
+  it('redirects /settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=v-1 preserving extra params and hash', async () => {
+    renderSettingsRouter('/settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=v-1#step-2')
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings/data-import')
+    })
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?entity=SUPPLIER_PRICE_LIST&vendorId=v-1')
+    expect(screen.getByTestId('location-hash')).toHaveTextContent('#step-2')
+    expect(screen.getByText('Data import tab content')).toBeVisible()
+  })
+
+  it.each(['/settings?tab=does-not-exist', '/settings/does-not-exist'])(
+    'redirects unknown %s to the overview, not finance',
+    async (entry) => {
+      renderSettingsRouter(entry)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings')
+        expect(screen.getByTestId('location-search')).toHaveTextContent('')
+      })
+      expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+      expect(screen.queryByLabelText(deSettings.finance.invoicing.prefix)).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['/settings/audit-logs', '/settings?tab=audit-logs'])(
+    'redirects non-admin from %s to the overview without rendering admin content',
+    async (entry) => {
+      authSessionResult.data = { activeRole: 'SALES' }
+      renderSettingsRouter(entry)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location-pathname')).toHaveTextContent('/settings')
+      })
+      expect(screen.queryByText('Audit logs tab content')).not.toBeInTheDocument()
+      expect(screen.getByRole('searchbox', { name: deSettings.overview.searchLabel })).toBeVisible()
+    },
+  )
 })

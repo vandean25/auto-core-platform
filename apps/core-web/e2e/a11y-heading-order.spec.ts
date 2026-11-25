@@ -180,7 +180,7 @@ test.describe('Heading order on detail pages', () => {
       })
     })
 
-    await page.goto('/settings?tab=hours')
+    await page.goto('/settings/hours')
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()
@@ -216,7 +216,7 @@ test.describe('Heading order on detail pages', () => {
       })
     })
 
-    await page.goto('/settings?tab=brands')
+    await page.goto('/settings/brands')
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByRole('heading', { level: 1, name: DE_SETTINGS.page.title })).toBeVisible()

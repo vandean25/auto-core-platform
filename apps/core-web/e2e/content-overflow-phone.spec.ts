@@ -100,10 +100,10 @@ async function mockApi(page: Page) {
 
 const PAGES = [
   ['Werkstatt-KPIs', '/workshop/reports/kpis'],
-  ['Einstellungen: Öffnungszeiten', '/settings?tab=hours'],
-  ['Einstellungen: Lagerorte', '/settings?tab=locations'],
-  ['Einstellungen: Arbeit', '/settings?tab=labor'],
-  ['Einstellungen: Audit-Logs', '/settings?tab=audit-logs'],
+  ['Einstellungen: Öffnungszeiten', '/settings/hours'],
+  ['Einstellungen: Lagerorte', '/settings/locations'],
+  ['Einstellungen: Arbeit', '/settings/labor'],
+  ['Einstellungen: Audit-Logs', '/settings/audit-logs'],
   ['Reifenlager', '/workshop/tyre-storage'],
 ] as const
 
@@ -151,7 +151,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
   test('WHEN settings locations are opened at 375px with a long name THEN it wraps on word boundaries', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=locations')
+    await new AutoCorePage(page, '').navigate('/settings/locations')
     const name = page.locator('span', { hasText: /^QA Bin MAIN 01 \(AUT-861 transfer test\)$/ })
     await expect(name).toBeVisible()
     const metrics = await name.evaluate((node) => {
@@ -186,7 +186,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
   test('Lagerorte: names and code badges are not squeezed or wrapped at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=locations')
+    await new AutoCorePage(page, '').navigate('/settings/locations')
     const badge = page.getByText('A-01-12-W-N3', { exact: true })
     await expect(badge).toBeVisible()
     expect((await badge.boundingBox())!.height, 'code badge on one line').toBeLessThan(26)
@@ -198,7 +198,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
   test('Arbeit: category names are not cut off at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=labor')
+    await new AutoCorePage(page, '').navigate('/settings/labor')
     for (const name of ['Radaufhängung und Stoßdämpfer vorne', 'Suspension Spezialwerkzeug']) {
       const label = page.getByRole('button', { name, exact: true })
       await expect(label).toBeVisible()
@@ -215,7 +215,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
   test('Audit-Logs: the filters fit their card at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=audit-logs')
+    await new AutoCorePage(page, '').navigate('/settings/audit-logs')
     const entityType = page.getByLabel('Nach Objekttyp filtern')
     await expect(entityType).toBeVisible()
     expect(await controlsOutsideTheirCard(page.locator('main'))).toEqual([])
@@ -254,7 +254,7 @@ test.describe('Page content on a phone (AUT-752)', () => {
   test('WHEN the settings page opens at 375px THEN there is no horizontal scroll and targets are at least 44px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await mockApi(page)
-    await new AutoCorePage(page, '').navigate('/settings?tab=hours')
+    await new AutoCorePage(page, '').navigate('/settings/hours')
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     await page.waitForLoadState('networkidle')
 

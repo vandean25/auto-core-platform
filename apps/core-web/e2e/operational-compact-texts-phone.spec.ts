@@ -460,7 +460,7 @@ test.describe('AUT-952: Kompakte Texte — no repeated OK badges or explanatory 
       { slug: 'transfers', path: '/stock-transfers', titleDe: deInventory.stockTransfers.list.title, titleEn: enInventory.stockTransfers.list.title, de: deInventory.stockTransfers.list.description, en: enInventory.stockTransfers.list.description },
       { slug: 'invoices', path: '/sales/invoices', titleDe: deSales.invoices.list.title, titleEn: enSales.invoices.list.title, de: deSales.invoices.list.description, en: enSales.invoices.list.description },
       { slug: 'export-ready', path: '/finance/accounting-export-readiness', titleDe: deFinance.accountingExportReadiness.title, titleEn: enFinance.accountingExportReadiness.title, de: deFinance.accountingExportReadiness.subtitle, en: enFinance.accountingExportReadiness.subtitle },
-      { slug: 'vehicle-data', path: '/settings?tab=vehicle-data', titleDe: deSettings.vehicleData.catalog.title, titleEn: enSettings.vehicleData.catalog.title, de: deSettings.vehicleData.catalog.awMinutesHint, en: enSettings.vehicleData.catalog.awMinutesHint },
+      { slug: 'vehicle-data', path: '/settings/vehicle-data', titleDe: deSettings.vehicleData.catalog.title, titleEn: enSettings.vehicleData.catalog.title, de: deSettings.vehicleData.catalog.awMinutesHint, en: enSettings.vehicleData.catalog.awMinutesHint },
     ]
 
     for (const language of ['de', 'en'] as const) {
@@ -1092,7 +1092,7 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
         const s = language === 'de' ? deSettings : enSettings
         const w = language === 'de' ? deWorkshop : enWorkshop
 
-        await page.goto('/settings?tab=team')
+        await page.goto('/settings/team')
         await page.waitForLoadState('networkidle')
         await ensureUiLanguage(page, language)
         await expect(page.getByText(s.team.description)).toHaveCount(0)
@@ -1104,7 +1104,7 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
           })
         }
 
-        await page.goto('/settings?tab=data-import')
+        await page.goto('/settings/data-import')
         await page.waitForLoadState('networkidle')
         await page.getByRole('tab', { name: s.dataImport.view.history }).click()
         await expect(page.getByText(s.dataImport.history.description)).toHaveCount(0)

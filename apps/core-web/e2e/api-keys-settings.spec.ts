@@ -143,7 +143,7 @@ test.describe("Blueprint: API keys settings", () => {
     const { calls } = await mockApiKeys(page, [seededKey]);
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
-    await corePage.navigate("/settings?tab=api-keys");
+    await corePage.navigate("/settings/api-keys");
 
     await expect(page.getByRole("heading", { name: DE_SETTINGS.apiKeys.title, exact: true })).toBeVisible();
     const seededRow = rowFor(page, "Warehouse BI");
@@ -223,7 +223,7 @@ test.describe("Blueprint: API keys settings", () => {
     });
 
     const corePage = new AutoCorePage(page, DE_SETTINGS.page.title);
-    await corePage.navigate("/settings?tab=api-keys");
+    await corePage.navigate("/settings/api-keys");
 
     await expect(page.getByText(deErrorCode("HTTP_403"), { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: DE_SETTINGS.apiKeys.retry })).toBeVisible();

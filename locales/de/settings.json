@@ -2,7 +2,41 @@
   "page": {
     "sectionLabel": "Bereich",
     "title": "Einstellungen",
-    "description": "Plattformkonfiguration, Stammdaten und Lagerorte verwalten."
+    "description": "Plattformkonfiguration, Stammdaten und Lagerorte verwalten.",
+    "backToOverview": "Zurück zu Einstellungen"
+  },
+  "overview": {
+    "searchLabel": "Einstellungen durchsuchen",
+    "searchPlaceholder": "Einstellungen durchsuchen…",
+    "empty": "Keine passenden Einstellungen gefunden.",
+    "clearSearch": "Suche zurücksetzen"
+  },
+  "groups": {
+    "company": "Unternehmen",
+    "workshop": "Werkstatt",
+    "finance": "Finanzen",
+    "system": "System"
+  },
+  "descriptions": {
+    "finance": "Sperrdatum, Rechnungsnummern und Export.",
+    "voiceTranslation": "Spracherkennung und Übersetzung einrichten.",
+    "revenueGroups": "Erlösgruppen, Steuersätze und Konten.",
+    "brands": "Fahrzeugmarken und Teilehersteller pflegen.",
+    "legalEntities": "Firmendaten, UID und Rechtsträger verwalten.",
+    "sites": "Standorte und Filialen konfigurieren.",
+    "locations": "Lagerorte, Regale und Fächer strukturieren.",
+    "employees": "Werkstattpersonal für Zuweisungen verwalten.",
+    "bays": "Arbeitsplätze und Hebebühnen einrichten.",
+    "hours": "Öffnungszeiten und Feiertage festlegen.",
+    "labor": "Arbeitswerte, Kategorien und Stundensätze.",
+    "vehicleData": "Fahrzeugkatalog und Marken-Vorgaben.",
+    "marginRules": "Preisaufschläge und Margenregeln definieren.",
+    "dataImport": "Stammdaten und Preislisten per CSV importieren.",
+    "customFields": "Benutzerdefinierte Felder für Datensätze.",
+    "team": "Benutzer, Rollen und Zugriffsrechte verwalten.",
+    "apiKeys": "API-Schlüssel für Integrationen verwalten.",
+    "auditLogs": "Änderungsprotokoll und Aktivitäten einsehen.",
+    "notifications": "E-Mail- und Systembenachrichtigungen steuern."
   },
   "tabs": {
     "finance": "Finanzen",

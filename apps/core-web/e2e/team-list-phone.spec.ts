@@ -25,7 +25,7 @@ test.describe('Team list on a phone (AUT-768)', () => {
       await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
         route.fulfill(json({ data: [member('m1', 'Anna', 'Muster', 'ADMIN'), { ...member('m2', 'Tim', 'Techniker', 'TECH'), isActive: false }], meta: { total: 2, page: 1, limit: 100, pageCount: 1 } })),
       )
-      await new AutoCorePage(page, '').navigate('/settings?tab=team')
+      await new AutoCorePage(page, '').navigate('/settings/team')
 
       const rows = page.locator('[data-table-row="true"]')
       await expect(rows).toHaveCount(2)
@@ -52,7 +52,7 @@ test.describe('Team list on a phone (AUT-768)', () => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
       route.fulfill(json({ data: [long], meta: { total: 1, page: 1, limit: 100, pageCount: 1 } })),
     )
-    await new AutoCorePage(page, '').navigate('/settings?tab=team')
+    await new AutoCorePage(page, '').navigate('/settings/team')
 
     const row = page.locator('[data-table-row="true"]').first()
     await expect(row).toBeVisible()
@@ -70,7 +70,7 @@ test.describe('Team list on a phone (AUT-768)', () => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/tenant-members'), (route) =>
       route.fulfill(json({ data: [{ ...member('m3', 'Nameless', 'Person', 'SALES'), firstName: null, lastName: null, email: 'invited@werkstatt.example' }], meta: { total: 1, page: 1, limit: 100, pageCount: 1 } })),
     )
-    await new AutoCorePage(page, '').navigate('/settings?tab=team')
+    await new AutoCorePage(page, '').navigate('/settings/team')
     await expect(page.locator('[data-table-row="true"]').first()).toBeVisible()
     await expect(page.getByText('invited@werkstatt.example')).toHaveCount(1)
   })
