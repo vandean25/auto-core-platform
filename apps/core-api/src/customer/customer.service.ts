@@ -3,9 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { ImportEntityType } from '@prisma/client';
+import { CustomFieldEntity, ImportEntityType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
+import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import {
   attachLegacyIds,
   findExternalEntityIds,
@@ -144,7 +147,37 @@ export class CustomerService {
     private prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
+
+  private maskCustomerCustomFieldsWithDefs<
+    T extends { custom_fields?: unknown },
+  >(customer: T, activeDefs: ReadonlyArray<{ key: string }> | null): T {
+    if (!this.customFields || activeDefs === null) {
+      const rest = { ...customer };
+      delete rest.custom_fields;
+      return rest;
+    }
+    const visible = this.customFields.projectVisibleCustomFieldsWithDefs(
+      customer.custom_fields,
+      activeDefs,
+    );
+    if (visible === undefined) {
+      const rest = { ...customer };
+      delete rest.custom_fields;
+      return rest;
+    }
+    return { ...customer, custom_fields: visible };
+  }
+
+  private async maskCustomerCustomFields<T extends { custom_fields?: unknown }>(
+    customer: T,
+  ): Promise<T> {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+      : null;
+    return this.maskCustomerCustomFieldsWithDefs(customer, activeDefs);
+  }
 
   async create(createCustomerDto: CreateCustomerDto) {
     const tenantId = await this.tenantContext.getTenantId();
@@ -153,15 +186,29 @@ export class CustomerService {
       createCustomerDto.vat_id,
     );
     const normalizedVatId = normalizeCustomerVatId(createCustomerDto.vat_id);
-    return this.prisma.customer.create({
+    const validatedCustomFields =
+      createCustomerDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.CUSTOMER,
+            {},
+            createCustomerDto.custom_fields,
+          )
+        : undefined;
+
+    const restCreateDto = omitCustomFields(createCustomerDto);
+    const created = await this.prisma.customer.create({
       data: withPhoneDigits({
-        ...createCustomerDto,
+        ...restCreateDto,
         ...(createCustomerDto.vat_id !== undefined
           ? { vat_id: normalizedVatId }
+          : {}),
+        ...(validatedCustomFields !== undefined
+          ? { custom_fields: validatedCustomFields }
           : {}),
         tenant_id: tenantId,
       }),
     });
+    return this.maskCustomerCustomFields(created);
   }
 
   async findAll(
@@ -188,7 +235,14 @@ export class CustomerService {
           where: searchWhere,
           orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
         };
-    return queryTenantCustomers(this.prisma, tenantId, query);
+    const result = await queryTenantCustomers(this.prisma, tenantId, query);
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+      : null;
+    const maskedData = result.data.map((row) =>
+      this.maskCustomerCustomFieldsWithDefs(row, activeDefs),
+    );
+    return { ...result, data: maskedData };
   }
 
   async findOne(
@@ -239,7 +293,7 @@ export class CustomerService {
         ),
       ],
     );
-    return detail;
+    return this.maskCustomerCustomFields(detail);
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
@@ -264,7 +318,22 @@ export class CustomerService {
       assertCustomerVatIdFormat(mergedCountry, mergedVatId);
     }
 
-    const data: Prisma.CustomerUpdateInput = { ...updateCustomerDto };
+    const validatedCustomFields =
+      updateCustomerDto.custom_fields !== undefined && this.customFields
+        ? await this.customFields.prepareEntityCustomFieldsWrite(
+            CustomFieldEntity.CUSTOMER,
+            existing.custom_fields,
+            updateCustomerDto.custom_fields,
+          )
+        : undefined;
+
+    const restUpdateDto = omitCustomFields(updateCustomerDto);
+    const data: Prisma.CustomerUpdateInput = {
+      ...restUpdateDto,
+      ...(validatedCustomFields !== undefined
+        ? { custom_fields: validatedCustomFields }
+        : {}),
+    };
     if (updateCustomerDto.vat_id !== undefined) {
       data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id);
     }
@@ -274,10 +343,11 @@ export class CustomerService {
       data.contact_email_ok = false;
     }
 
-    return this.prisma.customer.update({
+    const updated = await this.prisma.customer.update({
       where: { id },
       data: withPhoneDigits(data),
     });
+    return this.maskCustomerCustomFields(updated);
   }
 
   async remove(id: string) {

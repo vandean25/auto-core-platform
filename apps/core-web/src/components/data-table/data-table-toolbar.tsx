@@ -18,6 +18,7 @@ interface DataTableToolbarProps<TData extends object> {
   searchColumn?: string
   placeholder?: string
   saveViewTitle?: string
+  getLayoutHref?: () => string
   dashboardSource?: DashboardWidgetTableSource
   enableCsvExport?: boolean
   csvFileName?: string
@@ -31,6 +32,7 @@ export function DataTableToolbar<TData extends object>({
   searchColumn,
   placeholder,
   saveViewTitle,
+  getLayoutHref,
   dashboardSource,
   enableCsvExport = true,
   csvFileName,
@@ -68,7 +70,7 @@ export function DataTableToolbar<TData extends object>({
         {saveViewTitle ? (
           <>
             <SavedViewsMenu title={saveViewTitle} />
-            <SaveCurrentViewButton title={saveViewTitle} />
+            <SaveCurrentViewButton title={saveViewTitle} getHref={getLayoutHref} />
           </>
         ) : null}
         {dashboardSource ? <AddToDashboardButton source={dashboardSource} /> : null}

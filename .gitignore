@@ -43,18 +43,11 @@ secrets/gsm-mapping.json
 .tmp_*.txt
 *.log
 
-# Neo4j local data
-tools/graph-db/data/
-
 # playwright test artifacts
-.playwright-cli/
 apps/core-web/playwright-report/
 apps/core-web/test-results/
 
-
-# Stitch downloads
-stitch-downloads/
-.vercel
+# Local env overrides
 .env*.local
 
 # Docs
@@ -72,9 +65,6 @@ infra/.terraform/
 
 # TypeScript incremental build artifacts
 *.tsbuildinfo
-
-# Repowise
-.repowise/
 
 # Fallow cache
 .fallow/

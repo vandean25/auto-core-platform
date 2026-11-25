@@ -21,8 +21,4 @@ export class DryRunStorage {
   static getCollector(): DryRunChangeCollector | undefined {
     return this.storage.getStore()?.collector;
   }
-
-  static getStore(): DryRunContext | undefined {
-    return this.storage.getStore();
-  }
 }

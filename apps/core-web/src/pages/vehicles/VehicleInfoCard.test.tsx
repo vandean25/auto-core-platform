@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -34,9 +35,11 @@ const vehicle = {
 
 function renderCard() {
   return render(
-    <MemoryRouter>
-      <VehicleInfoCard vehicle={vehicle} onChangeCustomer={() => undefined} />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <VehicleInfoCard vehicle={vehicle} onChangeCustomer={() => undefined} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -28,6 +29,7 @@ import { LedgerService } from './ledger.service.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto.js';
 import {
+  AdjustmentValuationResponseDto,
   AvailabilityCheckResultDto,
   CatalogItemResponseDto,
   InventoryItemDetailResponseDto,
@@ -50,6 +52,7 @@ import {
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto.js';
 import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 import { GuardedPriceService } from './guarded-price/guarded-price.service.js';
+import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 import { ApiListCursorModeQuery } from '../common/dto/list-cursor-query.decorator.js';
 
@@ -79,19 +82,24 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Bounded match count for parts list filters (ADR-0035 pilot)',
   })
+  @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
   @ApiOkResponse({ type: CappedListCountResponseDto })
   async cappedCount(
     @Query('search') search?: string,
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
   ) {
-    return await this.inventoryService.cappedListCount({
-      search,
-      location,
-      brand,
-      brandId: parsePositiveInt(brandId),
-    });
+    return await this.inventoryService.cappedListCount(
+      {
+        search,
+        location,
+        brand,
+        brandId: parsePositiveInt(brandId),
+      },
+      scopeContext,
+    );
   }
 
   @Get(':id/history')
@@ -114,6 +122,31 @@ export class InventoryController {
     @Body() dto: ReceiveInventoryStockDto,
   ) {
     await this.inventoryItemMutations.receiveStock(id, dto);
+  }
+
+  @Get(':id/adjustment-valuation')
+  @ApiQuery({
+    name: 'locationId',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOkResponse({ type: AdjustmentValuationResponseDto })
+  async getAdjustmentValuation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('locationId', ParseUUIDPipe) locationId: string,
+  ) {
+    return await this.inventoryItemMutations.getAdjustmentValuation(
+      id,
+      locationId,
+    );
+  }
+
+  @Post('transactions/:transactionId/reverse')
+  @ApiCreatedResponse({ type: InventoryTransactionResponseDto })
+  async reverseTransaction(
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+  ) {
+    return await this.inventoryItemMutations.reverseTransaction(transactionId);
   }
 
   @Post(':id/adjust')
@@ -177,6 +210,11 @@ export class InventoryController {
   }
 
   @Get()
+  @ApiHeader({
+    name: SCOPE_CONTEXT_HEADER,
+    required: false,
+    description: 'Required in cursor mode (ADR-0038).',
+  })
   @ApiListCursorModeQuery()
   @ApiQuery({
     name: 'limit',
@@ -215,21 +253,25 @@ export class InventoryController {
     @Query('limit') limit?: string,
     @Query('pagination') pagination?: string,
     @Query('cursor') cursor?: string,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
   ) {
     const useCursor = pagination === 'cursor' || Boolean(cursor);
     if (useCursor) {
-      return await this.inventoryService.findAllWithCursor({
-        page: parsePositiveInt(page, 1),
-        pageSize: parsePositiveInt(pageSize),
-        limit: parsePositiveInt(limit, 10),
-        search,
-        location,
-        brand,
-        brandId: parsePositiveInt(brandId),
-        sortField,
-        sortDirection: parseSortDirection(sortDirection),
-        cursor,
-      });
+      return await this.inventoryService.findAllWithCursor(
+        {
+          page: parsePositiveInt(page, 1),
+          pageSize: parsePositiveInt(pageSize),
+          limit: parsePositiveInt(limit, 10),
+          search,
+          location,
+          brand,
+          brandId: parsePositiveInt(brandId),
+          sortField,
+          sortDirection: parseSortDirection(sortDirection),
+          cursor,
+        },
+        scopeContext,
+      );
     }
     return await this.inventoryService.findAll({
       page: parsePositiveInt(page, 1),

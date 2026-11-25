@@ -34,6 +34,7 @@ import { SitesSettingsTab } from "@/components/settings/sites-settings-tab"
 import { VehicleDataSettingsPanel } from "@/components/settings/vehicle-data-settings-panel"
 import { MarginRulesTab } from "@/components/settings/MarginRulesTab"
 import { DataImportSettingsTab } from "@/components/settings/data-import/DataImportSettingsTab"
+import { CustomFieldsSettingsTab } from "@/components/settings/CustomFieldsSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import { ensureNamespaceLoaded } from "@/lib/i18n"
@@ -335,7 +336,8 @@ export default function SettingsPage() {
     const sessionQuery = useAuthSession()
     const [searchParams, setSearchParams] = useSearchParams()
     const canManageTeam = sessionQuery.data?.activeRole === 'ADMIN' || sessionQuery.data?.activeRole === 'OWNER'
-    const visibleTabs = getVisibleTabs(canManageTeam)
+    const customFieldsEnabled = Boolean(sessionQuery.data?.customFieldsEnabled)
+    const visibleTabs = getVisibleTabs(canManageTeam, customFieldsEnabled)
     const activeTab = visibleTabs.find(tab => tab === searchParams.get("tab")) ?? "finance"
 
     const finance = useFinanceSettingsForm()
@@ -361,6 +363,7 @@ export default function SettingsPage() {
         "vehicle-data": t('tabs.vehicleData'),
         "margin-rules": t('tabs.marginRules'),
         "data-import": t('tabs.dataImport'),
+        "custom-fields": t('tabs.customFields'),
         "team": t('tabs.team'),
         "api-keys": t('tabs.apiKeys'),
         "audit-logs": t('tabs.auditLogs'),
@@ -389,6 +392,7 @@ export default function SettingsPage() {
         "vehicle-data": <VehicleDataSettingsPanel />,
         "margin-rules": <MarginRulesTab />,
         "data-import": <DataImportSettingsTab />,
+        "custom-fields": <CustomFieldsSettingsTab />,
         "team": <TeamSettingsTab />,
         "api-keys": <ApiKeysSettingsTab />,
         "audit-logs": (

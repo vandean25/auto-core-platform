@@ -650,11 +650,18 @@ describe('LedgerService', () => {
           item: { select: { sku: true, name: true } },
           location: { select: { name: true } },
         }),
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }],
       });
-      expect(result).toBe(mockRecords);
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: 'tx-1',
+          quantity: mockRecords[0].quantity,
+          type: TransactionType.PURCHASE_RECEIPT,
+          reference_id: 'ref-1',
+          cost_basis: mockRecords[0].cost_basis,
+          extended_value: '125',
+        }),
+      ]);
     });
 
     it('should fetch transactions without location filter if locationId is omitted', async () => {
@@ -669,9 +676,7 @@ describe('LedgerService', () => {
           item_id: ITEM_ID,
         },
         select: expect.any(Object),
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }],
       });
     });
   });

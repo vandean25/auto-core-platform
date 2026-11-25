@@ -1,7 +1,7 @@
 import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
 import { MCP_READ_TOOL_NAMES_WITH_COMPLIANCE } from './mcp-read-tool-catalog.aut605.js';
 
-/** AUT-615 read tools (kept out of core constants for repowise). */
+/** AUT-615 read tools (kept out of core constants). */
 export const MCP_WAVE2_READ_TOOL_NAMES = [
   'list_loaner_bookings',
   'list_estimates',

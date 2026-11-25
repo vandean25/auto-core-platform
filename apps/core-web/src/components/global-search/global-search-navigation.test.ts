@@ -68,6 +68,21 @@ describe('global search navigation targets', () => {
 
     expect(labels).toContain('Erlösgruppen')
   })
+
+  it('includes custom-fields settings tab only when customFieldsEnabled is true for ADMIN/OWNER', () => {
+    const adminNav = getNavigationSection(context('ADMIN'))
+    const salesNav = getNavigationSection(context('SALES'))
+
+    expect(hrefs(getSettingsSection(context('ADMIN'), adminNav, false))).not.toContain(
+      '/settings?tab=custom-fields',
+    )
+    expect(hrefs(getSettingsSection(context('ADMIN'), adminNav, true))).toContain(
+      '/settings?tab=custom-fields',
+    )
+    expect(hrefs(getSettingsSection(context('SALES'), salesNav, true))).not.toContain(
+      '/settings?tab=custom-fields',
+    )
+  })
 })
 
 describe('palette create entries (shared with the phone Create button)', () => {

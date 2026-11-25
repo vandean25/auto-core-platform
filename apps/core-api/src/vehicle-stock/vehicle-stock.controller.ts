@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -9,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiExtraModels,
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -31,6 +33,7 @@ import {
   GewaehrleistungDueListQueryDto,
   GewaehrleistungDueListResponseDto,
 } from './dto/gewaehrleistung-due-list.dto.js';
+import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 import {
   ApiListCursorModeQuery,
@@ -53,12 +56,17 @@ export class VehicleStockController {
     summary:
       'Bounded match count for dealer stock list filters (ADR-0035 pilot)',
   })
+  @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
   @ApiOkResponse({ type: CappedListCountResponseDto })
   cappedCount(
     @Query('search') search?: string,
     @Query('stock_status') stockStatus?: string,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
   ) {
-    return this.stock.cappedListCount({ search, stock_status: stockStatus });
+    return this.stock.cappedListCount(
+      { search, stock_status: stockStatus },
+      scopeContext,
+    );
   }
 
   @Get()
@@ -69,6 +77,11 @@ export class VehicleStockController {
     schema: { type: 'string', enum: Object.values(VehicleStockStatus) },
   })
   @ApiListOffsetPaginationQueries({ includeLimit: true })
+  @ApiHeader({
+    name: SCOPE_CONTEXT_HEADER,
+    required: false,
+    description: 'Required in cursor mode (ADR-0038).',
+  })
   @ApiListCursorModeQuery()
   list(
     @Query('search') search?: string,
@@ -80,18 +93,23 @@ export class VehicleStockController {
     @Query('sortDirection') sortDirection?: 'asc' | 'desc',
     @Query('pagination') pagination?: string,
     @Query('cursor') cursor?: string,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
   ) {
-    return dispatchVehicleStockList(this.stock, {
-      search,
-      stockStatus,
-      page,
-      limit,
-      pageSize,
-      sortField,
-      sortDirection,
-      pagination,
-      cursor,
-    });
+    return dispatchVehicleStockList(
+      this.stock,
+      {
+        search,
+        stockStatus,
+        page,
+        limit,
+        pageSize,
+        sortField,
+        sortDirection,
+        pagination,
+        cursor,
+      },
+      scopeContext,
+    );
   }
 
   @Get('reports/stock-age')

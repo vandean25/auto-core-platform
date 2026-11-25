@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { LocationType, Prisma } from '@prisma/client';
+import { ScopeContextSnapshotService } from '../auth/scope-context/scope-context-snapshot.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -156,6 +157,7 @@ export class InventoryService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
     private readonly atpService: AtpService,
+    private readonly scopeContext: ScopeContextSnapshotService,
   ) {}
 
   /**
@@ -249,55 +251,59 @@ export class InventoryService {
     };
   }
 
-  async findAllWithCursor(params: InventoryQueryParams) {
-    const context = await this.getInventoryContext();
-    const { field, direction, config } = resolveInventoryCursorSort(
-      params.sortField,
-      params.sortDirection,
-    );
-    const limit = parseInventoryCursorLimit(params);
-    const baseWhere = buildLegacyInventoryWhere(
-      context.tenantId,
-      context.siteId,
-      params,
-    );
-    return fetchKeysetListPage(
-      {
-        endpoint: INVENTORY_CURSOR_ENDPOINT,
-        tenantId: context.tenantId,
-        siteId: context.siteId,
-        filterHashInput: inventoryListFilterContext(params),
-        sortField: field,
-        sortDirection: direction,
-        sortConfig: config,
-        cursor: params.cursor,
-        limit,
-        baseWhere: baseWhere,
-      },
-      {
-        findMany: (where, orderBy, take) =>
-          this.prisma.catalogItem.findMany({
-            where: where,
-            include: buildCatalogItemInclude(context.tenantId, context.siteId),
-            orderBy: orderBy,
-            take,
-          }),
-        mapRow: (item) =>
-          transformInventoryListItem(item, this.atpService, context.siteId),
-        readSortValue: (item, prismaField) =>
-          item[prismaField as keyof typeof item],
+  findAllWithCursor(params: InventoryQueryParams, scopeContextHeader?: string) {
+    return this.scopeContext.read(
+      scopeContextHeader,
+      { id: 'InventoryController.findAll' },
+      ({ tx, tenantId, siteId, scopeContextDigest }) => {
+        const { field, direction, config } = resolveInventoryCursorSort(
+          params.sortField,
+          params.sortDirection,
+        );
+        const limit = parseInventoryCursorLimit(params);
+        const baseWhere = buildLegacyInventoryWhere(tenantId, siteId, params);
+        return fetchKeysetListPage(
+          {
+            endpoint: INVENTORY_CURSOR_ENDPOINT,
+            tenantId,
+            siteId,
+            scopeContextDigest,
+            filterHashInput: inventoryListFilterContext(params),
+            sortField: field,
+            sortDirection: direction,
+            sortConfig: config,
+            cursor: params.cursor,
+            limit,
+            baseWhere,
+          },
+          {
+            findMany: (where, orderBy, take) =>
+              tx.catalogItem.findMany({
+                where,
+                include: buildCatalogItemInclude(tenantId, siteId),
+                orderBy,
+                take,
+              }),
+            mapRow: (item) =>
+              transformInventoryListItem(item, this.atpService, siteId),
+            readSortValue: (item, prismaField) =>
+              item[prismaField as keyof typeof item],
+          },
+        );
       },
     );
   }
 
-  async cappedListCount(params: InventoryQueryParams) {
-    const context = await this.getInventoryContext();
-    const where = buildLegacyInventoryWhere(
-      context.tenantId,
-      context.siteId,
-      params,
+  cappedListCount(params: InventoryQueryParams, scopeContextHeader?: string) {
+    return this.scopeContext.read(
+      scopeContextHeader,
+      { id: 'InventoryController.cappedCount' },
+      ({ tx, tenantId, siteId }) =>
+        cappedCatalogItemListCount(
+          tx,
+          buildLegacyInventoryWhere(tenantId, siteId, params),
+        ),
     );
-    return cappedCatalogItemListCount(this.prisma, where);
   }
 
   private async fetchInventoryWithParams(

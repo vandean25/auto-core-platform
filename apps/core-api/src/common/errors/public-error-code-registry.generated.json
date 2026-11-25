@@ -399,6 +399,42 @@
       "public": false,
       "params": []
     },
+    "CUSTOM_FIELDS_DISABLED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_ART9_BLOCKED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_KEY_CONFLICT": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_LIMIT_EXCEEDED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_NOT_FOUND": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_SELECT_OPTIONS_REQUIRED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_UNKNOWN_OR_ARCHIVED": {
+      "public": false,
+      "params": []
+    },
+    "CUSTOM_FIELD_VALUE_INVALID": {
+      "public": false,
+      "params": []
+    },
     "DEVICE_BINDING_MISMATCH": {
       "public": true,
       "params": []

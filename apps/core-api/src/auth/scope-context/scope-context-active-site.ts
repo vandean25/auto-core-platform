@@ -9,21 +9,22 @@ export type ScopeContextSiteReader = {
   };
 };
 
-/**
- * Same validation rules as {@link SiteContextService.findSiteId}, but for an
- * explicit tenant instead of the HTTP session.
- */
+/** Returns an empty site binding only for an unselected site in a tenant-wide context. */
 export async function findValidatedActiveSiteIdForTenant(
   db: ScopeContextSiteReader,
   firebaseUid: string,
   tenantId: string,
+  allowUnselectedSite = false,
 ): Promise<string | null> {
   const session = await db.user.findFirst({
     where: { firebaseUid },
     select: { active_tenant_id: true, active_site_id: true },
   });
-  if (!session?.active_site_id || session.active_tenant_id !== tenantId) {
+  if (session?.active_tenant_id !== tenantId) {
     return null;
+  }
+  if (!session.active_site_id) {
+    return allowUnselectedSite ? '' : null;
   }
 
   const activeSiteId = session.active_site_id;
@@ -43,7 +44,7 @@ export async function findValidatedActiveSiteIdForTenant(
           tenant_id: tenantId,
           site_id: activeSiteId,
           is_active: true,
-          site: { is_active: true },
+          site: { is_active: true, legal_entity: { is_active: true } },
         },
       },
     },

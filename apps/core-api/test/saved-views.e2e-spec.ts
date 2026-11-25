@@ -86,6 +86,68 @@ describe('Saved Views (AUT-938)', () => {
     await app.close();
   });
 
+  it('returns the saved layout to a teammate opening a shared customer view', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-layout');
+    tenantIds.push(tenant.tenantId);
+    const admin = await createMember(
+      tenant.tenantId,
+      'ADMIN',
+      'sv-layout-admin',
+    );
+    const teammate = await createMember(
+      tenant.tenantId,
+      'SALES',
+      'sv-layout-sales',
+    );
+    const href = '/customers?cols=email%2Caddress_city&density=compact';
+
+    const created = await request(app.getHttpServer())
+      .post('/api/saved-views')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({
+        listPath: '/customers',
+        name: 'Team layout',
+        href,
+        visibility: 'TENANT',
+      })
+      .expect(201);
+
+    const result = await request(app.getHttpServer())
+      .get('/api/saved-views?listPath=/customers')
+      .set('Authorization', `Bearer ${teammate.token}`)
+      .expect(200);
+
+    expect(result.body.data).toEqual([
+      expect.objectContaining({
+        id: created.body.id,
+        href,
+        visibility: 'TENANT',
+      }),
+    ]);
+  });
+
+  it('rejects an invalid density before storing the view', async () => {
+    const tenant = await createTestTenant(prisma, 'sv-invalid-layout');
+    tenantIds.push(tenant.tenantId);
+    const token = createTestAuthToken(authService, tenant);
+
+    const rejected = await request(app.getHttpServer())
+      .post('/api/saved-views')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        listPath: '/customers',
+        name: 'Invalid layout',
+        href: '/customers?density=huge',
+      })
+      .expect(400);
+
+    expect(rejected.body).toMatchObject({ code: 'SAVED_VIEW_INVALID' });
+    await request(app.getHttpServer())
+      .get('/api/saved-views?listPath=/customers')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200, { data: [] });
+  });
+
   // Scenario 1: WHEN an ADMIN creates a TENANT view on /sales/invoices THEN a SALES member sees it read-only and a TECH member does not see it
   it('TECH does not see a team view of /sales/invoices', async () => {
     const tenant = await createTestTenant(prisma, 'sv-s1');
@@ -202,7 +264,9 @@ describe('Saved Views (AUT-938)', () => {
       .expect(403);
 
     await request(app.getHttpServer())
-      .delete(`/api/saved-views/${teamView.body.id}?version=${teamView.body.version}`)
+      .delete(
+        `/api/saved-views/${teamView.body.id}?version=${teamView.body.version}`,
+      )
       .set('Authorization', `Bearer ${sales.token}`)
       .expect(403);
   });
@@ -680,4 +744,3 @@ describe('Saved Views (AUT-938)', () => {
     }
   });
 });
-

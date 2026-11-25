@@ -99,8 +99,9 @@ export class ScopeContextService {
           tx,
           verified.sub,
           user.tenantId,
+          true,
         );
-        if (!siteId) {
+        if (siteId === null) {
           throw new UnprocessableEntityException({
             statusCode: 422,
             code: 'ACTIVE_SITE_REQUIRED',

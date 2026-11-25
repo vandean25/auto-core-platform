@@ -75,8 +75,6 @@ export const importKeys = {
   undoPreview: (id: string) => [...importKeys.all, 'undo-preview', id] as const,
 }
 
-export const importJobKeys = importKeys
-
 export type ImportSource = {
   id: string
   key: string

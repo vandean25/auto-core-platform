@@ -229,25 +229,6 @@ export function useVoidCreditNote() {
   })
 }
 
-export function useGenerateCreditNotePdf() {
-  return useMutation({
-    mutationFn: async (creditNoteId: string) => {
-      const response = await fetchWithAuth(
-        `${CREDIT_NOTES_API}/${creditNoteId}/pdf`,
-        { method: 'POST' },
-      )
-      if (!response.ok) {
-        await parseError(response, 'Failed to generate credit note PDF')
-      }
-      return response.json() as Promise<{
-        mode: 'cached' | 'enqueued' | 'generated'
-        creditNoteId: string
-        taskId?: string
-      }>
-    },
-  })
-}
-
 export async function fetchCreditNotePdfGenerationError(
   creditNoteId: string,
 ): Promise<string | null> {

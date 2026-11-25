@@ -145,6 +145,13 @@ export class CustomerDetailResponseDto {
 
   @ApiProperty({ type: String, required: false, nullable: true })
   labor_price_group_id?: string | null;
+
+  @ApiProperty({
+    type: Object,
+    additionalProperties: true,
+    required: false,
+  })
+  custom_fields?: Record<string, unknown>;
 }
 
 export class VehicleSummaryDto {

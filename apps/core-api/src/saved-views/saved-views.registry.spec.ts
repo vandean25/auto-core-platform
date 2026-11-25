@@ -25,6 +25,16 @@ describe('saved-views registry & href validation', () => {
     });
   });
 
+  it.each(['/customers', '/inventory', '/workshop/orders'])(
+    'accepts column visibility and density for %s',
+    (listPath) => {
+      const href = `${listPath}?cols=name,email_2,order.total-1&density=compact`;
+      expect(
+        validateSavedViewInput({ listPath, href, name: 'Layout' }).href,
+      ).toBe(href);
+    },
+  );
+
   it.each([
     ['unknown listPath', '/unknown/list', '/unknown/list', 'Valid Name'],
     [
@@ -39,12 +49,7 @@ describe('saved-views registry & href validation', () => {
       '//evil.example/sales/invoices',
       'Valid Name',
     ],
-    [
-      'javascript: URI',
-      '/sales/invoices',
-      'javascript:alert(1)',
-      'Valid Name',
-    ],
+    ['javascript: URI', '/sales/invoices', 'javascript:alert(1)', 'Valid Name'],
     [
       'pathname mismatch',
       '/sales/invoices',
@@ -58,6 +63,32 @@ describe('saved-views registry & href validation', () => {
       'Valid Name',
     ],
     ['empty name', '/sales/invoices', '/sales/invoices', '   '],
+    ['invalid density', '/customers', '/customers?density=huge', 'Layout'],
+    [
+      'duplicate density',
+      '/customers',
+      '/customers?density=compact&density=comfortable',
+      'Layout',
+    ],
+    ['empty column list', '/customers', '/customers?cols=', 'Layout'],
+    [
+      'missing column ID',
+      '/customers',
+      '/customers?cols=name,,email',
+      'Layout',
+    ],
+    [
+      'invalid column ID',
+      '/customers',
+      '/customers?cols=name,%20email',
+      'Layout',
+    ],
+    [
+      'duplicate cols parameter',
+      '/customers',
+      '/customers?cols=name&cols=email',
+      'Layout',
+    ],
     [
       'name over 60 chars',
       '/sales/invoices',

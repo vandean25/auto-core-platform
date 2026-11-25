@@ -1,4 +1,5 @@
 import { Module, OnModuleInit } from '@nestjs/common';
+import { ScopeContextModule } from '../auth/scope-context/scope-context.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { AuditModule } from '../audit/audit.module.js';
@@ -35,6 +36,7 @@ import {
 
 @Module({
   imports: [
+    ScopeContextModule,
     PrismaModule,
     InvoicesModule,
     AuditModule,

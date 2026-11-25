@@ -22,7 +22,8 @@
     "team": "Team",
     "apiKeys": "API-Schlüssel",
     "auditLogs": "Audit-Logs",
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "customFields": "Eigene Felder"
   },
   "employees": {
     "title": "Mitarbeiter",
@@ -1509,6 +1510,58 @@
         "ANDROID": "Android",
         "DESKTOP": "Computer"
       }
+    }
+  },
+  "customFields": {
+    "title": "Eigene Felder",
+    "legalNotice": "Hinweis zur DSGVO: Ihre Werkstatt ist Verantwortlicher für diese Felder, benötigt eine gültige Rechtsgrundlage, muss das Verzeichnis von Verarbeitungstätigkeiten aktuell halten und darf keine Daten auf Vorrat erheben.",
+    "loadFailed": "Eigene Felder konnten nicht geladen werden.",
+    "saveFailed": "Das eigene Feld konnte nicht gespeichert werden.",
+    "exportFailed": "Der Feldkatalog konnte nicht exportiert werden.",
+    "exportCatalogue": "Katalog exportieren (CSV)",
+    "newField": "Eigenes Feld",
+    "empty": "Noch keine eigenen Felder angelegt.",
+    "archivedBadge": "Archiviert",
+    "personalDataBadge": "Personenbezogen",
+    "technicalBadge": "Rein technisch",
+    "entities": {
+      "CUSTOMER": "Kunden",
+      "VEHICLE": "Fahrzeuge"
+    },
+    "types": {
+      "TEXT": "Text",
+      "NUMBER": "Zahl",
+      "DATE": "Datum",
+      "SELECT": "Auswahl",
+      "BOOLEAN": "Ja/Nein"
+    },
+    "actions": {
+      "edit": "Bearbeiten",
+      "archive": "Archivieren",
+      "unarchive": "Wiederherstellen",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten"
+    },
+    "dialog": {
+      "createTitle": "Eigenes Feld anlegen",
+      "editTitle": "Eigenes Feld bearbeiten",
+      "label": "Bezeichnung",
+      "labelPlaceholder": "z. B. Flottennummer",
+      "key": "Schlüssel",
+      "keyPlaceholder": "z. B. flottennummer",
+      "type": "Feldtyp",
+      "options": "Auswahloptionen (eine pro Zeile)",
+      "optionsPlaceholder": "Option A\nOption B",
+      "purpose": "Zweckbindung (Pflichtfeld)",
+      "purposePlaceholder": "Wofür wird dieses Feld benötigt?",
+      "personalData": "Personenbezogene Daten (Art. 15 / Löschung)",
+      "customerPersonalReviewHint": "Bitte prüfen Sie, ob dieses Kundenfeld wirklich keinen Personenbezug hat (z. B. über die Zuordnung zum Kunden).",
+      "vehiclePersonalReviewHint": "Bitte prüfen Sie, ob dieses Fahrzeugfeld wirklich keinen Personenbezug hat (z. B. über das Kennzeichen oder den Halter).",
+      "art9Confirm": "Ich bestätige ausdrücklich, dass in diesem Feld keine besonderen Kategorien personenbezogener Daten (Art. 9 DSGVO) gespeichert werden.",
+      "created": "Eigenes Feld angelegt.",
+      "updated": "Eigenes Feld aktualisiert.",
+      "archived": "Eigenes Feld archiviert.",
+      "unarchived": "Eigenes Feld wiederhergestellt."
     }
   }
 }

@@ -4,6 +4,7 @@ import deNav from '../../../locales/de/nav.json' with { type: 'json' }
 import enNav from '../../../locales/en/nav.json' with { type: 'json' }
 import deCommon from '../../../locales/de/common.json' with { type: 'json' }
 import enCommon from '../../../locales/en/common.json' with { type: 'json' }
+import deEnums from '../../../locales/de/enums.json' with { type: 'json' }
 import deWorkshop from '../../../locales/de/workshop.json' with { type: 'json' }
 import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
 import { DE_SHELL } from './helpers/de-shell'
@@ -131,9 +132,15 @@ function savedView(overrides: Partial<SavedViewDto> = {}): SavedViewDto {
 
 async function mockSavedViews(page: Page, initial: SavedViewDto[]) {
   let views = initial
-  await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), (route) =>
-    route.fulfill({ json: { data: views } }),
-  )
+  await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), (route) => {
+    if (route.request().method() === 'POST') {
+      const input = route.request().postDataJSON() as Pick<SavedViewDto, 'name' | 'href' | 'listPath' | 'visibility'>
+      const created = savedView(input)
+      views = [...views, created]
+      return route.fulfill({ status: 201, json: created })
+    }
+    return route.fulfill({ json: { data: views } })
+  })
   await page.route('**/api/saved-views/*', async (route) => {
     if (route.request().method() !== 'PATCH') return route.fallback()
     const id = new URL(route.request().url()).pathname.split('/').at(-1)
@@ -149,6 +156,119 @@ async function expectTouchTarget(control: Locator) {
   expect(box!.width).toBeGreaterThanOrEqual(44)
   expect(box!.height).toBeGreaterThanOrEqual(44)
 }
+
+const CUSTOMER_CONTACT = 'anna.huber@example.at'
+const CUSTOMER_LAYOUT = '/customers?cols=email&density=compact'
+
+function customerLayoutOptions(page: Page) {
+  return page.getByRole('button', { name: deCommon.dataTable.columns, exact: true })
+}
+
+async function openCustomerSavedView(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Gespeicherte Ansichten für Kunden' }).click()
+  await page.getByRole('dialog', { name: deCommon.savedViews.menuTitle })
+    .getByRole('button', { name, exact: true }).click()
+}
+
+test.describe('Customer view layout (AUT-1046)', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'de'))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/customers'), (route) => route.fulfill({
+      json: createMockListResponse([createMockCustomer({ first_name: 'Anna', last_name: 'Huber', email: CUSTOMER_CONTACT })]),
+    }))
+  })
+
+  test('hidden columns stay hidden after reload', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate('/customers')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toBeVisible()
+    await expectTouchTarget(customerLayoutOptions(page))
+    await customerLayoutOptions(page).click()
+    const contact = page.getByRole('menuitemcheckbox', { name: deEnums.dataTableColumn.email, exact: true })
+    await expectTouchTarget(contact)
+    await contact.click()
+    await expect(page).toHaveURL((url) => url.searchParams.get('cols') === 'email')
+    await page.reload()
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+    await expect(page.getByText(CUSTOMER_CONTACT)).toHaveCount(0)
+    await testInfo.attach('column-hidden-after-reload', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('compact rows stay compact after reload', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate('/customers')
+    const row = page.locator('[data-row-primary]').first()
+    await expect(row).toBeVisible()
+    const normalHeight = (await row.boundingBox())!.height
+    await customerLayoutOptions(page).click()
+    const compact = page.getByRole('menuitemcheckbox', { name: deCommon.dataTable.density.compact })
+    await expectTouchTarget(compact)
+    await compact.click()
+    await expect(page).toHaveURL((url) => url.searchParams.get('density') === 'compact')
+    await page.reload()
+    await expect(page.locator('[data-table-list]')).toHaveAttribute('data-density', 'compact')
+    await expect.poll(async () => (await row.boundingBox())?.height ?? normalHeight).toBeLessThan(normalHeight)
+    await expectTouchTarget(row)
+    await testInfo.attach('compact-after-reload', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('reopening a saved view restores both layout settings', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [])
+    await new AutoCorePage(page, '').navigate(CUSTOMER_LAYOUT)
+    await page.getByRole('button', { name: deCommon.savedViews.saveAria.replace('{{title}}', 'Kunden') }).click()
+    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
+    await dialog.getByLabel(deCommon.savedViews.nameLabel, { exact: true }).fill('Kompakte Kunden')
+    await dialog.getByRole('button', { name: deCommon.actions.save, exact: true }).click()
+    await expect(dialog).toBeHidden()
+    await new AutoCorePage(page, '').navigate('/customers')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toBeVisible()
+    await openCustomerSavedView(page, 'Kompakte Kunden')
+    await expect(page.locator('[data-table-list]')).toHaveAttribute('data-density', 'compact')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toHaveCount(0)
+    await testInfo.attach('saved-layout-reopened', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('opening a teammate’s shared view restores both layout settings', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [savedView({
+      listPath: '/customers', name: 'Kundenliste', href: CUSTOMER_LAYOUT, visibility: 'TENANT', ownerUserId: 'teammate',
+    })])
+    await new AutoCorePage(page, '').navigate('/customers')
+    await openCustomerSavedView(page, 'Kundenliste Team')
+    await expect(page.locator('[data-table-list]')).toHaveAttribute('data-density', 'compact')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toHaveCount(0)
+    await testInfo.attach('team-layout-opened', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('Reset restores both defaults and removes their URL parameters', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate(CUSTOMER_LAYOUT)
+    await customerLayoutOptions(page).click()
+    const reset = page.getByRole('menuitem', { name: deCommon.dataTable.reset })
+    await expectTouchTarget(reset)
+    await reset.click()
+    await page.keyboard.press('Escape')
+    await expect(page).toHaveURL((url) => !url.searchParams.has('cols') && !url.searchParams.has('density'))
+    await expect(page.locator('[data-table-list]')).toHaveAttribute('data-density', 'comfortable')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toBeVisible()
+    await testInfo.attach('layout-reset', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('unknown column keys leave the customer name visible', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate('/customers?cols=foo,email')
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+    await expect(page.getByText(CUSTOMER_CONTACT)).toHaveCount(0)
+    await testInfo.attach('unknown-column-ignored', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('a saved view without layout parameters restores the defaults', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [savedView({ listPath: '/customers', name: 'Standardliste', href: '/customers?search=Huber' })])
+    await new AutoCorePage(page, '').navigate(CUSTOMER_LAYOUT)
+    await openCustomerSavedView(page, 'Standardliste')
+    await expect(page).toHaveURL((url) => url.searchParams.get('search') === 'Huber')
+    await expect(page.locator('[data-table-list]')).toHaveAttribute('data-density', 'comfortable')
+    await expect(page.getByText(CUSTOMER_CONTACT)).toBeVisible()
+    await testInfo.attach('existing-view-defaults', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+})
 
 async function expectFullViewName(label: Locator) {
   await expect(label).toBeVisible()

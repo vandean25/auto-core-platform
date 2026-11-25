@@ -22,6 +22,7 @@ describe('AuthSessionService effective capabilities', () => {
     countryIso: string | null,
     activeSiteId: string | null = ACTIVE_SITE_ID,
     bankReconciliationEnabled = false,
+    customFieldsEnabled = false,
   ) {
     const user = {
       id: 'user-1',
@@ -61,6 +62,11 @@ describe('AuthSessionService effective capabilities', () => {
         financeSettings: {
           findFirst: asyncMock().mockResolvedValue({
             bank_reconciliation_enabled: bankReconciliationEnabled,
+          }),
+        },
+        tenant: {
+          findFirst: asyncMock().mockResolvedValue({
+            custom_fields_enabled: customFieldsEnabled,
           }),
         },
       } as unknown as SystemPrismaService,

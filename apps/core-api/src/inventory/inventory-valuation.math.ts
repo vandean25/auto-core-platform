@@ -13,6 +13,7 @@ export interface ValuationBookingInput {
   type: TransactionType;
   quantity: Decimal | number | string;
   costBasis?: Decimal | number | string | null;
+  isReversal?: boolean;
 }
 
 export interface ValuationStepResult {
@@ -61,6 +62,64 @@ function toOptionalDecimal(
   return new Decimal(value.toString());
 }
 
+function computeOutboundAdjustmentAverage(
+  current: ValuationState,
+  quantity: Decimal,
+  unitCost: Decimal | null,
+  nextQty: Decimal,
+  isReversal: boolean,
+): Decimal | null {
+  if (
+    unitCost === null ||
+    current.averageUnitCost === null ||
+    nextQty.lte(0) ||
+    (!isReversal && unitCost.eq(current.averageUnitCost))
+  ) {
+    return current.averageUnitCost;
+  }
+  const priorTotal = current.valuedQuantity.mul(current.averageUnitCost);
+  const nextTotal = priorTotal.add(quantity.mul(unitCost));
+  return nextTotal.lte(0) ? ZERO : roundUnitCost(nextTotal.div(nextQty));
+}
+
+function applyInboundValuationStep(
+  current: ValuationState,
+  quantity: Decimal,
+  incomingCost: Decimal | null,
+): ValuationStepResult {
+  if (incomingCost === null) {
+    return {
+      state: current,
+      stampedCostBasis: null,
+      isUnvaluedGap: true,
+    };
+  }
+
+  const unitCost = roundUnitCost(incomingCost);
+  const isRestart =
+    current.valuedQuantity.lte(0) || current.averageUnitCost === null;
+  const newQty = isRestart
+    ? roundQuantity(quantity)
+    : roundQuantity(current.valuedQuantity.add(quantity));
+  const newAvg = isRestart
+    ? unitCost
+    : roundUnitCost(
+        current.valuedQuantity
+          .mul(current.averageUnitCost!)
+          .add(quantity.mul(unitCost))
+          .div(newQty),
+      );
+
+  return {
+    state: {
+      averageUnitCost: newAvg,
+      valuedQuantity: newQty,
+    },
+    stampedCostBasis: unitCost,
+    isUnvaluedGap: false,
+  };
+}
+
 /**
  * Pure moving-average (gleitender Durchschnitt) state transition for one ledger booking.
  * - Transfers never change the legal entity's average or valued quantity.
@@ -92,37 +151,7 @@ export function applyValuationStep(
   }
 
   if (quantity.gt(0)) {
-    if (incomingCost === null) {
-      return {
-        state: current,
-        stampedCostBasis: null,
-        isUnvaluedGap: true,
-      };
-    }
-
-    const unitCost = roundUnitCost(incomingCost);
-    const isRestart =
-      current.valuedQuantity.lte(0) || current.averageUnitCost === null;
-    const newQty = isRestart
-      ? roundQuantity(quantity)
-      : roundQuantity(current.valuedQuantity.add(quantity));
-    const newAvg = isRestart
-      ? unitCost
-      : roundUnitCost(
-          current.valuedQuantity
-            .mul(current.averageUnitCost!)
-            .add(quantity.mul(unitCost))
-            .div(newQty),
-        );
-
-    return {
-      state: {
-        averageUnitCost: newAvg,
-        valuedQuantity: newQty,
-      },
-      stampedCostBasis: unitCost,
-      isUnvaluedGap: false,
-    };
+    return applyInboundValuationStep(current, quantity, incomingCost);
   }
 
   // Outbound (quantity < 0)
@@ -131,11 +160,22 @@ export function applyValuationStep(
     : incomingCost;
   const rawRemaining = current.valuedQuantity.add(quantity);
   const nextQty = rawRemaining.lte(0) ? ZERO : roundQuantity(rawRemaining);
+  const unitCost = incomingCost !== null ? roundUnitCost(incomingCost) : null;
+  const averageUnitCost =
+    booking.type === TransactionType.ADJUSTMENT
+      ? computeOutboundAdjustmentAverage(
+          current,
+          quantity,
+          unitCost,
+          nextQty,
+          Boolean(booking.isReversal),
+        )
+      : current.averageUnitCost;
 
   return {
     state: {
       // Freeze the last average when valued quantity reaches or crosses zero.
-      averageUnitCost: current.averageUnitCost,
+      averageUnitCost,
       valuedQuantity: nextQty,
     },
     stampedCostBasis,

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegacyNumbers } from '@/components/LegacyNumbers'
 import { LazyNamespaceContentGate } from '@/features/i18n/LazyNamespaceContentGate'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
+import { CustomFieldsSection } from '@/components/custom-fields/CustomFieldsSection'
 import type { CustomerDetailResponse } from './customer-detail-model'
 
 function useSaveCustomerField(customerId: string) {
@@ -26,6 +27,7 @@ function useSaveCustomerField(customerId: string) {
 
 export function CustomerContactCard({ customer }: { customer: CustomerDetailResponse }) {
   const { t } = useTranslation('customers')
+  const updateCustomer = useUpdateCustomer()
   const { saveField: handleSaveCustomerField, failures, retry, dismiss } = useSaveCustomerField(customer.id)
   const record = customer.type === 'COMPANY' ? customer.company_name : `${customer.first_name} ${customer.last_name}`
 
@@ -190,6 +192,16 @@ export function CustomerContactCard({ customer }: { customer: CustomerDetailResp
             />
           </div>
         </div>
+        <CustomFieldsSection
+          entity='CUSTOMER'
+          values={customer.custom_fields}
+          onSaveField={(key, value) =>
+            updateCustomer.mutateAsync({
+              id: customer.id,
+              data: { custom_fields: { [key]: value } },
+            })
+          }
+        />
       </CardContent>
     </Card>
   )

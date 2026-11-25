@@ -1,0 +1,91 @@
+---
+description: Cursor Cloud Agent environment, databases and full-suite runner for this repo
+alwaysApply: true
+---
+
+# Cursor Cloud Agents
+
+Cloud Agents for this repository should use the versioned environment in `.cursor/environment.json` (Docker base image + `install`/`start` scripts). After merging, point the Cloud Agents environment at that file (or create a new environment from the repo so `environmentJsonPath` is `.cursor/environment.json`) and run an environment build so agents boot with dependencies preinstalled.
+
+### What the environment provides
+
+| Component | Detail |
+| --- | --- |
+| Node.js | **26.13.1** from `.nvmrc` (nvm in the Docker image; `node`/`npm`/`npx` on `/usr/local/bin`) |
+| Dependencies | Root `npm ci`, then `prisma generate` for `core-api` |
+| PostgreSQL | **17** (PGDG), started on every agent boot via `start` |
+| Dev database | `core_platform` owned by role `acp_cloud` (local-only password in install scripts) |
+| E2E database | `auto_core_test` (CI-parity `postgres` / `postgres` owner) |
+| Shell env | `DATABASE_URL` and `ACP_E2E_DATABASE_URL` exported via `/etc/profile.d/acp-cloud-agent.sh` |
+| Backend `.env` | Generated locally by install into `apps/core-api/.env` (gitignored) with dev-only encryption/HMAC fixtures |
+
+### MCP (Context7)
+
+- **IDE:** `.cursor/mcp.json` defines the Context7 HTTP server with `${env:CONTEXT7_API_KEY}`.
+- **Cloud Agents:** Project `mcp.json` is **not** loaded automatically on the VM. Agents use dashboard MCP configuration plus environment policy. This repo’s `environment.json` includes an `mcpServerAllowlist` entry for `https://mcp.context7.com/mcp`.
+- **Manual dashboard steps (once per team/environment):**
+  1. Add a Team MCP server (Dashboard → Plugins & MCPs) with URL `https://mcp.context7.com/mcp` and header `Context7-API-Key` bound to secret **`CONTEXT7_API_KEY`** (same name as the agent environment variable).
+  2. Ensure the Cloud Agent environment has **`CONTEXT7_API_KEY`** set (environment secrets, not committed).
+  3. Confirm MCP is not blocked by team policy (`disableAllMcpServers` / allowlist). Built-in Cursor MCP servers (GitHub, Linear, etc.) are unaffected.
+
+### Services
+- **PostgreSQL 17** on `127.0.0.1:5432`. Dev URL: `DATABASE_URL` → `core_platform` (`acp_cloud`). E2E URL: `ACP_E2E_DATABASE_URL` → `auto_core_test` (`postgres` / `postgres`).
+- **Backend** (`apps/core-api`) — NestJS on port `3000`: `npm run start:dev`. Requires generated `apps/core-api/.env` (install creates it).
+- **Frontend** (`apps/core-web`) — Vite/React on port `5173`: `npm run dev`. Proxies `/api` and `/socket.io` to `127.0.0.1:3000`.
+
+### Postgres lifecycle
+`start` brings up cluster `17/main` and waits for `pg_isready`. If Postgres was stopped manually:
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+```
+
+### Reset dev or test databases
+**Dev (`core_platform`)** — drop and recreate, then migrate:
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS core_platform WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE core_platform OWNER acp_cloud;"
+DATABASE_URL="postgresql://acp_cloud:acp_cloud_local_only@127.0.0.1:5432/core_platform" \
+  npm exec --workspace=core-api -- prisma migrate deploy
+```
+
+**E2E (`auto_core_test`)** — must stay empty/unseeded for backend e2e (same as CI):
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/auto_core_test" \
+  npm exec --workspace=core-api -- prisma migrate deploy
+```
+
+### Backend checks in Cloud Agent (before pushing)
+```bash
+npm run lint:prisma-tenant --workspace=core-api
+npm run lint --workspace=core-api
+npm run typecheck:spec --workspace=core-api
+```
+There is no root `typecheck` script; CI uses `typecheck:spec` for `core-api`.
+
+The full backend E2E suite runs **only in CI** on every PR; locally run only a new or changed `.e2e-spec.ts` (see "Local checks before pushing" in `agents.md`). Example smoke file: `test/app.e2e-spec.ts`. When you touch one, run it once against a fresh `auto_core_test` (see reset above), serially:
+```bash
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm run test:e2e --workspace=core-api -- --ci --runInBand test/<your>.e2e-spec.ts
+```
+
+If a prompt requires the **full** backend E2E suite (168 files) before push, do **not** run `npm run test:e2e` with default Jest workers. That path shares one database across parallel suites; several specs `TRUNCATE` invoices, stock, customers, and catalog tables globally, which is why a full local run fails while the 4 CI shards stay green.
+
+Reset and migrate `auto_core_test`, then run the CI-parity entrypoint (same runner, `--runInBand` batches, shards 1/4–4/4 in sequence on this VM):
+
+```bash
+bash .cursor/scripts/cloud-agent-start.sh
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS auto_core_test WITH (FORCE);"
+sudo -u postgres psql -c "CREATE DATABASE auto_core_test OWNER postgres;"
+DATABASE_URL="$ACP_E2E_DATABASE_URL" npm exec --workspace=core-api -- prisma migrate deploy
+npm run test:e2e:agent --workspace=core-api
+```
+
+`test:e2e:agent` forces `DATABASE_URL` to `ACP_E2E_DATABASE_URL` when that is set, and applies the same `INVOICE_BRANDING_WRITER_ENABLED` / `DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR` defaults as the `backend-e2e` job in CI. Do not point it at `core_platform`. Do not skip tests. CI shards remain the merge gate; this command exists so a required full pre-push run is actually comparable to CI.
+
+Jest sets `NODE_ENV=test` for e2e (local test JWTs; no Firebase required). Unit tests and frontend Playwright e2e do not need a seeded DB.
+
+PR comment and CI subscriptions are mandatory for every Cloud Agent with an open PR (CI-only subscriptions miss review feedback, including `@cursoragent` comments from Cursor PR Review); follow `.cursor/rules/pr-lifecycle.mdc` and end the turn after subscribing so wake notifications can arrive. Local setup, interactive Firebase login, seed caveats and build gotchas: `docs/local-development.md`.

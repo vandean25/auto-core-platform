@@ -46,11 +46,21 @@
       "reference": "Referenz",
       "location": "Lagerort",
       "qty": "Menge",
-      "cost": "Kosten"
+      "cost": "Kosten",
+      "value": "Wert",
+      "reason": "Grund",
+      "actions": "Aktionen"
     },
     "loadingLedger": "Bestandsbuch wird geladen…",
     "loadLedgerFailed": "Bestandsbuch konnte nicht geladen werden.",
-    "noLedgerActivity": "Noch keine Buchungen im Bestandsbuch."
+    "noLedgerActivity": "Noch keine Buchungen im Bestandsbuch.",
+    "reverseAction": "Gegenbuchung",
+    "reversedBadge": "Storniert",
+    "reversalOfBadge": "Gegenbuchung",
+    "reverseConfirmTitle": "Korrektur gegenbuchen?",
+    "reverseConfirmDescription": "Es wird eine unveränderliche Gegenbuchung mit entgegengesetzter Menge und entgegengesetztem Wert erstellt.",
+    "reverseSuccess": "Gegenbuchung gebucht",
+    "reverseFailed": "Gegenbuchung konnte nicht gebucht werden"
   },
   "itemInfoCard": {
     "title": "Artikelinfo",
@@ -167,7 +177,19 @@
       "signedQuantity": "Menge (mit Vorzeichen)",
       "signedQuantityHint": "Negative Werte entfernen Bestand. Der Bestand darf nicht unter null fallen.",
       "reason": "Grund",
+      "selectReason": "Grund wählen",
+      "note": "Notiz",
+      "noteRequiredHint": "Für „Sonstiges“ ist eine Notiz erforderlich.",
+      "automaticValue": "Automatischer Stückwert",
+      "extendedValuePreview": "Korrekturwert (gesamt)",
+      "noAutomaticValue": "Kein Durchschnitt oder letzter Einkaufspreis vorhanden.",
+      "overrideToggle": "Wert manuell überschreiben",
+      "manualUnitCost": "Stückwert (€)",
+      "overrideReason": "Begründung für Überschreibung",
+      "overridePermissionRequired": "Für die manuelle Werterfassung fehlt die Berechtigung.",
       "validationRequired": "Lagerplatz, von Null abweichende Menge und Grund sind erforderlich.",
+      "validationNoteRequired": "Bitte geben Sie für „Sonstiges“ eine Notiz ein.",
+      "validationManualValueRequired": "Bitte geben Sie einen Stückwert und eine Begründung für die Überschreibung ein.",
       "success": "Bestand korrigiert",
       "failed": "Bestand konnte nicht korrigiert werden"
     },

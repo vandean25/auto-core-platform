@@ -22,7 +22,8 @@
     "team": "Team",
     "apiKeys": "API keys",
     "auditLogs": "Audit Logs",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "customFields": "Custom fields"
   },
   "employees": {
     "title": "Employees",
@@ -1509,6 +1510,58 @@
         "ANDROID": "Android",
         "DESKTOP": "Computer"
       }
+    }
+  },
+  "customFields": {
+    "title": "Custom fields",
+    "legalNotice": "GDPR notice: Your workshop is the data controller for these fields, requires a lawful basis, must keep its record of processing activities up to date, and must not collect data just in case.",
+    "loadFailed": "Failed to load custom fields.",
+    "saveFailed": "Failed to save custom field.",
+    "exportFailed": "Failed to export field catalogue.",
+    "exportCatalogue": "Export catalogue (CSV)",
+    "newField": "Custom field",
+    "empty": "No custom fields defined yet.",
+    "archivedBadge": "Archived",
+    "personalDataBadge": "Personal data",
+    "technicalBadge": "Technical only",
+    "entities": {
+      "CUSTOMER": "Customers",
+      "VEHICLE": "Vehicles"
+    },
+    "types": {
+      "TEXT": "Text",
+      "NUMBER": "Number",
+      "DATE": "Date",
+      "SELECT": "Select",
+      "BOOLEAN": "Yes/No"
+    },
+    "actions": {
+      "edit": "Edit",
+      "archive": "Archive",
+      "unarchive": "Restore",
+      "moveUp": "Move up",
+      "moveDown": "Move down"
+    },
+    "dialog": {
+      "createTitle": "Create custom field",
+      "editTitle": "Edit custom field",
+      "label": "Label",
+      "labelPlaceholder": "e.g. Fleet number",
+      "key": "Key",
+      "keyPlaceholder": "e.g. fleet_number",
+      "type": "Field type",
+      "options": "Select options (one per line)",
+      "optionsPlaceholder": "Option A\nOption B",
+      "purpose": "Purpose (required)",
+      "purposePlaceholder": "Why is this field collected?",
+      "personalData": "Personal data (Art. 15 / erasure)",
+      "customerPersonalReviewHint": "Please verify that this customer field truly contains no personal data (e.g. via the link to the customer).",
+      "vehiclePersonalReviewHint": "Please verify that this vehicle field truly contains no personal data (e.g. via plate number or owner link).",
+      "art9Confirm": "I explicitly confirm that no special-category personal data (GDPR Art. 9) will be stored in this field.",
+      "created": "Custom field created.",
+      "updated": "Custom field updated.",
+      "archived": "Custom field archived.",
+      "unarchived": "Custom field restored."
     }
   }
 }

@@ -3,7 +3,10 @@ import {
   seedInvoiceReadyCustomer,
   seedReadySellerAndAccountingProfile,
 } from '../invoice-snapshot-v2-test-utils.js';
-import { resolveTestMainSiteId } from '../tenant-test-utils.js';
+import {
+  purgeTestInventoryTransactions,
+  resolveTestMainSiteId,
+} from '../tenant-test-utils.js';
 import {
   bootstrapE2eApp,
   createE2eTenant,
@@ -99,7 +102,7 @@ export async function disposeSalesInvoiceSuite({
   prisma,
   tenantId,
 }: Pick<SalesInvoiceSuite, 'app' | 'basePrisma' | 'prisma' | 'tenantId'>) {
-  await prisma.inventoryTransaction.deleteMany();
+  await purgeTestInventoryTransactions(basePrisma, tenantId);
   await prisma.inventoryValuation.deleteMany();
   await prisma.inventoryStock.deleteMany();
   await prisma.storageLocation.deleteMany();

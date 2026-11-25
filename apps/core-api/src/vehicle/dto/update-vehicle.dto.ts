@@ -1,5 +1,13 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VehicleRegulatoryFieldsDto } from './vehicle-regulatory-fields.dto.js';
 
 export class UpdateVehicleDto extends VehicleRegulatoryFieldsDto {
@@ -44,4 +52,13 @@ export class UpdateVehicleDto extends VehicleRegulatoryFieldsDto {
   @IsUUID()
   @IsOptional()
   customer_id?: string | null;
+
+  @ApiPropertyOptional({
+    type: Object,
+    additionalProperties: true,
+    description: 'Tenant-defined custom field values keyed by definition key.',
+  })
+  @IsObject()
+  @IsOptional()
+  custom_fields?: Record<string, unknown>;
 }

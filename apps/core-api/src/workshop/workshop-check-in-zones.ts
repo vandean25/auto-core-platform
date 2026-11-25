@@ -1,6 +1,3 @@
-/** Stable zone ids for `sketch_version: 1` (see tablet-check-in spec). */
-export const CHECK_IN_SKETCH_VERSION = 1;
-
 export const CHECK_IN_ZONE_IDS = [
   'FRONT_BUMPER',
   'BONNET',

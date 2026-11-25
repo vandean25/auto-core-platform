@@ -15,6 +15,9 @@ vi.mock('sonner', () => ({
     error: vi.fn(),
   },
 }))
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({ data: { customFieldsEnabled: false } }),
+}))
 vi.mock('@/features/tyre-storage/TyreSetsSummary', () => ({
   TyreSetsSummary: () => <div data-testid='tyre-sets' />,
 }))

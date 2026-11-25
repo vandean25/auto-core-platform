@@ -35,28 +35,6 @@ export function useInspectionSourceConnections() {
   })
 }
 
-export function useInspectionImports(vehicleId: string) {
-  return useQuery({
-    queryKey: inspectionImportKeys.vehicleImports(vehicleId),
-    queryFn: async () => {
-      const response = await fetchWithAuth(
-        `/api/vehicles/${encodeURIComponent(vehicleId)}/inspection-imports?limit=20`,
-      )
-      if (!response.ok) {
-        throw new Error('INSPECTION_IMPORTS_LOAD_FAILED')
-      }
-      return response.json() as Promise<{
-        data: Array<{
-          id: string
-          state: string
-          native_result_reference: string
-          error_code?: string | null
-        }>
-      }>
-    },
-  })
-}
-
 export function usePreviewInspectionImport(vehicleId: string) {
   const queryClient = useQueryClient()
   return useMutation({

@@ -155,6 +155,13 @@ export class VehicleResponseDto extends DryRunMetaDto {
 
   @ApiProperty({ type: Boolean, required: false })
   phone_consent_allowed?: boolean;
+
+  @ApiProperty({
+    type: Object,
+    additionalProperties: true,
+    required: false,
+  })
+  custom_fields?: Record<string, unknown>;
 }
 
 export class VehicleListItemDto extends VehicleResponseDto {}

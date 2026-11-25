@@ -21,9 +21,6 @@ export type LoanerVehicleListResponse = {
 }
 
 export type CreateLoanerVehiclePayload = components['schemas']['CreateLoanerVehicleDto']
-export type UpdateLoanerVehiclePayload = components['schemas']['UpdateLoanerVehicleDto']
-
-export type LoanerAvailabilityResponse = components['schemas']['LoanerAvailabilityResponseDto']
 
 export type LoanerBooking = components['schemas']['LoanerBookingResponseDto'] & {
   customer?: {
@@ -45,7 +42,6 @@ export type LoanerBookingListResponse = {
 }
 
 export type CreateLoanerBookingPayload = components['schemas']['CreateLoanerBookingDto']
-export type UpdateLoanerBookingPayload = components['schemas']['UpdateLoanerBookingDto']
 export type HandOverLoanerBookingPayload = components['schemas']['HandOverLoanerBookingDto']
 export type ReturnLoanerBookingPayload = components['schemas']['ReturnLoanerBookingDto']
 
@@ -83,19 +79,6 @@ export function useLoanerFleet(options?: ListLoanerFleetOptions) {
   });
 }
 
-export function useLoanerVehicle(id: string) {
-  return useQuery<LoanerVehicle>({
-    queryKey: loanerKeys.fleetDetail(id),
-    queryFn: async () => {
-      return fetchJsonWithAuth(
-        `${LOANER_VEHICLES_API}/${id}`,
-        "Failed to fetch loaner vehicle",
-      );
-    },
-    enabled: Boolean(id),
-  });
-}
-
 export function useCreateLoanerVehicle() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -113,66 +96,6 @@ export function useCreateLoanerVehicle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
     },
-  });
-}
-
-export function useUpdateLoanerVehicle() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: UpdateLoanerVehiclePayload;
-    }) => {
-      return fetchJsonWithAuth<LoanerVehicle>(
-        `${LOANER_VEHICLES_API}/${id}`,
-        "Failed to update loaner vehicle",
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        },
-      );
-    },
-    onSuccess: (vehicle) => {
-      queryClient.invalidateQueries({ queryKey: loanerKeys.all })
-      queryClient.invalidateQueries({ queryKey: loanerKeys.fleetDetail(vehicle.id) })
-    },
-  });
-}
-
-export function useDeleteLoanerVehicle() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      return fetchJsonWithAuth<{ id?: string; deleted?: boolean }>(
-        `${LOANER_VEHICLES_API}/${id}`,
-        "Failed to remove loaner vehicle",
-        {
-          method: "DELETE",
-        },
-      );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: loanerKeys.all })
-    },
-  });
-}
-
-export function useLoanerAvailability(from: string, to: string, asOf?: string) {
-  return useQuery<LoanerAvailabilityResponse>({
-    queryKey: loanerKeys.availability(from, to, asOf),
-    queryFn: async () => {
-      const params = new URLSearchParams({ from, to })
-      if (asOf) params.set('asOf', asOf)
-      return fetchJsonWithAuth(
-        `${LOANER_VEHICLES_API}/availability?${params.toString()}`,
-        "Failed to fetch loaner availability",
-      );
-    },
-    enabled: Boolean(from && to),
   });
 }
 
@@ -230,33 +153,6 @@ export function useCreateLoanerBooking() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: loanerKeys.all })
-    },
-  });
-}
-
-export function useUpdateLoanerBooking() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: UpdateLoanerBookingPayload;
-    }) => {
-      return fetchJsonWithAuth<LoanerBooking>(
-        `${LOANER_BOOKINGS_API}/${id}`,
-        "Failed to update loaner booking",
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        },
-      );
-    },
-    onSuccess: (booking) => {
-      queryClient.invalidateQueries({ queryKey: loanerKeys.all })
-      queryClient.invalidateQueries({ queryKey: loanerKeys.booking(booking.id) })
     },
   });
 }

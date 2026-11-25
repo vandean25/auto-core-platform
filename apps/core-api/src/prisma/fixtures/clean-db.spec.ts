@@ -124,6 +124,7 @@ describe('cleanDb', () => {
     ]);
     expect(executedDeletes).toEqual([
       'inventory_transactions',
+      'inventory_transactions',
       'parts_reservations',
       'parts_requisition_lines',
       'parts_requisitions',

@@ -36,18 +36,22 @@ function parseSortDirection(
 export function dispatchVehicleStockList(
   stock: VehicleStockQueryService,
   query: VehicleStockListQuery,
+  scopeContextHeader?: string,
 ) {
   const parsedLimit = parseOptionalLimit(query.limit, query.pageSize);
   const sortDirection = parseSortDirection(query.sortDirection);
   if (query.pagination === 'cursor' || query.cursor) {
-    return stock.listWithCursor({
-      search: query.search,
-      stock_status: query.stockStatus,
-      limit: parsedLimit,
-      sortField: query.sortField,
-      sortDirection,
-      cursor: query.cursor,
-    });
+    return stock.listWithCursor(
+      {
+        search: query.search,
+        stock_status: query.stockStatus,
+        limit: parsedLimit,
+        sortField: query.sortField,
+        sortDirection,
+        cursor: query.cursor,
+      },
+      scopeContextHeader,
+    );
   }
   return stock.list({
     search: query.search,

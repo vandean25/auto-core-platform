@@ -197,6 +197,9 @@ async function buildLegacyGuards(routes: readonly RegisteredRoute[]) {
             findFirst: () =>
               Promise.resolve({ bank_reconciliation_enabled: true }),
           },
+          tenant: {
+            findFirst: () => Promise.resolve({ custom_fields_enabled: true }),
+          },
         },
       },
       {

@@ -27,6 +27,7 @@ import { InspectionExchangeModule } from '../inspection-exchange/inspection-exch
 import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-capabilities.module.js';
 import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AuditModule } from '../audit/audit.module.js';
     EffectiveCapabilitiesModule,
     CustomerConsentModule,
     AuditModule,
+    CustomFieldsModule,
   ],
   controllers: [
     // Literal paths (nova/calculate, pickerl-due) must register before VehicleController's GET :id.
