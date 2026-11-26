@@ -5,6 +5,7 @@ import {
   buildInvoiceTotalsSection,
   MARGIN_SCHEME_LEGAL_NOTES,
 } from '../invoices/invoice-pdf.layout.js';
+import { buildCreditNoteSnapshot } from './credit-note-snapshot.js';
 import { toRenderableCreditNoteSnapshot } from './credit-note-snapshot-render.adapter.js';
 
 describe('toRenderableCreditNoteSnapshot', () => {
@@ -227,4 +228,39 @@ describe('toRenderableCreditNoteSnapshot', () => {
     expect(renderable?.template_version).toBe('invoice-brand-v1');
     expect(renderable?.branding).toEqual(branding);
   });
+
+  // AUT-1068 Scenario 3: buildCreditNoteSnapshot formats date, due_date and original_document.date on Europe/Vienna calendar
+  it.each([
+    {
+      label: 'winter CET (UTC+1) 2027-01-01 00:30 Vienna (23:30 UTC)',
+      instant: '2026-12-31T23:30:00.000Z',
+      expectedDay: '2027-01-01',
+    },
+    {
+      label: 'summer CEST (UTC+2) 2026-07-16 00:30 Vienna (22:30 UTC)',
+      instant: '2026-07-15T22:30:00.000Z',
+      expectedDay: '2026-07-16',
+    },
+  ])(
+    'formats credit note snapshot dates on the Europe/Vienna calendar for $label',
+    ({ instant, expectedDay }) => {
+      const built = buildCreditNoteSnapshot({
+        originalSnapshot: snapshot as unknown as Parameters<
+          typeof buildCreditNoteSnapshot
+        >[0]['originalSnapshot'],
+        originalInvoiceId: 'invoice-1',
+        originalInvoiceNumber: 'RE-2027-0001',
+        originalInvoiceDate: new Date(instant),
+        reason: 'Customer return',
+        creditDate: new Date(instant),
+        isFullCredit: true,
+        lineSnapshots: [],
+        committedAt: new Date(instant),
+      });
+
+      expect(built.date).toBe(expectedDay);
+      expect(built.due_date).toBe(expectedDay);
+      expect(built.original_document.date).toBe(expectedDay);
+    },
+  );
 });

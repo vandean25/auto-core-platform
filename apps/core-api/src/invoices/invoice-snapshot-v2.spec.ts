@@ -308,6 +308,46 @@ describe('buildInvoiceSnapshotV2', () => {
       }),
     ).toThrow();
   });
+
+  // AUT-1068 Scenario 2: snapshot day fields use Europe/Vienna calendar, not UTC
+  it.each([
+    {
+      label: 'winter CET (UTC+1) 2027-01-01 00:30 Vienna (23:30 UTC)',
+      date: '2026-12-31T23:30:00.000Z',
+      dueDate: '2027-01-14T23:30:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedDueDay: '2027-01-15',
+    },
+    {
+      label: 'summer CEST (UTC+2) 2026-07-16 00:30 Vienna (22:30 UTC)',
+      date: '2026-07-15T22:30:00.000Z',
+      dueDate: '2026-07-29T22:30:00.000Z',
+      expectedDay: '2026-07-16',
+      expectedDueDay: '2026-07-30',
+    },
+  ])(
+    'formats date, due_date and supply_date_* on the Europe/Vienna calendar for $label',
+    ({ date, dueDate, expectedDay, expectedDueDay }) => {
+      const instant = new Date(date);
+      const snapshot = buildInvoiceSnapshotV2({
+        invoice: buildInvoice({
+          date: instant,
+          due_date: new Date(dueDate),
+          supply_date_from: null,
+          supply_date_to: null,
+        }),
+        seller,
+        siteId: 'site-1',
+        legalEntityId: seller.id,
+        lineAllocations: [buildLineAllocation()],
+      });
+
+      expect(snapshot.date).toBe(expectedDay);
+      expect(snapshot.due_date).toBe(expectedDueDay);
+      expect(snapshot.supply_date_from).toBe(expectedDay);
+      expect(snapshot.supply_date_to).toBe(expectedDay);
+    },
+  );
 });
 
 describe('isInvoiceSnapshotV2 branding validation', () => {

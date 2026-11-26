@@ -36,6 +36,12 @@ import {
   type OriginalLineSnapshot,
   type PriorCreditLine,
 } from './credit-note-allocation.js';
+import {
+  calendarDateInTimeZone,
+  DEFAULT_INVOICE_TIME_ZONE,
+  parseCalendarDateInTimeZone,
+  resolveSiteTimeZone,
+} from '../sales/helpers/invoice-number.helpers.js';
 import { assertCreditNoteReadAccess } from './credit-note-read-access.js';
 import { generateCreditNoteNumber } from './credit-note-number.helpers.js';
 import { hashCreditNoteFinalizeRequest } from './credit-note-request-hash.js';
@@ -108,7 +114,12 @@ export class CreditNotesService {
       invoiceItemIds: new Set(invoice.items.map((item) => item.id)),
     });
 
-    const creditDate = this.parseCreditDate(dto.date);
+    const timeZone = await resolveSiteTimeZone(
+      this.prisma,
+      tenantId,
+      invoice.site_id,
+    );
+    const creditDate = this.parseCreditDate(dto.date, timeZone);
 
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
       draftLines,
@@ -123,6 +134,7 @@ export class CreditNotesService {
         tenantId,
         creditDate,
         invoice.date,
+        timeZone,
       );
 
       return tx.creditNote.create({
@@ -150,7 +162,12 @@ export class CreditNotesService {
       });
     });
 
-    return this.serializeCreditNote(creditNote, originalSnapshot, priorCredits);
+    return this.serializeCreditNote(
+      creditNote,
+      originalSnapshot,
+      priorCredits,
+      timeZone,
+    );
   }
 
   async listForInvoice(invoiceId: string) {
@@ -174,19 +191,27 @@ export class CreditNotesService {
       priorCredits,
     );
 
-    const creditNotes = await this.prisma.creditNote.findMany({
-      where: {
-        tenant_id: tenantId,
-        original_invoice_id: invoiceId,
-        status: { not: CreditNoteStatus.VOID },
-      },
-      include: { items: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [creditNotes, timeZone] = await Promise.all([
+      this.prisma.creditNote.findMany({
+        where: {
+          tenant_id: tenantId,
+          original_invoice_id: invoiceId,
+          status: { not: CreditNoteStatus.VOID },
+        },
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      resolveSiteTimeZone(this.prisma, tenantId, invoice.site_id),
+    ]);
 
     return {
       creditNotes: creditNotes.map((creditNote) =>
-        this.serializeCreditNote(creditNote, originalSnapshot, priorCredits),
+        this.serializeCreditNote(
+          creditNote,
+          originalSnapshot,
+          priorCredits,
+          timeZone,
+        ),
       ),
       remainingLines,
       coverageStatus,
@@ -234,11 +259,12 @@ export class CreditNotesService {
     ]);
 
     const invoiceIds = [...new Set(rows.map((row) => row.original_invoice_id))];
-    const [invoices, priorCreditsByInvoice] = await Promise.all([
+    const [invoices, priorCreditsByInvoice, timeZone] = await Promise.all([
       this.prisma.invoice.findMany({
         where: { id: { in: invoiceIds }, tenant_id: tenantId },
       }),
       this.loadPriorCreditsByInvoice(tenantId, invoiceIds),
+      resolveSiteTimeZone(this.prisma, tenantId, siteId),
     ]);
     const invoiceById = new Map(
       invoices.map((invoice) => [invoice.id, invoice]),
@@ -249,6 +275,7 @@ export class CreditNotesService {
         row,
         invoice ? this.tryV2Snapshot(invoice) : null,
         priorCreditsByInvoice.get(row.original_invoice_id) ?? [],
+        timeZone,
       );
     });
 
@@ -273,17 +300,19 @@ export class CreditNotesService {
       creditNote.site_id,
     );
 
-    const invoice = await this.loadOriginalInvoice(
-      tenantId,
-      creditNote.original_invoice_id,
-    );
+    const [invoice, priorCredits, timeZone] = await Promise.all([
+      this.loadOriginalInvoice(tenantId, creditNote.original_invoice_id),
+      this.loadPriorCredits(tenantId, creditNote.original_invoice_id),
+      resolveSiteTimeZone(this.prisma, tenantId, creditNote.site_id),
+    ]);
     const snapshot = this.tryV2Snapshot(invoice);
-    const priorCredits = await this.loadPriorCredits(
-      tenantId,
-      creditNote.original_invoice_id,
-    );
 
-    return this.serializeCreditNote(creditNote, snapshot, priorCredits);
+    return this.serializeCreditNote(
+      creditNote,
+      snapshot,
+      priorCredits,
+      timeZone,
+    );
   }
 
   private async loadWritableDraftCreditNote(
@@ -319,8 +348,13 @@ export class CreditNotesService {
     const originalLines = extractOriginalLineSnapshots(originalSnapshot);
     const remaining = computeRemainingLineBalances(originalLines, priorCredits);
 
+    const timeZone = await resolveSiteTimeZone(
+      this.prisma,
+      tenantId,
+      creditNote.site_id,
+    );
     const nextDate = dto.date
-      ? this.parseCreditDate(dto.date)
+      ? this.parseCreditDate(dto.date, timeZone)
       : creditNote.date;
 
     const draftLines = dto.lines
@@ -349,7 +383,13 @@ export class CreditNotesService {
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      await this.assertCreditDatesAllowed(tx, tenantId, nextDate, invoice.date);
+      await this.assertCreditDatesAllowed(
+        tx,
+        tenantId,
+        nextDate,
+        invoice.date,
+        timeZone,
+      );
 
       const result = await tx.creditNote.updateMany({
         where: {
@@ -390,7 +430,12 @@ export class CreditNotesService {
       });
     });
 
-    return this.serializeCreditNote(updated, originalSnapshot, priorCredits);
+    return this.serializeCreditNote(
+      updated,
+      originalSnapshot,
+      priorCredits,
+      timeZone,
+    );
   }
 
   async finalize(id: string, dto: FinalizeCreditNoteDto) {
@@ -413,18 +458,16 @@ export class CreditNotesService {
             'This idempotency key was already used with a different request body.',
           );
         }
-        const invoice = await this.loadOriginalInvoice(
-          tenantId,
-          existingByKey.original_invoice_id,
-        );
-        const priorCredits = await this.loadPriorCredits(
-          tenantId,
-          existingByKey.original_invoice_id,
-        );
+        const [invoice, priorCredits, timeZone] = await Promise.all([
+          this.loadOriginalInvoice(tenantId, existingByKey.original_invoice_id),
+          this.loadPriorCredits(tenantId, existingByKey.original_invoice_id),
+          resolveSiteTimeZone(this.prisma, tenantId, existingByKey.site_id),
+        ]);
         return this.serializeCreditNote(
           existingByKey,
           this.tryV2Snapshot(invoice),
           priorCredits,
+          timeZone,
         );
       }
     }
@@ -439,122 +482,136 @@ export class CreditNotesService {
       throw new ConflictException('Credit note version is stale.');
     }
 
-    const finalized = await this.prisma.$transaction(async (tx) => {
-      await this.lockOriginalInvoice(
-        tx,
-        tenantId,
-        creditNote.original_invoice_id,
-      );
+    const { finalized, timeZone } = await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockOriginalInvoice(
+          tx,
+          tenantId,
+          creditNote.original_invoice_id,
+        );
 
-      const invoice = await tx.invoice.findFirstOrThrow({
-        where: { id: creditNote.original_invoice_id, tenant_id: tenantId },
-      });
-      const originalSnapshot = this.requireV2Snapshot(invoice);
-      await lockSitesAndAssertActive(tx, tenantId, [creditNote.site_id]);
-      await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditNote.date);
-      this.assertCreditDateNotBeforeOriginal(creditNote.date, invoice.date);
+        const invoice = await tx.invoice.findFirstOrThrow({
+          where: { id: creditNote.original_invoice_id, tenant_id: tenantId },
+        });
+        const originalSnapshot = this.requireV2Snapshot(invoice);
+        await lockSitesAndAssertActive(tx, tenantId, [creditNote.site_id]);
+        const siteTimeZone = await resolveSiteTimeZone(
+          tx,
+          tenantId,
+          creditNote.site_id,
+        );
+        await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditNote.date);
+        this.assertCreditDateNotBeforeOriginal(
+          creditNote.date,
+          invoice.date,
+          siteTimeZone,
+        );
 
-      const priorCredits = await this.loadPriorCredits(
-        tenantId,
-        invoice.id,
-        tx,
-        id,
-      );
-      const originalLines = extractOriginalLineSnapshots(originalSnapshot);
-      const draftLines = creditNote.items.map((item) => ({
-        originalItemId: item.original_invoice_item_id,
-        quantity: item.quantity,
-      }));
-      this.validateDraftLinesWithinRemaining({
-        draftLines,
-        originalSnapshot,
-        priorCredits,
-        originalLines,
-      });
+        const priorCredits = await this.loadPriorCredits(
+          tenantId,
+          invoice.id,
+          tx,
+          id,
+        );
+        const originalLines = extractOriginalLineSnapshots(originalSnapshot);
+        const draftLines = creditNote.items.map((item) => ({
+          originalItemId: item.original_invoice_item_id,
+          quantity: item.quantity,
+        }));
+        this.validateDraftLinesWithinRemaining({
+          draftLines,
+          originalSnapshot,
+          priorCredits,
+          originalLines,
+        });
 
-      const { totals, itemPayloads } = this.buildDraftItemPayloads({
-        draftLines,
-        originalSnapshot,
-        priorCredits,
-        originalLines,
-      });
+        const { totals, itemPayloads } = this.buildDraftItemPayloads({
+          draftLines,
+          originalSnapshot,
+          priorCredits,
+          originalLines,
+        });
 
-      const isFullCredit = this.isFullCreditDraft(
-        draftLines,
-        computeRemainingLineBalances(originalLines, priorCredits),
-      );
-      const committedAt = new Date();
-      const snapshot = buildCreditNoteSnapshot({
-        originalSnapshot,
-        originalInvoiceId: invoice.id,
-        originalInvoiceNumber: invoice.invoice_number ?? '',
-        originalInvoiceDate: invoice.date,
-        reason: creditNote.reason,
-        creditDate: creditNote.date,
-        isFullCredit,
-        lineSnapshots: itemPayloads.map((item) => item.snapshot),
-        committedAt,
-      });
+        const isFullCredit = this.isFullCreditDraft(
+          draftLines,
+          computeRemainingLineBalances(originalLines, priorCredits),
+        );
+        const committedAt = new Date();
+        const snapshot = buildCreditNoteSnapshot({
+          originalSnapshot,
+          originalInvoiceId: invoice.id,
+          originalInvoiceNumber: invoice.invoice_number ?? '',
+          originalInvoiceDate: invoice.date,
+          reason: creditNote.reason,
+          creditDate: creditNote.date,
+          isFullCredit,
+          lineSnapshots: itemPayloads.map((item) => item.snapshot),
+          committedAt,
+          timeZone: siteTimeZone,
+        });
 
-      const creditNumber = await generateCreditNoteNumber(
-        tx,
-        tenantId,
-        creditNote.date,
-      );
+        const creditNumber = await generateCreditNoteNumber(
+          tx,
+          tenantId,
+          creditNote.date,
+          { siteId: creditNote.site_id, timeZone: siteTimeZone },
+        );
 
-      await guardedStatusUpdate(bindStatusUpdateMany(tx.creditNote), {
-        id,
-        tenantId,
-        from: CreditNoteStatus.DRAFT,
-        to: CreditNoteStatus.FINALIZED,
-        extraData: {
-          credit_number: creditNumber,
-          total_net: totals.net,
-          total_tax: totals.tax,
-          total_gross: totals.gross,
-          snapshot: snapshot as Prisma.InputJsonValue,
-          idempotency_key: dto.idempotencyKey,
-          request_hash: requestHash,
-          finalized_at: committedAt,
-        },
-        conflictMessage:
-          'Credit note was already transitioned by another request',
-      });
+        await guardedStatusUpdate(bindStatusUpdateMany(tx.creditNote), {
+          id,
+          tenantId,
+          from: CreditNoteStatus.DRAFT,
+          to: CreditNoteStatus.FINALIZED,
+          extraData: {
+            credit_number: creditNumber,
+            total_net: totals.net,
+            total_tax: totals.tax,
+            total_gross: totals.gross,
+            snapshot: snapshot as Prisma.InputJsonValue,
+            idempotency_key: dto.idempotencyKey,
+            request_hash: requestHash,
+            finalized_at: committedAt,
+          },
+          conflictMessage:
+            'Credit note was already transitioned by another request',
+        });
 
-      // Each line gets its own snapshot, so replace the rows in two statements instead of one update per line. Ids and createdAt stay.
-      const draftItems = new Map(
-        creditNote.items.map((item) => [item.original_invoice_item_id, item]),
-      );
-      const removed = await tx.creditNoteItem.deleteMany({
-        where: {
-          credit_note_id: id,
-          tenant_id: tenantId,
-          id: { in: creditNote.items.map((item) => item.id) },
-        },
-      });
-      if (removed.count !== creditNote.items.length) {
-        throw new ConflictException('Credit note version is stale.');
-      }
-      await tx.creditNoteItem.createMany({
-        data: itemPayloads.map((item) => {
-          const draftItem = draftItems.get(item.originalItemId)!;
-          return {
-            id: draftItem.id,
-            tenant_id: tenantId,
+        // Each line gets its own snapshot, so replace the rows in two statements instead of one update per line. Ids and createdAt stay.
+        const draftItems = new Map(
+          creditNote.items.map((item) => [item.original_invoice_item_id, item]),
+        );
+        const removed = await tx.creditNoteItem.deleteMany({
+          where: {
             credit_note_id: id,
-            original_invoice_item_id: item.originalItemId,
-            quantity: draftItem.quantity,
-            snapshot: item.snapshot as Prisma.InputJsonValue,
-            createdAt: draftItem.createdAt,
-          };
-        }),
-      });
+            tenant_id: tenantId,
+            id: { in: creditNote.items.map((item) => item.id) },
+          },
+        });
+        if (removed.count !== creditNote.items.length) {
+          throw new ConflictException('Credit note version is stale.');
+        }
+        await tx.creditNoteItem.createMany({
+          data: itemPayloads.map((item) => {
+            const draftItem = draftItems.get(item.originalItemId)!;
+            return {
+              id: draftItem.id,
+              tenant_id: tenantId,
+              credit_note_id: id,
+              original_invoice_item_id: item.originalItemId,
+              quantity: draftItem.quantity,
+              snapshot: item.snapshot as Prisma.InputJsonValue,
+              createdAt: draftItem.createdAt,
+            };
+          }),
+        });
 
-      return tx.creditNote.findFirstOrThrow({
-        where: { id, tenant_id: tenantId },
-        include: { items: true },
-      });
-    });
+        const row = await tx.creditNote.findFirstOrThrow({
+          where: { id, tenant_id: tenantId },
+          include: { items: true },
+        });
+        return { finalized: row, timeZone: siteTimeZone };
+      },
+    );
 
     const invoice = await this.loadOriginalInvoice(
       tenantId,
@@ -568,6 +625,7 @@ export class CreditNotesService {
       finalized,
       this.tryV2Snapshot(invoice),
       priorCredits,
+      timeZone,
     );
   }
 
@@ -596,19 +654,17 @@ export class CreditNotesService {
       throw new ConflictException('Credit note version is stale.');
     }
 
-    const invoice = await this.loadOriginalInvoice(
-      tenantId,
-      creditNote.original_invoice_id,
-    );
-    const priorCredits = await this.loadPriorCredits(
-      tenantId,
-      creditNote.original_invoice_id,
-    );
-    const updated = await this.loadCreditNote(tenantId, id);
+    const [invoice, priorCredits, updated, timeZone] = await Promise.all([
+      this.loadOriginalInvoice(tenantId, creditNote.original_invoice_id),
+      this.loadPriorCredits(tenantId, creditNote.original_invoice_id),
+      this.loadCreditNote(tenantId, id),
+      resolveSiteTimeZone(this.prisma, tenantId, creditNote.site_id),
+    ]);
     return this.serializeCreditNote(
       updated,
       this.tryV2Snapshot(invoice),
       priorCredits,
+      timeZone,
     );
   }
 
@@ -700,9 +756,9 @@ export class CreditNotesService {
     }
   }
 
-  private parseCreditDate(value: string): Date {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime())) {
+  private parseCreditDate(value: string, timeZone: string): Date {
+    const parsed = parseCalendarDateInTimeZone(value, timeZone);
+    if (!parsed) {
       throw new BadRequestException('Invalid credit date.');
     }
     return parsed;
@@ -713,17 +769,23 @@ export class CreditNotesService {
     tenantId: string,
     creditDate: Date,
     originalInvoiceDate: Date,
+    timeZone: string,
   ): Promise<void> {
-    this.assertCreditDateNotBeforeOriginal(creditDate, originalInvoiceDate);
+    this.assertCreditDateNotBeforeOriginal(
+      creditDate,
+      originalInvoiceDate,
+      timeZone,
+    );
     await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditDate);
   }
 
   private assertCreditDateNotBeforeOriginal(
     creditDate: Date,
     originalInvoiceDate: Date,
+    timeZone: string,
   ) {
     const originalDate = new Date(
-      originalInvoiceDate.toISOString().slice(0, 10) + 'T00:00:00.000Z',
+      `${calendarDateInTimeZone(originalInvoiceDate, timeZone)}T00:00:00.000Z`,
     );
     if (creditDate < originalDate) {
       throw new BadRequestException(
@@ -1075,6 +1137,7 @@ export class CreditNotesService {
     creditNote: CreditNoteWithItems,
     originalSnapshot: InvoiceSnapshotV2 | null,
     priorCredits: PriorCreditLine[],
+    timeZone = DEFAULT_INVOICE_TIME_ZONE,
   ) {
     const remainingLines = this.buildRemainingLineDtos(
       originalSnapshot,
@@ -1086,7 +1149,7 @@ export class CreditNotesService {
       originalInvoiceId: creditNote.original_invoice_id,
       status: creditNote.status,
       creditNumber: creditNote.credit_number,
-      date: creditNote.date.toISOString().slice(0, 10),
+      date: calendarDateInTimeZone(creditNote.date, timeZone),
       reason: creditNote.reason,
       version: creditNote.version,
       totalNet: creditNote.total_net.toFixed(2),

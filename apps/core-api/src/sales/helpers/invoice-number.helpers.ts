@@ -15,6 +15,45 @@ export function calendarYearInTimeZone(
   return Number(formatted);
 }
 
+export function calendarDateInTimeZone(
+  instant: Date,
+  timeZone = DEFAULT_INVOICE_TIME_ZONE,
+): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instant);
+}
+
+export function addCalendarDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function parseCalendarDateInTimeZone(
+  value: string,
+  timeZone = DEFAULT_INVOICE_TIME_ZONE,
+): Date | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== value
+    ) {
+      return null;
+    }
+    return parsed;
+  }
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) {
+    return null;
+  }
+  return new Date(`${calendarDateInTimeZone(instant, timeZone)}T00:00:00.000Z`);
+}
+
 export function formatInvoiceNumber(
   prefix: string,
   year: number,

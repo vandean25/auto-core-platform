@@ -1,11 +1,24 @@
 import { Prisma } from '@prisma/client';
+import {
+  calendarYearInTimeZone,
+  resolveSiteTimeZone,
+} from '../sales/helpers/invoice-number.helpers.js';
+
+export interface GenerateCreditNoteNumberOptions {
+  siteId?: string | null;
+  timeZone?: string;
+}
 
 export async function generateCreditNoteNumber(
   tx: Prisma.TransactionClient,
   tenantId: string,
   creditDate: Date,
+  options?: GenerateCreditNoteNumberOptions,
 ): Promise<string> {
-  const year = creditDate.getFullYear();
+  const timeZone =
+    options?.timeZone ??
+    (await resolveSiteTimeZone(tx, tenantId, options?.siteId));
+  const year = calendarYearInTimeZone(creditDate, timeZone);
   const prefix = `CN-${year}-`;
 
   const sequence = await tx.creditNoteSequence.upsert({

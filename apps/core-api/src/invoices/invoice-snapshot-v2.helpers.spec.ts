@@ -10,6 +10,7 @@ import {
   buildTotalsSnapshot,
   assertAtHighValueBusinessRecipientUid,
   AT_RECIPIENT_UID_REQUIRED_CODE,
+  computeInvoiceDates,
 } from './invoice-snapshot-v2.helpers.js';
 import { CustomerType, DiscountType, InvoiceTaxMode, Prisma } from '@prisma/client';
 import { INVOICE_BRANDED_TEMPLATE_VERSION } from './invoice-snapshot-v2.js';
@@ -578,6 +579,27 @@ describe('invoice-snapshot-v2.helpers', () => {
       expect(totals.total_tax).toBe('0.00');
       expect(totals.total_gross).toBe('5000.00');
       expect(totals.tax_breakdown).toEqual([]);
+    });
+  });
+
+  describe('computeInvoiceDates', () => {
+    it('adds paymentDays on the Europe/Vienna calendar across DST fall-back', () => {
+      // 2026-10-25 00:30 CEST (UTC+2) = 2026-10-24T22:30:00.000Z; +14 Vienna days = 2026-11-08 (CET, UTC+1)
+      const { dueDate } = computeInvoiceDates(
+        {
+          date: new Date('2026-10-24T22:30:00.000Z'),
+          supply_date_from: null,
+          supply_date_to: null,
+        },
+        14,
+      );
+      const viennaDueDay = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Vienna',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(dueDate);
+      expect(viennaDueDay).toBe('2026-11-08');
     });
   });
 });

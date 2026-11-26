@@ -11,6 +11,10 @@ import {
   readDocumentSnapshotLocaleFields,
 } from '../common/i18n/document-snapshot-locale.js';
 import { resolveDocumentLanguage } from '../common/i18n/locale-resolution.js';
+import {
+  calendarDateInTimeZone,
+  DEFAULT_INVOICE_TIME_ZONE,
+} from '../sales/helpers/invoice-number.helpers.js';
 
 export type CreditNoteSnapshotV2 = Omit<InvoiceSnapshotV2, 'document_kind'> & {
   document_kind: 'CREDIT_NOTE';
@@ -64,7 +68,9 @@ export function buildCreditNoteSnapshot(input: {
   isFullCredit: boolean;
   lineSnapshots: CreditNoteLineSnapshot[];
   committedAt: Date;
+  timeZone?: string;
 }): CreditNoteSnapshotV2 {
+  const timeZone = input.timeZone ?? DEFAULT_INVOICE_TIME_ZONE;
   const totalNet = input.lineSnapshots.reduce(
     (sum, line) => sum.add(new Prisma.Decimal(line.net)),
     new Prisma.Decimal(0),
@@ -123,8 +129,8 @@ export function buildCreditNoteSnapshot(input: {
     seller,
     customer: input.originalSnapshot.customer,
     vehicle: input.originalSnapshot.vehicle,
-    date: input.creditDate.toISOString().slice(0, 10),
-    due_date: input.creditDate.toISOString().slice(0, 10),
+    date: calendarDateInTimeZone(input.creditDate, timeZone),
+    due_date: calendarDateInTimeZone(input.creditDate, timeZone),
     supply_date_from: input.originalSnapshot.supply_date_from,
     supply_date_to: input.originalSnapshot.supply_date_to,
     payment_terms: input.originalSnapshot.payment_terms,
@@ -158,7 +164,7 @@ export function buildCreditNoteSnapshot(input: {
     original_document: {
       id: input.originalInvoiceId,
       number: input.originalInvoiceNumber,
-      date: input.originalInvoiceDate.toISOString().slice(0, 10),
+      date: calendarDateInTimeZone(input.originalInvoiceDate, timeZone),
       reason: input.reason,
       snapshot_version: input.originalSnapshot.schema_version,
     },

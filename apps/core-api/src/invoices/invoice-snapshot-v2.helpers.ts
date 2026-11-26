@@ -37,6 +37,11 @@ import {
   type InvoiceSnapshotV2TaxBucket,
 } from './invoice-snapshot-v2.js';
 import type { ResolvedInvoiceOwnership } from './invoice-ownership.resolver.js';
+import {
+  addCalendarDays,
+  calendarDateInTimeZone,
+  DEFAULT_INVOICE_TIME_ZONE,
+} from '../sales/helpers/invoice-number.helpers.js';
 
 export { halfUpTax };
 
@@ -879,6 +884,7 @@ export async function resolveInvoiceLineAllocations(
 export function computeInvoiceDates(
   invoice: Pick<Invoice, 'date' | 'supply_date_from' | 'supply_date_to'>,
   paymentDays: number,
+  timeZone = DEFAULT_INVOICE_TIME_ZONE,
 ): {
   supplyFrom: Date;
   supplyTo: Date;
@@ -886,7 +892,9 @@ export function computeInvoiceDates(
 } {
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
-  const dueDate = new Date(invoice.date);
-  dueDate.setDate(dueDate.getDate() + paymentDays);
+  const invoiceDay = calendarDateInTimeZone(invoice.date, timeZone);
+  const dueDay = addCalendarDays(invoiceDay, paymentDays);
+  // Noon UTC maps to the exact same calendar day in every timezone from UTC-11 to UTC+12.
+  const dueDate = new Date(`${dueDay}T12:00:00.000Z`);
   return { supplyFrom, supplyTo, dueDate };
 }
