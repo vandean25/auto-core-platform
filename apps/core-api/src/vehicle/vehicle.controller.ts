@@ -10,7 +10,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Query,
   Req,
 } from '@nestjs/common';
 import {
@@ -24,6 +23,11 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import {
+  CUSTOM_FIELD_FILTER_DESCRIPTION,
+  CustomFieldFilterParams,
+  CustomFieldListQuery,
+} from '../custom-fields/custom-field-list-query.js';
 import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
 import { ApiListCursorModeQuery } from '../common/dto/list-cursor-query.decorator.js';
 import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
@@ -95,24 +99,38 @@ export class VehicleController {
   @Get('capped-count')
   @ApiOperation({
     operationId: 'VehicleController_cappedCount',
+    description: CUSTOM_FIELD_FILTER_DESCRIPTION,
     summary: 'Bounded match count for the customer vehicle list (ADR-0035)',
   })
+  @ApiQuery({ type: VehiclesCappedCountQueryDto, required: false })
   @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
   @ApiOkResponse({ type: CappedListCountResponseDto })
   cappedCount(
-    @Query() query: VehiclesCappedCountQueryDto,
+    @CustomFieldListQuery(VehiclesCappedCountQueryDto)
+    query: VehiclesCappedCountQueryDto,
     @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+    @CustomFieldFilterParams() customFields?: URLSearchParams,
   ) {
-    return this.vehicleList.cappedListCount(query, scopeContext);
+    return this.vehicleList.cappedListCount(query, scopeContext, customFields);
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'List vehicles',
+    description: CUSTOM_FIELD_FILTER_DESCRIPTION,
+  })
   @ApiHeader({
     name: SCOPE_CONTEXT_HEADER,
     required: false,
     description: 'Required in cursor mode (ADR-0038).',
   })
-  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description:
+      'Free-text search term for make, model, plate, VIN, engine code, customer, or legacy ID',
+    schema: { type: 'string' },
+  })
   @ApiQuery({
     name: 'page',
     required: false,
@@ -130,14 +148,26 @@ export class VehicleController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Cursor mode only. Default 50, maximum 100.',
+    schema: { type: 'string' },
+  })
   @ApiListCursorModeQuery()
   @ApiOkResponse({ type: VehiclePaginatedResponseDto })
   findAll(
-    @Query() query: FindAllVehiclesQueryDto,
+    @CustomFieldListQuery(FindAllVehiclesQueryDto)
+    query: FindAllVehiclesQueryDto,
     @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+    @CustomFieldFilterParams() customFields?: URLSearchParams,
   ) {
     if (query.pagination === 'cursor' || query.cursor) {
-      return this.vehicleList.findAllWithCursor(query, scopeContext);
+      return this.vehicleList.findAllWithCursor(
+        query,
+        scopeContext,
+        customFields,
+      );
     }
     return findAllVehiclesOffset(this.vehicleService, query);
   }

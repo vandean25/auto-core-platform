@@ -8,6 +8,7 @@ export const SAVED_VIEW_PER_LIST_LIMIT = 50;
 export type SavedViewListEntry = {
   permission: PermissionId;
   extraParams?: readonly string[];
+  customFieldFilters?: boolean;
 };
 
 /**
@@ -17,7 +18,7 @@ export type SavedViewListEntry = {
 export const SAVED_VIEW_LIST_REGISTRY: Readonly<
   Record<string, SavedViewListEntry>
 > = {
-  '/customers': { permission: 'customer.read' },
+  '/customers': { permission: 'customer.read', customFieldFilters: true },
   '/sales-orders': { permission: 'sales.order.read' },
   '/sales/invoices': { permission: 'invoice.read' },
   '/workshop/orders': { permission: 'workshop.order.read' },
@@ -31,7 +32,7 @@ export const SAVED_VIEW_LIST_REGISTRY: Readonly<
     extraParams: ['vehicle'],
   },
   '/workshop/tyre-storage': { permission: 'tyre.set.read' },
-  '/vehicles': { permission: 'vehicle.read' },
+  '/vehicles': { permission: 'vehicle.read', customFieldFilters: true },
   '/vehicles/pickerl-due': {
     permission: 'vehicle.pickerl.read',
     extraParams: ['window', 'status'],
@@ -64,7 +65,17 @@ const COMMON_QUERY_PARAMS = new Set([
 ]);
 
 const FILTER_PARAM_PATTERN = /^filter_[a-zA-Z0-9_.-]+$/;
+const CUSTOM_FIELD_PARAM_PATTERN = /^cf\.[a-z][a-z0-9_]{0,63}(?:\[[a-z]+\])?$/;
 const COLUMN_LIST_PATTERN = /^[a-zA-Z0-9_.-]+(?:,[a-zA-Z0-9_.-]+)*$/;
+
+function allowsQueryParam(entry: SavedViewListEntry, key: string): boolean {
+  return (
+    COMMON_QUERY_PARAMS.has(key) ||
+    FILTER_PARAM_PATTERN.test(key) ||
+    Boolean(entry.customFieldFilters && CUSTOM_FIELD_PARAM_PATTERN.test(key)) ||
+    (entry.extraParams?.includes(key) ?? false)
+  );
+}
 
 function invalidSavedView(message: string): BadRequestException {
   return new BadRequestException({
@@ -157,13 +168,8 @@ export function validateSavedViewHref(
     );
   }
 
-  const extra = new Set(entry.extraParams ?? []);
   for (const key of parsed.searchParams.keys()) {
-    const allowed =
-      COMMON_QUERY_PARAMS.has(key) ||
-      FILTER_PARAM_PATTERN.test(key) ||
-      extra.has(key);
-    if (!allowed) {
+    if (!allowsQueryParam(entry, key)) {
       throw invalidSavedView(
         `Query parameter "${key}" is not allowed for "${listPath}".`,
       );

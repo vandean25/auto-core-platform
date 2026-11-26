@@ -17,6 +17,17 @@ export function resolveListSearch(queryParams: DataTableQueryParams, fallbackFil
   return typeof queryParams.search === 'string' && queryParams.search.trim() !== '' ? queryParams.search : searchFallback
 }
 
+export function resolveCustomFieldCursorQuery(
+  query: DataTableQueryParams,
+  hasCustomFilters: boolean,
+  supportsSort: (sortField?: string) => boolean,
+): DataTableQueryParams {
+  // Custom filters are cursor-only. A saved offset sort falls back to the default cursor ordering.
+  return hasCustomFilters && !supportsSort(query.sortField)
+    ? { ...query, sortField: undefined, sortDirection: undefined }
+    : query
+}
+
 export function buildDataTableUrl(
   baseUrl: string,
   queryParams?: DataTableQueryParams,

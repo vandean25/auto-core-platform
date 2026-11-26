@@ -107,6 +107,7 @@
     "CUSTOM_FIELDS_DISABLED": "Eigene Felder sind für diesen Mandanten nicht aktiviert.",
     "CUSTOM_FIELD_ART9_BLOCKED": "Dieser Feldname weist auf besondere Kategorien personenbezogener Daten (Art. 9 DSGVO) hin und ist nicht zulässig.",
     "CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED": "Dieser Feldname könnte auf Daten nach Art. 9 DSGVO hinweisen. Bitte bestätigen Sie ausdrücklich, dass keine solchen Daten gespeichert werden.",
+    "CUSTOM_FIELD_FILTER_INVALID": "Prüfen Sie den Filter für eigene Felder.",
     "CUSTOM_FIELD_KEY_CONFLICT": "Ein eigenes Feld mit diesem Schlüssel existiert für diesen Bereich bereits.",
     "CUSTOM_FIELD_LIMIT_EXCEEDED": "Die maximale Anzahl eigener Felder pro Bereich ist erreicht.",
     "CUSTOM_FIELD_NOT_FOUND": "Das eigene Feld wurde nicht gefunden.",

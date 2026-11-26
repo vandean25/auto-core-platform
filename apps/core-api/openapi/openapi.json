@@ -4300,6 +4300,7 @@
         ]
       },
       "get": {
+        "description": "Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.",
         "operationId": "CustomerController_findAll",
         "parameters": [
           {
@@ -4325,7 +4326,6 @@
             "name": "page",
             "required": false,
             "in": "query",
-            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -4335,7 +4335,6 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
-            "description": "Number of items per page",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -4367,7 +4366,6 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
-            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [
@@ -4380,7 +4378,6 @@
             "name": "sortField",
             "required": false,
             "in": "query",
-            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -4433,6 +4430,7 @@
             }
           }
         },
+        "summary": "List customers",
         "tags": [
           "Customer"
         ]
@@ -4440,20 +4438,21 @@
     },
     "/api/customers/capped-count": {
       "get": {
+        "description": "Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.",
         "operationId": "CustomerController_cappedCount",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
             "description": "Same search as the customer list",
+            "required": false,
+            "name": "search",
+            "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "type",
             "required": false,
+            "name": "type",
             "in": "query",
             "schema": {
               "type": "string",
@@ -13523,13 +13522,14 @@
     },
     "/api/vehicles/capped-count": {
       "get": {
+        "description": "Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.",
         "operationId": "VehicleController_cappedCount",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
             "description": "Same search as the customer vehicle list",
+            "required": false,
+            "name": "search",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -13563,6 +13563,7 @@
     },
     "/api/vehicles": {
       "get": {
+        "description": "Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.",
         "operationId": "VehicleController_findAll",
         "parameters": [
           {
@@ -13587,7 +13588,6 @@
             "name": "page",
             "required": false,
             "in": "query",
-            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -13630,7 +13630,6 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
-            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [
@@ -13643,7 +13642,6 @@
             "name": "sortField",
             "required": false,
             "in": "query",
-            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -13670,6 +13668,7 @@
             }
           }
         },
+        "summary": "List vehicles",
         "tags": [
           "Vehicle"
         ]

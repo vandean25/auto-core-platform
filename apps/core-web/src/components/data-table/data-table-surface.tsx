@@ -13,6 +13,8 @@ type DataTableSurfaceExtras = {
   dashboardSource?: DashboardWidgetTableSource
   enableCsvExport?: boolean
   csvFileName?: string
+  enableMobileCsvExport?: boolean
+  toolbarFilters?: React.ReactNode
   emptyState?: DataTableEmptyState
   onRetry?: () => void
   onScopeRefresh?: () => Promise<void>
@@ -27,6 +29,8 @@ export function DataTableSurface<TData extends object>({
   dashboardSource,
   enableCsvExport,
   csvFileName,
+  enableMobileCsvExport,
+  toolbarFilters,
   emptyState,
   onRetry,
   onScopeRefresh,
@@ -46,6 +50,8 @@ export function DataTableSurface<TData extends object>({
           dashboardSource={dashboardSource}
           enableCsvExport={enableCsvExport}
           csvFileName={csvFileName}
+          enableMobileCsvExport={enableMobileCsvExport}
+          toolbarFilters={toolbarFilters}
           getRoot={() => rootRef.current}
           isLoading={presentation.showFirstLoadSkeleton}
           refreshIndicator={<DataTableRefreshIndicator visible={presentation.showRefreshIndicator} />}

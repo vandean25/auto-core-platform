@@ -500,6 +500,15 @@
     "booleanYes": "Yes",
     "booleanNo": "No",
     "saved": "Saved",
-    "saveFailed": "Failed to save."
+    "saveFailed": "Failed to save.",
+    "list": {
+      "apply": "Apply",
+      "operator": "Comparison for {{field}}",
+      "contains": "Contains",
+      "equals": "Equals",
+      "any": "Any",
+      "from": "From",
+      "to": "To"
+    }
   }
 }

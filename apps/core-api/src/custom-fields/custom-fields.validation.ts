@@ -138,7 +138,7 @@ function validateSelectValue(
   return value;
 }
 
-function validateSingleValue(
+export function validateSingleValue(
   def: CustomFieldDefinitionLike,
   value: unknown,
 ): CustomFieldScalar {

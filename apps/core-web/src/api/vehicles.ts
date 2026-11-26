@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import type { QueryClient } from '@tanstack/react-query'
 import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
+import type { CursorListQueryParams } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
 import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import { customerKeys } from './customers'
@@ -52,9 +53,9 @@ export const vehicleKeys = {
   list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.lists(), queryParams] as const,
   /** ADR-0035 infinite customer vehicle list; its own family so an offset refresh never restarts the cursor chain. */
   cursorLists: () => [...vehicleKeys.all, 'cursor'] as const,
-  cursorList: (params: Record<string, string | undefined>) =>
+  cursorList: (params: CursorListQueryParams) =>
     [...vehicleKeys.cursorLists(), params] as const,
-  cappedCount: (filters: Record<string, string | undefined>) =>
+  cappedCount: (filters: CursorListQueryParams) =>
     [...vehicleKeys.all, 'capped-count', filters] as const,
   detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
   pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,

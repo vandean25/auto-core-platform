@@ -85,8 +85,9 @@ export type DataTableBodyRowModel<TData extends object> = {
   getIsSelected: () => boolean
   getVisibleCells: () => Array<{
     id: string
-    column: { id: string; columnDef: { meta?: unknown; cell?: unknown } }
+    column: { id: string; columnDef: { meta?: unknown; cell?: unknown; header?: unknown } }
     getContext: () => unknown
+    getValue: () => unknown
   }>
 }
 

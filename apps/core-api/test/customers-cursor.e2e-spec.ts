@@ -5,6 +5,7 @@ import { SCOPE_CONTEXT_HEADER } from '../src/auth/scope-context/scope-context.co
 import { decodeListCursor } from '../src/common/list-cursor/list-cursor.codec.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { scopedListRequest } from './helpers/list-scope-context.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
@@ -74,19 +75,176 @@ describe('Customers cursor list (AUT-957 e2e)', () => {
   }
 
   function list(query: Record<string, string>, context = scopeContext) {
-    return request(app.getHttpServer())
-      .get(CUSTOMERS)
-      .query({ pagination: 'cursor', ...query })
-      .set('Authorization', bearer)
-      .set(SCOPE_CONTEXT_HEADER, context);
+    return scopedListRequest(app, CUSTOMERS, bearer, context).query({
+      pagination: 'cursor',
+      ...query,
+    });
   }
 
   function count(context = scopeContext) {
-    return request(app.getHttpServer())
-      .get(COUNT)
-      .set('Authorization', bearer)
-      .set(SCOPE_CONTEXT_HEADER, context);
+    return scopedListRequest(app, COUNT, bearer, context);
   }
+
+  describe('custom field filters', () => {
+    const segment = {
+      entity: 'CUSTOMER' as const,
+      key: 'segment',
+      label: 'Segment',
+      type: 'SELECT' as const,
+      options: ['Fleet, regional', 'Retail', 'Trade'],
+      purpose: 'Customer grouping',
+    };
+
+    beforeAll(async () => {
+      await prisma.customFieldDefinition.createMany({
+        data: [
+          { ...segment, tenant_id: tenant.tenantId },
+          {
+            tenant_id: tenant.tenantId,
+            entity: 'CUSTOMER',
+            key: 'deleted',
+            label: 'Archived',
+            type: 'TEXT',
+            purpose: 'Archived grouping',
+            archived: true,
+          },
+        ],
+      });
+    });
+
+    beforeEach(async () => {
+      await basePrisma.tenant.update({
+        where: { id: tenant.tenantId },
+        data: { custom_fields_enabled: true },
+      });
+      await prisma.customer.createMany({
+        data: ['Fleet, regional', 'Retail', 'Fleet, regional', 'Trade'].map(
+          (value, index) => ({
+            tenant_id: tenant.tenantId,
+            type: 'PRIVATE',
+            first_name: `Segment ${index}`,
+            last_name: 'Customer',
+            createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+            custom_fields: { segment: value, deleted: 'old' },
+          }),
+        ),
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.customFieldDefinition.deleteMany({
+        where: {
+          tenant_id: tenant.tenantId,
+          key: { in: [segment.key, 'deleted'] },
+        },
+      });
+    });
+
+    function names(response: { body: { data: { first_name: string }[] } }) {
+      return response.body.data.map((row) => row.first_name);
+    }
+
+    it('returns only customers in the selected options, including options containing commas', async () => {
+      const page = await list({})
+        .query('cf.segment%5Bin%5D=Fleet%2C+regional&cf.segment%5Bin%5D=Trade')
+        .expect(200);
+      expect(names(page)).toEqual(['Segment 3', 'Segment 2', 'Segment 0']);
+    });
+
+    it('counts the filtered set, pages without gaps and rejects a cursor from another filter', async () => {
+      const filter = { 'cf.segment': 'Fleet, regional' };
+      const first = await list({ ...filter, limit: '1' }).expect(200);
+      const cursor = first.body.meta.nextCursor;
+      const second = await list({ ...filter, limit: '1', cursor }).expect(200);
+      const total = await count().query(filter).expect(200);
+      const mismatch = await list({ 'cf.segment': 'Retail', cursor }).expect(
+        400,
+      );
+      expect([
+        names(first),
+        names(second),
+        total.body,
+        mismatch.body.code,
+      ]).toEqual([
+        ['Segment 2'],
+        ['Segment 0'],
+        expect.objectContaining({ count: 2, isCapped: false }),
+        'LIST_CURSOR_INVALID',
+      ]);
+    });
+
+    it('ignores archived and unknown custom keys in a bookmarked URL', async () => {
+      const page = await list({ 'cf.deleted': 'x', 'cf.unknown': 'x' }).expect(
+        200,
+      );
+      expect(names(page)).toEqual([
+        'Segment 3',
+        'Segment 2',
+        'Segment 1',
+        'Segment 0',
+      ]);
+    });
+
+    it('ignores active custom filters and omits values when the flag is off', async () => {
+      await basePrisma.tenant.update({
+        where: { id: tenant.tenantId },
+        data: { custom_fields_enabled: false },
+      });
+      const page = await list({ 'cf.segment[unsupported]': 'x' }).expect(200);
+      expect(
+        page.body.data.map(
+          (row: { first_name: string; custom_fields?: unknown }) => [
+            row.first_name,
+            row.custom_fields,
+          ],
+        ),
+      ).toEqual([
+        ['Segment 3', undefined],
+        ['Segment 2', undefined],
+        ['Segment 1', undefined],
+        ['Segment 0', undefined],
+      ]);
+    });
+
+    it('rejects an unsupported operator for an active key', async () => {
+      const response = await list({ 'cf.segment[contains]': 'Fleet' }).expect(
+        422,
+      );
+      expect(response.body.code).toBe('CUSTOM_FIELD_FILTER_INVALID');
+    });
+
+    it('returns only own-tenant matches when another tenant uses the same custom key and value', async () => {
+      const other = await createTestTenant(basePrisma, 'cust-cursor-other');
+      const otherPrisma = createTenantAwarePrisma(basePrisma, other.tenantId);
+      try {
+        await basePrisma.tenant.update({
+          where: { id: other.tenantId },
+          data: { custom_fields_enabled: true },
+        });
+        await otherPrisma.customFieldDefinition.create({
+          data: { ...segment, tenant_id: other.tenantId },
+        });
+        await otherPrisma.customer.create({
+          data: {
+            tenant_id: other.tenantId,
+            type: 'PRIVATE',
+            first_name: 'Other tenant',
+            last_name: 'Customer',
+            custom_fields: { segment: 'Fleet, regional' },
+          },
+        });
+        const page = await list({ 'cf.segment': 'Fleet, regional' }).expect(
+          200,
+        );
+        expect(names(page)).toEqual(['Segment 2', 'Segment 0']);
+      } finally {
+        await otherPrisma.customFieldDefinition.deleteMany({
+          where: { tenant_id: other.tenantId, key: segment.key },
+        });
+        await cleanupTestTenantGraph(otherPrisma, other.tenantId);
+      }
+    });
+  });
 
   // Regression: a local-time or second-precision cursor value skips or repeats rows that share a createdAt.
   it('customers_static_timestamp_roundtrip', async () => {

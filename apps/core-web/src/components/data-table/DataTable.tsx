@@ -27,6 +27,8 @@ function DataTableContent<TData extends object>({ props, url }: { props: DataTab
       dashboardSource={props.dashboardSource}
       enableCsvExport={props.enableCsvExport}
       csvFileName={props.csvFileName}
+      enableMobileCsvExport={props.enableMobileCsvExport}
+      toolbarFilters={props.toolbarFilters}
       emptyState={props.emptyState}
       onRetry={props.onRetry}
       onScopeRefresh={props.onScopeRefresh}

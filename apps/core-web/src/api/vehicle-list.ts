@@ -1,7 +1,7 @@
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { useCursorList } from './cursor-list'
+import { useCursorList, type CursorListQueryParams } from './cursor-list'
 import { useOffsetLatchPage } from './cursor-recovery'
-import { resolveListSearch } from './data-table-query'
+import { resolveCustomFieldCursorQuery, resolveListSearch } from './data-table-query'
 import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import { useVehicles, vehicleKeys, type VehicleListApiRow } from './vehicles'
 
@@ -14,30 +14,32 @@ function isVehicleCursorSort(sortField?: string): boolean {
   return sortField === undefined || Object.hasOwn(CURSOR_SORT_FIELDS, sortField)
 }
 
-function vehicleListFilters(queryParams: DataTableQueryParams) {
+function vehicleListFilters(queryParams: DataTableQueryParams, customFilters: CursorListQueryParams) {
   return {
+    ...customFilters,
     search: resolveListSearch(queryParams, VEHICLE_SEARCH_FILTER_FIELDS),
   }
 }
 
-function vehicleEpisodeKey(queryParams: DataTableQueryParams) {
-  const filters = vehicleListFilters(queryParams)
+function vehicleEpisodeKey(queryParams: DataTableQueryParams, customFilters: CursorListQueryParams) {
+  const filters = vehicleListFilters(queryParams, customFilters)
   return JSON.stringify({
+    ...customFilters,
     search: filters.search ?? '',
     sortField: queryParams.sortField ?? '',
     sortDirection: queryParams.sortDirection ?? '',
   })
 }
 
-function useVehicleCursorList(queryParams: DataTableQueryParams, enabled: boolean) {
-  const filters = vehicleListFilters(queryParams)
+function useVehicleCursorList(queryParams: DataTableQueryParams, customFilters: CursorListQueryParams, enabled: boolean) {
+  const filters = vehicleListFilters(queryParams, customFilters)
   const sortField = queryParams.sortField ? CURSOR_SORT_FIELDS[queryParams.sortField] : undefined
   const params = { ...filters, sortField, sortDirection: queryParams.sortDirection }
   return useCursorList<VehicleListApiRow>({
     enabled,
     path: '/api/vehicles',
     countPath: '/api/vehicles/capped-count',
-    semanticEpisodeKey: vehicleEpisodeKey(queryParams),
+    semanticEpisodeKey: vehicleEpisodeKey(queryParams, customFilters),
     listKey: vehicleKeys.cursorList(params),
     countKey: vehicleKeys.cappedCount(filters),
     params,
@@ -50,12 +52,14 @@ function useVehicleCursorList(queryParams: DataTableQueryParams, enabled: boolea
  * (blocks of 50, cap 2,000 rows, "1.000+" only when the count is capped); every other sort, and the
  * unsupported-sort latch, keeps offset pages.
  */
-export function useVehicleListState(queryParams: DataTableQueryParams) {
-  const sortEligible = isVehicleCursorSort(queryParams.sortField)
-  const cursorList = useVehicleCursorList(queryParams, sortEligible)
+export function useVehicleListState(queryParams: DataTableQueryParams, customFilters: CursorListQueryParams = {}) {
+  const hasCustomFilters = Object.keys(customFilters).length > 0
+  const cursorParams = resolveCustomFieldCursorQuery(queryParams, hasCustomFilters, isVehicleCursorSort)
+  const sortEligible = isVehicleCursorSort(cursorParams.sortField)
+  const cursorList = useVehicleCursorList(cursorParams, customFilters, sortEligible)
   const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
-  const infiniteMode = sortEligible && !offsetLatched
-  const episodeKey = vehicleEpisodeKey(queryParams)
+  const infiniteMode = sortEligible && (!offsetLatched || hasCustomFilters)
+  const episodeKey = vehicleEpisodeKey(queryParams, customFilters)
   const offset = useOffsetLatchPage(episodeKey, offsetLatched, queryParams.page)
   const scope = useOffsetScopeGate(vehicleKeys.lists())
   const offsetList = useVehicles(
