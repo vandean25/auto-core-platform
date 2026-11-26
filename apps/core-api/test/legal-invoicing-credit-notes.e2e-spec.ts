@@ -549,6 +549,30 @@ describe('Legal invoicing credit notes (e2e)', () => {
     }
   });
 
+  it('AUT-1068: rejects creating a credit note on date-only lock_date (UTC midnight) with FISCAL_PERIOD_LOCKED', async () => {
+    const invoice = await finalizeSalesInvoice();
+
+    await tenantPrisma.financeSettings.updateMany({
+      where: { tenant_id: tenant.tenantId },
+      data: { lock_date: new Date('2026-09-21T00:00:00.000Z') },
+    });
+
+    try {
+      const locked = await createDraftCredit(invoice.id, {
+        date: '2026-09-21',
+        reason: 'On date-only lock_date',
+        mode: 'FULL',
+      }).expect(422);
+
+      expect(locked.body.code).toBe('FISCAL_PERIOD_LOCKED');
+    } finally {
+      await tenantPrisma.financeSettings.updateMany({
+        where: { tenant_id: tenant.tenantId },
+        data: { lock_date: null },
+      });
+    }
+  });
+
   it('LI-10/LI-11: rejects ineligible originals and leaves inventory unchanged', async () => {
     const finalized = await finalizeSalesInvoice();
     const stockBefore = await tenantPrisma.inventoryStock.findMany({
@@ -1036,6 +1060,12 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(invoiceSnapshot.due_date).toBe('2027-01-15');
     expect(invoiceSnapshot.supply_date_from).toBe('2027-01-01');
     expect(invoiceSnapshot.supply_date_to).toBe('2027-01-01');
+    expect(storedInvoice.supply_date_from?.toISOString().slice(0, 10)).toBe(
+      '2027-01-01',
+    );
+    expect(storedInvoice.supply_date_to?.toISOString().slice(0, 10)).toBe(
+      '2027-01-01',
+    );
 
     // A credit date on the UTC previous day (2026-12-31) is before the Vienna invoice day (2027-01-01)
     await createDraftCredit(invoice.id, {
@@ -1242,5 +1272,46 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(cnSnapshot.due_date).toBe('2026-12-31');
     expect(cnSnapshot.original_document.date).toBe('2026-12-31');
     expect(cnSnapshot.original_document.number).toBe('RE-2026-9901');
+
+    const preChangeCreditableInvoice = await finalizeSalesInvoice(
+      2,
+      50,
+      1,
+      preChangeInstant,
+    );
+    const storedCreditable = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: preChangeCreditableInvoice.id },
+    });
+    const creditableSnapshot = storedCreditable.snapshot as Record<
+      string,
+      unknown
+    >;
+    await tenantPrisma.invoice.update({
+      where: { id: preChangeCreditableInvoice.id },
+      data: {
+        snapshot: {
+          ...creditableSnapshot,
+          date: '2026-12-31',
+          supply_date_from: '2026-12-31',
+          supply_date_to: '2026-12-31',
+        },
+      },
+    });
+
+    await createDraftCredit(preChangeCreditableInvoice.id, {
+      date: '2026-12-30',
+      reason: 'Before stored UTC snapshot day',
+      mode: 'FULL',
+    }).expect(400);
+
+    const creditOnSnapshotDay = await createDraftCredit(
+      preChangeCreditableInvoice.id,
+      {
+        date: '2026-12-31',
+        reason: 'Credit on stored UTC snapshot day',
+        mode: 'FULL',
+      },
+    ).expect(201);
+    expect(creditOnSnapshotDay.body.date).toBe('2026-12-31');
   });
 });

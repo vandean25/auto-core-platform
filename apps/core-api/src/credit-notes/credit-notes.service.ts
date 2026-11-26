@@ -133,7 +133,7 @@ export class CreditNotesService {
         tx,
         tenantId,
         creditDate,
-        invoice.date,
+        originalSnapshot.date,
         timeZone,
       );
 
@@ -387,7 +387,7 @@ export class CreditNotesService {
         tx,
         tenantId,
         nextDate,
-        invoice.date,
+        originalSnapshot.date,
         timeZone,
       );
 
@@ -500,10 +500,11 @@ export class CreditNotesService {
           tenantId,
           creditNote.site_id,
         );
-        await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditNote.date);
-        this.assertCreditDateNotBeforeOriginal(
+        await this.assertCreditDatesAllowed(
+          tx,
+          tenantId,
           creditNote.date,
-          invoice.date,
+          originalSnapshot.date,
           siteTimeZone,
         );
 
@@ -768,25 +769,23 @@ export class CreditNotesService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     creditDate: Date,
-    originalInvoiceDate: Date,
+    originalSnapshotDate: string,
     timeZone: string,
   ): Promise<void> {
-    this.assertCreditDateNotBeforeOriginal(
-      creditDate,
-      originalInvoiceDate,
-      timeZone,
+    const creditDay = calendarDateInTimeZone(creditDate, timeZone);
+    this.assertCreditDateNotBeforeOriginal(creditDay, originalSnapshotDate);
+    await lockFinanceSettingsAndAssertOpen(
+      tx,
+      tenantId,
+      new Date(`${creditDay}T00:00:00.000Z`),
     );
-    await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditDate);
   }
 
   private assertCreditDateNotBeforeOriginal(
-    creditDate: Date,
-    originalInvoiceDate: Date,
-    timeZone: string,
+    creditDay: string,
+    originalSnapshotDate: string,
   ) {
-    const creditDay = calendarDateInTimeZone(creditDate, timeZone);
-    const originalDay = calendarDateInTimeZone(originalInvoiceDate, timeZone);
-    if (creditDay < originalDay) {
+    if (creditDay < originalSnapshotDate) {
       throw new BadRequestException(
         'Credit date cannot be earlier than the original invoice date.',
       );

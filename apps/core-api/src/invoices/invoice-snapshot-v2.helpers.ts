@@ -890,11 +890,12 @@ export function computeInvoiceDates(
   supplyTo: Date;
   dueDate: Date;
 } {
-  const supplyFrom = invoice.supply_date_from ?? invoice.date;
-  const supplyTo = invoice.supply_date_to ?? supplyFrom;
   const invoiceDay = calendarDateInTimeZone(invoice.date, timeZone);
+  // Noon UTC maps to the exact same calendar day in every timezone from UTC-11 to UTC+11.
+  const defaultSupplyDate = new Date(`${invoiceDay}T12:00:00.000Z`);
+  const supplyFrom = invoice.supply_date_from ?? defaultSupplyDate;
+  const supplyTo = invoice.supply_date_to ?? supplyFrom;
   const dueDay = addCalendarDays(invoiceDay, paymentDays);
-  // Noon UTC maps to the exact same calendar day in every timezone from UTC-11 to UTC+12.
   const dueDate = new Date(`${dueDay}T12:00:00.000Z`);
   return { supplyFrom, supplyTo, dueDate };
 }

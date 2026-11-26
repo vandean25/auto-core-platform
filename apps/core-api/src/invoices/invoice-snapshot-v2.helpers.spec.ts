@@ -601,5 +601,21 @@ describe('invoice-snapshot-v2.helpers', () => {
       }).format(dueDate);
       expect(viennaDueDay).toBe('2026-11-08');
     });
+
+    it('normalizes default supplyFrom and supplyTo to noon UTC of the Vienna calendar day', () => {
+      // 2027-01-01 00:30 CET (UTC+1) = 2026-12-31T23:30:00.000Z
+      const { supplyFrom, supplyTo, dueDate } = computeInvoiceDates(
+        {
+          date: new Date('2026-12-31T23:30:00.000Z'),
+          supply_date_from: null,
+          supply_date_to: null,
+        },
+        14,
+        'Europe/Vienna',
+      );
+      expect(supplyFrom.toISOString()).toBe('2027-01-01T12:00:00.000Z');
+      expect(supplyTo.toISOString()).toBe('2027-01-01T12:00:00.000Z');
+      expect(dueDate.toISOString()).toBe('2027-01-15T12:00:00.000Z');
+    });
   });
 });
