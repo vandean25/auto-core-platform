@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import type { BankTransaction } from '@prisma/client';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
-import { bankOutstanding } from './bank-outstanding.js';
+import { computeInvoiceBalance } from '../finance/receivables/invoice-balance.js';
 
 type Access = { tenantId: string; userId: string; siteIds: string[] };
 type Database = Prisma.TransactionClient;
@@ -114,22 +114,23 @@ export function loadBankInvoices(
 
 export type BankInvoice = Awaited<ReturnType<typeof loadBankInvoices>>[number];
 
+function toBalanceInput(invoice: BankInvoice) {
+  return {
+    total_gross: invoice.total_gross,
+    payments: invoice.payments,
+    credit_notes: invoice.credit_notes.map(({ total_gross }) => ({
+      status: CreditNoteStatus.FINALIZED,
+      total_gross,
+    })),
+  };
+}
+
 export function outstanding(invoice: BankInvoice, excludePayment?: string) {
-  return bankOutstanding(
-    invoice.total_gross,
-    invoice.credit_notes.map((credit) => credit.total_gross),
-    invoice.payments
-      .filter(
-        (payment) =>
-          payment.id !== excludePayment &&
-          SETTLED.some((status) => status === payment.status),
-      )
-      .map((payment) => payment.amount),
-  );
+  return computeInvoiceBalance(toBalanceInput(invoice), {
+    excludePaymentId: excludePayment,
+  }).outstanding;
 }
 
 export function hasPendingSettlement(invoice: BankInvoice): boolean {
-  return invoice.payments.some((payment) =>
-    PENDING.some((status) => status === payment.status),
-  );
+  return computeInvoiceBalance(toBalanceInput(invoice)).pending.gt(0);
 }
