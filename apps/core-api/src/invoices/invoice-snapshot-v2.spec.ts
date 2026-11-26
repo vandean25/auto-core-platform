@@ -7,7 +7,10 @@ import {
   Prisma,
   RksvMode,
 } from '@prisma/client';
-import { buildInvoiceSnapshotV2 } from './invoice-snapshot-v2.js';
+import {
+  buildInvoiceSnapshotV2,
+  computeStandardInvoiceTotals,
+} from './invoice-snapshot-v2.js';
 import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 import { customerRow } from './invoice-fixtures.spec.support.js';
 import type { ResolvedAccountingAllocation } from '../finance/accounting-profile/accounting-profile.types.js';
@@ -237,6 +240,135 @@ describe('buildInvoiceSnapshotV2', () => {
     expect(snapshot.tax_breakdown).toEqual([
       { rate: '20.00', net: '81.00', tax: '16.20', gross: '97.20' },
     ]);
+  });
+
+  // AUT-1087 Scenario 1: 3 lines at 20% whose per-line rounded VAT differs from per-rate VAT by >= 0.01 EUR
+  it('AUT-1087 S1: computes VAT per tax rate on summed net (half-up) and keeps line VAT informational', () => {
+    const lineAllocations = [
+      buildLineAllocation({
+        id: 'line-1',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-2',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-3',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+    ];
+
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: buildInvoice(),
+      seller,
+      siteId: 'site-1',
+      legalEntityId: seller.id,
+      lineAllocations,
+    });
+
+    // Informational line VAT: 10.02 * 20% = 2.004 -> 2.00 per line (sum 6.00)
+    expect(snapshot.items.map((item) => item.tax)).toEqual([
+      '2.00',
+      '2.00',
+      '2.00',
+    ]);
+    // Per-rate VAT: half-up(30.06 * 20%) = half-up(6.012) = 6.01
+    expect(snapshot.tax_breakdown).toEqual([
+      { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+    ]);
+    expect(snapshot.total_net).toBe('30.06');
+    expect(snapshot.total_tax).toBe('6.01');
+    expect(snapshot.total_gross).toBe('36.07');
+
+    const totals = computeStandardInvoiceTotals(lineAllocations);
+    expect(totals.totalNet.toFixed(2)).toBe('30.06');
+    expect(totals.totalTax.toFixed(2)).toBe('6.01');
+    expect(totals.totalGross.toFixed(2)).toBe('36.07');
+  });
+
+  // AUT-1087 Scenario 2: lines at 20% and 10% produce one row per rate and VAT total is their sum
+  it('AUT-1087 S2: computes per-rate tax_breakdown for 20% and 10% and sums rate taxes', () => {
+    const lineAllocations = [
+      buildLineAllocation({
+        id: 'line-20-1',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-20-2',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-20-3',
+        unitPrice: new Prisma.Decimal('10.02'),
+        taxRate: new Prisma.Decimal('20.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-10-1',
+        unitPrice: new Prisma.Decimal('10.04'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-10-2',
+        unitPrice: new Prisma.Decimal('10.04'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-10-3',
+        unitPrice: new Prisma.Decimal('10.04'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+    ];
+
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: buildInvoice(),
+      seller,
+      siteId: 'site-1',
+      legalEntityId: seller.id,
+      lineAllocations,
+    });
+
+    expect(snapshot.tax_breakdown).toEqual([
+      { rate: '10.00', net: '30.12', tax: '3.01', gross: '33.13' },
+      { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+    ]);
+    expect(snapshot.total_net).toBe('60.18');
+    expect(snapshot.total_tax).toBe('9.02');
+    expect(snapshot.total_gross).toBe('69.20');
+  });
+
+  // AUT-1087 Anti-criterion 1: Decimal arithmetic only, no float rounding drift (1.005 * 100 = 100.49999999999999 in IEEE 754)
+  it('AUT-1087 Anti-criterion 1: uses exact Decimal half-up rounding where binary float fails', () => {
+    const lineAllocations = [
+      buildLineAllocation({
+        id: 'line-float-1',
+        quantity: new Prisma.Decimal('1.000'),
+        unitPrice: new Prisma.Decimal('3.35'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-float-2',
+        quantity: new Prisma.Decimal('1.000'),
+        unitPrice: new Prisma.Decimal('3.35'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+      buildLineAllocation({
+        id: 'line-float-3',
+        quantity: new Prisma.Decimal('1.000'),
+        unitPrice: new Prisma.Decimal('3.35'),
+        taxRate: new Prisma.Decimal('10.00'),
+      }),
+    ];
+
+    // Combined net = 10.05 -> 10% = 1.005 -> Decimal half-up = 1.01 (float Math.round gives 1.00)
+    const totals = computeStandardInvoiceTotals(lineAllocations);
+    expect(totals.totalNet.toFixed(2)).toBe('10.05');
+    expect(totals.totalTax.toFixed(2)).toBe('1.01');
   });
 
   it('freezes margin metadata without exposing it in customer-facing item fields', () => {

@@ -295,23 +295,24 @@ export function computeStandardInvoiceTotals(
     globalDiscountType,
     globalDiscountValue,
   );
-  let totalNet = new Prisma.Decimal(0);
-  let totalTax = new Prisma.Decimal(0);
-  let totalGross = new Prisma.Decimal(0);
+  const netByRate = new Map<string, Prisma.Decimal>();
   for (const line of lines) {
     const entry = amounts.get(line.id);
     if (!entry) continue;
-    totalNet = totalNet.add(
-      entry.net.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-    );
-    totalTax = totalTax.add(
-      entry.tax.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-    );
-    totalGross = totalGross.add(
-      entry.gross.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    const rateKey = moneyString(line.taxRate);
+    const lineNet = entry.net.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    netByRate.set(
+      rateKey,
+      (netByRate.get(rateKey) ?? new Prisma.Decimal(0)).add(lineNet),
     );
   }
-  return { totalNet, totalTax, totalGross };
+  let totalNet = new Prisma.Decimal(0);
+  let totalTax = new Prisma.Decimal(0);
+  for (const [rate, rateNet] of netByRate.entries()) {
+    totalNet = totalNet.add(rateNet);
+    totalTax = totalTax.add(halfUpTax(rateNet, toMoney(rate)));
+  }
+  return { totalNet, totalTax, totalGross: totalNet.add(totalTax) };
 }
 
 function allocateGlobalDiscount(
@@ -394,31 +395,29 @@ function buildTaxBreakdown(
   items: Array<{
     taxRate: Prisma.Decimal;
     net: Prisma.Decimal;
-    tax: Prisma.Decimal;
-    gross: Prisma.Decimal;
   }>,
 ): InvoiceSnapshotV2TaxBucket[] {
-  const buckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
+  const netByRate = new Map<string, Prisma.Decimal>();
 
   for (const item of items) {
     const rate = moneyString(item.taxRate);
-    const existing = buckets.get(rate) ?? {
+    netByRate.set(
       rate,
-      net: '0.00',
-      tax: '0.00',
-      gross: '0.00',
-    };
-    buckets.set(rate, {
-      rate,
-      net: moneyString(toMoney(existing.net).add(item.net)),
-      tax: moneyString(toMoney(existing.tax).add(item.tax)),
-      gross: moneyString(toMoney(existing.gross).add(item.gross)),
-    });
+      (netByRate.get(rate) ?? new Prisma.Decimal(0)).add(item.net),
+    );
   }
 
-  return [...buckets.values()].sort((left, right) =>
-    toMoney(left.rate).comparedTo(toMoney(right.rate)),
-  );
+  return [...netByRate.entries()]
+    .sort(([left], [right]) => toMoney(left).comparedTo(toMoney(right)))
+    .map(([rate, net]) => {
+      const tax = halfUpTax(net, toMoney(rate));
+      return {
+        rate,
+        net: moneyString(net),
+        tax: moneyString(tax),
+        gross: moneyString(net.add(tax)),
+      };
+    });
 }
 
 export function buildSellerSnapshot(
@@ -511,24 +510,29 @@ export function buildInvoiceSnapshotV2(
   });
 
   const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const taxBreakdown = isMarginScheme
+    ? []
+    : buildTaxBreakdown(
+        snapshotItems.map((item) => ({
+          taxRate: toMoney(item.tax_rate),
+          net: toMoney(item.net),
+        })),
+      );
   const totalNet = isMarginScheme
     ? toMoney(invoice.total_gross)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.net)),
+    : taxBreakdown.reduce(
+        (sum, bucket) => sum.add(toMoney(bucket.net)),
         new Prisma.Decimal(0),
       );
   const totalTax = isMarginScheme
     ? new Prisma.Decimal(0)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.tax)),
+    : taxBreakdown.reduce(
+        (sum, bucket) => sum.add(toMoney(bucket.tax)),
         new Prisma.Decimal(0),
       );
   const totalGross = isMarginScheme
     ? toMoney(invoice.total_gross)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.gross)),
-        new Prisma.Decimal(0),
-      );
+    : totalNet.add(totalTax);
 
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
@@ -583,16 +587,7 @@ export function buildInvoiceSnapshotV2(
       text: seller.payment_terms_text ?? '',
     },
     items: snapshotItems,
-    tax_breakdown: isMarginScheme
-      ? []
-      : buildTaxBreakdown(
-          snapshotItems.map((item) => ({
-            taxRate: toMoney(item.tax_rate),
-            net: toMoney(item.net),
-            tax: toMoney(item.tax),
-            gross: toMoney(item.gross),
-          })),
-        ),
+    tax_breakdown: taxBreakdown,
     ...(margin ? { margin } : {}),
     total_net: moneyString(totalNet),
     total_tax: moneyString(totalTax),

@@ -319,15 +319,15 @@ describe('invoice-creation.helpers', () => {
       expect(totals.total).toEqual(new Prisma.Decimal(0));
     });
 
-    it('Scenario 1: rounds tax half-up per line so 2 x 12.38 at 20% matches snapshot (24.76 / 4.96 / 29.72)', () => {
+    it('AUT-1087: rounds tax half-up per tax rate on summed net so 2 x 12.38 at 20% matches snapshot (24.76 / 4.95 / 29.71)', () => {
       const totals = calculateInvoiceTotals([
         { id: 'l1', quantity: 1, unit_price: 12.38, tax_rate: 20 },
         { id: 'l2', quantity: 1, unit_price: 12.38, tax_rate: 20 },
       ]);
 
       expect(totals.totalNet.toFixed(2)).toBe('24.76');
-      expect(totals.totalTax.toFixed(2)).toBe('4.96');
-      expect(totals.totalGross.toFixed(2)).toBe('29.72');
+      expect(totals.totalTax.toFixed(2)).toBe('4.95');
+      expect(totals.totalGross.toFixed(2)).toBe('29.71');
     });
 
     it('applies line and global discounts when calculating totals', () => {

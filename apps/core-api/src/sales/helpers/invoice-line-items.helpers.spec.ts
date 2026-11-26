@@ -99,8 +99,8 @@ describe('invoice-line-items.helpers', () => {
     ]);
 
     expect(result.totalNet.toFixed(2)).toBe('39.55');
-    expect(result.totalTax.toFixed(2)).toBe('7.92');
-    expect(result.totalGross.toFixed(2)).toBe('47.47');
+    expect(result.totalTax.toFixed(2)).toBe('7.91');
+    expect(result.totalGross.toFixed(2)).toBe('47.46');
   });
 
   it('passes workshopTaskLineItemId through to formatted invoice items', async () => {
