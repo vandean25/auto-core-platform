@@ -551,9 +551,8 @@ export class InventoryItemMutationsService {
     return site.legal_entity_id;
   }
 
-  private async resolveMemberAccess(
-    tenantId: string,
-  ): Promise<EffectiveAccess> {
+  /** The caller's effective permissions (resolver, else legacy role). Shared with AUT-1050. */
+  async resolveMemberAccess(tenantId: string): Promise<EffectiveAccess> {
     const authUser = this.tenantContext.getAuthenticatedUser();
     if (this.permissionResolver && authUser?.userId) {
       const resolved = await this.permissionResolver.resolve(authUser, {

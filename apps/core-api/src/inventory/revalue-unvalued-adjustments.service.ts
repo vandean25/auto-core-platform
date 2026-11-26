@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   AuditActorType,
   AuditLogAction,
@@ -66,10 +66,15 @@ export class RevalueUnvaluedAdjustmentsService {
 
   async run(dryRun: boolean): Promise<RevaluationReportDto> {
     const tenantId = await this.tenantContext.getTenantId();
+    const access = await this.mutations.resolveMemberAccess(tenantId);
+    if (!access.permissions.has('stock.adjust')) {
+      throw new ForbiddenException(
+        'Only OWNER or ADMIN can revalue stock corrections.',
+      );
+    }
     const siteIds = await this.siteContext.listAuthorizedSiteIds();
     const scope = {
       tenant_id: tenantId,
-      site_id: { in: siteIds },
       type: TransactionType.ADJUSTMENT,
       reference_id: MANUAL_ADJUSTMENT_REFERENCE,
       cost_basis: null,
@@ -77,12 +82,20 @@ export class RevalueUnvaluedAdjustmentsService {
     };
     const [pending, processed] = await Promise.all([
       this.prisma.inventoryTransaction.findMany({
-        where: { ...scope, reversed_by: { none: {} } },
+        where: {
+          ...scope,
+          site_id: { in: siteIds },
+          reversed_by: { none: {} },
+        },
         select: CANDIDATE_SELECT,
         orderBy: { seq: 'asc' },
       }),
       this.prisma.inventoryTransaction.findMany({
-        where: { ...scope, reversed_by: { some: {} } },
+        where: {
+          ...scope,
+          site_id: { in: siteIds },
+          reversed_by: { some: {} },
+        },
         select: { id: true, reversed_by: { select: { note: true } } },
         orderBy: { seq: 'asc' },
       }),
@@ -99,7 +112,7 @@ export class RevalueUnvaluedAdjustmentsService {
         dryRun
           ? this.planBatch(this.prisma, tenantId, batch)
           : this.prisma.$transaction(
-              (tx) => this.applyBatch(tx, tenantId, batch),
+              (tx) => this.applyBatch(tx, tenantId, siteIds, batch),
               BATCH_TRANSACTION_OPTIONS,
             ),
       1,
@@ -135,6 +148,7 @@ export class RevalueUnvaluedAdjustmentsService {
   private async applyBatch(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    siteIds: string[],
     batch: RevaluationCandidate[],
   ): Promise<BatchResult> {
     const { planned, gaps } = await this.planBatch(tx, tenantId, batch);
@@ -148,6 +162,7 @@ export class RevalueUnvaluedAdjustmentsService {
     const written = await tx.inventoryTransaction.findMany({
       where: {
         tenant_id: tenantId,
+        site_id: { in: siteIds },
         movement_group_id: { in: planned.map((p) => p.movementGroupId) },
       },
       select: {
