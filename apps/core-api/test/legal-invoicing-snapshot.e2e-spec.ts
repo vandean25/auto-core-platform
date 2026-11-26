@@ -762,7 +762,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       expect(invoiceAfter.status).toBe('DRAFT');
     } finally {
       await tenantPrisma.financeSettings.update({
-        where: { tenant_id: tenantId },
+        where: { tenant_id: tenant.tenantId },
         data: { lock_date: null },
       });
     }
