@@ -101,7 +101,7 @@ export function loadBankInvoices(
       credit_notes: {
         where: { ...ownership, status: CreditNoteStatus.FINALIZED },
         orderBy: { id: 'asc' },
-        select: { id: true, status: true, total_gross: true },
+        select: { id: true, total_gross: true },
       },
       payments: {
         where: { ...ownership, status: { in: [...SETTLED, ...PENDING] } },
@@ -114,12 +114,23 @@ export function loadBankInvoices(
 
 export type BankInvoice = Awaited<ReturnType<typeof loadBankInvoices>>[number];
 
+function toBalanceInput(invoice: BankInvoice) {
+  return {
+    total_gross: invoice.total_gross,
+    payments: invoice.payments,
+    credit_notes: invoice.credit_notes.map(({ total_gross }) => ({
+      status: CreditNoteStatus.FINALIZED,
+      total_gross,
+    })),
+  };
+}
+
 export function outstanding(invoice: BankInvoice, excludePayment?: string) {
-  return computeInvoiceBalance(invoice, {
+  return computeInvoiceBalance(toBalanceInput(invoice), {
     excludePaymentId: excludePayment,
   }).outstanding;
 }
 
 export function hasPendingSettlement(invoice: BankInvoice): boolean {
-  return computeInvoiceBalance(invoice).pending.gt(0);
+  return computeInvoiceBalance(toBalanceInput(invoice)).pending.gt(0);
 }
