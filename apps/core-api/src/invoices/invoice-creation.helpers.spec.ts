@@ -405,15 +405,15 @@ describe('invoice-creation.helpers', () => {
         }));
 
         const draftLine = buildDraftInvoiceLineItem(lines[0], 0, 'tenant-1');
-        expect(new Prisma.Decimal(draftLine.unit_price).toFixed(2)).toBe(
-          expectedUnitNet,
+        expect(draftLine.unit_price).toEqual(
+          new Prisma.Decimal(expectedUnitNet),
         );
 
         const totals = calculateInvoiceTotals(lines);
         expect(totals.totalNet.toFixed(2)).toBe(expectedNet);
         // Tax strictly equals half-up(summed net * rate); residual cent is never absorbed into tax
         expect(totals.totalTax.toFixed(2)).toBe(expectedTax);
-        expect(totals.roundingAmount.toFixed(2)).toBe(expectedRounding);
+        expect(totals.roundingAmount?.toFixed(2)).toBe(expectedRounding);
         expect(totals.totalGross.toFixed(2)).toBe(expectedGross);
       },
     );

@@ -73,7 +73,7 @@ export interface InvoiceTotals {
   totalNet: Prisma.Decimal;
   totalTax: Prisma.Decimal;
   totalGross: Prisma.Decimal;
-  roundingAmount: Prisma.Decimal;
+  roundingAmount?: Prisma.Decimal;
 }
 
 export function validateCustomerAddress(
