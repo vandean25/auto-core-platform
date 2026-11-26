@@ -105,7 +105,7 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
   const pageButtons = (page: Page) => page.getByRole('button', { name: dataTable.next, exact: true });
 
   // Scenario 1: the next block loads from scrolling alone; page buttons are only there for the "all statuses" offset list.
-  test('WHEN the vehicle list is scrolled to the end of the first block THEN the next block loads without page buttons', async ({ page }) => {
+  test('WHEN the vehicle list is scrolled to the end of the first block THEN the next block loads without page buttons', async ({ page }, testInfo) => {
     const requests = await mockCursorList(page, { path: '/api/vehicle-stock', rows: stockRows });
     await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate('/vehicle-stock');
 
@@ -128,6 +128,13 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       await region.evaluate((element) => element.scrollTo(0, element.scrollHeight));
       expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
     }).toPass();
+    await expect(page.getByText(/Marke0(?:5\d|6\d|7\d|8\d|9\d)/).first()).toBeVisible();
+    await expect(pageButtons(page)).toHaveCount(0);
+    await testInfo.attach('aut890-vehicle-stock-infinite-next-block-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
     await expect(async () => {
       await region.evaluate((element) => element.scrollTo(0, element.scrollHeight));
       await expect(page.getByText('Marke119')).toBeVisible({ timeout: 500 });
@@ -141,7 +148,7 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
   test.describe('at 375px', () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
-    test('WHEN the viewport is 375px THEN the cards virtualize with variable heights and stay at least 44px tappable', async ({ page }) => {
+    test('WHEN the viewport is 375px THEN the cards virtualize with variable heights and stay at least 44px tappable', async ({ page }, testInfo) => {
       const requests = await mockCursorList(page, { path: '/api/vehicle-stock', rows: stockRows });
       await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate('/vehicle-stock?filter_stock_status=IN_STOCK');
 
@@ -150,9 +157,27 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       await expect(page.locator('table')).toHaveCount(0);
 
       // 50 rows are loaded; only the cards around the viewport are in the DOM.
+      const initialRendered = await cards.count();
+      expect(initialRendered).toBeGreaterThan(3);
+      expect(initialRendered).toBeLessThan(50);
+
+      // The status select is the only way to reach the infinite list: it is a touch target too.
+      const statusSelect = page.getByRole('combobox', { name: DE_VEHICLE_STOCK.stockList.statusFilterAria });
+      const selectBox = await statusSelect.boundingBox();
+      expect(selectBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect((selectBox?.x ?? 0) + (selectBox?.width ?? 0)).toBeLessThanOrEqual(375);
+
+      // Scrolling the page loads the next block and still renders only a window of the cards.
+      const loadMore = page.getByRole('button', { name: dataTable.infinite.loadMore });
+      const loadMoreBox = await loadMore.boundingBox();
+      expect(loadMoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
+      }).toPass();
+      await expect.poll(() => cards.count()).toBeLessThan(50);
       const rendered = await cards.count();
       expect(rendered).toBeGreaterThan(3);
-      expect(rendered).toBeLessThan(50);
 
       const boxes = await cards.evaluateAll((nodes) =>
         nodes.map((node) => {
@@ -168,22 +193,42 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       }
       expect(await pageOverflow(page)).toBe(0);
 
-      // The status select is the only way to reach the infinite list: it is a touch target too.
-      const statusSelect = page.getByRole('combobox', { name: DE_VEHICLE_STOCK.stockList.statusFilterAria });
-      const selectBox = await statusSelect.boundingBox();
-      expect(selectBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-      expect((selectBox?.x ?? 0) + (selectBox?.width ?? 0)).toBeLessThanOrEqual(375);
+      await testInfo.attach('aut890-vehicle-stock-virtualized-cards-metrics-de-375', {
+        body: JSON.stringify({ totalRows: stockRows.length, renderedRows: rendered, minimumTapHeight: Math.min(...boxes.map((box) => box.tapHeight)), minimumTapWidth: Math.min(...boxes.map((box) => box.tapWidth)) }, null, 2),
+        contentType: 'application/json',
+      });
+      await testInfo.attach('aut890-vehicle-stock-virtualized-cards-de-375', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
 
-      // Scrolling the page loads the next block and still renders only a window of the cards.
+    test('WHEN the viewport is 375px on stock_status sort THEN the next block loads without page buttons', async ({ page }, testInfo) => {
+      const requests = await mockCursorList(page, { path: '/api/vehicle-stock', rows: stockRows });
+      await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate(
+        '/vehicle-stock?filter_stock_status=IN_STOCK&sortField=stock_status&sortDirection=asc',
+      );
+
+      await expect(page.locator('li[data-table-row="true"]').first()).toBeVisible();
+      await expect(pageButtons(page)).toHaveCount(0);
+      expect(
+        requests.list.some(
+          (url) =>
+            url.searchParams.get('pagination') === 'cursor' &&
+            url.searchParams.get('sortField') === 'stock_status',
+        ),
+      ).toBe(true);
+
       await expect(async () => {
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
         expect(requests.list.some((url) => url.searchParams.get('cursor') === 'offset:50')).toBe(true);
       }).toPass();
-      expect(await cards.count()).toBeLessThan(50);
+      await expect(pageButtons(page)).toHaveCount(0);
 
-      const loadMore = page.getByRole('button', { name: dataTable.infinite.loadMore });
-      const loadMoreBox = await loadMore.boundingBox();
-      expect(loadMoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await testInfo.attach('vehicle-stock-status-sort-infinite-de-375', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
     });
   });
 
