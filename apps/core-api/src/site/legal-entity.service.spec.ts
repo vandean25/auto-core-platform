@@ -112,5 +112,46 @@ describe('LegalEntityService rksvMode guard (AUT-1071)', () => {
       }),
     );
   });
+
+  it('allows updating other seller fields when stored rksv_mode is already REQUIRED_ACP_RKSV', async () => {
+    const alreadyAcpEntity = {
+      ...existingEntity,
+      rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+    };
+    const update = jest.fn().mockResolvedValue({
+      ...alreadyAcpEntity,
+      address_street: 'Neuer Weg 2',
+    });
+    const prisma = {
+      legalEntity: {
+        findFirst: jest.fn().mockResolvedValue(alreadyAcpEntity),
+      },
+      $transaction: jest.fn(
+        async (cb: (tx: unknown) => Promise<unknown>) =>
+          cb({ legalEntity: { update } }),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+      getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+    } as unknown as TenantContextService;
+    const service = new LegalEntityService(prisma, tenantContext);
+
+    const result = await service.updateLegalEntity('entity-1', {
+      rksvMode: RksvMode.REQUIRED_ACP_RKSV,
+      addressStreet: 'Neuer Weg 2',
+    });
+
+    expect(result.rksv_mode).toBe(RksvMode.REQUIRED_ACP_RKSV);
+    expect(result.address_street).toBe('Neuer Weg 2');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          address_street: 'Neuer Weg 2',
+          rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+        }),
+      }),
+    );
+  });
 });
 

@@ -94,6 +94,7 @@ export class LegalEntityService {
 
     if (
       dto.rksvMode === RksvMode.REQUIRED_ACP_RKSV &&
+      existing.rksv_mode !== RksvMode.REQUIRED_ACP_RKSV &&
       !isAcpRksvLiveConfigured()
     ) {
       throw new UnprocessableEntityException({

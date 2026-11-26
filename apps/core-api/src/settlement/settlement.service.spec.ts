@@ -804,5 +804,171 @@ describe('SettlementService', () => {
     });
     expect(transactionMock).not.toHaveBeenCalled();
   });
+
+  it('rejects cancelFiscalReceipt with ACP_RKSV_UNAVAILABLE, writes no receipt, and does not call provider when live signing is off', async () => {
+    const transactionMock = jest.fn();
+    const prisma = {
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'tm-1', role: 'OWNER' }),
+      },
+      siteMembership: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+      },
+      site: {
+        findFirst: jest.fn().mockResolvedValue({ id: siteId }),
+      },
+      fiscalReceipt: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'fr-1',
+            tenant_id: tenantId,
+            payment_id: 'pay-1',
+            fiscal_register_id: 'reg-1',
+            provider_receipt_id: 'prov-fr-1',
+            receipt_type: FiscalReceiptType.NORMAL,
+            state: FiscalReceiptState.SIGNED,
+            payment: {
+              id: 'pay-1',
+              invoice_id: invoiceId,
+              amount: new Prisma.Decimal('120.00'),
+              method: 'CASH',
+              invoice: {
+                id: invoiceId,
+                site_id: siteId,
+                legal_entity_id: 'le-1',
+                invoice_number: 'RE-2026-0001',
+                date: new Date('2026-09-01T10:00:00.000Z'),
+              },
+              fiscal_receipts: [],
+            },
+            fiscal_register: {
+              id: 'reg-1',
+              tenant_id: tenantId,
+              site_id: siteId,
+              legal_entity_id: 'le-1',
+              provider_state: 'INITIALIZED',
+              provider_cash_register_id: 'cash-reg-1',
+              env: 'TEST',
+            },
+          })
+          .mockResolvedValueOnce(null),
+      },
+      invoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: invoiceId,
+          tenant_id: tenantId,
+          site_id: siteId,
+          legal_entity_id: 'le-1',
+          workshop_order_id: 'wo-1',
+          sales_order_id: null,
+          is_credit_note: false,
+          tax_mode: 'STANDARD',
+          status: 'PAID',
+          total_gross: new Prisma.Decimal('120.00'),
+          currency: 'EUR',
+          date: new Date('2026-09-01T10:00:00.000Z'),
+        }),
+      },
+      legalEntity: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'le-1',
+          rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+        }),
+      },
+      $transaction: transactionMock,
+    } as unknown as PrismaService;
+    const provider = new FiskalySignAtHttpAdapter(null, false);
+    const signSpy = jest.spyOn(provider, 'signReceipt');
+    const retrieveSpy = jest.spyOn(provider, 'retrieveReceipt');
+    const { service } = createService(prisma, { provider });
+
+    await expect(
+      service.cancelFiscalReceipt('fr-1', {
+        idempotencyKey: '00000000-0000-4000-8000-0000000000c6',
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: expect.objectContaining({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+      }),
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(signSpy).not.toHaveBeenCalled();
+    expect(retrieveSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects reconcileSettlement with ACP_RKSV_UNAVAILABLE and does not call provider when live signing is off', async () => {
+    const transactionMock = jest.fn();
+    const prisma = {
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'tm-1', role: 'OWNER' }),
+      },
+      siteMembership: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+      },
+      site: {
+        findFirst: jest.fn().mockResolvedValue({ id: siteId }),
+      },
+      invoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: invoiceId,
+          tenant_id: tenantId,
+          site_id: siteId,
+          legal_entity_id: 'le-1',
+          workshop_order_id: 'wo-1',
+          sales_order_id: null,
+          is_credit_note: false,
+          tax_mode: 'STANDARD',
+          status: 'ISSUED',
+          total_gross: new Prisma.Decimal('120.00'),
+          currency: 'EUR',
+          date: new Date('2026-09-01T10:00:00.000Z'),
+        }),
+      },
+      legalEntity: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'le-1',
+          rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+        }),
+      },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'pay-1',
+          tenant_id: tenantId,
+          invoice_id: invoiceId,
+          fiscal_receipts: [
+            {
+              id: 'fr-open',
+              provider_receipt_id: 'prov-fr-open',
+              request_body: {},
+              fiscal_register_id: 'reg-1',
+              receipt_type: FiscalReceiptType.NORMAL,
+              state: FiscalReceiptState.PENDING,
+            },
+          ],
+        }),
+      },
+      $transaction: transactionMock,
+    } as unknown as PrismaService;
+    const provider = new FiskalySignAtHttpAdapter(null, false);
+    const signSpy = jest.spyOn(provider, 'signReceipt');
+    const retrieveSpy = jest.spyOn(provider, 'retrieveReceipt');
+    const { service } = createService(prisma, { provider });
+
+    await expect(
+      service.reconcileSettlement(invoiceId, {
+        idempotencyKey: '00000000-0000-4000-8000-0000000000c7',
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: expect.objectContaining({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+      }),
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(signSpy).not.toHaveBeenCalled();
+    expect(retrieveSpy).not.toHaveBeenCalled();
+  });
 });
 

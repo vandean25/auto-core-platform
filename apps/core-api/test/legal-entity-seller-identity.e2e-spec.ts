@@ -225,5 +225,30 @@ describe('Legal entity seller identity (e2e)', () => {
 
     expect(response.body.rksv_mode).toBe(mode);
   });
+
+  it('allows PATCH of other seller fields when stored rksv_mode is already REQUIRED_ACP_RKSV', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: 'Stored ACP RKSV GmbH',
+        country_iso: 'AT',
+        is_active: true,
+        rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        rksvMode: RksvMode.REQUIRED_ACP_RKSV,
+        addressStreet: 'Ringstraße 10',
+      })
+      .expect(200);
+
+    expect(response.body.rksv_mode).toBe(RksvMode.REQUIRED_ACP_RKSV);
+    expect(response.body.address_street).toBe('Ringstraße 10');
+  });
 });
 

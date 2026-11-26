@@ -415,6 +415,8 @@ export class SettlementService {
       });
     }
 
+    this.assertAcpRksvLiveAvailable();
+
     const providerReceiptId = randomUUID();
     const requestBody = buildCancellationSignRequestBody({
       invoiceId: original.payment.invoice_id,
@@ -591,15 +593,7 @@ export class SettlementService {
     recordedByUserId: string;
     rksvMode: RksvMode;
   }) {
-    if (
-      this.fiskalyProvider instanceof FiskalySignAtHttpAdapter &&
-      !this.fiskalyProvider.isLiveConfigured()
-    ) {
-      throw new UnprocessableEntityException({
-        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
-        message: 'ACP RKSV live signing is not configured in this environment.',
-      });
-    }
+    this.assertAcpRksvLiveAvailable();
 
     if (params.dto.externalReceiptNumber || params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
@@ -845,6 +839,18 @@ export class SettlementService {
     });
   }
 
+  private assertAcpRksvLiveAvailable(): void {
+    if (
+      this.fiskalyProvider instanceof FiskalySignAtHttpAdapter &&
+      !this.fiskalyProvider.isLiveConfigured()
+    ) {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+        message: 'ACP RKSV live signing is not configured in this environment.',
+      });
+    }
+  }
+
   private async syncOpenFiscalReceipt(
     tenantId: string,
     siteId: string,
@@ -858,6 +864,7 @@ export class SettlementService {
       receipt_type: FiscalReceiptType;
     },
   ) {
+    this.assertAcpRksvLiveAvailable();
     const register = await this.prisma.fiscalRegister.findFirst({
       where: { id: fiscalReceipt.fiscal_register_id, tenant_id: tenantId },
     });
