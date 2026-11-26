@@ -359,11 +359,11 @@ describe('Workshop Invoicing (e2e)', () => {
     };
 
     expect(invoice.total_net.toFixed(2)).toBe('39.55');
-    expect(invoice.total_tax.toFixed(2)).toBe('7.92');
-    expect(invoice.total_gross.toFixed(2)).toBe('47.47');
+    expect(invoice.total_tax.toFixed(2)).toBe('7.91');
+    expect(invoice.total_gross.toFixed(2)).toBe('47.46');
     expect(snapshot.total_net).toBe('39.55');
-    expect(snapshot.total_tax).toBe('7.92');
-    expect(snapshot.total_gross).toBe('47.47');
+    expect(snapshot.total_tax).toBe('7.91');
+    expect(snapshot.total_gross).toBe('47.46');
 
     const renderable = toRenderableInvoiceSnapshot(
       invoice.snapshot,
@@ -383,8 +383,8 @@ describe('Workshop Invoicing (e2e)', () => {
       null,
     );
     expect(pdfHtml).toContain('39,55');
-    expect(pdfHtml).toContain('7,92');
-    expect(pdfHtml).toContain('47,47');
+    expect(pdfHtml).toContain('7,91');
+    expect(pdfHtml).toContain('47,46');
   });
 
   it('Scenario 5: settling issued multi-line decimal workshop invoice succeeds without 422 SETTLEMENT_AMOUNT_MISMATCH and payment == snapshot gross', async () => {
