@@ -157,6 +157,7 @@ export function computeCreditNoteTaxSummary(input: {
   }
 
   const priorTaxByRate = new Map<string, Prisma.Decimal>();
+  const priorNetByRate = new Map<string, Prisma.Decimal>();
   for (const bucket of input.priorCreditTaxBuckets ?? []) {
     const rate = moneyString(new Prisma.Decimal(bucket.rate));
     priorTaxByRate.set(
@@ -165,11 +166,19 @@ export function computeCreditNoteTaxSummary(input: {
         new Prisma.Decimal(bucket.tax),
       ),
     );
+    priorNetByRate.set(
+      rate,
+      (priorNetByRate.get(rate) ?? new Prisma.Decimal(0)).add(
+        new Prisma.Decimal(bucket.net),
+      ),
+    );
   }
 
+  const originalNetByRate = new Map<string, Prisma.Decimal>();
   const remainingTaxByRate = new Map<string, Prisma.Decimal>();
   for (const bucket of input.originalSnapshot.tax_breakdown) {
     const rate = moneyString(new Prisma.Decimal(bucket.rate));
+    originalNetByRate.set(rate, new Prisma.Decimal(bucket.net));
     const remaining = new Prisma.Decimal(bucket.tax).sub(
       priorTaxByRate.get(rate) ?? new Prisma.Decimal(0),
     );
@@ -196,8 +205,13 @@ export function computeCreditNoteTaxSummary(input: {
     )
     .map(([rate, net]) => {
       const remainingTax = remainingTaxByRate.get(rate);
+      const originalNet = originalNetByRate.get(rate);
+      const priorNet = priorNetByRate.get(rate) ?? new Prisma.Decimal(0);
+      const isRateFullyCredited =
+        originalNet !== undefined && net.add(priorNet).eq(originalNet);
       const tax =
-        input.isFullCredit && remainingTax !== undefined
+        (input.isFullCredit || isRateFullyCredited) &&
+        remainingTax !== undefined
           ? remainingTax
           : remainingTax !== undefined
             ? Prisma.Decimal.min(

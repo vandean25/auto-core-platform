@@ -443,4 +443,100 @@ describe('toRenderableCreditNoteSnapshot', () => {
       { rate: '20.00', net: '20.04', tax: '4.01', gross: '24.05' },
     ]);
   });
+
+  it('AUT-1087: second partial credit (isFullCredit: false) that completes a rate bucket consumes remaining VAT cents via priorCreditTaxBuckets', () => {
+    const items20 = ['l1', 'l2', 'l3'].map((id) => ({
+      id,
+      description: 'Part 20%',
+      quantity: '1.000',
+      unit_price: '10.01',
+      tax_rate: '20.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net: '10.01',
+      tax: '2.00',
+      gross: '12.01',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    }));
+    const item10 = {
+      id: 'l4',
+      description: 'Part 10%',
+      quantity: '1.000',
+      unit_price: '10.00',
+      tax_rate: '10.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net: '10.00',
+      tax: '1.00',
+      gross: '11.00',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    };
+    const originalWithTwoRates = {
+      ...snapshot,
+      items: [...items20, item10],
+      tax_breakdown: [
+        { rate: '10.00', net: '10.00', tax: '1.00', gross: '11.00' },
+        { rate: '20.00', net: '30.03', tax: '6.01', gross: '36.04' },
+      ],
+      total_net: '40.03',
+      total_tax: '7.01',
+      total_gross: '47.04',
+    } as unknown as Parameters<
+      typeof buildCreditNoteSnapshot
+    >[0]['originalSnapshot'];
+
+    const toCreditLine = (item: (typeof items20)[number]) => ({
+      original_item_id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      line_discount_type: null,
+      line_discount_value: null,
+      net: item.net,
+      tax: item.tax,
+      gross: item.gross,
+      tax_rate: item.tax_rate,
+      revenue_group_name: item.revenue_group_name,
+      accounting_allocation: {},
+    });
+
+    // First partial: 2 x 10.01 at 20% -> halfUp(20.02 * 20%) = 4.00
+    const firstPartial = buildCreditNoteSnapshot({
+      originalSnapshot: originalWithTwoRates,
+      originalInvoiceId: 'inv-multi',
+      originalInvoiceNumber: 'RE-2026-0003',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'First partial return',
+      creditDate: new Date('2026-11-02T10:00:00.000Z'),
+      isFullCredit: false,
+      lineSnapshots: items20.slice(0, 2).map(toCreditLine),
+      committedAt: new Date('2026-11-02T10:00:00.000Z'),
+    });
+    expect(firstPartial.tax_breakdown).toEqual([
+      { rate: '20.00', net: '20.02', tax: '4.00', gross: '24.02' },
+    ]);
+
+    // Second partial (isFullCredit: false because 10% item remains): last 1 x 10.01 at 20%
+    // halfUp(10.01 * 20%) = 2.00 < remainingTax 2.01, but cumulative 20% net = 30.03 == original 30.03 -> 2.01
+    const secondPartial = buildCreditNoteSnapshot({
+      originalSnapshot: originalWithTwoRates,
+      originalInvoiceId: 'inv-multi',
+      originalInvoiceNumber: 'RE-2026-0003',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'Second partial completes 20% bucket',
+      creditDate: new Date('2026-11-03T10:00:00.000Z'),
+      isFullCredit: false,
+      lineSnapshots: [toCreditLine(items20[2])],
+      committedAt: new Date('2026-11-03T10:00:00.000Z'),
+      priorCreditTaxBuckets: firstPartial.tax_breakdown,
+    });
+    expect(secondPartial.total_net).toBe('10.01');
+    expect(secondPartial.total_tax).toBe('2.01');
+    expect(secondPartial.total_gross).toBe('12.02');
+    expect(secondPartial.tax_breakdown).toEqual([
+      { rate: '20.00', net: '10.01', tax: '2.01', gross: '12.02' },
+    ]);
+  });
 });
