@@ -23,6 +23,7 @@ export type CursorSortFieldConfig = {
   prismaField: string;
   valueKind: 'string' | 'number' | 'int' | 'decimal' | 'date' | 'enum';
   nullable: boolean;
+  enumOrder?: readonly string[];
 };
 
 export type CursorSortConfig = CursorSortFieldConfig & {
@@ -113,6 +114,15 @@ export async function fetchKeysetListPage<TRecord extends { id: string }, TRow>(
       decoded.sv,
       sortConfig.valueKind,
     );
+    if (
+      sortConfig.valueKind === 'enum' &&
+      sortConfig.enumOrder &&
+      sortValue !== null &&
+      (typeof sortValue !== 'string' ||
+        !sortConfig.enumOrder.includes(sortValue))
+    ) {
+      throw listCursorInvalidException();
+    }
     const secondary = sortConfig.secondary
       ? {
           field: sortConfig.secondary.prismaField,
@@ -128,7 +138,11 @@ export async function fetchKeysetListPage<TRecord extends { id: string }, TRow>(
       direction,
       sortValue,
       decoded.id,
-      { sortIsNullable: sortConfig.nullable, secondary },
+      {
+        sortIsNullable: sortConfig.nullable,
+        secondary,
+        enumOrder: sortConfig.enumOrder,
+      },
     );
   }
   const where = andCombineListWhere(request.baseWhere, keysetClause);

@@ -13,7 +13,7 @@ Rollout step 1 from [concept-list-scrolling](../00-Inbox/concept-list-scrolling.
 
 | Endpoint | Sort field | ASC cursor | DESC cursor | Default limit cap | Capped count |
 | --- | --- | --- | --- | --- | --- |
-| `GET /api/vehicle-stock` | `make`, `model`, `year`, `vin`, `plate`, `color`, `updatedAt` | yes | yes | 50 | `GET /api/vehicle-stock/capped-count` |
+| `GET /api/vehicle-stock` | `make`, `model`, `year`, `vin`, `plate`, `color`, `stock_status`, `updatedAt` | yes | yes | 50 | `GET /api/vehicle-stock/capped-count` |
 | `GET /api/inventory` | `sku`, `name`, `price` (`retail_price`) | yes | yes | 100 (default page size 10) | `GET /api/inventory/capped-count` |
 
 ## Invoice wave (AUT-891)
@@ -43,16 +43,16 @@ The offset contract (`page` / `pageSize`, `{ data, meta: { total, page, pageSize
 
 Offset contracts stay the default and are unchanged (`company_name`, `email`, `address_city` on customers; `make`, `model`, `year`, `plate`, `vin`, and relation `customer` on customer vehicles stay offset). In cursor mode `page` / `pageSize` return 400 `LIST_CURSOR_PARAM_FORBIDDEN`. Both lists are tenant-wide (`scope: 'tenant'`) behind Scope Context (ADR-0038) in one REPEATABLE READ snapshot (428 `CONTEXT_REQUIRED`, 412 `CONTEXT_MISMATCH`). Permissions: `customer.read` (customers) and `vehicle.read` (customer vehicles); `TECH` gets 403 on list and count. `createdAt` is `timestamp(3)`; the cursor carries UTC ISO with milliseconds. Indexes: migration `20261126120000_aut957_customers_vehicles_cursor_indexes`. Plans: [aut957-customers-vehicles-explain-evidence.md](./aut957-customers-vehicles-explain-evidence.md).
 
-**Vehicle stock cursor constraints:** merged ON_ORDER / draft rows stay **offset-only**. Cursor and capped count require a `stock_status` filter that excludes draft merge (any value except unset / `ON_ORDER`).
+**Vehicle stock cursor constraints (AUT-958):** `stock_status` is a direct nullable enum column on `vehicles` and is supported as a cursor sort (migration `20261125120000_aut958_vehicle_stock_status_cursor_index`, plans: [aut958-vehicle-stock-status-explain-evidence.md](./aut958-vehicle-stock-status-explain-evidence.md)) when a draft-free `stock_status` filter is active. Merged `ON_ORDER` / "All statuses" (unset `stock_status`) rows stay **offset-only**: they concatenate two separate tables (`vehicle_purchases` `status=DRAFT, acquisition_kind=DIRECT` before `vehicles`), where `vehicle_purchases` has no `stock_status` column and no keyset indexes, so a single-table keyset cursor with a stable unique `id` tiebreaker cannot be formed without denormalization or weakening the draft-merge rule. Cursor and capped count therefore require a `stock_status` filter that excludes draft merge (any value except unset / `ON_ORDER`).
 
-**Offset-only sorts (unchanged):** relation, computed, and relevance sorts on each view (e.g. inventory status/location columns) remain offset until separately approved.
+**Parts offset-only sorts (AUT-958):** `status` (stock level) is a computed ATP aggregate over `inventory_stocks` + `superseded_by`, and `warehouse_location` (location) is a 1-to-many `inventory_stocks -> storage_locations` relation. Neither is a column on `catalog_items` and neither is sortable in offset mode (`enableSorting: false`), so both stay offset-only without denormalization.
 
 ## Consumers (API)
 
 | Endpoint | Primary consumers | Notes |
 | --- | --- | --- |
-| `GET /api/vehicle-stock` | `apps/core-web` `vehicleStockKeys` / Vehicle stock list | Infinite list (AUT-890) when a draft-free status is selected and the sort is a cursor sort; "all statuses" and `stock_status` sort stay offset |
-| `GET /api/inventory` | `apps/core-web` inventory hooks / Item list | Infinite list (AUT-890) on `sku`, `name`, `price` or no sort; any other sort stays offset |
+| `GET /api/vehicle-stock` | `apps/core-web` `vehicleStockKeys` / Vehicle stock list | Infinite list (AUT-890, AUT-958) when a draft-free status is selected with any cursor sort (including `stock_status`); "all statuses" and `ON_ORDER` stay offset |
+| `GET /api/inventory` | `apps/core-web` inventory hooks / Item list | Infinite list (AUT-890) on `sku`, `name`, `price` or no sort; any other sort (`status`, `warehouse_location`) stays offset |
 | `GET /api/sales/invoices` | `apps/core-web` `invoiceKeys` / Invoice list | Infinite list (AUT-891) on `invoice_number`, `date` or no sort; customer, status and total sort stay unpaged |
 | `GET /api/workshop/orders` | `apps/core-web` `workshopKeys` / Workshop order list | Infinite list (AUT-956) on `createdAt` or no sort; `order_number`, `status`, `customer`, `vehicle` sorts stay offset |
 | `GET /api/customers` | `apps/core-web` `customerKeys` / Customer list | Infinite list (AUT-957) on `createdAt` or no sort; `company_name`, `email`, `address_city` sorts stay offset |
@@ -110,7 +110,7 @@ The frontend chooses one mode per list state and never mixes cursor and offset i
 
 | List | Infinite (cursor, blocks of 50, 2 000-row cap) | Offset (pages) |
 | --- | --- | --- |
-| Parts | no sort, `sku`, `name`, `price` | any other `sortField` (hand-edited link, saved view) |
-| Vehicle stock | status filter In stock / Reserved / In prep / Sold, with no sort or `make`, `model`, `year`, `vin`, `plate`, `color`, `updatedAt` | "All statuses" (merges draft purchases), status On order, sort `stock_status` |
+| Parts | no sort, `sku`, `name`, `price` | any other `sortField` (`status`, `warehouse_location`, hand-edited link, saved view) |
+| Vehicle stock | status filter In stock / Reserved / In prep / Sold, with no sort or `make`, `model`, `year`, `vin`, `plate`, `color`, `stock_status`, `updatedAt` | "All statuses" (merges draft purchases), status On order |
 
 Search-filtered plans: [aut890-search-filter-explain-evidence.md](./aut890-search-filter-explain-evidence.md).

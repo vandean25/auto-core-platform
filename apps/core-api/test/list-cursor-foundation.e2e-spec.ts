@@ -425,9 +425,46 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
     });
 
-    it('WHEN cursor mode sorts by stock_status THEN the API returns 400 LIST_CURSOR_SORT_UNSUPPORTED', async () => {
-      const res = await listCursor({ sortField: 'stock_status' }).expect(400);
-      expect(res.body.code).toBe('LIST_CURSOR_SORT_UNSUPPORTED');
+    it('WHEN cursor mode sorts by stock_status THEN pages continue in order without gaps or repeats', async () => {
+      const tag = `status-sort-${Date.now()}`;
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        const created = await createAndReceive({
+          vin: vin(`STS${i}${tag}`),
+          sellerType: 'VENDOR',
+        });
+        ids.push(created.received.vehicle_id);
+        await prisma.vehicle.update({
+          where: { id: created.received.vehicle_id },
+          data: { make: tag, stock_status: VehicleStockStatus.IN_STOCK },
+        });
+      }
+
+      const first = await listCursor({
+        search: tag,
+        sortField: 'stock_status',
+        sortDirection: 'asc',
+        limit: '2',
+      }).expect(200);
+      expect(first.body.data).toHaveLength(2);
+      expect(first.body.meta.hasNextPage).toBe(true);
+
+      const second = await listCursor({
+        search: tag,
+        sortField: 'stock_status',
+        sortDirection: 'asc',
+        limit: '2',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+      expect(second.body.data).toHaveLength(1);
+      expect(second.body.meta.hasNextPage).toBe(false);
+
+      const seen = mergePageIdsWithoutOverlap(
+        first.body.data.map((row: { id: string }) => row.id),
+        second.body.data as { id: string }[],
+      );
+      expect(seen.size).toBe(3);
+      expect([...seen].sort()).toEqual([...ids].sort());
     });
 
     it.each(['constructor', 'toString'])(
@@ -438,16 +475,23 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       },
     );
 
-    it('WHEN cursor mode has no stock status filter THEN the API returns 400 LIST_CURSOR_STOCK_FILTER_REQUIRED', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/vehicle-stock')
-        .query({ pagination: 'cursor', limit: '10' })
-        .set('Authorization', `Bearer ${authToken}`)
-        .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
-        .expect(400);
+    it.each([undefined, VehicleStockStatus.ON_ORDER])(
+      'WHEN cursor mode has stock_status %s THEN the API returns 400 LIST_CURSOR_STOCK_FILTER_REQUIRED',
+      async (stockStatus) => {
+        const res = await request(app.getHttpServer())
+          .get('/api/vehicle-stock')
+          .query({
+            pagination: 'cursor',
+            limit: '10',
+            ...(stockStatus ? { stock_status: stockStatus } : {}),
+          })
+          .set('Authorization', `Bearer ${authToken}`)
+          .set(SCOPE_CONTEXT_HEADER, listContext.scopeContext)
+          .expect(400);
 
-      expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
-    });
+        expect(res.body.code).toBe('LIST_CURSOR_STOCK_FILTER_REQUIRED');
+      },
+    );
 
     it('WHEN capped-count has no stock status filter THEN the API returns 400 LIST_CURSOR_STOCK_FILTER_REQUIRED', async () => {
       const res = await request(app.getHttpServer())
@@ -470,6 +514,17 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
         {
           pagination: 'cursor',
           stock_status: VehicleStockStatus.IN_STOCK,
+          limit: '10',
+        },
+      ],
+      [
+        'vehicle stock cursor list sorted by stock_status',
+        '/api/vehicle-stock',
+        {
+          pagination: 'cursor',
+          stock_status: VehicleStockStatus.IN_STOCK,
+          sortField: 'stock_status',
+          sortDirection: 'asc',
           limit: '10',
         },
       ],

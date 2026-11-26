@@ -78,7 +78,8 @@ describe('VehicleStockList paging mode', () => {
   it.each([
     { entry: '/vehicle-stock', infinite: false },
     { entry: '/vehicle-stock?filter_stock_status=ON_ORDER', infinite: false },
-    { entry: '/vehicle-stock?filter_stock_status=IN_STOCK&sortField=stock_status', infinite: false },
+    { entry: '/vehicle-stock?filter_stock_status=IN_STOCK&sortField=unknown_col', infinite: false },
+    { entry: '/vehicle-stock?filter_stock_status=IN_STOCK&sortField=stock_status', infinite: true },
     { entry: '/vehicle-stock?filter_stock_status=IN_STOCK', infinite: true },
     { entry: '/vehicle-stock?filter_stock_status=SOLD&sortField=make&sortDirection=desc', infinite: true },
   ])('WHEN $entry is opened THEN infinite mode is $infinite', ({ entry, infinite }) => {

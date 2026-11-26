@@ -8,13 +8,39 @@ export type KeysetSecondarySort = {
   nullable: boolean;
 };
 
+function buildAfterSortBranch(
+  sortField: string,
+  direction: KeysetSortDirection,
+  sortValue: unknown,
+  enumOrder?: readonly string[],
+): Record<string, unknown> | undefined {
+  if (!enumOrder) {
+    const cmp = direction === 'asc' ? 'gt' : 'lt';
+    return { [sortField]: { [cmp]: sortValue } };
+  }
+  const index =
+    typeof sortValue === 'string' ? enumOrder.indexOf(sortValue) : -1;
+  if (index === -1) return undefined;
+  const afterValues =
+    direction === 'asc'
+      ? enumOrder.slice(index + 1)
+      : enumOrder.slice(0, index);
+  return afterValues.length > 0
+    ? { [sortField]: { in: afterValues } }
+    : undefined;
+}
+
 /** Prisma `where` fragment: rows strictly after the cursor in sort order (NULLS LAST). */
 export function buildKeysetAfterClause(
   sortField: string,
   direction: KeysetSortDirection,
   sortValue: unknown,
   id: string,
-  options: { sortIsNullable: boolean; secondary?: KeysetSecondarySort },
+  options: {
+    sortIsNullable: boolean;
+    secondary?: KeysetSecondarySort;
+    enumOrder?: readonly string[];
+  },
 ): Record<string, unknown> {
   const afterId =
     direction === 'asc' ? ({ gt: id } as const) : ({ lt: id } as const);
@@ -29,22 +55,22 @@ export function buildKeysetAfterClause(
     : { id: afterId };
 
   if (sortValue === null) {
-    if (!options.sortIsNullable) {
-      return tieBreak;
-    }
-    return {
-      AND: [{ [sortField]: null }, tieBreak],
-    };
+    return options.sortIsNullable
+      ? { AND: [{ [sortField]: null }, tieBreak] }
+      : tieBreak;
   }
 
-  const cmp = direction === 'asc' ? 'gt' : 'lt';
+  const afterBranch = buildAfterSortBranch(
+    sortField,
+    direction,
+    sortValue,
+    options.enumOrder,
+  );
   const orBranches: Record<string, unknown>[] = [
-    { [sortField]: { [cmp]: sortValue } },
+    ...(afterBranch ? [afterBranch] : []),
     { AND: [{ [sortField]: sortValue }, tieBreak] },
+    ...(options.sortIsNullable ? [{ [sortField]: null }] : []),
   ];
-  if (options.sortIsNullable) {
-    orBranches.push({ [sortField]: null });
-  }
 
   return { OR: orBranches };
 }

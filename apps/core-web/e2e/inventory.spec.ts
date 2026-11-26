@@ -189,19 +189,25 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
   });
 
   // Scenario 2: the count is capped at 1,000 and says so; it follows the search, not the sort.
-  test('WHEN a parts search matches more than 1,000 items THEN the counter shows "1.000+"', async ({ page }) => {
-    const requests = await openParts(page, '/inventory?search=bremse', { count: { count: 1000, isCapped: true } });
+  test('WHEN a parts search matches more than 1,000 items THEN the counter shows "1.000+"', async ({ page }, testInfo) => {
+    const requests = await openParts(page, '/inventory?filter_name=bremse', { count: { count: 1000, isCapped: true } });
 
     await expect(page.getByTestId('data-table-count')).toHaveText('1.000+ Treffer');
+    await expect(page.getByPlaceholder(DE_INVENTORY.partsList.searchPlaceholder)).toHaveValue('bremse');
     expect(Object.fromEntries(requests.count[0].searchParams)).toEqual({ search: 'bremse' });
     expect(requests.list[0].searchParams.get('search')).toBe('bremse');
+    await testInfo.attach('aut890-inventory-capped-count-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
   });
 
   // Scenario 3: an old page link must not open "page 3" of a list that has no pages.
-  test('WHEN an old ?page=3 link is opened THEN the list starts at the top with search, filter and sort kept', async ({ page }) => {
-    const requests = await openParts(page, '/inventory?page=3&search=bremse&sortField=name&sortDirection=desc');
+  test('WHEN an old ?page=3 link is opened THEN the list starts at the top with search, filter and sort kept', async ({ page }, testInfo) => {
+    const requests = await openParts(page, '/inventory?page=3&filter_name=bremse&sortField=name&sortDirection=desc');
 
     await expect(page.getByText('SKU-0000')).toBeVisible();
+    await expect(page.getByPlaceholder(DE_INVENTORY.partsList.searchPlaceholder)).toHaveValue('bremse');
     expect(Object.fromEntries(requests.list[0].searchParams)).toEqual({
       pagination: 'cursor',
       limit: '50',
@@ -211,10 +217,14 @@ test.describe('Inventory — infinite list (AUT-890)', () => {
     });
     await expect(page).toHaveURL((url) => {
       const { searchParams } = url;
-      return !searchParams.has('page') && searchParams.get('search') === 'bremse' && searchParams.get('sortField') === 'name' && searchParams.get('sortDirection') === 'desc';
+      return !searchParams.has('page') && searchParams.get('filter_name') === 'bremse' && searchParams.get('sortField') === 'name' && searchParams.get('sortDirection') === 'desc';
     });
     const region = page.getByRole('region', { name: DE_COMMON.dataTable.scrollRegion });
     expect(await region.evaluate((element) => element.scrollTop)).toBe(0);
+    await testInfo.attach('aut890-inventory-legacy-page-de', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
   });
 
   // The 2,000-row stop: 40 blocks load, then loading ends with "Filter verfeinern" although the API has more.

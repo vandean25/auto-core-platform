@@ -12,6 +12,13 @@ export type SignedDomainEventConsumerTaskPayload =
     signature: string;
   };
 
+export class InvalidDomainEventConsumerTaskSignatureError extends Error {
+  constructor() {
+    super('Invalid domain event consumer task signature');
+    this.name = 'InvalidDomainEventConsumerTaskSignatureError';
+  }
+}
+
 function canonicalString(claims: DomainEventConsumerTaskClaims): string {
   return `${CONTEXT}:${claims.consumerKey}:${claims.tenantId}`;
 }
@@ -25,7 +32,14 @@ function hmacHex(
     .digest('hex');
 }
 
-function signaturesMatch(expected: string, actual: string): boolean {
+function signaturesMatch(expected: string, actual: unknown): boolean {
+  if (
+    typeof actual !== 'string' ||
+    actual.length !== expected.length ||
+    !/^[0-9a-f]+$/i.test(actual)
+  ) {
+    return false;
+  }
   const left = Buffer.from(expected, 'hex');
   const right = Buffer.from(actual, 'hex');
   if (left.length !== right.length) {
@@ -42,15 +56,22 @@ export function signDomainEventConsumerTaskPayload(
 }
 
 export function verifyDomainEventConsumerTaskPayload(
-  record: SignedDomainEventConsumerTaskPayload,
+  record: unknown,
   secret: string,
 ): DomainEventConsumerTaskClaims {
-  const claims: DomainEventConsumerTaskClaims = {
-    tenantId: record.tenantId,
-    consumerKey: record.consumerKey,
-  };
-  if (!signaturesMatch(hmacHex(claims, secret), record.signature)) {
-    throw new Error('Invalid domain event consumer task signature');
+  if (!record || typeof record !== 'object') {
+    throw new InvalidDomainEventConsumerTaskSignatureError();
+  }
+  const { tenantId, consumerKey, signature } = record as Record<
+    string,
+    unknown
+  >;
+  if (typeof tenantId !== 'string' || typeof consumerKey !== 'string') {
+    throw new InvalidDomainEventConsumerTaskSignatureError();
+  }
+  const claims: DomainEventConsumerTaskClaims = { tenantId, consumerKey };
+  if (!signaturesMatch(hmacHex(claims, secret), signature)) {
+    throw new InvalidDomainEventConsumerTaskSignatureError();
   }
   return claims;
 }

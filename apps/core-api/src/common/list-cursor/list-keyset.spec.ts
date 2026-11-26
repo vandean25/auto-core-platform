@@ -36,6 +36,26 @@ describe('list-keyset', () => {
     });
   });
 
+  it('enum cursor uses remaining enumOrder values instead of gt/lt', () => {
+    const clause = buildKeysetAfterClause(
+      'stock_status',
+      'asc',
+      'IN_STOCK',
+      'id-1',
+      {
+        sortIsNullable: true,
+        enumOrder: ['ON_ORDER', 'IN_STOCK', 'RESERVED', 'SOLD'],
+      },
+    );
+    expect(clause).toEqual({
+      OR: [
+        { stock_status: { in: ['RESERVED', 'SOLD'] } },
+        { AND: [{ stock_status: 'IN_STOCK' }, { id: { gt: 'id-1' } }] },
+        { stock_status: null },
+      ],
+    });
+  });
+
   it.each([
     [
       'DESC on a non-nullable field',

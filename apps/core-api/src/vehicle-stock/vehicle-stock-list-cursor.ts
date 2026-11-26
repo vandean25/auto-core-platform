@@ -1,3 +1,4 @@
+import { VehicleStockStatus } from '@prisma/client';
 import {
   LIST_CURSOR_ENDPOINT,
   listCursorSortUnsupportedException,
@@ -5,7 +6,14 @@ import {
 } from '../common/list-cursor/index.js';
 
 export type VehicleStockCursorSortField =
-  'make' | 'model' | 'year' | 'vin' | 'plate' | 'color' | 'updatedAt';
+  | 'make'
+  | 'model'
+  | 'year'
+  | 'vin'
+  | 'plate'
+  | 'color'
+  | 'stock_status'
+  | 'updatedAt';
 
 const VEHICLE_STOCK_CURSOR_SORTS: Record<
   VehicleStockCursorSortField,
@@ -13,6 +21,7 @@ const VEHICLE_STOCK_CURSOR_SORTS: Record<
     prismaField: string;
     valueKind: 'string' | 'int' | 'date' | 'enum';
     nullable: boolean;
+    enumOrder?: readonly string[];
   }
 > = {
   make: { prismaField: 'make', valueKind: 'string', nullable: false },
@@ -21,6 +30,12 @@ const VEHICLE_STOCK_CURSOR_SORTS: Record<
   vin: { prismaField: 'vin', valueKind: 'string', nullable: true },
   plate: { prismaField: 'plate', valueKind: 'string', nullable: true },
   color: { prismaField: 'color', valueKind: 'string', nullable: true },
+  stock_status: {
+    prismaField: 'stock_status',
+    valueKind: 'enum',
+    nullable: true,
+    enumOrder: Object.values(VehicleStockStatus),
+  },
   updatedAt: { prismaField: 'updatedAt', valueKind: 'date', nullable: false },
 };
 
