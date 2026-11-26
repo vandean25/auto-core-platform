@@ -567,6 +567,38 @@
         ]
       }
     },
+    "/api/inventory/revalue-unvalued-adjustments": {
+      "post": {
+        "operationId": "InventoryRevaluationController_revalueUnvaluedAdjustments",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevalueUnvaluedAdjustmentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevaluationReportDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revalue legacy unvalued stock corrections via Gegenbuchung (nachbewertet). QA only; production needs explicit approval.",
+        "tags": [
+          "InventoryRevaluation"
+        ]
+      }
+    },
     "/api/inventory/availability/{sku}": {
       "get": {
         "operationId": "InventoryController_checkAvailability",
@@ -20691,6 +20723,140 @@
         ],
         "additionalProperties": false
       },
+      "RevalueUnvaluedAdjustmentsDto": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dryRun"
+        ]
+      },
+      "StockAdjustmentValueSource": {
+        "type": "string",
+        "enum": [
+          "AVG",
+          "LAST_EK",
+          "MANUAL"
+        ]
+      },
+      "RevaluedAdjustmentDto": {
+        "type": "object",
+        "properties": {
+          "originalTransactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "unitCost": {
+            "type": "string"
+          },
+          "valueSource": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StockAdjustmentValueSource"
+              }
+            ]
+          },
+          "reversalTransactionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "revaluedTransactionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "originalTransactionId",
+          "itemId",
+          "locationId",
+          "quantity",
+          "unitCost",
+          "valueSource",
+          "reversalTransactionId",
+          "revaluedTransactionId"
+        ]
+      },
+      "RevaluationGapDto": {
+        "type": "object",
+        "properties": {
+          "originalTransactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "originalTransactionId",
+          "itemId",
+          "locationId"
+        ]
+      },
+      "RevaluationReportDto": {
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          },
+          "batchSize": {
+            "type": "number"
+          },
+          "revalued": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RevaluedAdjustmentDto"
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RevaluationGapDto"
+            }
+          },
+          "alreadyRevalued": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "alreadyReversed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dryRun",
+          "batchSize",
+          "revalued",
+          "gaps",
+          "alreadyRevalued",
+          "alreadyReversed"
+        ]
+      },
       "GuardedInventoryPricePatchDto": {
         "type": "object",
         "properties": {
@@ -20864,14 +21030,6 @@
           "FOUND",
           "BOOKING_ERROR",
           "OTHER"
-        ]
-      },
-      "StockAdjustmentValueSource": {
-        "type": "string",
-        "enum": [
-          "AVG",
-          "LAST_EK",
-          "MANUAL"
         ]
       },
       "InventoryTransactionItemDto": {

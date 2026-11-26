@@ -39,6 +39,19 @@ tags:
 | `InventoryTransaction` | Immutable append-only ledger of stock movements. | The true source of stock levels. Tied to `TransactionType`. `cost_basis` is stored with 4 decimal places (`Decimal(12, 4)`). Manual `ADJUSTMENT` bookings require `reason` (`StockAdjustmentReason`), `value_source` (`AVG` \| `LAST_EK` \| `MANUAL`), `created_by_user_id`, and are reversed only via `reversal_of_transaction_id` (Gegenbuchung). |
 | `InventoryValuation` | Per-legal-entity moving-average unit cost (`gleitender Durchschnitt`) and valued quantity per article. | Unique constraint on `[tenant_id, legal_entity_id, catalog_item_id]`. Updated in the same DB transaction as `InventoryTransaction` with row locking. |
 
+### Legacy unvalued corrections (AUT-1050, nachbewertet)
+
+Manual `ADJUSTMENT` rows from before AUT-1048 can have `cost_basis = null`. They are revalued by `POST /api/inventory/revalue-unvalued-adjustments` (`{ "dryRun": true | false }`, permission `stock.adjust`, OWNER/ADMIN, tenant and authorized sites only). The original row is never updated.
+
+- **Candidates:** `type = ADJUSTMENT`, `reference_id = 'manual-adjustment'`, `cost_basis = null`, not a reversal, not yet reversed.
+- **Pair per original, dated now:** a Gegenbuchung (`reference_id = 'manual-adjustment-reversal'`, `reversal_of_transaction_id` = original, opposite quantity, `cost_basis = null`) plus a new valued `ADJUSTMENT` (`reference_id = 'manual-adjustment-revaluation'`, same quantity as the original). Both rows carry `note = 'nachbewertet'`, `created_by_user_id = null` and one shared `movement_group_id`. Net quantity on hand is unchanged; Lagerwert moves only by the new valued row.
+- **Unit cost:** AUT-1048 order: current `InventoryValuation.average_unit_cost` of the location's legal entity (`AVG`), else `InventoryValuationService.resolveLastEk` (`LAST_EK`). No value: the original is listed under `gaps` and nothing is booked.
+- **Idempotent:** an original reversed by a `nachbewertet` Gegenbuchung is reported as `alreadyRevalued`, any other reversal as `alreadyReversed`; neither is booked again. The unique `(tenant_id, reversal_of_transaction_id)` blocks a concurrent second pair.
+- **Batches:** 100 originals per database transaction. A failure rolls back its whole batch (no partial pair); batches committed before it stay complete and are skipped on the next run.
+- **Audit:** one `AuditLog` per pair, `actor_type = MIGRATION`, `source = 'inventory.adjustment_revaluation'`.
+- **Periods:** the new rows are dated at run time, never back-dated into an exported period.
+- **Execution:** QA only. Production needs Dejan's explicit OK first; see [the runbook](../../05-Runbooks/aut-1050-revalue-unvalued-adjustments-runbook.md).
+
 ### Deletion Policy Impact
 
 > Governed by `docs/deletion-policy.md`.

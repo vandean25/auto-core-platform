@@ -493,12 +493,7 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     const download = await request(app.getHttpServer())
       .get(`/api/finance/accounting-exports/${completed.body.id}/download`)
       .set('Authorization', `Bearer ${token}`)
-      .buffer(true)
-      .parse((response, callback) => {
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
-        response.on('end', () => callback(null, Buffer.concat(chunks)));
-      })
+      .responseType('blob')
       .expect(200);
     const body = download.body as Buffer;
     expect(createHash('sha256').update(body).digest('hex')).toBe(completed.body.sha256);

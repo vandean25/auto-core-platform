@@ -18,6 +18,8 @@ import { InventoryPatchBodyPipe } from './inventory-patch-body.pipe.js';
 import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
 import { InventoryValuationService } from './inventory-valuation.service.js';
 import { PermissionResolver } from '../permissions/permission-resolver.js';
+import { InventoryRevaluationController } from './inventory-revaluation.controller.js';
+import { RevalueUnvaluedAdjustmentsService } from './revalue-unvalued-adjustments.service.js';
 
 @Module({
   imports: [
@@ -29,11 +31,13 @@ import { PermissionResolver } from '../permissions/permission-resolver.js';
   controllers: [
     LocationController,
     InventoryPriceOperationsController,
+    InventoryRevaluationController,
     InventoryController,
   ],
   providers: [
     InventoryService,
     InventoryItemMutationsService,
+    RevalueUnvaluedAdjustmentsService,
     GuardedPriceService,
     GuardedPriceDiscoveryService,
     GuardedPriceFenceService,
