@@ -1060,6 +1060,8 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(invoiceSnapshot.due_date).toBe('2027-01-15');
     expect(invoiceSnapshot.supply_date_from).toBe('2027-01-01');
     expect(invoiceSnapshot.supply_date_to).toBe('2027-01-01');
+    const storedInvoiceDateSlice = storedInvoice.date.toISOString().slice(0, 10);
+    expect(storedInvoiceDateSlice).toBe('2027-01-01');
     expect(storedInvoice.supply_date_from?.toISOString().slice(0, 10)).toBe(
       '2027-01-01',
     );
@@ -1075,7 +1077,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
     }).expect(400);
 
     const draft = await createDraftCredit(invoice.id, {
-      date: viennaNewYearInstant.toISOString(),
+      date: storedInvoiceDateSlice,
       reason: 'Midnight Vienna return',
       mode: 'FULL',
     }).expect(201);

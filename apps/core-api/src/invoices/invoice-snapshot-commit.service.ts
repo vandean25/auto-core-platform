@@ -255,6 +255,7 @@ export class InvoiceSnapshotCommitService {
         site_id: prepared.ownership.siteId,
         legal_entity_id: prepared.ownership.legalEntityId,
         currency: 'EUR',
+        date: new Date(`${prepared.snapshot.date}T12:00:00.000Z`),
         supply_date_from: prepared.supplyFrom,
         supply_date_to: prepared.supplyTo,
         due_date: prepared.dueDate,
