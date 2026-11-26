@@ -1024,21 +1024,23 @@ function LegalEntitySellerForm({
         </div>
 
         <div className="grid gap-2 md:col-span-2">
-          <Label>{t('legalEntities.seller.fields.rksvMode')}</Label>
+          <Label htmlFor="seller-rksv-mode">{t('legalEntities.seller.fields.rksvMode')}</Label>
           <Select
             value={form.rksvMode}
             onValueChange={(value) =>
               updateField('rksvMode', value as LegalEntityRecord['rksv_mode'])
             }
           >
-            <SelectTrigger>
+            <SelectTrigger id="seller-rksv-mode">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="OFF">{t('legalEntities.seller.rksv.off')}</SelectItem>
               <SelectItem value="UNKNOWN">{t('legalEntities.seller.rksv.unknown')}</SelectItem>
               <SelectItem value="REQUIRED_EXTERNAL_KASSE">{t('legalEntities.seller.rksv.externalKasse')}</SelectItem>
-              <SelectItem value="REQUIRED_ACP_RKSV">{t('legalEntities.seller.rksv.acpRksv')}</SelectItem>
+              <SelectItem value="REQUIRED_ACP_RKSV" disabled>
+                {t('legalEntities.seller.rksv.acpRksv')}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

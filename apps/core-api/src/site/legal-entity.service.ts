@@ -2,9 +2,15 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
+import { RksvMode } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  isAcpRksvLiveConfigured,
+  SETTLEMENT_ERROR_CODES,
+} from '../settlement/settlement.constants.js';
 import { CreateLegalEntityDto, UpdateLegalEntityDto } from './dto/site.dto.js';
 import { toLegalEntityResponse } from './legal-entity.mapper.js';
 import { buildLegalEntitySellerUpdateData } from './legal-entity-seller.validation.js';
@@ -84,6 +90,17 @@ export class LegalEntityService {
     });
     if (!existing) {
       throw new NotFoundException('Legal entity not found');
+    }
+
+    if (
+      dto.rksvMode === RksvMode.REQUIRED_ACP_RKSV &&
+      existing.rksv_mode !== RksvMode.REQUIRED_ACP_RKSV &&
+      !isAcpRksvLiveConfigured()
+    ) {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+        message: 'ACP RKSV live signing is not configured in this environment.',
+      });
     }
 
     // country_iso is immutable after create (ruling 326)

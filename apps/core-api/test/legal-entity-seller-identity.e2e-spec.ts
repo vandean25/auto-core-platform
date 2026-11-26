@@ -1,10 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { RksvMode } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SETTLEMENT_ERROR_CODES } from '../src/settlement/settlement.constants.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -185,4 +187,68 @@ describe('Legal entity seller identity (e2e)', () => {
     expect(response.body.seller_readiness.is_ready).toBe(true);
     expect(response.body.seller_readiness.missing_fields).toEqual([]);
   });
+
+  it('rejects setting rksvMode to REQUIRED_ACP_RKSV with 422 ACP_RKSV_UNAVAILABLE in default config', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({ rksvMode: RksvMode.REQUIRED_ACP_RKSV })
+      .expect(422);
+
+    expect(response.body.code).toBe(SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE);
+    const reloaded = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId, id: entity.id },
+    });
+    expect(reloaded.rksv_mode).not.toBe(RksvMode.REQUIRED_ACP_RKSV);
+  });
+
+  it.each([
+    RksvMode.OFF,
+    RksvMode.UNKNOWN,
+    RksvMode.REQUIRED_EXTERNAL_KASSE,
+  ])('allows setting rksvMode to %s with 200', async (mode) => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({ rksvMode: mode })
+      .expect(200);
+
+    expect(response.body.rksv_mode).toBe(mode);
+  });
+
+  it('allows PATCH of other seller fields when stored rksv_mode is already REQUIRED_ACP_RKSV', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: 'Stored ACP RKSV GmbH',
+        country_iso: 'AT',
+        is_active: true,
+        rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        rksvMode: RksvMode.REQUIRED_ACP_RKSV,
+        addressStreet: 'Ringstraße 10',
+      })
+      .expect(200);
+
+    expect(response.body.rksv_mode).toBe(RksvMode.REQUIRED_ACP_RKSV);
+    expect(response.body.address_street).toBe('Ringstraße 10');
+  });
 });
+

@@ -171,6 +171,7 @@
   "E_FAILED_SCHEMA_VALIDATION": "Der Beleg hat ein ungültiges Format.",
   "E_RECEIPT_NOT_FOUND": "Zu dieser Belegnummer wurde kein Beleg gespeichert.",
   "FIRST_AID_KIT": "Verbandkasten.",
+  "ACP_RKSV_UNAVAILABLE": "ACP RKSV (fiskaly) ist in dieser Umgebung noch nicht verfügbar.",
   "FISCAL_PATH_DISABLED": "Fiskalpfad ist deaktiviert.",
   "BANK_RECONCILIATION_CONFLICT": "Die Banktransaktion oder Rechnung wurde geändert oder der Betrag überschreitet den offenen Saldo. Bitte laden Sie die Seite neu und prüfen Sie die Beträge.",
   "FISCAL_PERIOD_LOCKED": "Fiskalperiode ist gesperrt.",

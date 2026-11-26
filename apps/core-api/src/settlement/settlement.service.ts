@@ -33,6 +33,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { FiskalySignAtProvider } from './fiskaly-sign-at.types.js';
 import { FISKALY_SIGN_AT_PROVIDER } from './fiskaly-sign-at.types.js';
+import { FiskalySignAtHttpAdapter } from './fiskaly-sign-at-http.adapter.js';
 import {
   buildCancellationSignRequestBody,
   buildNormalSignRequestBody,
@@ -414,6 +415,8 @@ export class SettlementService {
       });
     }
 
+    this.assertAcpRksvLiveAvailable();
+
     const providerReceiptId = randomUUID();
     const requestBody = buildCancellationSignRequestBody({
       invoiceId: original.payment.invoice_id,
@@ -590,6 +593,8 @@ export class SettlementService {
     recordedByUserId: string;
     rksvMode: RksvMode;
   }) {
+    this.assertAcpRksvLiveAvailable();
+
     if (params.dto.externalReceiptNumber || params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
@@ -834,6 +839,18 @@ export class SettlementService {
     });
   }
 
+  private assertAcpRksvLiveAvailable(): void {
+    if (
+      this.fiskalyProvider instanceof FiskalySignAtHttpAdapter &&
+      !this.fiskalyProvider.isLiveConfigured()
+    ) {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+        message: 'ACP RKSV live signing is not configured in this environment.',
+      });
+    }
+  }
+
   private async syncOpenFiscalReceipt(
     tenantId: string,
     siteId: string,
@@ -847,6 +864,7 @@ export class SettlementService {
       receipt_type: FiscalReceiptType;
     },
   ) {
+    this.assertAcpRksvLiveAvailable();
     const register = await this.prisma.fiscalRegister.findFirst({
       where: { id: fiscalReceipt.fiscal_register_id, tenant_id: tenantId },
     });

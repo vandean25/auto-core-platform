@@ -5,7 +5,15 @@ export function isFiskalySignAtLiveEnabled(): boolean {
   return process.env.FISKALY_SIGN_AT_LIVE_ENABLED === 'true';
 }
 
+/** Live HTTP adapter is not wired in this deployment slice. */
+export const FISKALY_SIGN_AT_LIVE_WIRED = false;
+
+export function isAcpRksvLiveConfigured(): boolean {
+  return isFiskalySignAtLiveEnabled() && FISKALY_SIGN_AT_LIVE_WIRED;
+}
+
 export const SETTLEMENT_ERROR_CODES = {
+  ACP_RKSV_UNAVAILABLE: 'ACP_RKSV_UNAVAILABLE',
   FISCAL_PATH_DISABLED: 'FISCAL_PATH_DISABLED',
   FISCAL_REGISTER_MISSING: 'FISCAL_REGISTER_MISSING',
   SETTLEMENT_NOT_IN_SLICE: 'SETTLEMENT_NOT_IN_SLICE',

@@ -5,6 +5,10 @@
       "public": false,
       "params": []
     },
+    "ACP_RKSV_UNAVAILABLE": {
+      "public": true,
+      "params": []
+    },
     "ACTIVE_SITE_REQUIRED": {
       "public": true,
       "params": []
