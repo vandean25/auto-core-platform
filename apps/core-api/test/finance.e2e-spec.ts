@@ -451,6 +451,11 @@ describe('FinanceModule (e2e)', () => {
     expect(
       (auditEntry?.after as { lock_date?: string | null } | null)?.lock_date,
     ).toBe(laterDate.toISOString());
+
+    await prisma.financeSettings.update({
+      where: { tenant_id: tenantId },
+      data: { lock_date: null },
+    });
   });
 
   // AUT-1002 Scenario 5: non-OWNER rejected (403, no audit entry); allowed change writes AuditLog with old/new values
