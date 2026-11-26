@@ -354,13 +354,16 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.queryByRole('button', { name: deSettings.finance.saveChanges })).not.toBeInTheDocument()
   })
 
-  it('saves edited values directly when there is no existing lock date and shows a success toast', async () => {
+  it('saves edited values after confirming the lock dialog when setting a lock date for the first time', async () => {
     renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '01.05.2026' } })
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.prefix), { target: { value: 'AR' } })
     fireEvent.change(screen.getByLabelText(deSettings.finance.invoicing.nextNumber), { target: { value: '77' } })
     submitFinanceForm()
+
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: deSettings.finance.lockDialog.confirm }))
 
     await waitFor(() => {
       expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith({
@@ -370,7 +373,9 @@ describe('SettingsPage characterization: finance tab', () => {
       })
     })
     expect(toast.success).toHaveBeenCalledWith(deSettings.finance.toast.updated)
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
   })
 
   it('omits an unedited lock date and coerces an unparsable invoice number to 0', async () => {
@@ -406,34 +411,48 @@ describe('SettingsPage characterization: finance tab', () => {
     expect(screen.getByRole('button', { name: deSettings.finance.saveChanges })).toBeDisabled()
   })
 
-  it('saves directly when the new lock date is not later than the existing one', async () => {
+  it('blocks saving an earlier lock date when one is already set', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '01.02.2026' } })
     submitFinanceForm()
 
-    await waitFor(() => {
-      expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ lock_date: '2026-02-01' }),
-      )
-    })
+    expect(updateFinanceSettingsResult.mutateAsync).not.toHaveBeenCalled()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
-  it('saves directly when the lock date is cleared even though one exists', async () => {
+  it('blocks clearing the lock date when one is already set', async () => {
     financeSettingsResult.data = { lock_date: '2026-03-31T12:00:00.000Z', invoice_prefix: 'RE', next_invoice_number: 1 }
     renderSettings('/finance')
 
     fireEvent.change(lockDateInput(), { target: { value: '' } })
     submitFinanceForm()
 
-    await waitFor(() => {
-      expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ lock_date: null }),
-      )
-    })
+    expect(updateFinanceSettingsResult.mutateAsync).not.toHaveBeenCalled()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('asks for confirmation on first lock date set and saves only after confirming', async () => {
+    financeSettingsResult.data = { lock_date: null, invoice_prefix: 'RE', next_invoice_number: 1 }
+    renderSettings('/finance')
+
+    fireEvent.change(lockDateInput(), { target: { value: '30.06.2026' } })
+    submitFinanceForm()
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(deSettings.finance.lockDialog.title)).toBeVisible()
+    expect(updateFinanceSettingsResult.mutateAsync).not.toHaveBeenCalled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: deSettings.finance.lockDialog.confirm }))
+
+    await waitFor(() => {
+      expect(updateFinanceSettingsResult.mutateAsync).toHaveBeenCalledWith({
+        lock_date: '2026-06-30',
+        invoice_prefix: 'RE',
+        next_invoice_number: 1,
+      })
+    })
   })
 
   it('asks for confirmation before moving the lock date later and saves only after confirming', async () => {

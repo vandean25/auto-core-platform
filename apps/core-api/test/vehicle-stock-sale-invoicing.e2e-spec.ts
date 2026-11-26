@@ -160,11 +160,10 @@ describe('Vehicle stock trading (e2e)', () => {
 
       expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
     } finally {
-      await request(app.getHttpServer())
-        .patch('/api/finance/settings')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ lock_date: null })
-        .expect(200);
+      await prisma.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: { lock_date: null },
+      });
     }
   });
 

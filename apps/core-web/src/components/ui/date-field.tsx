@@ -43,10 +43,25 @@ export function autoDotDate(text: string): string {
   return digits.length === 2 || digits.length === 4 ? `${dotted}.` : dotted
 }
 
+function isInvalidDateDraft(draft: string, minDate?: string): boolean {
+  if (draft === '') return false
+  const parsed = parseDisplayDate(draft)
+  if (parsed === null) return true
+  return Boolean(minDate && parsed < minDate)
+}
+
+function parseDisabledBefore(minDate?: string): { before: Date } | undefined {
+  if (!minDate) return undefined
+  const parsed = parseISO(minDate)
+  return isValid(parsed) ? { before: parsed } : undefined
+}
+
 interface DateFieldProps {
   /** ISO `yyyy-MM-dd`, or an empty string for no date. */
   value: string
   onChange: (iso: string) => void
+  /** Optional minimum ISO `yyyy-MM-dd` date; earlier dates are disabled in the calendar and rejected on input. */
+  minDate?: string
   id?: string
   className?: string
   disabled?: boolean
@@ -58,6 +73,7 @@ interface DateFieldProps {
 export function DateField({
   value,
   onChange,
+  minDate,
   id,
   className,
   disabled,
@@ -73,7 +89,7 @@ export function DateField({
   }, [value])
 
   const inputRef = React.useRef<HTMLInputElement>(null)
-  const isInvalid = draft !== '' && parseDisplayDate(draft) === null
+  const isInvalid = isInvalidDateDraft(draft, minDate)
 
   // Lets the browser block a form submit while the text is not a real date, so Submit never saves the previous date unnoticed.
   React.useEffect(() => {
@@ -92,6 +108,7 @@ export function DateField({
   }
 
   const selected = value ? parseISO(value) : undefined
+  const disabledBefore = parseDisabledBefore(minDate)
 
   return (
     // On a phone the calendar button sits inside the field, so the date text keeps the whole width of a half-width filter.
@@ -137,6 +154,7 @@ export function DateField({
             mode="single"
             required
             locale={deAT}
+            disabled={disabledBefore}
             selected={selected && isValid(selected) ? selected : undefined}
             defaultMonth={selected && isValid(selected) ? selected : undefined}
             onSelect={(date) => {

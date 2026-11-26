@@ -683,6 +683,10 @@
       "public": false,
       "params": []
     },
+    "FISCAL_LOCK_DATE_CANNOT_REWIND": {
+      "public": true,
+      "params": []
+    },
     "FISCAL_PATH_DISABLED": {
       "public": true,
       "params": []

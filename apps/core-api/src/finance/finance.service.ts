@@ -102,6 +102,58 @@ async function advanceInvoiceSequence(
   }
 }
 
+function assertValidLockDateTransition(
+  existingLockDate: Date | null,
+  nextLockDate: string | null,
+): void {
+  if (!existingLockDate) {
+    return;
+  }
+  if (nextLockDate === null) {
+    throw new UnprocessableEntityException({
+      code: 'FISCAL_LOCK_DATE_CANNOT_REWIND',
+      message:
+        'Fiscal lock date cannot be cleared or moved to an earlier date.',
+      lockDate: existingLockDate.toISOString(),
+    });
+  }
+  const currentDay = existingLockDate.toISOString().slice(0, 10);
+  const nextDay = new Date(nextLockDate).toISOString().slice(0, 10);
+  if (nextDay < currentDay) {
+    throw new UnprocessableEntityException({
+      code: 'FISCAL_LOCK_DATE_CANNOT_REWIND',
+      message:
+        'Fiscal lock date cannot be cleared or moved to an earlier date.',
+      lockDate: existingLockDate.toISOString(),
+    });
+  }
+}
+
+async function maybeAdvanceInvoiceSequence(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  activeSiteId: string | null,
+  currentPrefix: string | undefined,
+  data: UpdateFinanceSettingsDto,
+): Promise<void> {
+  if (data.next_invoice_number === undefined) {
+    return;
+  }
+  const effectivePrefix =
+    data.invoice_prefix ?? currentPrefix ?? DEFAULT_INVOICE_PREFIX;
+  const timeZone = await resolveSiteTimeZone(tx, tenantId, activeSiteId);
+  const sequenceYear = effectivePrefix.includes('{YYYY}')
+    ? calendarYearInTimeZone(new Date(), timeZone)
+    : 0;
+
+  await advanceInvoiceSequence(
+    tx,
+    tenantId,
+    sequenceYear,
+    data.next_invoice_number,
+  );
+}
+
 @Injectable()
 export class FinanceService {
   constructor(
@@ -147,41 +199,38 @@ export class FinanceService {
       }),
     };
 
-    if (data.next_invoice_number === undefined) {
+    if (data.next_invoice_number === undefined && lock_date === undefined) {
       return this.prisma.financeSettings.update({
         where: { tenant_id: tenantId },
         data: updateData,
       });
     }
 
-    const nextInvoiceNumber = data.next_invoice_number;
-    const activeSite = (await this.siteContext.tryGetSite?.()) ?? null;
+    const activeSite =
+      data.next_invoice_number !== undefined
+        ? ((await this.siteContext.tryGetSite?.()) ?? null)
+        : null;
     return this.prisma.$transaction(async (tx) => {
       await lockFinanceSettings(tx, tenantId);
 
       const currentSettings = await tx.financeSettings.findFirst({
         where: { tenant_id: tenantId },
-        select: { invoice_prefix: true },
+        select: { lock_date: true, invoice_prefix: true },
       });
-      const effectivePrefix =
-        data.invoice_prefix ??
-        currentSettings?.invoice_prefix ??
-        DEFAULT_INVOICE_PREFIX;
 
-      const timeZone = await resolveSiteTimeZone(
+      if (lock_date !== undefined) {
+        assertValidLockDateTransition(
+          currentSettings?.lock_date ?? null,
+          lock_date,
+        );
+      }
+
+      await maybeAdvanceInvoiceSequence(
         tx,
         tenantId,
         activeSite?.id ?? null,
-      );
-      const sequenceYear = effectivePrefix.includes('{YYYY}')
-        ? calendarYearInTimeZone(new Date(), timeZone)
-        : 0;
-
-      await advanceInvoiceSequence(
-        tx,
-        tenantId,
-        sequenceYear,
-        nextInvoiceNumber,
+        currentSettings?.invoice_prefix,
+        data,
       );
 
       return tx.financeSettings.update({

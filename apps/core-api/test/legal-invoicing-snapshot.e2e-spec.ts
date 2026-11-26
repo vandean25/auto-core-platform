@@ -761,11 +761,10 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       });
       expect(invoiceAfter.status).toBe('DRAFT');
     } finally {
-      await request(app.getHttpServer())
-        .patch('/api/finance/settings')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ lock_date: null })
-        .expect(200);
+      await tenantPrisma.financeSettings.update({
+        where: { tenant_id: tenant.tenantId },
+        data: { lock_date: null },
+      });
     }
   });
 });

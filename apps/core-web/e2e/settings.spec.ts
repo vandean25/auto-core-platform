@@ -185,4 +185,64 @@ test.describe('Blueprint: Settings Page', () => {
     // Verify Labor category add form is visible
     await expect(page.getByRole('button', { name: DE_SETTINGS.labor.categories.addDialog.submit })).toBeVisible();
   });
+
+  test('Fiscal lock date confirmation dialog opens on first set and saves after confirming', async ({ page }, testInfo) => {
+    const corePage = new AutoCorePage(page, 'Settings');
+    let currentSettings = createMockFinanceSettings({ lock_date: null });
+    const patchPayloads: unknown[] = [];
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/finance/settings'), async (route) => {
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON() as { lock_date?: string | null };
+        patchPayloads.push(body);
+        currentSettings = {
+          ...currentSettings,
+          lock_date: body.lock_date ? `${body.lock_date}T00:00:00.000Z` : currentSettings.lock_date,
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(currentSettings),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentSettings),
+      });
+    });
+
+    await corePage.navigate('/settings/finance');
+    const lockDateInput = page.getByRole('textbox', { name: DE_SETTINGS.finance.fiscal.lockDate });
+    await expect(lockDateInput).toBeVisible();
+
+    await lockDateInput.fill('31.10.2026');
+    await page.getByRole('button', { name: DE_SETTINGS.finance.saveChanges }).click();
+
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(DE_SETTINGS.finance.lockDialog.title)).toBeVisible();
+    expect(patchPayloads).toHaveLength(0);
+
+    await testInfo.attach('fiscal-lock-dialog-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(dialog).toBeVisible();
+    await testInfo.attach('fiscal-lock-dialog-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await dialog.getByRole('button', { name: DE_SETTINGS.finance.lockDialog.confirm }).click();
+    await expect(dialog).toBeHidden();
+    expect(patchPayloads).toEqual([
+      expect.objectContaining({
+        lock_date: '2026-10-31',
+      }),
+    ]);
+  });
 });

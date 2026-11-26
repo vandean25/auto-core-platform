@@ -173,6 +173,7 @@
     "EXTERNAL_RESULT_REQUIRES_REVIEW": "Externes Begutachtungsergebnis muss geprüft werden — die Fälligkeit ist nicht verlässlich.",
     "E_FAILED_SCHEMA_VALIDATION": "Der Beleg hat ein ungültiges Format.",
     "E_RECEIPT_NOT_FOUND": "Zu dieser Belegnummer wurde kein Beleg gespeichert.",
+    "FISCAL_LOCK_DATE_CANNOT_REWIND": "Das Sperrdatum kann weder gelöscht noch auf ein früheres Datum zurückgesetzt werden.",
     "FISCAL_PATH_DISABLED": "Fiskalpfad ist deaktiviert.",
     "FISCAL_PERIOD_LOCKED": "Fiskalperiode ist gesperrt.",
     "FISCAL_RECEIPT_ENV_MISMATCH": "Fiskalbeleg passt nicht zur Umgebung.",

@@ -332,4 +332,123 @@ describe('FinanceService.updateSettings', () => {
     expect(result).toEqual({ bank_reconciliation_enabled: true });
     expect(prisma.financeSettings.update).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects lock_date: null with 422 FISCAL_LOCK_DATE_CANNOT_REWIND when a lock_date is already set', async () => {
+    const existingLock = new Date('2026-10-31T00:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'fs-1' }]),
+      financeSettings: {
+        findFirst: jest.fn().mockResolvedValue({ lock_date: existingLock }),
+        update: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    await expect(service.updateSettings({ lock_date: null })).rejects.toMatchObject({
+      status: 422,
+      response: expect.objectContaining({
+        code: 'FISCAL_LOCK_DATE_CANNOT_REWIND',
+      }),
+    });
+    expect(tx.financeSettings.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects an earlier lock_date with 422 FISCAL_LOCK_DATE_CANNOT_REWIND and leaves DB unchanged', async () => {
+    const existingLock = new Date('2026-10-31T00:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'fs-1' }]),
+      financeSettings: {
+        findFirst: jest.fn().mockResolvedValue({ lock_date: existingLock }),
+        update: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    await expect(
+      service.updateSettings({ lock_date: '2026-09-30' }),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: expect.objectContaining({
+        code: 'FISCAL_LOCK_DATE_CANNOT_REWIND',
+      }),
+    });
+    expect(tx.financeSettings.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'first set', current: null, next: '2026-10-31' },
+    { label: 'forward move', current: new Date('2026-10-31T00:00:00.000Z'), next: '2026-11-30' },
+    { label: 'same day', current: new Date('2026-10-31T00:00:00.000Z'), next: '2026-10-31' },
+  ])('allows $label for lock_date', async ({ current, next }) => {
+    const updatedRow = { id: 'fs-1', lock_date: new Date(next) };
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'fs-1' }]),
+      financeSettings: {
+        findFirst: jest.fn().mockResolvedValue({ lock_date: current }),
+        update: jest.fn().mockResolvedValue(updatedRow),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+      ),
+    } as unknown as PrismaService;
+    const tenantContext = {
+      getTenantId: jest.fn().mockResolvedValue(TENANT_ID),
+      getAuthenticatedUser: jest.fn().mockReturnValue({ role: 'OWNER' }),
+    } as unknown as TenantContextService;
+    const siteContext = {} as unknown as SiteContextService;
+
+    const service = new FinanceService(prisma, tenantContext, siteContext);
+    const result = await service.updateSettings({ lock_date: next });
+    expect(result).toEqual(updatedRow);
+    expect(tx.financeSettings.update).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID },
+      data: { lock_date: new Date(next) },
+    });
+  });
+
+  it('has no migration file touching lock_date outside initial finance module creation', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const migrationsDir = path.resolve(
+      process.cwd(),
+      'prisma/migrations',
+    );
+    const entries = fs.readdirSync(migrationsDir, { withFileTypes: true });
+    const touchingLockDate = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const sqlPath = path.join(migrationsDir, entry.name, 'migration.sql');
+        return {
+          name: entry.name,
+          sql: fs.existsSync(sqlPath) ? fs.readFileSync(sqlPath, 'utf8') : '',
+        };
+      })
+      .filter(({ sql }) => sql.includes('lock_date'))
+      .map(({ name }) => name);
+
+    expect(touchingLockDate).toEqual(['20260130202423_add_finance_module']);
+  });
 });
+

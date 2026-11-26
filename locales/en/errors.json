@@ -173,6 +173,7 @@
     "EXTERNAL_RESULT_REQUIRES_REVIEW": "Externes Begutachtungsergebnis erfordert Prüfung — Fälligkeit nicht verlässlich.",
     "E_FAILED_SCHEMA_VALIDATION": "Synthetic schema failure",
     "E_RECEIPT_NOT_FOUND": "Synthetic illustration. No receipt was stored for this receipt id.",
+    "FISCAL_LOCK_DATE_CANNOT_REWIND": "The fiscal lock date cannot be cleared or moved to an earlier date.",
     "FISCAL_PATH_DISABLED": "Fiscal path disabled.",
     "FISCAL_PERIOD_LOCKED": "Fiscal period locked.",
     "FISCAL_RECEIPT_ENV_MISMATCH": "Fiscal receipt env mismatch.",

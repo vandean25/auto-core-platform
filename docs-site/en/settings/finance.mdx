@@ -35,17 +35,17 @@ This tab is one form. Changes sit in the fields until you click **Save Changes**
 
 **Lock Date** is a date picker. Helper text on the screen: transactions on or before this date cannot be modified.
 
-Leave it empty if you do not want a lock.
+Leave it empty while no lock date is set.
 
 <Warning>
-Moving the lock **later** opens **Confirm Fiscal Lock**. Confirming permanently blocks changes in the previous period and can affect finalized reports. Cancel if you are not ready. The product does not reopen a closed period from this screen.
+Setting a lock date for the first time or moving it **later** opens **Confirm Fiscal Lock**. Confirming permanently blocks changes on or before that date and can affect finalized reports. Cancel if you are not ready. Once set, a lock date cannot be cleared or moved to an earlier date.
 </Warning>
 
 | You do this | What happens |
 | --- | --- |
-| Pick a date and save | Dates on or before that day are locked for this tenant |
-| Pick a **later** date than today | Confirm Fiscal Lock, then **Confirm Lock** |
-| Clear the date and save | No lock date |
+| Pick a date (first lock) and save | **Confirm Fiscal Lock**, then **Confirm Lock**; dates on or before that day are locked for this tenant |
+| Pick a **later** date than the current lock date and save | **Confirm Fiscal Lock**, then **Confirm Lock** |
+| Clear the date or pick an earlier date once set | Not allowed — a set lock date cannot be cleared or moved back |
 
 ## Invoice Numbering
 
