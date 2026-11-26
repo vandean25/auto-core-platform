@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useTranslation } from 'react-i18next'
-import { useCustomers } from '@/api/customers'
+import { useCustomerListState } from '@/api/customer-list'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
@@ -29,13 +29,10 @@ export default function CustomerList() {
     void ensureNamespaceLoaded('customers')
   }, [])
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const { data: responseData, isLoading, isError, dataUpdatedAt } = useCustomers(queryParams)
+  const list = useCustomerListState(queryParams)
 
-  const customers: Customer[] = Array.isArray(responseData)
-    ? responseData
-    : responseData?.data || []
-  const pending = useCustomerPendingCreate(customers, dataUpdatedAt)
-  const pageCount = Array.isArray(responseData) ? 1 : responseData?.meta?.pageCount || 1
+  const customers = list.customers
+  const pending = useCustomerPendingCreate(customers, list.dataUpdatedAt)
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
   const { open: isDialogOpen, onOpenChange: setIsDialogOpen } = useActionDialogParam(
@@ -129,11 +126,10 @@ export default function CustomerList() {
         data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_CUSTOMERS}
-        pageCount={pageCount}
-        isLoading={isLoading}
+        {...list.tableProps}
         searchPlaceholder={t('list.searchPlaceholder')}
         emptyState={
-          isError
+          list.isError
             ? undefined
             : {
                 message: t('list.empty'),

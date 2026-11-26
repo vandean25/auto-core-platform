@@ -2,7 +2,10 @@ import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse, createMockVehicleListItem } from './utils/mock-factories';
+import { mockCursorList, requestedBlocks } from './utils/cursor-list-mock';
+import { DE_COMMON } from './helpers/de-common';
 import { DE_VEHICLES, deVehicleListRowAria } from './helpers/de-vehicles';
+import { pageOverflow } from './utils/phone-layout';
 import { expectListPeekForRecord, openListPeekInFull } from './helpers/peek-list';
 
 /**
@@ -286,5 +289,44 @@ test.describe('Blueprint: Vehicles Module', () => {
     await expect(dialog.getByLabel('Typenschein-Nr.')).toHaveValue(
       'TS-PW-1',
     );
+  });
+
+  test.describe('at 375px', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
+    // Scenario 6 (AUT-957): default sort scrolls in blocks of 50 without page buttons; regression = page buttons or
+    // second block never loads on a phone.
+    test('infinite next block', async ({ page }, testInfo) => {
+      const vehicles = Array.from({ length: 60 }, (_, index) =>
+        createMockVehicleListItem({
+          id: `vehicle-infinite-${index}`,
+          make: 'Skoda',
+          model: `Octavia-${String(1000 + index)}`,
+          plate: `W-${1000 + index}`,
+        }),
+      );
+      const requests = await mockCursorList(page, { path: '/api/vehicles', rows: vehicles });
+
+      await new AutoCorePage(page, DE_VEHICLES.list.addVehicle).navigate('/vehicles');
+      await expect(page.locator('li[data-table-row="true"]').first()).toBeVisible();
+      await expect(page.getByTestId('data-table-count')).toHaveText('60 Treffer');
+      expect(Object.fromEntries(requests.list[0].searchParams)).toEqual({ pagination: 'cursor', limit: '50' });
+      await expect(page.getByRole('combobox', { name: DE_COMMON.dataTable.rowsPerPageAria })).toHaveCount(0);
+
+      const loadMore = page.getByRole('button', { name: DE_COMMON.dataTable.infinite.loadMore });
+      await expect(loadMore).toBeVisible();
+      expect((await loadMore.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(await pageOverflow(page)).toBe(0);
+
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        expect(requestedBlocks(requests).has('offset:50')).toBe(true);
+      }).toPass();
+      await expect(page.getByText('Skoda Octavia-1059')).toBeAttached();
+      await testInfo.attach('customer-vehicles-infinite-next-block-375', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
   });
 });

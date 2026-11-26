@@ -8,12 +8,15 @@ import { CustomerNoteRetentionService } from './notes/customer-note-retention.se
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
+import { ScopeContextModule } from '../auth/scope-context/scope-context.module.js';
+import { CustomerListService } from './customer-list.service.js';
 
 @Module({
-  imports: [PrismaModule, AuditModule, CustomFieldsModule],
+  imports: [PrismaModule, AuditModule, CustomFieldsModule, ScopeContextModule],
   controllers: [CustomerController, CustomerNotesController],
   providers: [
     CustomerService,
+    CustomerListService,
     CustomerActivityService,
     CustomerNotesService,
     CustomerNoteRetentionService,

@@ -8,6 +8,7 @@ import { ApiRootModule } from '../api-root.module.js';
 import { AppController } from '../app.controller.js';
 import { AppService } from '../app.service.js';
 import { CustomerController } from '../customer/customer.controller.js';
+import { CustomerListService } from '../customer/customer-list.service.js';
 import { CustomerActivityService } from '../customer/activity/customer-activity.service.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -100,6 +101,7 @@ describe('legacy/new decision matrix', () => {
           provide: CustomerService,
           useValue: { findAll: () => Promise.resolve({ data: [], meta: {} }) },
         },
+        { provide: CustomerListService, useValue: {} },
         {
           provide: CustomerActivityService,
           useValue: {

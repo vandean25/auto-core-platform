@@ -1,7 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import type { Vehicle } from './types'
 import { fetchWithAuth } from './client'
+import { readOffsetPage } from './cursor-recovery'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import { customerKeys } from './customers'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import {
@@ -24,18 +26,18 @@ export type VehiclePartyResponse = components['schemas']['VehiclePartyResponseDt
 export type VehicleOpenDueDate = components['schemas']['VehicleOpenDueDateDto']
 type CreateVehiclePartyDto = components['schemas']['CreateVehiclePartyDto']
 
+export type VehicleListApiRow = Vehicle & {
+  customer?: {
+    id: string
+    type: 'PRIVATE' | 'COMPANY'
+    first_name: string
+    last_name: string
+    company_name?: string
+  } | null
+}
+
 type VehicleListResponse = {
-  data: Array<
-    Vehicle & {
-      customer?: {
-        id: string
-        type: 'PRIVATE' | 'COMPANY'
-        first_name: string
-        last_name: string
-        company_name?: string
-      } | null
-    }
-  >
+  data: VehicleListApiRow[]
   meta: {
     total: number
     page: number
@@ -48,6 +50,12 @@ export const vehicleKeys = {
   all: ['vehicles'] as const,
   lists: () => [...vehicleKeys.all, 'list'] as const,
   list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.lists(), queryParams] as const,
+  /** ADR-0035 infinite customer vehicle list; its own family so an offset refresh never restarts the cursor chain. */
+  cursorLists: () => [...vehicleKeys.all, 'cursor'] as const,
+  cursorList: (params: Record<string, string | undefined>) =>
+    [...vehicleKeys.cursorLists(), params] as const,
+  cappedCount: (filters: Record<string, string | undefined>) =>
+    [...vehicleKeys.all, 'capped-count', filters] as const,
   detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
   pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,
   pickerlDueAll: () => [...vehicleKeys.all, 'pickerlDue'] as const,
@@ -128,18 +136,28 @@ export function useOpenPickerlWorkshopOrder(vehicleId: string) {
   })
 }
 
-export function useVehicles(queryParams?: DataTableQueryParams) {
+export function useVehicles(
+  queryParams?: DataTableQueryParams,
+  options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
+) {
+  const scopeDigest = options?.scopeDigest
   return useQuery<VehicleListResponse>({
-    queryKey: vehicleKeys.list(queryParams),
-    queryFn: async () => {
-      const url = buildDataTableUrl('/api/vehicles', queryParams, {
-        searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
-        maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
-      })
-      const response = await fetchWithAuth(url)
-      if (!response.ok) throw new Error('Failed to fetch vehicles')
-      return response.json()
-    },
+    queryKey: scopedOffsetKey(vehicleKeys.list(queryParams), scopeDigest),
+    enabled: options?.enabled ?? true,
+    ...(options?.fresh ? { staleTime: 0 } : {}),
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      readScopedOffset(scopeDigest, () =>
+        readOffsetPage(options?.offsetEpisodeKey, queryParams?.page, async () => {
+          const url = buildDataTableUrl('/api/vehicles', queryParams, {
+            searchFallbackFilterFields: ['make', 'model', 'vin', 'plate'],
+            maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE,
+          })
+          const response = await fetchWithAuth(url)
+          if (!response.ok) throw new Error('Failed to fetch vehicles')
+          return response.json()
+        }),
+      ),
   })
 }
 

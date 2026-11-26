@@ -12,7 +12,16 @@ import deCustomers from '../../../../../locales/de/customers.json'
 import { PEEK_SEARCH_PARAM } from '@/features/peek/peek-search-param'
 import type { Customer } from '@/api/types'
 
-vi.mock('@/api/customers')
+vi.mock('@/api/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/customers')>()
+  return {
+    ...actual,
+    useCustomers: vi.fn(),
+    useCustomer: vi.fn(),
+    useCreateCustomer: vi.fn(),
+    useDeleteCustomer: vi.fn(),
+  }
+})
 vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ claims: { role: 'ADMIN' } }),
 }))
@@ -48,7 +57,10 @@ function UrlSearchProbe() {
   return <span data-testid="url-search">{location.search}</span>
 }
 
-function renderList(initialEntry = '/customers?page=2') {
+/** A non-cursor sort keeps the paged offset list this test mocks (AUT-957). */
+const OFFSET_LIST = '/customers?page=2&sortField=company_name&sortDirection=asc'
+
+function renderList(initialEntry = OFFSET_LIST) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })

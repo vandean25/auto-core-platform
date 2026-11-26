@@ -79,3 +79,16 @@ export async function cappedWorkshopOrderListCount(
   });
   return cappedCountFromRows(rows);
 }
+
+/** Bounded match count for the customer list (ADR-0035 §5). */
+export async function cappedCustomerListCount(
+  db: { customer: Pick<Prisma.TransactionClient['customer'], 'findMany'> },
+  where: Prisma.CustomerWhereInput,
+): Promise<CappedListCountResult> {
+  const rows = await db.customer.findMany({
+    where,
+    select: { id: true },
+    take: LIST_COUNT_PROBE_TAKE,
+  });
+  return cappedCountFromRows(rows);
+}

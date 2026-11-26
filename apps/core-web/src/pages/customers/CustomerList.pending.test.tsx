@@ -46,13 +46,16 @@ const serverCustomer = (id: string, first: string, last: string) => ({
 type FakeServer = { customers: ReturnType<typeof serverCustomer>[]; gets: number; posts: Record<string, unknown>[]; postGate: Deferred<Response> | null }
 let server: FakeServer
 
+/** A non-cursor sort keeps the paged offset list whose refetch lifecycle these tests cover (AUT-957). */
+const OFFSET_LIST = '/customers?sortField=company_name&sortDirection=asc'
+
 function renderList() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
       <SavedViewsProvider userKey="test-user">
         <DashboardWidgetsProvider userKey="test-user">
-          <MemoryRouter initialEntries={['/customers']}>
+          <MemoryRouter initialEntries={[OFFSET_LIST]}>
             <Routes>
               <Route path="/customers" element={<CustomerList />} />
             </Routes>
@@ -80,7 +83,11 @@ const settle = () => act(() => new Promise((done) => setTimeout(done, 30)))
 beforeEach(() => {
   server = { customers: [], gets: 0, posts: [], postGate: null }
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
-    if (String(url).startsWith('/api/customers')) {
+    const target = String(url)
+    if (target.startsWith('/api/customers/capped-count')) {
+      return httpResponse(200, { count: server.customers.length, isCapped: false })
+    }
+    if (target.startsWith('/api/customers')) {
       if (init?.method === 'POST') {
         server.posts.push(JSON.parse(String(init.body)))
         return server.postGate ? server.postGate.promise : httpResponse(201, serverCustomer('srv-1', 'Pia', 'Pilot'))

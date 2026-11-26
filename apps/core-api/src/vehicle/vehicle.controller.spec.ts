@@ -99,6 +99,7 @@ describe('vehicle routes', () => {
     ['GET /vehicles/pickerl-due/export', undefined, false, 'VehicleController_exportPickerlDue'],
     ['GET /vehicles/:id/pickerl-open-order', undefined, false, 'VehicleController_findOpenPickerlWorkshopOrder'],
     ['POST /vehicles/:id/pickerl-contacts', undefined, false, 'VehicleController_recordPickerlContact'],
+    ['GET /vehicles/capped-count', undefined, false, 'VehicleController_cappedCount'],
     ['GET /vehicles', undefined, false, 'VehicleController_findAll'],
     ['POST /vehicles', undefined, true, 'VehicleController_create'],
     ['POST /vehicles/:id/resolve-identity', 200, false, 'VehicleController_resolveIdentity'],
@@ -116,12 +117,13 @@ describe('vehicle routes', () => {
   );
 
   it('serves no other route under vehicles', () => {
-    expect(routes).toHaveLength(12);
+    expect(routes).toHaveLength(13);
   });
 
   it.each([
     ['GET /vehicles/pickerl-due', 'GET /vehicles/:id'],
     ['GET /vehicles/pickerl-due/export', 'GET /vehicles/:id'],
+    ['GET /vehicles/capped-count', 'GET /vehicles/:id'],
   ])('registers %s before the catch-all %s', (literal, catchAll) => {
     const order = routes.map((candidate) => candidate.route);
     expect(order.indexOf(literal)).toBeGreaterThanOrEqual(0);

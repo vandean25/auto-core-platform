@@ -4303,9 +4303,29 @@
         "operationId": "CustomerController_findAll",
         "parameters": [
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Cursor mode only. Default 50, maximum 100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -4315,15 +4335,30 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Number of items per page",
             "schema": {
               "type": "integer",
               "minimum": 1
             }
           },
           {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
+            }
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
+            "description": "Free-text search term for customer name, company name, email, or legacy ID",
             "schema": {
               "type": "string"
             }
@@ -4332,6 +4367,7 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
+            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [
@@ -4344,6 +4380,7 @@
             "name": "sortField",
             "required": false,
             "in": "query",
+            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -4358,6 +4395,15 @@
                 "PRIVATE",
                 "COMPANY"
               ]
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -4387,6 +4433,58 @@
             }
           }
         },
+        "tags": [
+          "Customer"
+        ]
+      }
+    },
+    "/api/customers/capped-count": {
+      "get": {
+        "operationId": "CustomerController_cappedCount",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Same search as the customer list",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRIVATE",
+                "COMPANY"
+              ]
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for the customer list (ADR-0035)",
         "tags": [
           "Customer"
         ]
@@ -13423,14 +13521,73 @@
         ]
       }
     },
+    "/api/vehicles/capped-count": {
+      "get": {
+        "operationId": "VehicleController_cappedCount",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Same search as the customer vehicle list",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CappedListCountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bounded match count for the customer vehicle list (ADR-0035)",
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
     "/api/vehicles": {
       "get": {
         "operationId": "VehicleController_findAll",
         "parameters": [
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.nextCursor of the previous cursor page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Cursor mode only. Default 50, maximum 100.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -13448,9 +13605,23 @@
             }
           },
           {
+            "name": "pagination",
+            "required": false,
+            "in": "query",
+            "description": "Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "offset",
+                "cursor"
+              ]
+            }
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
+            "description": "Free-text search term for make, model, plate, VIN, engine code, customer, or legacy ID",
             "schema": {
               "type": "string"
             }
@@ -13459,6 +13630,7 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
+            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [
@@ -13471,6 +13643,16 @@
             "name": "sortField",
             "required": false,
             "in": "query",
+            "description": "Field name to sort by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ACP-Scope-Context",
+            "required": false,
+            "in": "header",
+            "description": "Required in cursor mode (ADR-0038).",
             "schema": {
               "type": "string"
             }

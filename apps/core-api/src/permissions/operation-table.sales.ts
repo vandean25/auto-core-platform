@@ -248,6 +248,11 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO_ACCOUNTING,
     'tenant',
   ),
+  'CustomerController.cappedCount': op(
+    'customer.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'tenant',
+  ),
   'CustomerController.findOne': op(
     'customer.read',
     BACK_OFFICE_DEMO_ACCOUNTING,
