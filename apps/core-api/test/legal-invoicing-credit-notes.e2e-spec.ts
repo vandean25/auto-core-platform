@@ -1083,22 +1083,21 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
   it('AUT-1068 S4: parallel CN finalizations around midnight assign unique and gapless 2027 numbers', async () => {
     const viennaNewYearInstant = new Date('2026-12-31T23:30:00.000Z');
-    const drafts = await Promise.all(
-      Array.from({ length: 5 }, async (_, index) => {
-        const invoice = await finalizeSalesInvoice(
-          1,
-          25,
-          1,
-          viennaNewYearInstant,
-        );
-        const draft = await createDraftCredit(invoice.id, {
-          date: viennaNewYearInstant.toISOString(),
-          reason: `Parallel midnight credit ${index + 1}`,
-          mode: 'FULL',
-        }).expect(201);
-        return draft.body.id as string;
-      }),
-    );
+    const drafts: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const invoice = await finalizeSalesInvoice(
+        1,
+        25,
+        1,
+        viennaNewYearInstant,
+      );
+      const draft = await createDraftCredit(invoice.id, {
+        date: viennaNewYearInstant.toISOString(),
+        reason: `Parallel midnight credit ${index + 1}`,
+        mode: 'FULL',
+      }).expect(201);
+      drafts.push(draft.body.id as string);
+    }
 
     const results = await Promise.all(
       drafts.map((id, index) =>
