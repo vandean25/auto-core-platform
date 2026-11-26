@@ -189,7 +189,8 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
 
   test('AUT-1066: WHEN /vehicle-stock infinite list returns 403 THEN it shows Keine Berechtigung without empty state or retry loop', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     let listCalls = 0;
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/capped-count'), async (route) => {
       await route.fulfill({
@@ -215,5 +216,6 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
     await expect(page.getByText(dataTable.noResults)).toHaveCount(0);
     await expect(page.getByRole('button', { name: dataTable.loading.retry })).toHaveCount(0);
     expect(listCalls).toBe(1);
+    await testInfo.attach('aut-1066-vehicle-stock-403-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
 });

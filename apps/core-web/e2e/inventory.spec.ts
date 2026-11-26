@@ -960,7 +960,8 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
 test.describe('Inventory — 403 error state (AUT-1066)', () => {
   test('WHEN /inventory infinite list returns 403 THEN it shows Keine Berechtigung without empty state or retry loop', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     let listCalls = 0;
     await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/capped-count'), async (route) => {
       await route.fulfill({
@@ -986,6 +987,7 @@ test.describe('Inventory — 403 error state (AUT-1066)', () => {
     await expect(page.getByText(DE_COMMON.dataTable.noResults)).toHaveCount(0);
     await expect(page.getByRole('button', { name: DE_COMMON.dataTable.loading.retry })).toHaveCount(0);
     expect(listCalls).toBe(1);
+    await testInfo.attach('aut-1066-inventory-403-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
 });
 

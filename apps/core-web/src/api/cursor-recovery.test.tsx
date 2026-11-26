@@ -143,6 +143,7 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
     expect(result.current.tableProps.isError).toBe(true)
     expect(result.current.tableProps.onRetry).toBeUndefined()
+    expect(result.current.tableProps.fetchErrorMessage).toBe('Bitte melden Sie sich an.')
     expect(listCalls).toBe(1)
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: authSessionKeys.all })
   })

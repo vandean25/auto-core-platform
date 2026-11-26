@@ -360,7 +360,8 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
 
   test('AUT-1066: WHEN an infinite invoice list returns 401 THEN no empty table is shown and requests stay bounded', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     let listCalls = 0;
     await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/capped-count'), async (route) => {
       await route.fulfill({
@@ -382,18 +383,23 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
 
     const alert = page.getByRole('alert');
     await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Bitte melden Sie sich an.');
     await expect(page.getByText(dataTable.noResults)).toHaveCount(0);
     await expect(page.getByText('Keine Rechnungen')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: dataTable.loading.retry })).toHaveCount(0);
     expect(listCalls).toBe(1);
+    await testInfo.attach('aut-1066-invoice-list-401-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
 
   test('AUT-1066: WHEN an infinite invoice list returns 200 with 0 rows THEN the empty state is shown', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     await mockCursorList(page, { path: '/api/sales/invoices', rows: [], unpaged: 'array' });
     await openList(page, '?sortField=invoice_number&sortDirection=asc');
 
     await expect(page.getByText(dataTable.noResults)).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
+    await testInfo.attach('aut-1066-invoice-list-empty-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
 });
