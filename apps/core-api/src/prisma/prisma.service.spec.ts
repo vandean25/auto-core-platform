@@ -115,6 +115,106 @@ describe('PrismaService', () => {
 
     expect(contextInsideThenable).toBe(mockTx);
   });
+
+  it('buffers realtime emits inside $transaction and flushes them only after commit', async () => {
+    const emitEntityUpdated = jest.fn();
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [PrismaModule],
+    })
+      .overrideProvider(DashboardRealtimeService)
+      .useValue({ emitEntityUpdated })
+      .compile();
+    service = module.get(PrismaService);
+
+    let resolveCommit: () => void = () => undefined;
+    jest
+      .spyOn(service.client as any, '$transaction')
+      .mockImplementation(async (callback: any) => {
+        const result = await callback({ isTx: true });
+        await new Promise<void>((resolve) => {
+          resolveCommit = resolve;
+        });
+        return result;
+      });
+
+    const { emitRealtimeForOperation } = await import(
+      './prisma-dashboard-realtime.extension.js'
+    );
+    const { TenantContextStorage } = await import(
+      '../common/services/tenant-context.storage.js'
+    );
+
+    let callbackFinished = false;
+    const txPromise = TenantContextStorage.run(() => {
+      TenantContextStorage.setUser({
+        userId: 'user-1',
+        email: 'user@example.com',
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+      });
+      return service.$transaction(async () => {
+        emitRealtimeForOperation({ emitEntityUpdated }, 'Customer', 'create', {
+          id: 'cust-1',
+        });
+        expect(emitEntityUpdated).not.toHaveBeenCalled();
+        callbackFinished = true;
+      });
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(callbackFinished).toBe(true);
+    expect(emitEntityUpdated).not.toHaveBeenCalled();
+
+    resolveCommit();
+    await txPromise;
+    expect(emitEntityUpdated).toHaveBeenCalledTimes(1);
+    expect(emitEntityUpdated).toHaveBeenCalledWith('tenant-1', {
+      type: 'CUSTOMER',
+      action: 'CREATED',
+      entityId: 'cust-1',
+    });
+  });
+
+  it('drops buffered realtime emits when $transaction rolls back', async () => {
+    const emitEntityUpdated = jest.fn();
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [PrismaModule],
+    })
+      .overrideProvider(DashboardRealtimeService)
+      .useValue({ emitEntityUpdated })
+      .compile();
+    service = module.get(PrismaService);
+
+    jest
+      .spyOn(service.client as any, '$transaction')
+      .mockImplementation(async (callback: any) => callback({ isTx: true }));
+
+    const { emitRealtimeForOperation } = await import(
+      './prisma-dashboard-realtime.extension.js'
+    );
+    const { TenantContextStorage } = await import(
+      '../common/services/tenant-context.storage.js'
+    );
+
+    await expect(
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setUser({
+          userId: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          role: 'ADMIN',
+        });
+        return service.$transaction(async () => {
+          emitRealtimeForOperation({ emitEntityUpdated }, 'Customer', 'create', {
+            id: 'cust-1',
+          });
+          throw new Error('rollback');
+        });
+      }),
+    ).rejects.toThrow('rollback');
+
+    expect(emitEntityUpdated).not.toHaveBeenCalled();
+  });
 });
 
 async function createPrismaService(): Promise<PrismaService> {

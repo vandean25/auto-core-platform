@@ -19,7 +19,7 @@ import {
 import { upsertTargetExists } from './prisma-dashboard-realtime.upsert.js';
 
 const pendingDashboardRealtimeEmits = new AsyncLocalStorage<
-  Array<() => void>
+  Map<string, () => void>
 >();
 
 export async function runWithDeferredDashboardRealtimeEmits<T>(
@@ -29,18 +29,22 @@ export async function runWithDeferredDashboardRealtimeEmits<T>(
   if (parentPending) {
     return work();
   }
-  const pending: Array<() => void> = [];
+  const pending = new Map<string, () => void>();
   return pendingDashboardRealtimeEmits.run(pending, async () => {
     try {
       const result = await work();
-      const callbacks = [...pending];
-      pending.length = 0;
+      if (SideEffectGuard.isDryRun()) {
+        pending.clear();
+        return result;
+      }
+      const callbacks = [...pending.values()];
+      pending.clear();
       for (const emit of callbacks) {
         emit();
       }
       return result;
     } catch (error) {
-      pending.length = 0;
+      pending.clear();
       throw error;
     }
   });
@@ -121,7 +125,10 @@ export function emitRealtimeForOperation(
   });
   const pending = pendingDashboardRealtimeEmits.getStore();
   if (pending) {
-    pending.push(() => dashboardRealtime.emitEntityUpdated(tenantId, enriched));
+    const dedupeKey = `${tenantId}:${type}:${action}:${entityId ?? ''}`;
+    pending.set(dedupeKey, () =>
+      dashboardRealtime.emitEntityUpdated(tenantId, enriched),
+    );
     return;
   }
   dashboardRealtime.emitEntityUpdated(tenantId, enriched);

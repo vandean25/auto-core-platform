@@ -1,5 +1,9 @@
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
-import { emitRealtimeForOperation } from './prisma-dashboard-realtime.extension.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import {
+  emitRealtimeForOperation,
+  runWithDeferredDashboardRealtimeEmits,
+} from './prisma-dashboard-realtime.extension.js';
 
 function runWithTenant<T>(tenantId: string, fn: () => Promise<T> | T) {
   return TenantContextStorage.run(() => {
@@ -108,5 +112,78 @@ describe('emitRealtimeForOperation', () => {
       action: 'UPDATED',
       entityId: 'schedule-1',
     });
+  });
+});
+
+describe('runWithDeferredDashboardRealtimeEmits', () => {
+  it('buffers writes inside the transaction and flushes deduplicated emits after commit', async () => {
+    const emitEntityUpdated = jest.fn();
+
+    await runWithTenant('tenant-1', async () => {
+      await runWithDeferredDashboardRealtimeEmits(async () => {
+        emitRealtimeForOperation({ emitEntityUpdated }, 'Payment', 'update', {
+          id: 'pay-1',
+          site_id: 'site-1',
+          status: 'PENDING',
+        });
+        emitRealtimeForOperation({ emitEntityUpdated }, 'Payment', 'update', {
+          id: 'pay-1',
+          site_id: 'site-1',
+          status: 'PAID',
+        });
+        emitRealtimeForOperation({ emitEntityUpdated }, 'Customer', 'create', {
+          id: 'cust-1',
+        });
+
+        expect(emitEntityUpdated).not.toHaveBeenCalled();
+      });
+    });
+
+    expect(emitEntityUpdated).toHaveBeenCalledTimes(2);
+    expect(emitEntityUpdated).toHaveBeenNthCalledWith(1, 'tenant-1', {
+      type: 'PAYMENT',
+      action: 'UPDATED',
+      entityId: 'pay-1',
+      siteId: 'site-1',
+      status: 'PAID',
+    });
+    expect(emitEntityUpdated).toHaveBeenNthCalledWith(2, 'tenant-1', {
+      type: 'CUSTOMER',
+      action: 'CREATED',
+      entityId: 'cust-1',
+    });
+  });
+
+  it('drops buffered emits on rollback', async () => {
+    const emitEntityUpdated = jest.fn();
+
+    await expect(
+      runWithTenant('tenant-1', () =>
+        runWithDeferredDashboardRealtimeEmits(async () => {
+          emitRealtimeForOperation({ emitEntityUpdated }, 'Customer', 'create', {
+            id: 'cust-1',
+          });
+          throw new Error('tx failed');
+        }),
+      ),
+    ).rejects.toThrow('tx failed');
+
+    expect(emitEntityUpdated).not.toHaveBeenCalled();
+  });
+
+  it('drops emits during dry-run even when wrapped in deferred emits', async () => {
+    const emitEntityUpdated = jest.fn();
+
+    await DryRunStorage.run({ isDryRun: true }, () =>
+      runWithTenant('tenant-1', () =>
+        runWithDeferredDashboardRealtimeEmits(async () => {
+          emitRealtimeForOperation({ emitEntityUpdated }, 'Customer', 'create', {
+            id: 'cust-1',
+          });
+        }),
+      ),
+    );
+
+    expect(emitEntityUpdated).not.toHaveBeenCalled();
   });
 });
