@@ -164,7 +164,7 @@ export function buildCreditNoteSnapshot(input: {
     original_document: {
       id: input.originalInvoiceId,
       number: input.originalInvoiceNumber,
-      date: calendarDateInTimeZone(input.originalInvoiceDate, timeZone),
+      date: input.originalSnapshot.date,
       reason: input.reason,
       snapshot_version: input.originalSnapshot.schema_version,
     },

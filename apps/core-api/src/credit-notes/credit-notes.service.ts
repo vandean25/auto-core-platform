@@ -784,10 +784,9 @@ export class CreditNotesService {
     originalInvoiceDate: Date,
     timeZone: string,
   ) {
-    const originalDate = new Date(
-      `${calendarDateInTimeZone(originalInvoiceDate, timeZone)}T00:00:00.000Z`,
-    );
-    if (creditDate < originalDate) {
+    const creditDay = calendarDateInTimeZone(creditDate, timeZone);
+    const originalDay = calendarDateInTimeZone(originalInvoiceDate, timeZone);
+    if (creditDay < originalDay) {
       throw new BadRequestException(
         'Credit date cannot be earlier than the original invoice date.',
       );

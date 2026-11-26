@@ -38,7 +38,8 @@ export function parseCalendarDateInTimeZone(
   timeZone = DEFAULT_INVOICE_TIME_ZONE,
 ): Date | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
+    // Noon UTC maps to the same calendar day in every timezone from UTC-11 to UTC+11.
+    const parsed = new Date(`${value}T12:00:00.000Z`);
     if (
       Number.isNaN(parsed.getTime()) ||
       parsed.toISOString().slice(0, 10) !== value
@@ -51,7 +52,7 @@ export function parseCalendarDateInTimeZone(
   if (Number.isNaN(instant.getTime())) {
     return null;
   }
-  return new Date(`${calendarDateInTimeZone(instant, timeZone)}T00:00:00.000Z`);
+  return new Date(`${calendarDateInTimeZone(instant, timeZone)}T12:00:00.000Z`);
 }
 
 export function formatInvoiceNumber(

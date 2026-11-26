@@ -245,7 +245,10 @@ describe('toRenderableCreditNoteSnapshot', () => {
     'formats credit note snapshot dates on the Europe/Vienna calendar for $label',
     ({ instant, expectedDay }) => {
       const built = buildCreditNoteSnapshot({
-        originalSnapshot: snapshot as unknown as Parameters<
+        originalSnapshot: {
+          ...snapshot,
+          date: expectedDay,
+        } as unknown as Parameters<
           typeof buildCreditNoteSnapshot
         >[0]['originalSnapshot'],
         originalInvoiceId: 'invoice-1',
@@ -263,4 +266,27 @@ describe('toRenderableCreditNoteSnapshot', () => {
       expect(built.original_document.date).toBe(expectedDay);
     },
   );
+
+  it('preserves originalSnapshot.date on original_document.date when it differs from the Vienna day of invoice.date', () => {
+    const preChangeInvoiceInstant = new Date('2026-12-31T23:30:00.000Z');
+    const built = buildCreditNoteSnapshot({
+      originalSnapshot: {
+        ...snapshot,
+        date: '2026-12-31',
+      } as unknown as Parameters<
+        typeof buildCreditNoteSnapshot
+      >[0]['originalSnapshot'],
+      originalInvoiceId: 'invoice-legacy-utc',
+      originalInvoiceNumber: 'RE-2026-0999',
+      originalInvoiceDate: preChangeInvoiceInstant,
+      reason: 'Pre-change UTC snapshot invoice credit',
+      creditDate: new Date('2027-01-01T12:00:00.000Z'),
+      isFullCredit: true,
+      lineSnapshots: [],
+      committedAt: new Date('2027-01-01T12:00:00.000Z'),
+    });
+
+    expect(built.date).toBe('2027-01-01');
+    expect(built.original_document.date).toBe('2026-12-31');
+  });
 });

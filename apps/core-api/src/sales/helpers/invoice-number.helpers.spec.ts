@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Prisma } from '@prisma/client';
 import {
   calendarDateInTimeZone,
+  calendarYearInTimeZone,
   generateInvoiceNumber,
   parseCalendarDateInTimeZone,
 } from './invoice-number.helpers.js';
@@ -208,17 +209,43 @@ describe('generateInvoiceNumber', () => {
   );
 
   it.each([
-    { input: '2027-01-01', expected: '2027-01-01T00:00:00.000Z' },
+    {
+      input: '2027-01-01',
+      timeZone: 'Europe/Vienna',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
+    },
     {
       input: '2026-12-31T23:30:00.000Z',
-      expected: '2027-01-01T00:00:00.000Z',
+      timeZone: 'Europe/Vienna',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
     },
-    { input: '2027-02-30', expected: null },
+    {
+      input: '2027-01-01',
+      timeZone: 'America/New_York',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
+    },
+    {
+      input: '2027-02-30',
+      timeZone: 'Europe/Vienna',
+      expectedIso: null,
+      expectedDay: null,
+      expectedYear: null,
+    },
   ])(
-    'parseCalendarDateInTimeZone parses $input in Europe/Vienna',
-    ({ input, expected }) => {
-      const parsed = parseCalendarDateInTimeZone(input, 'Europe/Vienna');
-      expect(parsed?.toISOString() ?? null).toBe(expected);
+    'parseCalendarDateInTimeZone parses $input in $timeZone',
+    ({ input, timeZone, expectedIso, expectedDay, expectedYear }) => {
+      const parsed = parseCalendarDateInTimeZone(input, timeZone);
+      expect(parsed?.toISOString() ?? null).toBe(expectedIso);
+      if (parsed) {
+        expect(calendarDateInTimeZone(parsed, timeZone)).toBe(expectedDay);
+        expect(calendarYearInTimeZone(parsed, timeZone)).toBe(expectedYear);
+      }
     },
   );
 });
