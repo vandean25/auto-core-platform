@@ -9,13 +9,17 @@ import {
   FiscalReceiptState,
   FiscalReceiptType,
   PaymentStatus,
+  Prisma,
   RksvMode,
 } from '@prisma/client';
+import { buildInvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
 import { SETTLEMENT_ERROR_CODES } from './settlement.constants.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { FiskalySignAtFixtureProvider } from './fiskaly-sign-at-fixture.provider.js';
+import { FiskalySignAtHttpAdapter } from './fiskaly-sign-at-http.adapter.js';
+import type { FiskalySignAtProvider } from './fiskaly-sign-at.types.js';
 import { SettlementService } from './settlement.service.js';
 import { hashSettlementRecordRequest } from './settlement-request-hash.js';
 
@@ -26,11 +30,12 @@ describe('SettlementService', () => {
 
   function createService(
     prisma: PrismaService,
-    options?: { role?: string; provider?: FiskalySignAtFixtureProvider },
+    options?: { role?: string; provider?: FiskalySignAtProvider },
   ) {
     const tenantContext = {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
       getAuthenticatedUser: jest.fn().mockReturnValue({
+        userId: 'fb-1',
         role: options?.role ?? 'OWNER',
       }),
     } as unknown as TenantContextService;
@@ -683,4 +688,121 @@ describe('SettlementService', () => {
     expect(txPaymentCreate).not.toHaveBeenCalled();
     expect(signSpy).not.toHaveBeenCalled();
   });
+
+  it('rejects settlement with ACP_RKSV_UNAVAILABLE and writes no Payment or FiscalReceipt when live signing is off', async () => {
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: {
+        id: invoiceId,
+        tax_mode: 'STANDARD',
+        global_discount_type: null,
+        global_discount_value: null,
+        date: new Date('2026-09-01T10:00:00.000Z'),
+        due_date: new Date('2026-09-15T10:00:00.000Z'),
+        supply_date_from: null,
+        supply_date_to: null,
+        notes: null,
+        total_gross: new Prisma.Decimal('120.00'),
+        customer: { type: 'PRIVATE', first_name: 'Erika', last_name: 'Beispiel' },
+        vehicle: null,
+      } as never,
+      seller: {
+        id: '00000000-0000-4000-8000-000000000001',
+        name: 'Test GmbH',
+        country_iso: 'AT',
+        address_street: 'Hauptstraße 1',
+        address_line2: null,
+        address_zip: '1010',
+        address_city: 'Wien',
+        tax_number: null,
+        vat_id: 'ATU12345678',
+        iban: null,
+        bic: null,
+        bank_name: null,
+        email: null,
+        phone: null,
+        registration_number: null,
+        registration_court: null,
+        representatives: null,
+        payment_terms_days: 14,
+        payment_terms_text: null,
+      } as never,
+      siteId: '00000000-0000-4000-8000-000000000002',
+      legalEntityId: '00000000-0000-4000-8000-000000000001',
+      lineAllocations: [
+        {
+          id: 'line-1',
+          description: 'Service',
+          quantity: new Prisma.Decimal('1'),
+          unitPrice: new Prisma.Decimal('100.00'),
+          taxRate: new Prisma.Decimal('20.00'),
+          lineDiscountType: null,
+          lineDiscountValue: null,
+          revenueGroupName: null,
+          accountingAllocation: {} as never,
+        },
+      ],
+    });
+    const transactionMock = jest.fn();
+    const prisma = {
+      tenantMember: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'tm-1', role: 'OWNER' }),
+      },
+      siteMembership: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'sm-1' }),
+      },
+      site: {
+        findFirst: jest.fn().mockResolvedValue({ id: siteId }),
+      },
+      invoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: invoiceId,
+          tenant_id: tenantId,
+          site_id: siteId,
+          legal_entity_id: 'le-1',
+          workshop_order_id: 'wo-1',
+          sales_order_id: null,
+          is_credit_note: false,
+          tax_mode: 'STANDARD',
+          status: 'ISSUED',
+          total_gross: new Prisma.Decimal('120.00'),
+          currency: 'EUR',
+          date: new Date('2026-09-01T10:00:00.000Z'),
+          snapshot,
+        }),
+      },
+      legalEntity: {
+        findFirstOrThrow: jest.fn().mockResolvedValue({
+          id: 'le-1',
+          rksv_mode: RksvMode.REQUIRED_ACP_RKSV,
+        }),
+      },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      creditNote: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      },
+      $transaction: transactionMock,
+    } as unknown as PrismaService;
+    const { service } = createService(prisma, {
+      provider: new FiskalySignAtHttpAdapter(null, false),
+    });
+
+    await expect(
+      service.recordSettlement(invoiceId, {
+        idempotencyKey: '00000000-0000-4000-8000-0000000000c5',
+        method: 'CASH',
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: expect.objectContaining({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+      }),
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
 });
+

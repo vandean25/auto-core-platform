@@ -18,7 +18,16 @@ export type FiskalyCredentialResolver = () => Promise<{
 export class FiskalySignAtHttpAdapter implements FiskalySignAtProvider {
   constructor(
     private readonly resolveCredentials: FiskalyCredentialResolver | null,
+    private readonly liveHttpWired = false,
   ) {}
+
+  isLiveConfigured(): boolean {
+    return (
+      isFiskalySignAtLiveEnabled() &&
+      this.liveHttpWired &&
+      this.resolveCredentials !== null
+    );
+  }
 
   async signReceipt(): Promise<FiskalySignAtProviderResult> {
     return this.refuseLive();

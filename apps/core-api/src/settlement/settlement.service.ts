@@ -33,6 +33,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { FiskalySignAtProvider } from './fiskaly-sign-at.types.js';
 import { FISKALY_SIGN_AT_PROVIDER } from './fiskaly-sign-at.types.js';
+import { FiskalySignAtHttpAdapter } from './fiskaly-sign-at-http.adapter.js';
 import {
   buildCancellationSignRequestBody,
   buildNormalSignRequestBody,
@@ -590,6 +591,16 @@ export class SettlementService {
     recordedByUserId: string;
     rksvMode: RksvMode;
   }) {
+    if (
+      this.fiskalyProvider instanceof FiskalySignAtHttpAdapter &&
+      !this.fiskalyProvider.isLiveConfigured()
+    ) {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.ACP_RKSV_UNAVAILABLE,
+        message: 'ACP RKSV live signing is not configured in this environment.',
+      });
+    }
+
     if (params.dto.externalReceiptNumber || params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,

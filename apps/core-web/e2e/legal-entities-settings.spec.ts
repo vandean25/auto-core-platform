@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import enSettings from '../../../locales/en/settings.json' with { type: 'json' };
 import { AutoCorePage } from './pom/AutoCorePage';
 import { DE_COMMON, DE_SETTINGS } from './helpers/de-settings';
+import { DE_SHELL } from './helpers/de-shell';
 import {
   createMockAccountingProfile,
   createMockLegalEntity,
@@ -131,4 +133,105 @@ test.describe('Legal entities seller settings', () => {
       fullPage: true,
     });
   });
+
+  test('WHEN the settings UI renders THEN REQUIRED_ACP_RKSV shows as unavailable in DE and EN', async ({
+    page,
+  }, testInfo) => {
+    const corePage = new AutoCorePage(page, 'Legal Entity');
+    const mockEntity = createMockLegalEntity();
+    const mockProfile = createMockAccountingProfile({
+      legal_entity_id: mockEntity.id,
+      tenant_id: mockEntity.tenant_id,
+    });
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([mockEntity]),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(
+        `/api/legal-entities/${mockEntity.id}/accounting-profile`,
+      ),
+      async (route) => {
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(mockProfile),
+          });
+          return;
+        }
+        await route.continue();
+      },
+    );
+
+    await corePage.navigate('/settings/legal-entities');
+
+    const deTrigger = page.getByLabel(DE_SETTINGS.legalEntities.seller.fields.rksvMode);
+    await expect(deTrigger).toBeVisible();
+    await deTrigger.scrollIntoViewIfNeeded();
+    await deTrigger.click();
+
+    const deOption = page.getByRole('option', {
+      name: DE_SETTINGS.legalEntities.seller.rksv.acpRksv,
+    });
+    await expect(deOption).toBeVisible();
+    await expect(deOption).toHaveAttribute('aria-disabled', 'true');
+    await expect(deOption).toContainText(/nicht verfügbar/i);
+    await testInfo.attach('rksv-mode-unavailable-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await deTrigger.scrollIntoViewIfNeeded();
+    await deTrigger.click();
+    await expect(deOption).toBeVisible();
+    await testInfo.attach('rksv-mode-unavailable-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.getByRole('button', { name: DE_SHELL.user.accountEmail }).click();
+    await page.getByTestId('language-option-en').click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+
+    const enTrigger = page.getByLabel(enSettings.legalEntities.seller.fields.rksvMode);
+    await expect(enTrigger).toBeVisible();
+    await enTrigger.scrollIntoViewIfNeeded();
+    await enTrigger.click();
+
+    const enOption = page.getByRole('option', {
+      name: enSettings.legalEntities.seller.rksv.acpRksv,
+    });
+    await expect(enOption).toBeVisible();
+    await expect(enOption).toHaveAttribute('aria-disabled', 'true');
+    await expect(enOption).toContainText(/unavailable/i);
+    await testInfo.attach('rksv-mode-unavailable-en-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await enTrigger.scrollIntoViewIfNeeded();
+    await enTrigger.click();
+    await expect(enOption).toBeVisible();
+    await testInfo.attach('rksv-mode-unavailable-en-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });
+

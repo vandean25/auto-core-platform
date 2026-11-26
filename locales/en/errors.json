@@ -4,6 +4,7 @@
   },
   "codes": {
     "ACCOUNTING_MAPPING_INCOMPLETE": "Accounting mapping is incomplete.",
+    "ACP_RKSV_UNAVAILABLE": "Acp rksv unavailable.",
     "ACTIVE_SITE_REQUIRED": "No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site.",
     "AGENT_POLICY_LOOSER_THAN_PLATFORM": "Agent policy looser than platform.",
     "AGENT_POLICY_UNKNOWN_ACTION_TYPE": "Agent policy unknown action type.",

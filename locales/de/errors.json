@@ -4,6 +4,7 @@
   },
   "codes": {
     "ACCOUNTING_MAPPING_INCOMPLETE": "Die Buchhaltungszuordnung ist unvollständig.",
+    "ACP_RKSV_UNAVAILABLE": "ACP RKSV (fiskaly) ist in dieser Umgebung noch nicht verfügbar.",
     "ACTIVE_SITE_REQUIRED": "Für diese Sitzung ist kein Standort ausgewählt. Bitte wählen Sie oben einen Standort aus.",
     "AGENT_POLICY_LOOSER_THAN_PLATFORM": "Die Agenten-Richtlinie ist lockerer als die Plattformvorgabe.",
     "AGENT_POLICY_UNKNOWN_ACTION_TYPE": "Unbekannter Aktionstyp in der Agenten-Richtlinie.",
