@@ -17,6 +17,10 @@ import {
   DEFAULT_DISPLAY_LANGUAGE,
   type DisplayLanguage,
 } from '../common/i18n/display-language.js';
+import {
+  calendarDateInTimeZone,
+  DEFAULT_INVOICE_TIME_ZONE,
+} from '../sales/helpers/invoice-number.helpers.js';
 
 export const INVOICE_SNAPSHOT_SCHEMA_VERSION = 2;
 export const INVOICE_SNAPSHOT_TEMPLATE_VERSION = 'invoice-pdf-v1';
@@ -178,6 +182,7 @@ type BuildInvoiceSnapshotV2Input = {
   committedAt?: Date;
   documentLocale?: DisplayLanguage;
   legalTextVersion?: string | null;
+  timeZone?: string;
 };
 
 const toMoney = (value: DecimalLike): Prisma.Decimal =>
@@ -186,8 +191,6 @@ const toMoney = (value: DecimalLike): Prisma.Decimal =>
 const moneyString = (value: Prisma.Decimal): string => value.toFixed(2);
 
 const quantityString = (value: Prisma.Decimal): string => value.toFixed(3);
-
-const toDateOnly = (value: Date): string => value.toISOString().slice(0, 10);
 
 export const halfUpTax = (
   net: Prisma.Decimal,
@@ -530,6 +533,7 @@ export function buildInvoiceSnapshotV2(
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
   const paymentDays = seller.payment_terms_days ?? 0;
+  const timeZone = input.timeZone ?? DEFAULT_INVOICE_TIME_ZONE;
 
   const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
   return {
@@ -570,10 +574,10 @@ export function buildInvoiceSnapshotV2(
           plate: invoice.vehicle.plate ?? null,
         }
       : null,
-    date: toDateOnly(invoice.date),
-    due_date: toDateOnly(invoice.due_date),
-    supply_date_from: toDateOnly(supplyFrom),
-    supply_date_to: toDateOnly(supplyTo),
+    date: calendarDateInTimeZone(invoice.date, timeZone),
+    due_date: calendarDateInTimeZone(invoice.due_date, timeZone),
+    supply_date_from: calendarDateInTimeZone(supplyFrom, timeZone),
+    supply_date_to: calendarDateInTimeZone(supplyTo, timeZone),
     payment_terms: {
       days: paymentDays,
       text: seller.payment_terms_text ?? '',

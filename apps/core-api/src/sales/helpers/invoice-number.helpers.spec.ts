@@ -2,7 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Prisma } from '@prisma/client';
-import { generateInvoiceNumber } from './invoice-number.helpers.js';
+import {
+  calendarDateInTimeZone,
+  calendarYearInTimeZone,
+  generateInvoiceNumber,
+  parseCalendarDateInTimeZone,
+} from './invoice-number.helpers.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -177,4 +182,70 @@ describe('generateInvoiceNumber', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it.each([
+    {
+      instant: '2026-12-31T23:30:00.000Z',
+      timeZone: 'Europe/Vienna',
+      expected: '2027-01-01',
+    },
+    {
+      instant: '2026-07-15T22:30:00.000Z',
+      timeZone: 'Europe/Vienna',
+      expected: '2026-07-16',
+    },
+    {
+      instant: '2027-01-01T02:00:00.000Z',
+      timeZone: 'America/New_York',
+      expected: '2026-12-31',
+    },
+  ])(
+    'calendarDateInTimeZone resolves $instant in $timeZone to $expected',
+    ({ instant, timeZone, expected }) => {
+      expect(calendarDateInTimeZone(new Date(instant), timeZone)).toBe(
+        expected,
+      );
+    },
+  );
+
+  it.each([
+    {
+      input: '2027-01-01',
+      timeZone: 'Europe/Vienna',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
+    },
+    {
+      input: '2026-12-31T23:30:00.000Z',
+      timeZone: 'Europe/Vienna',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
+    },
+    {
+      input: '2027-01-01',
+      timeZone: 'America/New_York',
+      expectedIso: '2027-01-01T12:00:00.000Z',
+      expectedDay: '2027-01-01',
+      expectedYear: 2027,
+    },
+    {
+      input: '2027-02-30',
+      timeZone: 'Europe/Vienna',
+      expectedIso: null,
+      expectedDay: null,
+      expectedYear: null,
+    },
+  ])(
+    'parseCalendarDateInTimeZone parses $input in $timeZone',
+    ({ input, timeZone, expectedIso, expectedDay, expectedYear }) => {
+      const parsed = parseCalendarDateInTimeZone(input, timeZone);
+      expect(parsed?.toISOString() ?? null).toBe(expectedIso);
+      if (parsed) {
+        expect(calendarDateInTimeZone(parsed, timeZone)).toBe(expectedDay);
+        expect(calendarYearInTimeZone(parsed, timeZone)).toBe(expectedYear);
+      }
+    },
+  );
 });

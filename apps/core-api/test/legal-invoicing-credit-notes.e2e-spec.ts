@@ -140,6 +140,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
     quantity = 2,
     unitPrice = 50,
     lineCount = 1,
+    invoiceDate = fixtureInvoiceDate,
   ) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
@@ -163,7 +164,7 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
     await tenantPrisma.invoice.update({
       where: { id: invoiceRes.body.id },
-      data: { date: fixtureInvoiceDate },
+      data: { date: invoiceDate },
     });
 
     const finalized = await request(app.getHttpServer())
@@ -540,6 +541,30 @@ describe('Legal invoicing credit notes (e2e)', () => {
       }).expect(201);
 
       await finalizeCredit(openPeriodDraft.body.id, 'open-period').expect(201);
+    } finally {
+      await tenantPrisma.financeSettings.updateMany({
+        where: { tenant_id: tenant.tenantId },
+        data: { lock_date: null },
+      });
+    }
+  });
+
+  it('AUT-1068: rejects creating a credit note on date-only lock_date (UTC midnight) with FISCAL_PERIOD_LOCKED', async () => {
+    const invoice = await finalizeSalesInvoice();
+
+    await tenantPrisma.financeSettings.updateMany({
+      where: { tenant_id: tenant.tenantId },
+      data: { lock_date: new Date('2026-09-21T00:00:00.000Z') },
+    });
+
+    try {
+      const locked = await createDraftCredit(invoice.id, {
+        date: '2026-09-21',
+        reason: 'On date-only lock_date',
+        mode: 'FULL',
+      }).expect(422);
+
+      expect(locked.body.code).toBe('FISCAL_PERIOD_LOCKED');
     } finally {
       await tenantPrisma.financeSettings.updateMany({
         where: { tenant_id: tenant.tenantId },
@@ -1011,5 +1036,284 @@ describe('Legal invoicing credit notes (e2e)', () => {
       originalSnapshot.items[0].unit_price,
     );
     expect(finalized.body.items[0].snapshot.line_discount_type).toBeDefined();
+  });
+
+  it('AUT-1068 S1-S3: uses Europe/Vienna calendar for invoice snapshot, CN number year, CN snapshot and CN API at 2027-01-01 00:30 Vienna', async () => {
+    const viennaNewYearInstant = new Date('2026-12-31T23:30:00.000Z');
+    const invoice = await finalizeSalesInvoice(
+      2,
+      50,
+      1,
+      viennaNewYearInstant,
+    );
+
+    const storedInvoice = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+    });
+    const invoiceSnapshot = storedInvoice.snapshot as {
+      date: string;
+      due_date: string;
+      supply_date_from: string;
+      supply_date_to: string;
+    };
+    expect(invoiceSnapshot.date).toBe('2027-01-01');
+    expect(invoiceSnapshot.due_date).toBe('2027-01-15');
+    expect(invoiceSnapshot.supply_date_from).toBe('2027-01-01');
+    expect(invoiceSnapshot.supply_date_to).toBe('2027-01-01');
+    const storedInvoiceDateSlice = storedInvoice.date.toISOString().slice(0, 10);
+    expect(storedInvoiceDateSlice).toBe('2027-01-01');
+    expect(storedInvoice.supply_date_from?.toISOString().slice(0, 10)).toBe(
+      '2027-01-01',
+    );
+    expect(storedInvoice.supply_date_to?.toISOString().slice(0, 10)).toBe(
+      '2027-01-01',
+    );
+
+    // A credit date on the UTC previous day (2026-12-31) is before the Vienna invoice day (2027-01-01)
+    await createDraftCredit(invoice.id, {
+      date: '2026-12-31',
+      reason: 'Before Vienna invoice day',
+      mode: 'FULL',
+    }).expect(400);
+
+    const draft = await createDraftCredit(invoice.id, {
+      date: storedInvoiceDateSlice,
+      reason: 'Midnight Vienna return',
+      mode: 'FULL',
+    }).expect(201);
+
+    expect(draft.body.date).toBe('2027-01-01');
+
+    const finalized = await finalizeCredit(
+      draft.body.id,
+      'aut-1068-midnight-1',
+    ).expect(201);
+
+    expect(finalized.body.creditNumber).toMatch(/^CN-2027-\d{4}$/);
+    expect(finalized.body.date).toBe('2027-01-01');
+
+    const readBack = await request(app.getHttpServer())
+      .get(`/api/credit-notes/${draft.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(readBack.body.creditNumber).toBe(finalized.body.creditNumber);
+    expect(readBack.body.date).toBe('2027-01-01');
+
+    const storedCredit = await tenantPrisma.creditNote.findFirstOrThrow({
+      where: { id: draft.body.id },
+    });
+    const cnSnapshot = storedCredit.snapshot as {
+      date: string;
+      due_date: string;
+      original_document: { date: string };
+    };
+    expect(cnSnapshot.date).toBe('2027-01-01');
+    expect(cnSnapshot.due_date).toBe('2027-01-01');
+    expect(cnSnapshot.original_document.date).toBe('2027-01-01');
+  });
+
+  it('AUT-1068 S4: parallel CN finalizations around midnight assign unique and gapless 2027 numbers', async () => {
+    const viennaNewYearInstant = new Date('2026-12-31T23:30:00.000Z');
+    const drafts: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const invoice = await finalizeSalesInvoice(
+        1,
+        25,
+        1,
+        viennaNewYearInstant,
+      );
+      const draft = await createDraftCredit(invoice.id, {
+        date: viennaNewYearInstant.toISOString(),
+        reason: `Parallel midnight credit ${index + 1}`,
+        mode: 'FULL',
+      }).expect(201);
+      drafts.push(draft.body.id as string);
+    }
+
+    const results = await Promise.all(
+      drafts.map((id, index) =>
+        finalizeCredit(id, `aut-1068-parallel-${index}`).expect(201),
+      ),
+    );
+
+    const numbers = results
+      .map((res) => res.body.creditNumber as string)
+      .sort();
+    expect(new Set(numbers).size).toBe(5);
+    const seqValues = numbers.map((num) => {
+      expect(num).toMatch(/^CN-2027-\d{4}$/);
+      return Number(num.slice('CN-2027-'.length));
+    });
+    for (let i = 1; i < seqValues.length; i += 1) {
+      expect(seqValues[i]).toBe(seqValues[i - 1] + 1);
+    }
+  });
+
+  it('AUT-1068 Anti-criterion 1: existing stored invoice and credit note keep their numbers and UTC snapshot dates', async () => {
+    const legalEntity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      select: { id: true },
+    });
+    const preChangeInstant = new Date('2026-12-31T23:30:00.000Z');
+    const preChangeInvoice = await tenantPrisma.invoice.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        customer_id: customerId,
+        site_id: siteId,
+        legal_entity_id: legalEntity.id,
+        status: 'FINALIZED',
+        invoice_number: 'RE-2026-9901',
+        date: preChangeInstant,
+        due_date: new Date('2027-01-14T23:30:00.000Z'),
+        total_net: 100,
+        total_tax: 20,
+        total_gross: 120,
+        snapshot: {
+          schema_version: 2,
+          document_kind: 'INVOICE',
+          site_id: siteId,
+          legal_entity_id: legalEntity.id,
+          date: '2026-12-31',
+          due_date: '2027-01-14',
+          supply_date_from: '2026-12-31',
+          supply_date_to: '2026-12-31',
+          total_net: '100.00',
+          total_tax: '20.00',
+          total_gross: '120.00',
+          items: [
+            {
+              id: randomUUID(),
+              description: 'Oil Filter',
+              quantity: '2.000',
+              unit_price: '50.00',
+              tax_rate: '20.00',
+              net: '100.00',
+              tax: '20.00',
+              gross: '120.00',
+            },
+          ],
+        },
+      },
+    });
+
+    const preChangeCreditNote = await tenantPrisma.creditNote.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        original_invoice_id: preChangeInvoice.id,
+        site_id: siteId,
+        legal_entity_id: legalEntity.id,
+        status: 'FINALIZED',
+        credit_number: 'CN-2026-9901',
+        date: new Date('2026-12-31T00:00:00.000Z'),
+        reason: 'Pre-change UTC fixture credit',
+        total_net: 100,
+        total_tax: 20,
+        total_gross: 120,
+        snapshot: {
+          schema_version: 2,
+          document_kind: 'CREDIT_NOTE',
+          site_id: siteId,
+          legal_entity_id: legalEntity.id,
+          date: '2026-12-31',
+          due_date: '2026-12-31',
+          supply_date_from: '2026-12-31',
+          supply_date_to: '2026-12-31',
+          total_net: '100.00',
+          total_tax: '20.00',
+          total_gross: '120.00',
+          original_document: {
+            id: preChangeInvoice.id,
+            number: 'RE-2026-9901',
+            date: '2026-12-31',
+            reason: 'Pre-change UTC fixture credit',
+            snapshot_version: 2,
+          },
+        },
+      },
+    });
+
+    const invoiceRes = await request(app.getHttpServer())
+      .get(`/api/sales/invoices/${preChangeInvoice.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(invoiceRes.body.invoice_number).toBe('RE-2026-9901');
+    expect(invoiceRes.body.date).toBe(preChangeInstant.toISOString());
+
+    const storedInvoice = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: preChangeInvoice.id },
+    });
+    const invoiceSnapshot = storedInvoice.snapshot as {
+      date: string;
+      due_date: string;
+      supply_date_from: string;
+      supply_date_to: string;
+    };
+    expect(invoiceSnapshot.date).toBe('2026-12-31');
+    expect(invoiceSnapshot.due_date).toBe('2027-01-14');
+    expect(invoiceSnapshot.supply_date_from).toBe('2026-12-31');
+    expect(invoiceSnapshot.supply_date_to).toBe('2026-12-31');
+
+    const readBack = await request(app.getHttpServer())
+      .get(`/api/credit-notes/${preChangeCreditNote.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(readBack.body.creditNumber).toBe('CN-2026-9901');
+    expect(readBack.body.date).toBe('2026-12-31');
+
+    const storedCredit = await tenantPrisma.creditNote.findFirstOrThrow({
+      where: { id: preChangeCreditNote.id },
+    });
+    const cnSnapshot = storedCredit.snapshot as {
+      date: string;
+      due_date: string;
+      original_document: { date: string; number: string };
+    };
+    expect(cnSnapshot.date).toBe('2026-12-31');
+    expect(cnSnapshot.due_date).toBe('2026-12-31');
+    expect(cnSnapshot.original_document.date).toBe('2026-12-31');
+    expect(cnSnapshot.original_document.number).toBe('RE-2026-9901');
+
+    const preChangeCreditableInvoice = await finalizeSalesInvoice(
+      2,
+      50,
+      1,
+      preChangeInstant,
+    );
+    const storedCreditable = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: preChangeCreditableInvoice.id },
+    });
+    const creditableSnapshot = storedCreditable.snapshot as Record<
+      string,
+      unknown
+    >;
+    await tenantPrisma.invoice.update({
+      where: { id: preChangeCreditableInvoice.id },
+      data: {
+        snapshot: {
+          ...creditableSnapshot,
+          date: '2026-12-31',
+          supply_date_from: '2026-12-31',
+          supply_date_to: '2026-12-31',
+        },
+      },
+    });
+
+    await createDraftCredit(preChangeCreditableInvoice.id, {
+      date: '2026-12-30',
+      reason: 'Before stored UTC snapshot day',
+      mode: 'FULL',
+    }).expect(400);
+
+    const creditOnSnapshotDay = await createDraftCredit(
+      preChangeCreditableInvoice.id,
+      {
+        date: '2026-12-31',
+        reason: 'Credit on stored UTC snapshot day',
+        mode: 'FULL',
+      },
+    ).expect(201);
+    expect(creditOnSnapshotDay.body.date).toBe('2026-12-31');
   });
 });

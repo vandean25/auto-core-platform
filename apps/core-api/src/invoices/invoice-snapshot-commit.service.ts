@@ -18,6 +18,7 @@ import {
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { resolveSiteTimeZone } from '../sales/helpers/invoice-number.helpers.js';
 import {
   buildInvoiceSnapshotV2,
   type InvoiceSnapshotV2,
@@ -192,9 +193,11 @@ export class InvoiceSnapshotCommitService {
       profile,
     );
 
+    const timeZone = await resolveSiteTimeZone(tx, tenantId, ownership.siteId);
     const { supplyFrom, supplyTo, dueDate } = computeInvoiceDates(
       invoice,
       seller.payment_terms_days ?? 0,
+      timeZone,
     );
 
     const committedAt = new Date();
@@ -225,6 +228,7 @@ export class InvoiceSnapshotCommitService {
       branding,
       committedAt,
       documentLocale,
+      timeZone,
     });
 
     return {
@@ -251,6 +255,7 @@ export class InvoiceSnapshotCommitService {
         site_id: prepared.ownership.siteId,
         legal_entity_id: prepared.ownership.legalEntityId,
         currency: 'EUR',
+        date: new Date(`${prepared.snapshot.date}T12:00:00.000Z`),
         supply_date_from: prepared.supplyFrom,
         supply_date_to: prepared.supplyTo,
         due_date: prepared.dueDate,

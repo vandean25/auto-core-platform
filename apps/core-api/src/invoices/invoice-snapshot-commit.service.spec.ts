@@ -425,6 +425,7 @@ describe('InvoiceSnapshotCommitService', () => {
     };
     const prepared = {
       snapshot: {
+        date: '2026-09-01',
         total_net: '24.76',
         total_tax: '4.96',
         total_gross: '29.72',
@@ -458,6 +459,7 @@ describe('InvoiceSnapshotCommitService', () => {
     expect(invoiceUpdateMany).toHaveBeenCalledWith({
       where: { id: 'invoice-1', tenant_id: 'tenant-1' },
       data: expect.objectContaining({
+        date: new Date('2026-09-01T12:00:00.000Z'),
         total_net: new Prisma.Decimal('24.76'),
         total_tax: new Prisma.Decimal('4.96'),
         total_gross: new Prisma.Decimal('29.72'),
