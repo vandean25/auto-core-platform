@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories'
+import { ensureDefaultScopeContextHandshake } from './utils/scope-context-handshake'
 
 /**
  * AUT-784: opening a peek adds exactly one history entry, so a single back (the Android back gesture) closes it and
@@ -10,6 +11,7 @@ const customer = createMockCustomer({ id: 'cust-back', first_name: 'Anna', last_
 
 test.describe('Peek and the back gesture (AUT-784)', () => {
   test.beforeEach(async ({ page }) => {
+    await ensureDefaultScopeContextHandshake(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/customers'), (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createMockListResponse([customer])) }),
     )
