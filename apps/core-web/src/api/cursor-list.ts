@@ -8,6 +8,8 @@ import {
   type QueryKey,
 } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import {
   useScopeContextDigest,
@@ -224,15 +226,32 @@ type CursorListOptions = {
 
 type RetryableQuery = { isError: boolean; refetch: () => Promise<unknown> }
 
-/** A blocked list (403, scope quarantine, pending explicit refresh) would resend the same request on retry: no retry
- * controls then, only "Liste aktualisieren". */
-function retryControls(list: RetryableQuery & { isFetchNextPageError: boolean }, count: RetryableQuery, blocked: boolean) {
-  if (blocked) return { isError: false, onRetry: undefined, isCountError: false, retryCount: undefined }
+/** An auth-blocked list (401/403) surfaces an error state without retry controls; a scope-blocked list (quarantine,
+ * pending explicit refresh) keeps isError=false so "Liste aktualisieren" is shown instead. */
+function retryControls(
+  list: RetryableQuery & { isFetchNextPageError: boolean },
+  count: RetryableQuery,
+  gate: { retryBlocked: boolean; authBlocked: boolean; authErrorStatus: number | null },
+  t: TFunction<['common', 'errors']>,
+) {
+  if (gate.authBlocked) {
+    const fetchErrorMessage =
+      gate.authErrorStatus === 403
+        ? t('common:dataTable.loading.noPermission')
+        : gate.authErrorStatus === 401
+          ? t('errors:codes.HTTP_401')
+          : undefined
+    return { isError: true, onRetry: undefined, isCountError: false, retryCount: undefined, fetchErrorMessage }
+  }
+  if (gate.retryBlocked) {
+    return { isError: false, onRetry: undefined, isCountError: false, retryCount: undefined, fetchErrorMessage: undefined }
+  }
   return {
     isError: list.isError && !list.isFetchNextPageError,
     onRetry: () => void list.refetch(),
     isCountError: count.isError,
     retryCount: () => void count.refetch(),
+    fetchErrorMessage: undefined,
   }
 }
 
@@ -241,11 +260,13 @@ function useCursorListGate(semanticEpisodeKey: string, enabled: boolean) {
   const scopeReady = useScopeContextReady()
   const quarantined = useScopeContextQuarantined()
   const explicitRefreshRequired = useScopeExplicitRefreshRequired()
-  const { offsetLatched: offsetLatch, authBlocked } = useEpisodeFlags(semanticEpisodeKey)
+  const { offsetLatched: offsetLatch, authBlocked, authErrorStatus } = useEpisodeFlags(semanticEpisodeKey)
   const hidden = quarantined || authBlocked
   return {
     offsetLatch,
     hidden,
+    authBlocked,
+    authErrorStatus,
     /** No retry controls: a retry would resend the same request. */
     retryBlocked: hidden || explicitRefreshRequired,
     queryEnabled: enabled && scopeReady && !offsetLatch && !hidden,
@@ -279,6 +300,7 @@ export function useCursorList<TRow extends { id: string }>({
   params,
   countParams,
 }: CursorListOptions) {
+  const { t } = useTranslation(['common', 'errors'])
   const queryClient = useQueryClient()
   const digest = useScopeContextDigest()
   const gate = useCursorListGate(semanticEpisodeKey, enabled)
@@ -332,13 +354,14 @@ export function useCursorList<TRow extends { id: string }>({
     () => (gate.hidden ? [] : (list.data?.pages.flatMap((page) => page.data) ?? [])),
     [list.data, gate.hidden],
   )
-  const retry = retryControls(list, count, gate.retryBlocked)
+  const retry = retryControls(list, count, gate, t)
   const tableProps = {
     isLoading: list.isLoading || gate.waitingForScope,
     isFetching: list.isFetching,
     isPlaceholderData: list.isPlaceholderData,
     isError: retry.isError,
     onRetry: retry.onRetry,
+    fetchErrorMessage: retry.fetchErrorMessage,
     hasUsableData: rows.length > 0,
     scopeOffsetLatch: gate.offsetLatch,
     infinite: {

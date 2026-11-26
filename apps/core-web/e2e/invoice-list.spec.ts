@@ -311,4 +311,89 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     await expect(page.getByText('Abgeschlossen').first()).toBeVisible();
     expect(await pageOverflow(page)).toBe(0);
   });
+
+  test('AUT-1066: WHEN an infinite invoice list returns 403 THEN it shows Keine Berechtigung without empty state or retry loop (desktop and 375px)', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    let listCalls = 0;
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
+      listCalls += 1;
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+
+    await openList(page, '?sortField=invoice_number&sortDirection=asc');
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Keine Berechtigung');
+    await expect(page.getByText(dataTable.noResults)).toHaveCount(0);
+    await expect(page.getByText('Keine Rechnungen')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: dataTable.loading.retry })).toHaveCount(0);
+    expect(listCalls).toBe(1);
+    const desktopBox = await alert.boundingBox();
+    expect(desktopBox).not.toBeNull();
+    expect(desktopBox!.x).toBeGreaterThanOrEqual(0);
+    expect(desktopBox!.x + desktopBox!.width).toBeLessThanOrEqual(1280);
+    await testInfo.attach('aut-1066-invoice-list-403-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(alert).toBeVisible();
+    const mobileBox = await alert.boundingBox();
+    expect(mobileBox).not.toBeNull();
+    expect(mobileBox!.x).toBeGreaterThanOrEqual(0);
+    expect(mobileBox!.x + mobileBox!.width).toBeLessThanOrEqual(375);
+    expect(await pageOverflow(page)).toBe(0);
+    await testInfo.attach('aut-1066-invoice-list-403-de-375', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('AUT-1066: WHEN an infinite invoice list returns 401 THEN no empty table is shown and requests stay bounded', async ({
+    page,
+  }) => {
+    let listCalls = 0;
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 401, code: 'HTTP_401', message: 'Unauthorized' }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
+      listCalls += 1;
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 401, code: 'HTTP_401', message: 'Unauthorized' }),
+      });
+    });
+
+    await openList(page, '?sortField=invoice_number&sortDirection=asc');
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(page.getByText(dataTable.noResults)).toHaveCount(0);
+    await expect(page.getByText('Keine Rechnungen')).toHaveCount(0);
+    expect(listCalls).toBe(1);
+  });
+
+  test('AUT-1066: WHEN an infinite invoice list returns 200 with 0 rows THEN the empty state is shown', async ({
+    page,
+  }) => {
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: [], unpaged: 'array' });
+    await openList(page, '?sortField=invoice_number&sortDirection=asc');
+
+    await expect(page.getByText(dataTable.noResults)).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
 });

@@ -65,7 +65,7 @@ function DataTableBanners({
       <DataTableInfiniteRefresh view={infiniteView} />
       {!infiniteView && onScopeRefresh ? <ScopeRefreshNotice onRefresh={onScopeRefresh} /> : null}
       <DataTableInfiniteCount view={infiniteView} />
-      {showFetchError && resolvedFetchErrorMessage && onRetry ? (
+      {showFetchError && resolvedFetchErrorMessage ? (
         <DataTableFetchError message={resolvedFetchErrorMessage} onRetry={onRetry} />
       ) : null}
     </>

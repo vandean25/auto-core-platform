@@ -957,3 +957,35 @@ test.describe('Inventory ledger on a phone (AUT-973)', () => {
   });
 });
 
+test.describe('Inventory — 403 error state (AUT-1066)', () => {
+  test('WHEN /inventory infinite list returns 403 THEN it shows Keine Berechtigung without empty state or retry loop', async ({
+    page,
+  }) => {
+    let listCalls = 0;
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      listCalls += 1;
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+
+    await new AutoCorePage(page, DE_INVENTORY.partsList.addPart).navigate('/inventory');
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Keine Berechtigung');
+    await expect(page.getByText(DE_COMMON.dataTable.noResults)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: DE_COMMON.dataTable.loading.retry })).toHaveCount(0);
+    expect(listCalls).toBe(1);
+  });
+});
+

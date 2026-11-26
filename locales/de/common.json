@@ -83,6 +83,7 @@
       "retry": "Erneut laden",
       "dismiss": "Schließen",
       "loadFailed": "Die Tabelle konnte nicht geladen werden.",
+      "noPermission": "Keine Berechtigung",
       "pendingRow": "Eintrag wird angelegt…"
     },
     "infinite": {
