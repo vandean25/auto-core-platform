@@ -1,5 +1,6 @@
 import { createE2eApp } from './helpers/e2e-suite.js';
 import { createHash, randomUUID } from 'node:crypto';
+import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import {
@@ -236,8 +237,8 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       quantity: 1,
       onHandAfter: 5,
     });
-    const before = await f.tenantPrisma.inventoryTransaction.findUniqueOrThrow({
-      where: { id: original.id },
+    const before = await f.tenantPrisma.inventoryTransaction.findFirstOrThrow({
+      where: { tenant_id: f.tenant.tenantId, id: original.id },
     });
     const startedAt = new Date();
 
@@ -264,8 +265,8 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       ],
     });
     expect(
-      await f.tenantPrisma.inventoryTransaction.findUniqueOrThrow({
-        where: { id: original.id },
+      await f.tenantPrisma.inventoryTransaction.findFirstOrThrow({
+        where: { tenant_id: f.tenant.tenantId, id: original.id },
       }),
     ).toEqual(before);
     expect(reversal).toMatchObject({
@@ -517,8 +518,8 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       quantity: 1,
       onHandAfter: 1,
     });
-    const before = await f.tenantPrisma.inventoryTransaction.findUniqueOrThrow({
-      where: { id: original.id },
+    const before = await f.tenantPrisma.inventoryTransaction.findFirstOrThrow({
+      where: { tenant_id: f.tenant.tenantId, id: original.id },
     });
 
     const res = await revalue(f.token, false).expect(200);
