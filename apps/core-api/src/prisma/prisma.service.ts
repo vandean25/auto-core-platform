@@ -9,7 +9,10 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
-import { createDashboardRealtimeExtension } from './prisma-dashboard-realtime.extension.js';
+import {
+  createDashboardRealtimeExtension,
+  runWithDeferredDashboardRealtimeEmits,
+} from './prisma-dashboard-realtime.extension.js';
 import { createAuditExtension } from './prisma-audit.extension.js';
 import { createTenantIsolationExtension } from './tenant-isolation.extension.js';
 import {
@@ -48,20 +51,25 @@ function createTransactionRunner(client: PrismaClient): PrismaTransactionCall {
   return (first, ...rest) => {
     if (typeof first !== 'function') {
       if (Array.isArray(first)) {
-        return PrismaTransactionContext.runInBatch(() =>
-          runTransaction(first, ...rest),
+        return runWithDeferredDashboardRealtimeEmits(() =>
+          PrismaTransactionContext.runInBatch(
+            () => runTransaction(first, ...rest) as Promise<unknown>,
+          ),
         );
       }
       return runTransaction(first, ...rest);
     }
     const callback = first as PrismaTransactionCallback;
-    return runTransaction(
-      async (txClient: Prisma.TransactionClient) =>
-        await PrismaTransactionContext.run(
-          txClient,
-          async () => await callback(txClient),
-        ),
-      ...rest,
+    return runWithDeferredDashboardRealtimeEmits(
+      () =>
+        runTransaction(
+          async (txClient: Prisma.TransactionClient) =>
+            await PrismaTransactionContext.run(
+              txClient,
+              async () => await callback(txClient),
+            ),
+          ...rest,
+        ) as Promise<unknown>,
     );
   };
 }
@@ -73,10 +81,12 @@ function createDryRunTransactionCall(
   return (first, ...rest) => {
     if (typeof first === 'function') {
       const callback = first as PrismaTransactionCallback;
-      return Promise.resolve().then(() => callback(tx));
+      return runWithDeferredDashboardRealtimeEmits(() =>
+        Promise.resolve().then(() => callback(tx)),
+      );
     }
     if (Array.isArray(first)) {
-      return Promise.all(first);
+      return runWithDeferredDashboardRealtimeEmits(() => Promise.all(first));
     }
     const txObj = tx as Record<string, unknown>;
     if (typeof txObj.$transaction === 'function') {
