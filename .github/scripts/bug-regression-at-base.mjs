@@ -80,6 +80,87 @@ export function parseRegressionTestNa(prBody) {
   return { isNa: false, missingReason: false, reason: '' }
 }
 
+const EXCLUDED_FIX_SCOPES_RE = /^fix\((?:ci|docs|deps|chore)\)/i
+const BASE_RUN_URL_RE = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/\d+(?:\/job\/\d+)?/i
+const FAIL_OUTPUT_PATTERNS = [
+  /^\s*FAIL\s+\S+/m,
+  /^\s*(?:✕|×|●)\s+\S+/m,
+  /^\s*not ok \d+\s+-/m,
+  /\b(?:AssertionError|ERR_ASSERTION)\b/,
+  /Expected:[\s\S]{0,200}Received:/,
+  /\b(?:Test Suites|Tests|Test Files):\s*[1-9]\d*\s+failed\b/i,
+  /^\s*[1-9]\d*\s+failed\b/m,
+  /\bError:\s*expect\(/,
+]
+
+function stripHtmlComments(body) {
+  let stripped = body
+  let prev
+  do {
+    prev = stripped
+    stripped = stripped.replace(/<!--[\s\S]*?-->/g, '')
+  } while (stripped !== prev)
+  return stripped
+}
+
+/**
+ * Checks whether a PR title is a product `fix(...)` title (matching `/^fix\(/`,
+ * excluding `fix(ci|docs|deps|chore)`).
+ *
+ * @param {string | null | undefined} title
+ * @returns {boolean}
+ */
+export function isProductFixTitle(title) {
+  if (typeof title !== 'string') {
+    return false
+  }
+  const trimmed = title.trim()
+  return /^fix\(/.test(trimmed) && !EXCLUDED_FIX_SCOPES_RE.test(trimmed)
+}
+
+/**
+ * Returns true when a PR should trigger the bug-regression workflow based on labels or title.
+ *
+ * @param {{ labels?: Array<string | { name?: string }>, title?: string | null }} input
+ * @returns {boolean}
+ */
+export function shouldRunRegressionCheck(input) {
+  return isBugLabeled(input?.labels) || isProductFixTitle(input?.title)
+}
+
+/**
+ * Checks the PR body for regression evidence: `regression-test: n/a — <reason>`,
+ * a GitHub Actions base-run URL, or test failure output.
+ *
+ * @param {string | null | undefined} prBody
+ * @returns {{ hasEvidence: boolean, kind: 'na' | 'base-run-url' | 'fail-output' | 'none', detail: string }}
+ */
+export function parseRegressionEvidence(prBody) {
+  if (!prBody || typeof prBody !== 'string') {
+    return { hasEvidence: false, kind: 'none', detail: '' }
+  }
+
+  const stripped = stripHtmlComments(prBody)
+  const na = parseRegressionTestNa(stripped)
+  if (na.isNa) {
+    return { hasEvidence: true, kind: 'na', detail: na.reason }
+  }
+
+  const urlMatch = BASE_RUN_URL_RE.exec(stripped)
+  if (urlMatch) {
+    return { hasEvidence: true, kind: 'base-run-url', detail: urlMatch[0] }
+  }
+
+  for (const pattern of FAIL_OUTPUT_PATTERNS) {
+    const match = pattern.exec(stripped)
+    if (match) {
+      return { hasEvidence: true, kind: 'fail-output', detail: match[0].trim().slice(0, 120) }
+    }
+  }
+
+  return { hasEvidence: false, kind: 'none', detail: '' }
+}
+
 /**
  * Parses `git diff --name-status --diff-filter=AMR` output.
  *
@@ -318,7 +399,7 @@ function writeGithubSummary(lines, summaryFile = process.env.GITHUB_STEP_SUMMARY
 }
 
 /**
- * Runs preflight checks for a Bug-labeled PR.
+ * Runs preflight checks for a Bug-labeled or product `fix(...)` PR.
  *
  * @param {{
  *   cwd: string,
@@ -326,23 +407,28 @@ function writeGithubSummary(lines, summaryFile = process.env.GITHUB_STEP_SUMMARY
  *   headSha: string,
  *   prBody: string,
  *   labels?: Array<string | { name?: string }>,
+ *   title?: string | null,
  *   outputFile?: string,
  *   summaryFile?: string,
  * }} options
  */
 export function runPreflight(options) {
-  const { cwd, baseRef, headSha, prBody, labels, outputFile, summaryFile } = options
+  const { cwd, baseRef, headSha, prBody, labels, title, outputFile, summaryFile } = options
 
-  if (labels && !isBugLabeled(labels)) {
+  if ((labels !== undefined || title !== undefined) && !shouldRunRegressionCheck({ labels, title })) {
     writeGithubOutput('decision', 'skip', outputFile)
-    writeGithubSummary(['## Bug Regression at Base', '', 'Skipped: PR is not labeled `bug`.'], summaryFile)
-    return { ok: true, decision: 'skip', reason: 'not-bug-labeled' }
+    writeGithubSummary(
+      ['## Bug Regression at Base', '', 'Skipped: PR is neither labeled `bug` nor a product `fix(...)` PR.'],
+      summaryFile,
+    )
+    return { ok: true, decision: 'skip', reason: 'not-bug-or-product-fix' }
   }
 
   const na = parseRegressionTestNa(prBody)
   if (na.isNa) {
     writeGithubOutput('decision', 'neutral', outputFile)
     writeGithubOutput('reason', na.reason, outputFile)
+    writeGithubOutput('evidence', 'na', outputFile)
     writeGithubSummary(
       ['## Bug Regression at Base — Neutral (`regression-test: n/a`)', '', `Reason: ${na.reason}`],
       summaryFile,
@@ -360,17 +446,28 @@ export function runPreflight(options) {
 
   if (classified.allTests.length === 0) {
     const message = na.missingReason
-      ? 'Bug PR has `regression-test: n/a` without a reason. Add a reason (e.g. `regression-test: n/a — config-only fix`) or add a failing regression test.'
-      : 'Bug PR has no new or changed test files (`*.spec.ts`, `*.e2e-spec.ts`, `*.test.ts`, `*.test.tsx`) and no `regression-test: n/a — <reason>` line in the PR body.'
+      ? 'Bug / fix PR has `regression-test: n/a` without a reason. Add a reason (e.g. `regression-test: n/a — config-only fix`) or add a failing regression test.'
+      : 'Bug / fix PR has no new or changed test files (`*.spec.ts`, `*.e2e-spec.ts`, `*.test.ts`, `*.test.tsx`) and no `regression-test: n/a — <reason>` line in the PR body.'
     writeGithubOutput('decision', 'fail', outputFile)
     writeGithubSummary(['## Bug Regression at Base — Failed', '', message], summaryFile)
     return { ok: false, decision: 'fail', reason: message }
   }
 
+  const evidence = parseRegressionEvidence(prBody)
   writeGithubOutput('decision', 'run', outputFile)
+  writeGithubOutput('evidence', evidence.kind, outputFile)
   writeGithubOutput('merge_base', mergeBase, outputFile)
   writeGithubOutput('head_sha', headSha, outputFile)
-  return { ok: true, decision: 'run', mergeBase, headSha, classified }
+  writeGithubSummary(
+    [
+      '## Bug Regression Preflight — Run at Base',
+      '',
+      `Changed test files: ${classified.allTests.length}`,
+      `PR body regression evidence: \`${evidence.kind}\`${evidence.detail ? ` (${evidence.detail})` : ''}`,
+    ],
+    summaryFile,
+  )
+  return { ok: true, decision: 'run', mergeBase, headSha, classified, evidence }
 }
 
 /**
@@ -578,7 +675,8 @@ if (isMain) {
     const baseRef = args['base-ref'] || `origin/${process.env.BASE_REF || 'main'}`
     const headSha = args.head || process.env.HEAD_SHA || 'HEAD'
     const labels = process.env.PR_LABELS_JSON ? JSON.parse(process.env.PR_LABELS_JSON) : undefined
-    const result = runPreflight({ cwd, baseRef, headSha, prBody: process.env.PR_BODY ?? '', labels })
+    const title = process.env.PR_TITLE
+    const result = runPreflight({ cwd, baseRef, headSha, prBody: process.env.PR_BODY ?? '', labels, title })
     if (!result.ok) {
       console.error(result.reason)
       process.exit(1)

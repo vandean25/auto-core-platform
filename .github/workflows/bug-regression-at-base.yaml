@@ -28,7 +28,14 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'typ: bug') ||
       contains(github.event.pull_request.labels.*.name, 'Typ: Bug') ||
       contains(github.event.pull_request.labels.*.name, 'type: bug') ||
-      contains(github.event.pull_request.labels.*.name, 'Type: Bug')
+      contains(github.event.pull_request.labels.*.name, 'Type: Bug') ||
+      (
+        startsWith(github.event.pull_request.title, 'fix(') &&
+        !startsWith(github.event.pull_request.title, 'fix(ci)') &&
+        !startsWith(github.event.pull_request.title, 'fix(docs)') &&
+        !startsWith(github.event.pull_request.title, 'fix(deps)') &&
+        !startsWith(github.event.pull_request.title, 'fix(chore)')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -54,6 +61,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels) }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
           node .github/scripts/bug-regression-at-base.mjs --mode preflight

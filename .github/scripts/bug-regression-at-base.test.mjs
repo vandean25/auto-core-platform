@@ -11,11 +11,14 @@ import {
   classifyChangedFiles,
   evaluateBaseRunResults,
   isBugLabeled,
+  isProductFixTitle,
   parseGitNameStatus,
+  parseRegressionEvidence,
   parseRegressionTestNa,
   parseRunnerJsonReport,
   runAtBase,
   runPreflight,
+  shouldRunRegressionCheck,
 } from './bug-regression-at-base.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -418,3 +421,153 @@ test('parseRunnerJsonReport handles Playwright JSON and evaluateBaseRunResults c
   assert.equal(naParsed.isNa, true)
   assert.equal(naParsed.reason, 'doc typo')
 })
+
+test('title matching triggers on product fix( PRs and excludes fix(ci|docs|deps|chore)', () => {
+  assert.equal(isProductFixTitle('fix(workshop): prevent duplicate invoice'), true)
+  assert.equal(isProductFixTitle('fix(domain-events): emit event after commit'), true)
+  assert.equal(isProductFixTitle('fix(ci): update cache key'), false)
+  assert.equal(isProductFixTitle('fix(docs): fix typo in readme'), false)
+  assert.equal(isProductFixTitle('fix(deps): bump vitest'), false)
+  assert.equal(isProductFixTitle('fix(chore): remove dead script'), false)
+  assert.equal(isProductFixTitle('fix(circle): fix radius'), true)
+  assert.equal(isProductFixTitle('fix(ci-cache): invalidate key'), true)
+  assert.equal(isProductFixTitle('fix(documentation): fix link'), true)
+  assert.equal(isProductFixTitle('fix(dependencies): pin version'), true)
+  assert.equal(isProductFixTitle('fix(chores): fix assignment'), true)
+  assert.equal(isProductFixTitle('feat(workshop): add column'), false)
+  assert.equal(isProductFixTitle('fix: missing scope'), false)
+  assert.equal(isProductFixTitle(undefined), false)
+
+  assert.equal(shouldRunRegressionCheck({ labels: [], title: 'fix(workshop): prevent crash' }), true)
+  assert.equal(shouldRunRegressionCheck({ labels: [], title: 'fix(circle): fix radius' }), true)
+  assert.equal(shouldRunRegressionCheck({ labels: [], title: 'fix(ci): tweak workflow' }), false)
+  assert.equal(shouldRunRegressionCheck({ labels: ['bug'], title: 'fix(ci): tweak workflow' }), true)
+  assert.equal(shouldRunRegressionCheck({ labels: [], title: 'feat(workshop): new feature' }), false)
+
+  const workflow = readFileSync(
+    path.join(REPO_ROOT, '.github/workflows/bug-regression-at-base.yaml'),
+    'utf8',
+  )
+  assert.match(workflow, /startsWith\(github\.event\.pull_request\.title,\s*'fix\('\)/)
+  assert.match(workflow, /!startsWith\(github\.event\.pull_request\.title,\s*'fix\(ci\)'\)/)
+  assert.match(workflow, /!startsWith\(github\.event\.pull_request\.title,\s*'fix\(docs\)'\)/)
+  assert.match(workflow, /!startsWith\(github\.event\.pull_request\.title,\s*'fix\(deps\)'\)/)
+  assert.match(workflow, /!startsWith\(github\.event\.pull_request\.title,\s*'fix\(chore\)'\)/)
+  assert.match(workflow, /PR_TITLE:\s*\$\{\{\s*github\.event\.pull_request\.title\s*\}\}/)
+})
+
+test('WHEN a PR titled fix(workshop): ... without label adds a test THEN preflight runs', () => {
+  const { dir, baseSha, headSha } = createFixtureRepo(
+    { 'apps/core-api/src/workshop.service.ts': 'export const a = 1;\n' },
+    {
+      'apps/core-api/src/workshop.service.ts': 'export const a = 2;\n',
+      'apps/core-api/src/workshop.service.spec.ts': 'it("catches regression", () => {})\n',
+    },
+  )
+
+  const summaryFile = path.join(dir, 'summary.md')
+  const outputFile = path.join(dir, 'output.txt')
+  try {
+    const result = runPreflight({
+      cwd: dir,
+      baseRef: baseSha,
+      headSha,
+      prBody: 'Fixes workshop crash.\n\nFAIL apps/core-api/src/workshop.service.spec.ts',
+      labels: [],
+      title: 'fix(workshop): avoid crash',
+      outputFile,
+      summaryFile,
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(result.decision, 'run')
+    assert.equal(result.evidence?.kind, 'fail-output')
+    const output = readFileSync(outputFile, 'utf8')
+    assert.match(output, /decision=run/)
+    assert.match(output, /evidence=fail-output/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('WHEN a fix(ci): ... PR opens without bug label THEN preflight skips', () => {
+  const { dir, baseSha, headSha } = createFixtureRepo(
+    { '.github/workflows/build.yaml': 'name: build\n' },
+    { '.github/workflows/build.yaml': 'name: build v2\n' },
+  )
+
+  const summaryFile = path.join(dir, 'summary.md')
+  const outputFile = path.join(dir, 'output.txt')
+  try {
+    const result = runPreflight({
+      cwd: dir,
+      baseRef: baseSha,
+      headSha,
+      prBody: 'Tweak CI caching.',
+      labels: [],
+      title: 'fix(ci): tweak workflow',
+      outputFile,
+      summaryFile,
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(result.decision, 'skip')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('WHEN a fix PR has no new test and no escape line THEN preflight fails with a clear message', () => {
+  const { dir, baseSha, headSha } = createFixtureRepo(
+    { 'apps/core-api/src/workshop.service.ts': 'export const a = 1;\n' },
+    { 'apps/core-api/src/workshop.service.ts': 'export const a = 2;\n' },
+  )
+
+  const summaryFile = path.join(dir, 'summary.md')
+  const outputFile = path.join(dir, 'output.txt')
+  try {
+    const result = runPreflight({
+      cwd: dir,
+      baseRef: baseSha,
+      headSha,
+      prBody: 'Fixes workshop bug without test or escape.',
+      labels: [],
+      title: 'fix(workshop): avoid crash',
+      outputFile,
+      summaryFile,
+    })
+
+    assert.equal(result.ok, false)
+    assert.equal(result.decision, 'fail')
+    assert.match(result.reason, /no new or changed test files/i)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('parseRegressionEvidence detects fail output, base-run URL, and regression-test: n/a', () => {
+  const na = parseRegressionEvidence('Summary\n\nregression-test: n/a — copy-only fix')
+  assert.equal(na.hasEvidence, true)
+  assert.equal(na.kind, 'na')
+  assert.equal(na.detail, 'copy-only fix')
+
+  const url = parseRegressionEvidence(
+    'Base run: https://github.com/vandean25/auto-core-platform/actions/runs/987654321',
+  )
+  assert.equal(url.hasEvidence, true)
+  assert.equal(url.kind, 'base-run-url')
+  assert.match(url.detail, /actions\/runs\/987654321/)
+
+  const jestFail = parseRegressionEvidence(
+    '```text\nFAIL apps/core-api/src/sales/invoice.service.spec.ts\n  ● rejects duplicate\n```',
+  )
+  assert.equal(jestFail.hasEvidence, true)
+  assert.equal(jestFail.kind, 'fail-output')
+
+  const none = parseRegressionEvidence(
+    '<!-- FAIL apps/core-api/src/ignored.spec.ts -->\nFixes a failed login state in the UI.',
+  )
+  assert.equal(none.hasEvidence, false)
+  assert.equal(none.kind, 'none')
+})
+
