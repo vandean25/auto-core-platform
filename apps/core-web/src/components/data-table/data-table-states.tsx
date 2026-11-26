@@ -82,10 +82,10 @@ export function DataTableRefreshIndicator({ visible }: DataTableRefreshIndicator
 
 type DataTableFetchErrorProps = {
   message: string
-  onRetry: () => void
+  onRetry?: () => void
 }
 
-/** Inline fetch error with retry, rendered outside the non-actionable preview region. */
+/** Inline fetch error with optional retry, rendered outside the non-actionable preview region. */
 export function DataTableFetchError({ message, onRetry }: DataTableFetchErrorProps) {
   const { t } = useTranslation('common')
   return (
@@ -94,9 +94,11 @@ export function DataTableFetchError({ message, onRetry }: DataTableFetchErrorPro
         <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <span>{message}</span>
       </div>
-      <Button type="button" variant="outline" size="sm" className="max-md:min-h-11" onClick={onRetry}>
-        {t('dataTable.loading.retry')}
-      </Button>
+      {onRetry ? (
+        <Button type="button" variant="outline" size="sm" className="max-md:min-h-11" onClick={onRetry}>
+          {t('dataTable.loading.retry')}
+        </Button>
+      ) : null}
     </div>
   )
 }

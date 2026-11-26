@@ -77,13 +77,12 @@ export function usePresentationLatencyRef(
 
 export function shouldShowDataTableFetchError(
   resolvedFetchErrorMessage: string | undefined,
-  onRetry: (() => void) | undefined,
+  _onRetry: (() => void) | undefined,
   presentation: Pick<DataTablePresentationState, 'staleFetchFailed' | 'showFirstLoadSkeleton'>,
   isError: boolean,
 ) {
   return Boolean(
     resolvedFetchErrorMessage &&
-      onRetry &&
       (presentation.staleFetchFailed || (isError && !presentation.showFirstLoadSkeleton)),
   )
 }

@@ -1130,6 +1130,21 @@ describe('DataTable loading primitives (AUT-879)', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
+  it('WHEN isError is true without onRetry and without rows THEN the alert appears without a retry button or empty state', () => {
+    render(
+      <LoadingHarness
+        data={[]}
+        hasUsableData={false}
+        isError
+        fetchErrorMessage="Keine Berechtigung"
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Keine Berechtigung')
+    expect(screen.queryByRole('button', { name: deCommon.dataTable.loading.retry })).not.toBeInTheDocument()
+    expect(screen.queryByText(deCommon.dataTable.noResults)).not.toBeInTheDocument()
+  })
+
 })
 
 type CustomerValue = {

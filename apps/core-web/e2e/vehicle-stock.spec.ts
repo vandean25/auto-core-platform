@@ -186,4 +186,36 @@ test.describe('Vehicle stock — infinite list (AUT-890)', () => {
       expect(loadMoreBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     });
   });
+
+  test('AUT-1066: WHEN /vehicle-stock infinite list returns 403 THEN it shows Keine Berechtigung without empty state or retry loop', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    let listCalls = 0;
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock'), async (route) => {
+      listCalls += 1;
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 403, code: 'HTTP_403', message: 'Forbidden' }),
+      });
+    });
+
+    await new AutoCorePage(page, DE_VEHICLE_STOCK.stockList.addVehicle).navigate('/vehicle-stock?filter_stock_status=IN_STOCK');
+
+    const alert = page.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Keine Berechtigung');
+    await expect(page.getByText(dataTable.noResults)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: dataTable.loading.retry })).toHaveCount(0);
+    expect(listCalls).toBe(1);
+    await testInfo.attach('aut-1066-vehicle-stock-403-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+  });
 });

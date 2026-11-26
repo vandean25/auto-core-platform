@@ -17,6 +17,7 @@ import {
   startNewCursorRecoveryEpisode,
 } from './cursor-recovery'
 import { CursorListApiError } from './cursor-list-api-error'
+import { authSessionKeys } from './auth-session'
 import { fetchWithAuth } from './client'
 import { useCursorList } from './cursor-list'
 import { useInfiniteListRefresh } from '@/hooks/useInfiniteListRefresh'
@@ -91,7 +92,8 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     handshakeSpy.mockRestore()
   })
 
-  it('403 blocks without retry', async () => {
+  // Regression (AUT-1066): 403 set authBlocked=true and retryBlocked=true, leaving isError=false so DataTable fell through to the empty state.
+  it('403 produces isError=true with permission message and blocks without retry', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     let listCalls = 0
     vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
@@ -111,7 +113,63 @@ describe('cursor recovery (ADR-0038 §9)', () => {
     await waitFor(() => expect(result.current.tableProps.isLoading).toBe(false))
     expect(result.current.rows).toEqual([])
     expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
+    expect(result.current.tableProps.isError).toBe(true)
+    expect(result.current.tableProps.onRetry).toBeUndefined()
+    expect(result.current.tableProps.fetchErrorMessage).toBe('Keine Berechtigung')
     expect(listCalls).toBe(1)
+  })
+
+  // Regression (AUT-1066): 401 must surface isError=true (no empty table) and invalidate auth-session to trigger re-login.
+  it('401 produces isError=true without retry and invalidates authSessionKeys to trigger re-login', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+    let listCalls = 0
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 0, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      if (target.includes('pagination=cursor')) {
+        listCalls += 1
+        return apiError(401, 'HTTP_401')
+      }
+      return apiError(500, 'HTTP_500')
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+
+    await waitFor(() => expect(result.current.tableProps.isLoading).toBe(false))
+    expect(result.current.rows).toEqual([])
+    expect(isAuthBlockedForEpisode('inventory:{}')).toBe(true)
+    expect(result.current.tableProps.isError).toBe(true)
+    expect(result.current.tableProps.onRetry).toBeUndefined()
+    expect(result.current.tableProps.fetchErrorMessage).toBe('Bitte melden Sie sich an.')
+    expect(listCalls).toBe(1)
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: authSessionKeys.all })
+  })
+
+  it('200 with 0 rows keeps isError=false so the empty state is shown', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const target = String(url)
+      if (target.includes('capped-count')) {
+        return { ok: true, json: async () => ({ count: 0, isCapped: false, scopeContextDigest: 'digest-a' }) } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [],
+          meta: { nextCursor: null, hasNextPage: false, scopeContextDigest: 'digest-a' },
+        }),
+      } as Response
+    })
+
+    const { result } = renderHook(() => useCursorList<Row>(baseOptions()), { wrapper: wrapper(client) })
+
+    await waitFor(() => expect(result.current.tableProps.isLoading).toBe(false))
+    expect(result.current.rows).toEqual([])
+    expect(result.current.tableProps.isError).toBe(false)
+    expect(isAuthBlockedForEpisode('inventory:{}')).toBe(false)
   })
 
   // Regression: a 403 after a loaded page kept showing those rows, and "Liste aktualisieren" requested the list again.

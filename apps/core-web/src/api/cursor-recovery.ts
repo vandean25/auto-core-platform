@@ -11,6 +11,7 @@ import {
   subscribeScopeContextClient,
 } from '@/auth/scope-context-client'
 import { isCursorListApiError, StaleScopeResponseError, type CursorListApiError } from './cursor-list-api-error'
+import { authSessionKeys } from './auth-session'
 
 export const CURSOR_NO_RETRY_CODES = new Set([
   'CONTEXT_REQUIRED',
@@ -41,6 +42,7 @@ type EpisodeRecoveryState = {
   offsetLatched: boolean
   offsetHandoffPending: boolean
   authBlocked: boolean
+  authErrorStatus: number | null
   recoveryInFlight: Promise<CursorRecoveryOutcome> | null
 }
 
@@ -72,6 +74,7 @@ function readEpisodeState(key: string): EpisodeRecoveryState {
     offsetLatched: false,
     offsetHandoffPending: false,
     authBlocked: false,
+    authErrorStatus: null,
     recoveryInFlight: null,
   }
   episodes.set(key, created)
@@ -156,7 +159,8 @@ export function useOffsetLatchPage(semanticKey: string, offsetLatched: boolean, 
 export function useEpisodeFlags(semanticKey: string) {
   const offsetLatched = useSyncExternalStore(subscribeOffsetHandoff, () => isOffsetLatchedForEpisode(semanticKey))
   const authBlocked = useSyncExternalStore(subscribeOffsetHandoff, () => isAuthBlockedForEpisode(semanticKey))
-  return { offsetLatched, authBlocked }
+  const authErrorStatus = useSyncExternalStore(subscribeOffsetHandoff, () => authErrorStatusForEpisode(semanticKey))
+  return { offsetLatched, authBlocked, authErrorStatus }
 }
 
 export function isOffsetLatchedForEpisode(semanticKey: string): boolean {
@@ -167,6 +171,11 @@ export function isOffsetLatchedForEpisode(semanticKey: string): boolean {
 export function isAuthBlockedForEpisode(semanticKey: string): boolean {
   const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
   return readEpisodeState(key).authBlocked
+}
+
+export function authErrorStatusForEpisode(semanticKey: string): number | null {
+  const key = episodeKeyOf(getCursorEpisodeCounter(), semanticKey)
+  return readEpisodeState(key).authErrorStatus
 }
 
 export function startNewCursorRecoveryEpisode() {
@@ -197,6 +206,7 @@ export type CursorRecoveryOutcome =
   | { type: 'restart-page-one' }
   | { type: 'offset-latch' }
   | { type: 'blocked'; externalScope: boolean }
+  | { type: 'auth-error'; error: CursorListApiError; isError: true }
   | { type: 'pass-through'; error: CursorListApiError }
 
 async function recoverViaHandshake(
@@ -290,9 +300,14 @@ export async function resolveCursorListFailure(
 
   if (blocksEpisodeForStatus(error)) {
     episode.authBlocked = true
+    episode.authErrorStatus = error.status
     authBlockedLists.set(hashKey(listKey), getCursorEpisodeCounter())
+    if (error.status === 401) {
+      void client.invalidateQueries({ queryKey: authSessionKeys.all })
+    }
     publishHandoffChange()
-    return blockListEpisode(client, listKey, { offerRefresh: false })
+    await blockListEpisode(client, listKey, { offerRefresh: false })
+    return { type: 'auth-error', error, isError: true }
   }
 
   return { type: 'pass-through', error }

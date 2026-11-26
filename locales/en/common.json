@@ -83,6 +83,7 @@
       "retry": "Try again",
       "dismiss": "Dismiss",
       "loadFailed": "The table could not be loaded.",
+      "noPermission": "No permission",
       "pendingRow": "Creating entry…"
     },
     "infinite": {
