@@ -57,6 +57,8 @@ export const CANONICAL_EN_MESSAGES = {
     'First registration must be more than one year before handover.',
   CUSTOMER_VAT_ID_INVALID:
     'The VAT ID is invalid. Check the format for Austria or Germany.',
+  FISCAL_LOCK_DATE_CANNOT_REWIND:
+    'The fiscal lock date cannot be cleared or moved to an earlier date.',
   IMPORT_AMBIGUOUS_VENDOR:
     'The supplier could not be matched unambiguously. Select the correct supplier.',
   IMPORT_APPLY_FAILED:

@@ -315,6 +315,10 @@ describe('FinanceModule (e2e)', () => {
     'rejects %s on PATCH /finance/settings with 403 and leaves DB row unchanged',
     async (role) => {
       const fixtureLockDate = new Date('2025-11-30T00:00:00.000Z');
+      await prisma.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: { lock_date: null },
+      });
       await request(app.getHttpServer())
         .patch('/finance/settings')
         .set('Authorization', roleHeaders.OWNER!)
@@ -344,9 +348,13 @@ describe('FinanceModule (e2e)', () => {
     },
   );
 
-  // AUT-1007 Scenario 3 & Anti-criterion 2: PATCH without lock_date preserves existing lock_date
+  // AUT-1007 Scenario 3 & Anti-criterion 2: PATCH without lock_date preserves existing lock_date and keeps other settings editable
   it('keeps lock_date unchanged when OWNER patches fiscal_year_start_month only', async () => {
     const fixtureLockDate = new Date('2025-10-31T00:00:00.000Z');
+    await prisma.financeSettings.update({
+      where: { tenant_id: tenantId },
+      data: { lock_date: null },
+    });
     await request(app.getHttpServer())
       .patch('/finance/settings')
       .set('Authorization', roleHeaders.OWNER!)
@@ -373,27 +381,60 @@ describe('FinanceModule (e2e)', () => {
     expect(saved?.lock_date?.toISOString()).toBe(fixtureLockDate.toISOString());
   });
 
-  // AUT-1007 Scenario 4: Explicit lock_date: null clears it and records an audit entry with old and new value
-  it('clears lock_date when OWNER sends lock_date: null and writes audit entry with old and new value', async () => {
-    const fixtureLockDate = new Date('2025-09-30T00:00:00.000Z');
-    await request(app.getHttpServer())
-      .patch('/finance/settings')
-      .set('Authorization', roleHeaders.OWNER!)
-      .send({ lock_date: fixtureLockDate.toISOString() })
-      .expect(200);
+  // AUT-1067 Scenario 1 & 2: clearing or moving lock_date backward returns 422 and leaves lock_date unchanged
+  it.each([
+    { label: 'earlier date', payload: { lock_date: '2026-09-30' } },
+    { label: 'null', payload: { lock_date: null } },
+  ])(
+    'rejects $label on PATCH /finance/settings with 422 FISCAL_LOCK_DATE_CANNOT_REWIND when lock_date is 2026-10-31',
+    async ({ payload }) => {
+      const fixtureLockDate = new Date('2026-10-31T00:00:00.000Z');
+      await prisma.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: { lock_date: fixtureLockDate },
+      });
 
-    const response = await request(app.getHttpServer())
-      .patch('/finance/settings')
-      .set('Authorization', roleHeaders.OWNER!)
-      .send({ lock_date: null })
-      .expect(200);
+      const response = await request(app.getHttpServer())
+        .patch('/finance/settings')
+        .set('Authorization', roleHeaders.OWNER!)
+        .send(payload)
+        .expect(422);
 
-    expect(response.body.lock_date).toBeNull();
+      expect(response.body.code).toBe('FISCAL_LOCK_DATE_CANNOT_REWIND');
 
-    const saved = await prisma.financeSettings.findFirst({
+      const saved = await prisma.financeSettings.findFirst({
+        where: { tenant_id: tenantId },
+      });
+      expect(saved?.lock_date?.toISOString()).toBe(fixtureLockDate.toISOString());
+    },
+  );
+
+  // AUT-1067 Scenario 3 & 4: first set and forward move succeed with 200 and record audit entries
+  it('allows first set from null and forward move of lock_date with 200 and writes audit entry', async () => {
+    await prisma.financeSettings.update({
       where: { tenant_id: tenantId },
+      data: { lock_date: null },
     });
-    expect(saved?.lock_date).toBeNull();
+
+    const firstDate = new Date('2026-10-31T00:00:00.000Z');
+    const firstRes = await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ lock_date: firstDate.toISOString() })
+      .expect(200);
+    expect(new Date(firstRes.body.lock_date).toISOString()).toBe(
+      firstDate.toISOString(),
+    );
+
+    const laterDate = new Date('2026-11-30T00:00:00.000Z');
+    const secondRes = await request(app.getHttpServer())
+      .patch('/finance/settings')
+      .set('Authorization', roleHeaders.OWNER!)
+      .send({ lock_date: laterDate.toISOString() })
+      .expect(200);
+    expect(new Date(secondRes.body.lock_date).toISOString()).toBe(
+      laterDate.toISOString(),
+    );
 
     const auditEntry = await prisma.auditLog.findFirst({
       where: {
@@ -406,10 +447,10 @@ describe('FinanceModule (e2e)', () => {
     expect(auditEntry).not.toBeNull();
     expect(
       (auditEntry?.before as { lock_date?: string | null } | null)?.lock_date,
-    ).toBe(fixtureLockDate.toISOString());
+    ).toBe(firstDate.toISOString());
     expect(
       (auditEntry?.after as { lock_date?: string | null } | null)?.lock_date,
-    ).toBeNull();
+    ).toBe(laterDate.toISOString());
   });
 
   // AUT-1002 Scenario 5: non-OWNER rejected (403, no audit entry); allowed change writes AuditLog with old/new values

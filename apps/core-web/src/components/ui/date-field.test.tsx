@@ -143,6 +143,21 @@ describe('DateField', () => {
     expect(screen.getByLabelText('Von')).toHaveAttribute('placeholder', 'TT.MM.JJJJ')
     expect(screen.getByRole('button', { name: 'Kalender öffnen: Von' })).toBeInTheDocument()
   })
+
+  it('marks dates earlier than minDate as invalid and blocks form submit', () => {
+    render(
+      <form>
+        <DateField aria-label="Von" value="2026-10-31" minDate="2026-10-31" onChange={() => undefined} />
+      </form>,
+    )
+    const input = screen.getByLabelText('Von') as HTMLInputElement
+
+    expect(input.checkValidity()).toBe(true)
+    fireEvent.change(input, { target: { value: '30.09.2026' } })
+
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input.checkValidity()).toBe(false)
+  })
 })
 
 describe('parseDisplayDate', () => {

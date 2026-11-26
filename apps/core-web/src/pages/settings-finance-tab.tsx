@@ -52,7 +52,11 @@ export function useFinanceSettingsForm() {
 
     const handleSaveRequest = (e: React.FormEvent) => {
         e.preventDefault()
-        if (settings?.lock_date && formState.lock_date && new Date(formState.lock_date) > new Date(settings.lock_date)) {
+        if (initialLockDate && (!formState.lock_date || formState.lock_date < initialLockDate)) {
+            toast.error(t('finance.fiscal.lockDateCannotRewind'))
+            return
+        }
+        if (formState.lock_date && formState.lock_date !== initialLockDate) {
             setIsAlertOpen(true)
         } else {
             handleSave()
@@ -65,8 +69,8 @@ export function useFinanceSettingsForm() {
                 invoice_prefix: formState.invoice_prefix,
                 next_invoice_number: formState.next_invoice_number,
             }
-            if (formState.lock_date !== initialLockDate) {
-                payload.lock_date = formState.lock_date || null
+            if (formState.lock_date && formState.lock_date !== initialLockDate) {
+                payload.lock_date = formState.lock_date
             }
             await updateMutation.mutateAsync(payload)
             toast.success(t('finance.toast.updated'))
@@ -78,6 +82,7 @@ export function useFinanceSettingsForm() {
 
     return {
         isLoading,
+        initialLockDate,
         formState,
         setFormState,
         isPending: updateMutation.isPending,
@@ -111,6 +116,7 @@ function FiscalSettingsForm({ form, canEdit }: { form: FinanceSettingsForm; canE
                             id="lock_date"
                             aria-label={t('finance.fiscal.lockDate')}
                             value={formState.lock_date}
+                            minDate={form.initialLockDate || undefined}
                             disabled={!canEdit}
                             onChange={(lockDate) => setFormState(prev => ({ ...prev, lock_date: lockDate }))}
                         />

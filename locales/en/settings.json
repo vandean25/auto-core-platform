@@ -72,7 +72,8 @@
     "fiscal": {
       "title": "Fiscal Control",
       "lockDate": "Lock Date",
-      "lockDateHint": "Transactions on or before this date cannot be modified."
+      "lockDateHint": "Transactions on or before this date cannot be modified.",
+      "lockDateCannotRewind": "The lock date cannot be cleared or moved to an earlier date."
     },
     "invoicing": {
       "title": "Invoice Numbering",
@@ -86,7 +87,7 @@
     },
     "lockDialog": {
       "title": "Confirm Fiscal Lock",
-      "description": "Changing the lock date to a later date will permanently prevent modifications to all transactions in the previous period. This may affect finalized reports. Are you sure?",
+      "description": "Setting the lock date or moving it to a later date will permanently prevent modifications to all transactions on or before that date. This may affect finalized reports. Are you sure?",
       "confirm": "Confirm Lock"
     }
   },

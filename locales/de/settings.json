@@ -72,7 +72,8 @@
     "fiscal": {
       "title": "Fiskalsteuerung",
       "lockDate": "Sperrdatum",
-      "lockDateHint": "Buchungen an oder vor diesem Datum können nicht mehr geändert werden."
+      "lockDateHint": "Buchungen an oder vor diesem Datum können nicht mehr geändert werden.",
+      "lockDateCannotRewind": "Das Sperrdatum kann weder gelöscht noch auf ein früheres Datum zurückgesetzt werden."
     },
     "invoicing": {
       "title": "Rechnungsnummern",
@@ -86,7 +87,7 @@
     },
     "lockDialog": {
       "title": "Fiskalsperre bestätigen",
-      "description": "Wenn Sie das Sperrdatum auf ein späteres Datum setzen, können Buchungen im bisherigen Zeitraum dauerhaft nicht mehr geändert werden. Das kann abgeschlossene Auswertungen betreffen. Möchten Sie fortfahren?",
+      "description": "Wenn Sie das Sperrdatum setzen oder auf ein späteres Datum verschieben, können Buchungen bis einschließlich diesem Datum dauerhaft nicht mehr geändert werden. Das kann abgeschlossene Auswertungen betreffen. Möchten Sie fortfahren?",
       "confirm": "Sperre bestätigen"
     }
   },
