@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
     Customer,
     NormalizedCustomer,
@@ -7,6 +7,8 @@ import type {
 } from './types'
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
+import { readOffsetPage } from './cursor-recovery'
+import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { isCustomerUpdateOptimisticEligible } from '@/features/interaction/customer-vehicle-update-eligibility'
 import { DETAIL_PREFETCH_GC_MS, DETAIL_PREFETCH_STALE_MS } from '@/lib/intent-prefetch'
@@ -18,6 +20,12 @@ export const customerKeys = {
     all: ['customers'] as const,
     lists: () => [...customerKeys.all, 'list'] as const,
     list: (queryParams?: DataTableQueryParams) => [...customerKeys.lists(), queryParams] as const,
+    /** ADR-0035 infinite customer list; its own family so an offset refresh never restarts the cursor chain. */
+    cursorLists: () => [...customerKeys.all, 'cursor'] as const,
+    cursorList: (params: Record<string, string | undefined>) =>
+        [...customerKeys.cursorLists(), params] as const,
+    cappedCount: (filters: Record<string, string | undefined>) =>
+        [...customerKeys.all, 'capped-count', filters] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
     notes: (id: string) => [...customerKeys.detail(id), 'notes'] as const,
     activity: (id: string, types?: readonly string[]) =>
@@ -70,30 +78,39 @@ function normalizeWorkshopOrders(workshopOrders: RawWorkshopOrder[] | undefined)
     })) as NormalizedWorkshopOrder[]
 }
 
-export function useCustomers(queryParams?: DataTableQueryParams, options?: { enabled?: boolean }) {
+export function useCustomers(
+    queryParams?: DataTableQueryParams,
+    options?: { enabled?: boolean; offsetEpisodeKey?: string; fresh?: boolean; scopeDigest?: string },
+) {
+    const scopeDigest = options?.scopeDigest
     return useQuery<CustomerListResponse>({
-        queryKey: customerKeys.list(queryParams),
+        queryKey: scopedOffsetKey(customerKeys.list(queryParams), scopeDigest),
         enabled: options?.enabled ?? true,
-        queryFn: async () => {
-            let url = '/api/customers'
-            if (queryParams) {
-                const params = new URLSearchParams()
-                params.append('page', String(queryParams.page))
-                params.append('pageSize', String(queryParams.pageSize))
-                if (queryParams.search) params.append('search', queryParams.search)
-                if (queryParams.sortField) params.append('sortField', queryParams.sortField)
-                if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
+        ...(options?.fresh ? { staleTime: 0 } : {}),
+        placeholderData: keepPreviousData,
+        queryFn: () =>
+            readScopedOffset(scopeDigest, () =>
+                readOffsetPage(options?.offsetEpisodeKey, queryParams?.page, async () => {
+                    let url = '/api/customers'
+                    if (queryParams) {
+                        const params = new URLSearchParams()
+                        params.append('page', String(queryParams.page))
+                        params.append('pageSize', String(queryParams.pageSize))
+                        if (queryParams.search) params.append('search', queryParams.search)
+                        if (queryParams.sortField) params.append('sortField', queryParams.sortField)
+                        if (queryParams.sortDirection) params.append('sortDirection', queryParams.sortDirection)
 
-                const typeFilter = queryParams.filters.find((f) => f.field === 'type')?.value
-                if (typeFilter) params.append('type', typeFilter)
+                        const typeFilter = queryParams.filters.find((f) => f.field === 'type')?.value
+                        if (typeFilter) params.append('type', typeFilter)
 
-                url += `?${params.toString()}`
-            }
-            
-            const response = await fetchWithAuth(url)
-            if (!response.ok) throw new Error('Failed to fetch customers')
-            return response.json()
-        },
+                        url += `?${params.toString()}`
+                    }
+
+                    const response = await fetchWithAuth(url)
+                    if (!response.ok) throw new Error('Failed to fetch customers')
+                    return response.json()
+                }),
+            ),
     })
 }
 

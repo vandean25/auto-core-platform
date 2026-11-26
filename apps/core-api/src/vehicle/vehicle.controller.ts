@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -23,9 +24,17 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
+import { ApiListCursorModeQuery } from '../common/dto/list-cursor-query.decorator.js';
+import { CappedListCountResponseDto } from '../common/dto/list-cursor-response.dto.js';
 import { VehicleService } from './vehicle.service.js';
+import { VehicleListService } from './vehicle-list.service.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
 import { VehicleValuationService } from './vehicle-valuation.service.js';
+import {
+  FindAllVehiclesQueryDto,
+  VehiclesCappedCountQueryDto,
+} from './dto/find-all-vehicles-query.dto.js';
 import {
   CreateVehicleValuationDto,
   VehicleValuationErrorResponseDto,
@@ -39,15 +48,70 @@ import {
 } from './dto/vehicle-response.dto.js';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
+function findAllVehiclesOffset(
+  vehicleService: VehicleService,
+  query: FindAllVehiclesQueryDto,
+) {
+  const { search, page, pageSize, sortField, sortDirection } = query;
+  const integerPattern = /^\d+$/;
+  const isInvalidPage =
+    page !== undefined &&
+    (!integerPattern.test(page) || parseInt(page, 10) <= 0);
+  const isInvalidPageSize =
+    pageSize !== undefined &&
+    (!integerPattern.test(pageSize) || parseInt(pageSize, 10) <= 0);
+  const isInvalidSortDirection =
+    sortDirection !== undefined &&
+    sortDirection !== 'asc' &&
+    sortDirection !== 'desc';
+
+  if (isInvalidPage || isInvalidPageSize) {
+    throw new BadRequestException(
+      'page and pageSize must be positive integers',
+    );
+  }
+  if (isInvalidSortDirection) {
+    throw new BadRequestException('sortDirection must be "asc" or "desc"');
+  }
+
+  return vehicleService.findAll({
+    search,
+    page: page ? parseInt(page, 10) : undefined,
+    pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    sortField,
+    sortDirection: sortDirection ? sortDirection : undefined,
+  });
+}
+
 @Controller('vehicles')
 export class VehicleController {
   constructor(
     private readonly vehicleService: VehicleService,
+    private readonly vehicleList: VehicleListService,
     private readonly vehicleIdentityService: VehicleIdentityService,
     private readonly vehicleValuationService: VehicleValuationService,
   ) {}
 
+  @Get('capped-count')
+  @ApiOperation({
+    operationId: 'VehicleController_cappedCount',
+    summary: 'Bounded match count for the customer vehicle list (ADR-0035)',
+  })
+  @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
+  @ApiOkResponse({ type: CappedListCountResponseDto })
+  cappedCount(
+    @Query() query: VehiclesCappedCountQueryDto,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+  ) {
+    return this.vehicleList.cappedListCount(query, scopeContext);
+  }
+
   @Get()
+  @ApiHeader({
+    name: SCOPE_CONTEXT_HEADER,
+    required: false,
+    description: 'Required in cursor mode (ADR-0038).',
+  })
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
   @ApiQuery({
     name: 'page',
@@ -66,42 +130,16 @@ export class VehicleController {
     required: false,
     schema: { type: 'string', enum: ['asc', 'desc'] },
   })
+  @ApiListCursorModeQuery()
   @ApiOkResponse({ type: VehiclePaginatedResponseDto })
   findAll(
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-    @Query('sortField') sortField?: string,
-    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
+    @Query() query: FindAllVehiclesQueryDto,
+    @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
   ) {
-    const integerPattern = /^\d+$/;
-    const isInvalidPage =
-      page !== undefined &&
-      (!integerPattern.test(page) || parseInt(page, 10) <= 0);
-    const isInvalidPageSize =
-      pageSize !== undefined &&
-      (!integerPattern.test(pageSize) || parseInt(pageSize, 10) <= 0);
-    const isInvalidSortDirection =
-      sortDirection !== undefined &&
-      sortDirection !== 'asc' &&
-      sortDirection !== 'desc';
-
-    if (isInvalidPage || isInvalidPageSize) {
-      throw new BadRequestException(
-        'page and pageSize must be positive integers',
-      );
+    if (query.pagination === 'cursor' || query.cursor) {
+      return this.vehicleList.findAllWithCursor(query, scopeContext);
     }
-    if (isInvalidSortDirection) {
-      throw new BadRequestException('sortDirection must be "asc" or "desc"');
-    }
-
-    return this.vehicleService.findAll({
-      search,
-      page: page ? parseInt(page, 10) : undefined,
-      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
-      sortField,
-      sortDirection: sortDirection ? sortDirection : undefined,
-    });
+    return findAllVehiclesOffset(this.vehicleService, query);
   }
 
   @Post()

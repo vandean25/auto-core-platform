@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import VehicleList from './VehicleList'
 import * as vehiclesApi from '@/api/vehicles'
 import { vehicleKeys } from '@/api/vehicles'
+import * as vehicleListApi from '@/api/vehicle-list'
 import * as customersApi from '@/api/customers'
 import { customerKeys } from '@/api/customers'
+import * as customerListApi from '@/api/customer-list'
 import * as salesApi from '@/api/sales'
 import { invoiceKeys } from '@/api/sales'
 import * as vehicleStockApi from '@/api/vehicle-stock'
@@ -34,6 +36,9 @@ vi.mock('@/api/vehicles', async (importOriginal) => {
     useVehicle: vi.fn(),
   }
 })
+vi.mock('@/api/vehicle-list', () => ({
+  useVehicleListState: vi.fn(),
+}))
 vi.mock('@/api/customers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/customers')>()
   return {
@@ -43,6 +48,9 @@ vi.mock('@/api/customers', async (importOriginal) => {
     useDeleteCustomer: vi.fn(),
   }
 })
+vi.mock('@/api/customer-list', () => ({
+  useCustomerListState: vi.fn(),
+}))
 vi.mock('@/api/sales', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/sales')>()
   return {
@@ -139,6 +147,20 @@ describe('VehicleList peek sheet', () => {
       data: { data: [vehicle], meta: { pageCount: 1 } },
       isLoading: false,
     })
+    asMock(vehicleListApi.useVehicleListState).mockReturnValue({
+      infinite: false,
+      vehicles: [vehicle],
+      isError: false,
+      dataUpdatedAt: 1,
+      tableProps: {
+        pageCount: 1,
+        isLoading: false,
+        isFetching: false,
+        isPlaceholderData: false,
+        isError: false,
+        hasUsableData: true,
+      },
+    })
     asMock(vehiclesApi.useVehicle).mockImplementation((id: string) => ({
       data: id === 'veh-1' ? vehicle : undefined,
       isLoading: false,
@@ -190,6 +212,31 @@ describe('VehicleList peek sheet', () => {
       },
       isLoading: false,
       isError: false,
+    })
+    asMock(customerListApi.useCustomerListState).mockReturnValue({
+      infinite: false,
+      customers: [
+        {
+          id: 'cust-1',
+          type: 'PRIVATE',
+          first_name: 'Anna',
+          last_name: 'Alpin',
+          email: 'anna@alpin.at',
+          phone: '+43 660 123',
+          address_city: 'Innsbruck',
+          address_country: 'AT',
+        },
+      ],
+      isError: false,
+      dataUpdatedAt: 1,
+      tableProps: {
+        pageCount: 1,
+        isLoading: false,
+        isFetching: false,
+        isPlaceholderData: false,
+        isError: false,
+        hasUsableData: true,
+      },
     })
     asMock(customersApi.useCustomer).mockReturnValue({ data: undefined, isLoading: false })
     asMock(customersApi.useDeleteCustomer).mockReturnValue({ mutateAsync: vi.fn() })

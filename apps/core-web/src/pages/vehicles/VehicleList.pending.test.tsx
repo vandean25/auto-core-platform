@@ -39,12 +39,15 @@ function newGate(): Gate {
   return { promise, resolve }
 }
 
+/** A non-cursor sort keeps the paged offset list whose refetch lifecycle these tests cover (AUT-957). */
+const OFFSET_LIST = '/vehicles?sortField=plate&sortDirection=asc'
+
 function renderList() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <SavedViewsProvider userKey="test-user">
         <DashboardWidgetsProvider userKey="test-user">
-          <MemoryRouter initialEntries={['/vehicles']}>
+          <MemoryRouter initialEntries={[OFFSET_LIST]}>
             <Routes>
               <Route path="/vehicles" element={<VehicleList />} />
             </Routes>
@@ -71,7 +74,11 @@ const settle = () => act(() => new Promise((done) => setTimeout(done, 30)))
 beforeEach(() => {
   server = { vehicles: [], gets: 0, posts: [], gate: null }
   vi.mocked(fetchWithAuth).mockImplementation(async (url, init) => {
-    if (!String(url).startsWith('/api/vehicles')) return httpResponse(200, { data: [] })
+    const target = String(url)
+    if (target.startsWith('/api/vehicles/capped-count')) {
+      return httpResponse(200, { count: server.vehicles.length, isCapped: false })
+    }
+    if (!target.startsWith('/api/vehicles')) return httpResponse(200, { data: [] })
     if (init?.method === 'POST') {
       server.posts.push(JSON.parse(String(init.body)))
       return server.gate ? server.gate.promise : httpResponse(201, serverVehicle('srv-1'))

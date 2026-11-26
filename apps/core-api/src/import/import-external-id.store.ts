@@ -5,7 +5,12 @@ import { ApplyRowStaleError } from './import-apply.errors.js';
 export type LegacyId = Pick<ExternalIdMapping, 'source_system' | 'external_id'>;
 
 type MappingScope = { tenantId: string; entityType: ImportEntityType };
-type MappingClient = Pick<Prisma.TransactionClient, 'externalIdMapping'>;
+type MappingClient = {
+  externalIdMapping: Pick<
+    Prisma.TransactionClient['externalIdMapping'],
+    'findMany'
+  >;
+};
 
 export async function findExternalEntityIds(
   prisma: MappingClient,

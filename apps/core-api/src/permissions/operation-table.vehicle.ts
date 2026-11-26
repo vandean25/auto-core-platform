@@ -35,6 +35,11 @@ export const VEHICLE_OPERATIONS: OperationTable = {
     'tenant',
   ),
   'VehicleController.findAll': op('vehicle.read', BACK_OFFICE_DEMO, 'tenant'),
+  'VehicleController.cappedCount': op(
+    'vehicle.read',
+    BACK_OFFICE_DEMO,
+    'tenant',
+  ),
   'VehicleController.create': op('vehicle.create', BACK_OFFICE_DEMO, 'tenant'),
   'VehicleController.resolveIdentity': op(
     'vehicle.identity.resolve',

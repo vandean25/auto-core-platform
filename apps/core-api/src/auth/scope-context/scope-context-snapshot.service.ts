@@ -28,7 +28,13 @@ import {
   type ScopeContextComponents,
 } from './scope-context-token.js';
 
-type CursorListTable = 'catalogItem' | 'invoice' | 'vehicle' | 'workshopOrder';
+type CursorListTable =
+  | 'catalogItem'
+  | 'customer'
+  | 'externalIdMapping'
+  | 'invoice'
+  | 'vehicle'
+  | 'workshopOrder';
 type CursorListReader = {
   [Table in CursorListTable]: Pick<Prisma.TransactionClient[Table], 'findMany'>;
 };

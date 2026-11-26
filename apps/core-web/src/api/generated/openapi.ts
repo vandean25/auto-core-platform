@@ -1361,6 +1361,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/customers/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for the customer list (ADR-0035) */
+        get: operations["CustomerController_cappedCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers/{id}/activity": {
         parameters: {
             query?: never;
@@ -4226,6 +4243,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["VehicleController_recordPickerlContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for the customer vehicle list (ADR-0035) */
+        get: operations["VehicleController_cappedCount"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -16458,14 +16492,28 @@ export interface operations {
     CustomerController_findAll: {
         parameters: {
             query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
+                cursor?: string;
+                /** @description Cursor mode only. Default 50, maximum 100. */
+                limit?: number;
+                /** @description Page number */
                 page?: number;
+                /** @description Number of items per page */
                 pageSize?: number;
+                /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
+                pagination?: "offset" | "cursor";
+                /** @description Free-text search term for customer name, company name, email, or legacy ID */
                 search?: string;
+                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description Field name to sort by */
                 sortField?: string;
                 type?: "PRIVATE" | "COMPANY";
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -16508,6 +16556,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerResponseDto"];
+                };
+            };
+        };
+    };
+    CustomerController_cappedCount: {
+        parameters: {
+            query?: {
+                /** @description Same search as the customer list */
+                search?: string;
+                type?: "PRIVATE" | "COMPANY";
+            };
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
                 };
             };
         };
@@ -22067,17 +22140,54 @@ export interface operations {
             };
         };
     };
+    VehicleController_cappedCount: {
+        parameters: {
+            query?: {
+                /** @description Same search as the customer vehicle list */
+                search?: string;
+            };
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
+                };
+            };
+        };
+    };
     VehicleController_findAll: {
         parameters: {
             query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
+                cursor?: string;
+                /** @description Cursor mode only. Default 50, maximum 100. */
+                limit?: string;
+                /** @description Page number */
                 page?: number;
                 /** @description Larger values are clamped to 50. */
                 pageSize?: number;
+                /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
+                pagination?: "offset" | "cursor";
+                /** @description Free-text search term for make, model, plate, VIN, engine code, customer, or legacy ID */
                 search?: string;
+                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description Field name to sort by */
                 sortField?: string;
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };

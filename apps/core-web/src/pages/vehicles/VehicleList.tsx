@@ -13,7 +13,8 @@ import {
   InteractionErrorMarker,
   isDataTablePendingRow,
 } from '@/components/data-table/data-table-states'
-import { useCreateVehicle, useVehicles } from '@/api/vehicles'
+import { useCreateVehicle } from '@/api/vehicles'
+import { useVehicleListState } from '@/api/vehicle-list'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 import { Button } from '@/components/ui/button'
@@ -60,11 +61,11 @@ export default function VehicleList() {
   }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
-  const { data: responseData, isLoading, dataUpdatedAt } = useVehicles(queryParams)
+  const list = useVehicleListState(queryParams)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
-    return (responseData?.data ?? []).map((vehicle) => ({
+    return list.vehicles.map((vehicle) => ({
       id: vehicle.id,
       vehicle: `${vehicle.make} ${vehicle.model}`,
       year: vehicle.year,
@@ -72,7 +73,7 @@ export default function VehicleList() {
       plate: vehicle.plate || t('shared.notAvailable'),
       customer: getCustomerLabel(t, vehicle.customer),
     }))
-  }, [responseData, t])
+  }, [list.vehicles, t])
 
   const createVehicle = useCreateVehicle()
   const buildPendingRow = useCallback(
@@ -90,7 +91,7 @@ export default function VehicleList() {
     create: createVehicle.mutateAsync,
     buildRow: buildPendingRow,
     serverRows: rows,
-    dataUpdatedAt,
+    dataUpdatedAt: list.dataUpdatedAt,
     describeError: (error) =>
       describePendingCreateError(error, { unconfirmed: t('dialog.createUnconfirmed'), failed: t('dialog.saveFailed') }),
     onCreated: () => toast.success(t('dialog.created')),
@@ -185,9 +186,8 @@ export default function VehicleList() {
         data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
-        pageCount={responseData?.meta?.pageCount ?? 1}
+        {...list.tableProps}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
-        isLoading={isLoading}
         searchPlaceholder={t('list.searchPlaceholder')}
         rowBehaviour={rowBehaviour}
         {...tableState}

@@ -34,6 +34,15 @@ Offset removal for invoices: **not yet.** The unpaged array is still the data so
 
 The offset contract (`page` / `pageSize`, `{ data, meta: { total, page, pageSize, pageCount } }`) stays the default and is unchanged. `order_number` and `status` stay offset (no plan evidence yet); the relation sorts `customer` and `vehicle` stay offset. In cursor mode `page` / `pageSize` return 400 `LIST_CURSOR_PARAM_FORBIDDEN`. Visibility is the offset resolver (`buildWorkshopOrderListWhere`): tenant, active site, search (order number, id, customer name, vehicle make / model / plate / VIN) and the `customerId` + live-status restriction. The cursor binds tenant, active site, sort, direction and the hash of search and `customerId`. Scope Context (ADR-0038) is required on list and count from the first release: missing header 428 `CONTEXT_REQUIRED`, stale or foreign context 412 `CONTEXT_MISMATCH`, checked in one REPEATABLE READ snapshot with the data read. Permission: `workshop.order.read` (TECH gets 403). `createdAt` is `timestamp(3)` on QA; the cursor carries UTC ISO with milliseconds. Index: migration `20261113120000_aut956_workshop_orders_cursor_index`. Plans: [aut956-workshop-orders-explain-evidence.md](./aut956-workshop-orders-explain-evidence.md).
 
+## Customers & customer vehicles (AUT-957)
+
+| Endpoint | Sort field | ASC cursor | DESC cursor | Default / cap | Capped count |
+| --- | --- | --- | --- | --- | --- |
+| `GET /api/customers?pagination=cursor` | `createdAt` (default, newest first; `id` tiebreaker in the same direction) | yes | yes | 50 / 100 | `GET /api/customers/capped-count` |
+| `GET /api/vehicles?pagination=cursor` | `createdAt` (default, newest first; `id` tiebreaker in the same direction) | yes | yes | 50 / 100 | `GET /api/vehicles/capped-count` |
+
+Offset contracts stay the default and are unchanged (`company_name`, `email`, `address_city` on customers; `make`, `model`, `year`, `plate`, `vin`, and relation `customer` on customer vehicles stay offset). In cursor mode `page` / `pageSize` return 400 `LIST_CURSOR_PARAM_FORBIDDEN`. Both lists are tenant-wide (`scope: 'tenant'`) behind Scope Context (ADR-0038) in one REPEATABLE READ snapshot (428 `CONTEXT_REQUIRED`, 412 `CONTEXT_MISMATCH`). Permissions: `customer.read` (customers) and `vehicle.read` (customer vehicles); `TECH` gets 403 on list and count. `createdAt` is `timestamp(3)`; the cursor carries UTC ISO with milliseconds. Indexes: migration `20261126120000_aut957_customers_vehicles_cursor_indexes`. Plans: [aut957-customers-vehicles-explain-evidence.md](./aut957-customers-vehicles-explain-evidence.md).
+
 **Vehicle stock cursor constraints (AUT-958):** `stock_status` is a direct nullable enum column on `vehicles` and is supported as a cursor sort (migration `20261125120000_aut958_vehicle_stock_status_cursor_index`, plans: [aut958-vehicle-stock-status-explain-evidence.md](./aut958-vehicle-stock-status-explain-evidence.md)) when a draft-free `stock_status` filter is active. Merged `ON_ORDER` / "All statuses" (unset `stock_status`) rows stay **offset-only**: they concatenate two separate tables (`vehicle_purchases` `status=DRAFT, acquisition_kind=DIRECT` before `vehicles`), where `vehicle_purchases` has no `stock_status` column and no keyset indexes, so a single-table keyset cursor with a stable unique `id` tiebreaker cannot be formed without denormalization or weakening the draft-merge rule. Cursor and capped count therefore require a `stock_status` filter that excludes draft merge (any value except unset / `ON_ORDER`).
 
 **Parts offset-only sorts (AUT-958):** `status` (stock level) is a computed ATP aggregate over `inventory_stocks` + `superseded_by`, and `warehouse_location` (location) is a 1-to-many `inventory_stocks -> storage_locations` relation. Neither is a column on `catalog_items` and neither is sortable in offset mode (`enableSorting: false`), so both stay offset-only without denormalization.
@@ -46,6 +55,8 @@ The offset contract (`page` / `pageSize`, `{ data, meta: { total, page, pageSize
 | `GET /api/inventory` | `apps/core-web` inventory hooks / Item list | Infinite list (AUT-890) on `sku`, `name`, `price` or no sort; any other sort (`status`, `warehouse_location`) stays offset |
 | `GET /api/sales/invoices` | `apps/core-web` `invoiceKeys` / Invoice list | Infinite list (AUT-891) on `invoice_number`, `date` or no sort; customer, status and total sort stay unpaged |
 | `GET /api/workshop/orders` | `apps/core-web` `workshopKeys` / Workshop order list | Infinite list (AUT-956) on `createdAt` or no sort; `order_number`, `status`, `customer`, `vehicle` sorts stay offset |
+| `GET /api/customers` | `apps/core-web` `customerKeys` / Customer list | Infinite list (AUT-957) on `createdAt` or no sort; `company_name`, `email`, `address_city` sorts stay offset |
+| `GET /api/vehicles` | `apps/core-web` `vehicleKeys` / Customer vehicle list | Infinite list (AUT-957) on `createdAt` or no sort; `vehicle`, `year`, `vin`, `plate`, `customer` sorts stay offset |
 | MCP `list_catalog_items` | Agent MCP read tools | Separate keyset; not replaced in LF 10a |
 
 ## Search / filter fields (server-side)
@@ -55,6 +66,8 @@ The offset contract (`page` / `pageSize`, `{ data, meta: { total, page, pageSize
 | Vehicle stock | `vin`, `plate`, `make`, `model`, `color` (contains, case-insensitive OR) | `stock_status` |
 | Inventory | `name`, `sku`, brand name (contains OR) | `location`, `brand`, `brandId` |
 | Workshop orders | order number, id, customer first / last / company name, vehicle make / model / plate / VIN (contains OR) | `customerId` (live statuses only) |
+| Customers | `first_name`, `last_name`, `company_name`, `email` (contains OR), legacy external ID | `type` (`PRIVATE`, `COMPANY`) |
+| Customer vehicles | `make`, `model`, `plate`, `vin`, `engine_code`, customer first / last / company name (contains OR), legacy external ID | — |
 
 Cursor payload binds a hash of normalized filter context plus tenant and active site id (session-scoped, ADR-0013 / ADR-0022).
 
@@ -70,6 +83,8 @@ Cursor payload binds a hash of normalized filter context plus tenant and active 
 | Entity / domain | Frontend cache keys | Infinite-list note (LF 10b+) |
 | --- | --- | --- |
 | `Vehicle` (dealer stock) | `vehicleStockKeys` | Mark stale; no retained-page refetch (ADR-0035 §7) |
+| `Vehicle` (customer vehicles) | `vehicleKeys` | Cursor list is marked stale without refetch; "Liste aktualisieren" (AUT-957) |
+| `Customer` | `customerKeys` | Cursor list is marked stale without refetch; "Liste aktualisieren" (AUT-957) |
 | `CatalogItem` / stock | `inventoryKeys` (TanStack) | Same explicit refresh contract |
 | `Invoice` (new `INVOICE` event, AUT-891) | `invoiceKeys.all` | Cursor lists are marked stale without refetch; "Liste aktualisieren" |
 | `WorkshopOrder` | `workshopKeys` | Cursor list is marked stale without refetch; "Liste aktualisieren" (AUT-956) |

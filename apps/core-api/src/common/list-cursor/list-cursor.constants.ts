@@ -8,6 +8,8 @@ export const LIST_CURSOR_ENDPOINT = {
   inventory: 'inventory',
   invoices: 'invoices',
   workshopOrders: 'workshop-orders',
+  customers: 'customers',
+  vehicles: 'vehicles',
   bankTransactions: 'bank-transactions',
 } as const;
 

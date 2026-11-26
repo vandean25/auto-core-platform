@@ -28,6 +28,8 @@ import { EffectiveCapabilitiesModule } from '../common/country-pack/effective-ca
 import { CustomerConsentModule } from '../customer-consent/customer-consent.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
+import { ScopeContextModule } from '../auth/scope-context/scope-context.module.js';
+import { VehicleListService } from './vehicle-list.service.js';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
     CustomerConsentModule,
     AuditModule,
     CustomFieldsModule,
+    ScopeContextModule,
   ],
   controllers: [
     // Literal paths (nova/calculate, pickerl-due) must register before VehicleController's GET :id.
@@ -49,6 +52,7 @@ import { CustomFieldsModule } from '../custom-fields/custom-fields.module.js';
   ],
   providers: [
     VehicleService,
+    VehicleListService,
     VehiclePersistenceService,
     VehicleWriteService,
     VehiclePickerlDueService,
