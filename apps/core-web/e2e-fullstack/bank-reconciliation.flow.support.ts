@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext } from '@playwright/test'
 import { E2E_FULLSTACK_API_PORT } from '../../core-api/test/e2e-fullstack/constants.ts'
 import type { E2eFullstackFixture } from '../../core-api/test/e2e-fullstack/seed-fixture.ts'
+import { createCompletedWorkshopOrder } from './workshop-checkout-invoice.flow.support.ts'
 
 function buildCamt053Xml(params: {
   receivingIban: string
@@ -80,39 +81,24 @@ export async function seedBankReconciliationScenario(
     expect(patchEntity.ok(), `PATCH /legal-entities failed: ${patchEntity.status()} ${await patchEntity.text()}`).toBeTruthy()
   }
 
-  const orderRes = await request.post(`${apiBase}/sales-orders`, {
+  const workshopOrder = await createCompletedWorkshopOrder(request, fixture, { unitPrice: 100 })
+  const createInvRes = await request.post(`${apiBase}/invoices/drafts`, {
     headers,
-    data: {
-      customer_id: fixture.customerId,
-      items: [
-        {
-          catalog_item_id: fixture.catalogItemId,
-          description: fixture.catalogName,
-          quantity: 1,
-          unit_price: 100,
-          tax_rate: 20,
-        },
-      ],
-    },
+    data: { workshopOrderId: workshopOrder.id },
   })
-  expect(orderRes.ok(), `POST /sales-orders failed: ${orderRes.status()} ${await orderRes.text()}`).toBeTruthy()
-  const order = (await orderRes.json()) as { id: string }
-
-  const createInvRes = await request.post(`${apiBase}/sales-orders/${order.id}/create-invoice`, { headers })
-  expect(createInvRes.ok(), `POST /create-invoice failed: ${createInvRes.status()} ${await createInvRes.text()}`).toBeTruthy()
+  expect(createInvRes.ok(), `POST /invoices/drafts failed: ${createInvRes.status()} ${await createInvRes.text()}`).toBeTruthy()
   const draftInvoice = (await createInvRes.json()) as { id: string }
-
-  const finalizeRes = await request.put(`${apiBase}/sales/invoices/${draftInvoice.id}/finalize`, { headers })
-  expect(finalizeRes.ok(), `PUT /finalize failed: ${finalizeRes.status()} ${await finalizeRes.text()}`).toBeTruthy()
 
   const issueRes = await request.patch(`${apiBase}/invoices/${draftInvoice.id}/issue`, { headers })
   expect(issueRes.ok(), `PATCH /invoices/:id/issue failed: ${issueRes.status()} ${await issueRes.text()}`).toBeTruthy()
   const issuedInvoice = (await issueRes.json()) as {
     id: string
+    status: string
     invoice_number: string
     total_gross: string
     date: string
   }
+  expect(issuedInvoice.status).toBe('ISSUED')
 
   const issuedDate = new Date(issuedInvoice.date)
   const bookingDate = issuedDate.toISOString().slice(0, 10)
