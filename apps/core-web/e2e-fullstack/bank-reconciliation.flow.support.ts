@@ -57,7 +57,7 @@ export async function seedBankReconciliationScenario(
   const headers = { Authorization: `Bearer ${fixture.authToken}` }
 
   const settingsRes = await request.patch(`${apiBase}/finance/settings`, {
-    headers,
+    headers: { Authorization: `Bearer ${fixture.ownerAuthToken}` },
     data: { bank_reconciliation_enabled: true },
   })
   expect(settingsRes.ok()).toBeTruthy()

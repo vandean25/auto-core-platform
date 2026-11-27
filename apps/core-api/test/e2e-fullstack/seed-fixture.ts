@@ -9,6 +9,7 @@ import { createGlobalValidationPipe } from '../../src/common/index.js';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import {
+  createMemberBearer,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -48,6 +49,7 @@ import { teardownTestApp } from '../test-lifecycle.js';
 
 export type E2eFullstackFixture = {
   authToken: string;
+  ownerAuthToken: string;
   tenantId: string;
   customerId: string;
   customerLabel: string;
@@ -111,6 +113,7 @@ async function seedBaseTenantData(
 ): Promise<{
   tenant: TestTenantResult;
   authToken: string;
+  ownerAuthToken: string;
   customerId: string;
   catalogItemId: string;
   vendorId: string;
@@ -136,6 +139,9 @@ async function seedBaseTenantData(
   const tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
   const authService = app.get(AuthService);
   const authToken = createTestAuthToken(authService, tenant);
+  const ownerAuthToken = (
+    await createMemberBearer(prisma, authService, tenant, 'OWNER')
+  ).replace(/^Bearer\s+/i, '');
 
   const otherTenant = await createTestTenant(prisma, 'e2e-fullstack-b');
   const otherPrisma = createTenantAwarePrisma(prisma, otherTenant.tenantId);
@@ -457,6 +463,7 @@ async function seedBaseTenantData(
   return {
     tenant,
     authToken,
+    ownerAuthToken,
     customerId: customer.id,
     catalogItemId,
     vendorId: vendor.id,
@@ -512,6 +519,7 @@ export async function seedE2eFullstackFixture(
 
     const fixture: E2eFullstackFixture = {
       authToken: seeded.authToken,
+      ownerAuthToken: seeded.ownerAuthToken,
       tenantId: seeded.tenant.tenantId,
       customerId: seeded.customerId,
       customerLabel: E2E_FULLSTACK_CUSTOMER_LABEL,

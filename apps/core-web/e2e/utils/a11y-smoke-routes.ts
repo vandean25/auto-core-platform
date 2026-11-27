@@ -393,7 +393,7 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
     },
     ready: async (page) => {
       await titleReady(financeDe.bankReconciliation.title)(page);
-      await expect(page.getByText('RE-2026-0901')).toBeVisible();
+      await expect(page.getByText('RE-2026-0901').first()).toBeVisible();
     },
   },
 ];
