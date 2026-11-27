@@ -339,16 +339,20 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       receipt: 2,
       cost: 10,
       correction: 5,
+      // The unvalued inbound never entered the pool.
+      valuedBefore: '2',
     },
     {
       label: 'a -3 correction the pool already contains',
       receipt: 10,
       cost: 4,
       correction: -3,
+      // The unvalued outbound already left the pool.
+      valuedBefore: '7',
     },
   ])(
-    'keeps the valued pool for $label, live and after a backfill replay',
-    async ({ receipt, cost, correction }) => {
+    'lands on the right valued pool for $label, live and after a backfill replay',
+    async ({ receipt, cost, correction, valuedBefore }) => {
       const f = await createFixture('aut1050-pool');
       const itemId = await createItem(f, 9.99);
       const onHandAfter = receipt + correction;
@@ -386,7 +390,10 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       const expected = { valued: String(onHandAfter), average: String(cost) };
       // The pool the ledger produced before the revaluation, unvalued correction included.
       await backfill();
-      expect(await pool()).toEqual(expected);
+      expect(await pool()).toEqual({
+        valued: valuedBefore,
+        average: String(cost),
+      });
 
       const res = await revalue(f.token, false).expect(200);
 
