@@ -155,19 +155,34 @@ describe('vehicle-bound mapping lookups', () => {
     expect(findMany).toHaveBeenCalledTimes(4);
   });
 
-  it.each(['   ', 'key\0with-null'])(
-    'queries nothing for an unstorable mapping key %j',
-    async (value) => {
-      const findMany = jest.fn().mockResolvedValue([]);
-      await loadVehicleBoundMappings(
-        { externalIdMapping: { findMany } } as never,
-        input,
-        [{ record: { id: value, vehicle: value } }],
-        [TYPE.VEHICLE_DUE_DATE],
-      );
-      expect(findMany).toHaveBeenCalledTimes(0);
-    },
-  );
+  it('queries nothing for blank mapping keys', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    await loadVehicleBoundMappings(
+      { externalIdMapping: { findMany } } as never,
+      input,
+      [{ record: { id: '   ', vehicle: '' } }],
+      [TYPE.VEHICLE_DUE_DATE],
+    );
+    expect(findMany).toHaveBeenCalledTimes(0);
+  });
+
+  it('omits a null byte key without dropping valid lookups from the same file', async () => {
+    const prisma = fixturePrisma(TYPE.VEHICLE_DUE_DATE, false);
+    await loadVehicleBoundMappings(
+      prisma as never,
+      input,
+      [
+        { record: { vehicle: 'vehicle' } },
+        { record: { vehicle: 'key\0with-null' } },
+      ],
+      [TYPE.VEHICLE_DUE_DATE],
+    );
+    expect(
+      prisma.externalIdMapping.findMany.mock.calls.map(
+        ([{ where }]) => where?.external_id,
+      ),
+    ).toEqual([{ in: ['vehicle'] }]);
+  });
 
   it.each<ParityCase>([
     {
