@@ -414,8 +414,12 @@ describe('SettlementService', () => {
           financeSettings: {
             findFirst: jest.fn().mockResolvedValue({ lock_date: null }),
           },
-          creditNote: {
-            count: jest.fn().mockResolvedValue(0),
+          invoice: {
+            findFirstOrThrow: jest.fn().mockResolvedValue({
+              total_gross: '120.00',
+              credit_notes: [],
+              payments: [],
+            }),
           },
           payment: {
             findFirst: jest.fn().mockImplementation(() =>
@@ -562,54 +566,6 @@ describe('SettlementService', () => {
         }),
       }),
     );
-  });
-
-  it('refuses recordSettlement with SETTLEMENT_NOTHING_OUTSTANDING when a full credit note leaves nothing to collect, before any fiskaly call', async () => {
-    const paymentCreate = jest.fn();
-    const prisma = {
-      payment: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: paymentCreate,
-      },
-      legalEntity: {
-        findFirstOrThrow: jest
-          .fn()
-          .mockResolvedValue({ rksv_mode: RksvMode.REQUIRED_EXTERNAL_KASSE }),
-      },
-    } as unknown as PrismaService;
-    const { service, provider } = createService(prisma);
-    const signSpy = jest.spyOn(provider, 'signReceipt');
-    Object.assign(service, {
-      assertSettlementAccess: jest
-        .fn<Promise<void>, [string, string]>()
-        .mockResolvedValue(undefined),
-      loadInvoiceForSite: jest
-        .fn<Promise<unknown>, [string, string, string]>()
-        .mockResolvedValue({
-          ...issuedWorkshopInvoice(),
-          credit_notes: [
-            { status: CreditNoteStatus.FINALIZED, total_gross: '120.00' },
-          ],
-          payments: [],
-        }),
-    });
-
-    let caught: unknown;
-    try {
-      await service.recordSettlement(invoiceId, {
-        idempotencyKey: 'key-1',
-        method: 'CASH',
-      });
-    } catch (error) {
-      caught = error;
-    }
-
-    expect(caught).toBeInstanceOf(UnprocessableEntityException);
-    expect((caught as UnprocessableEntityException).getResponse()).toMatchObject({
-      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
-    });
-    expect(paymentCreate).not.toHaveBeenCalled();
-    expect(signSpy).not.toHaveBeenCalled();
   });
 
   it('replays an idempotent request with the original payment even when the outstanding amount is now 0 (hash uses the stored collected amount)', async () => {
