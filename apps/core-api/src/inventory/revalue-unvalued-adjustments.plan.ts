@@ -14,7 +14,7 @@ export const REVALUATION_REFERENCE = 'manual-adjustment-revaluation';
 export const MANUAL_ADJUSTMENT_REFERENCE = 'manual-adjustment';
 export const MANUAL_ADJUSTMENT_REVERSAL_REFERENCE =
   'manual-adjustment-reversal';
-/** Originals per database transaction; a failure rolls back only its own batch. */
+/** Originals per database transaction (an article is never split); a failure rolls back only its own batch. */
 export const REVALUATION_BATCH_SIZE = 100;
 
 export interface RevaluationCandidate {
@@ -54,6 +54,53 @@ export function isRevaluationGegenbuchung(row: {
     row.reversal_of_transaction_id !== null &&
     row.cost_basis === null
   );
+}
+
+/**
+ * Packs originals into batches of up to `size` without splitting an article: the Gegenbuchung decides from the
+ * pool as it was before the run, so a later batch must not see an average an earlier batch created.
+ * An article with more originals than `size` gets a batch of its own.
+ */
+export function batchByArticle(
+  candidates: readonly RevaluationCandidate[],
+  size: number,
+): RevaluationCandidate[][] {
+  const byArticle = new Map<string, RevaluationCandidate[]>();
+  for (const c of candidates) {
+    const group = byArticle.get(c.item_id) ?? [];
+    group.push(c);
+    byArticle.set(c.item_id, group);
+  }
+  const batches: RevaluationCandidate[][] = [];
+  let current: RevaluationCandidate[] = [];
+  for (const group of byArticle.values()) {
+    if (current.length > 0 && current.length + group.length > size) {
+      batches.push(current);
+      current = [];
+    }
+    current = current.concat(group);
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
+/**
+ * Ledger order for one batch: every Gegenbuchung first, so each sees the pool as it was before the run
+ * (it puts an unvalued outbound back only if an average existed then); then the valued inbounds, then the
+ * valued outbounds, so an article without a prior average is opened before it is reduced.
+ * The backfill replays rows in this same seq order and lands on the same pool.
+ */
+export function orderBatchBookings(
+  planned: readonly PlannedRevaluation[],
+): RecordTransactionParams[] {
+  const valued = planned.map((p) => p.bookings[1]);
+  const isInbound = (b: RecordTransactionParams) =>
+    new Decimal(b.quantity).gt(0);
+  return [
+    ...planned.map((p) => p.bookings[0]),
+    ...valued.filter(isInbound),
+    ...valued.filter((b) => !isInbound(b)),
+  ];
 }
 
 /** Splits originals that already have a reversal into revalued (marker on the Gegenbuchung) and otherwise reversed. */

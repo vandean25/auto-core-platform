@@ -22,7 +22,9 @@ import {
   MANUAL_ADJUSTMENT_REFERENCE,
   REVALUATION_BATCH_SIZE,
   REVALUATION_NOTE,
+  batchByArticle,
   classifyProcessedOriginals,
+  orderBatchBookings,
   planRevaluations,
   type PlannedRevaluation,
   type ResolvedAdjustmentCost,
@@ -101,10 +103,7 @@ export class RevalueUnvaluedAdjustmentsService {
       }),
     ]);
 
-    const batches: RevaluationCandidate[][] = [];
-    for (let i = 0; i < pending.length; i += REVALUATION_BATCH_SIZE) {
-      batches.push(pending.slice(i, i + REVALUATION_BATCH_SIZE));
-    }
+    const batches = batchByArticle(pending, REVALUATION_BATCH_SIZE);
     // Batches run one after another (chunk size 1) so each commits before the next starts.
     const results = await chunkedPromiseAll(
       batches,
@@ -154,9 +153,9 @@ export class RevalueUnvaluedAdjustmentsService {
     const { planned, gaps } = await this.planBatch(tx, tenantId, batch);
     if (planned.length === 0) return { revalued: [], gaps };
 
-    // Both rows of all pairs in one insert; the unique reversal_of_transaction_id blocks a concurrent second pair.
+    // All rows in one insert; the unique reversal_of_transaction_id blocks a concurrent second pair.
     await this.ledgerService.recordTransactions(
-      planned.flatMap((p) => p.bookings),
+      orderBatchBookings(planned),
       tx,
     );
     const written = await tx.inventoryTransaction.findMany({

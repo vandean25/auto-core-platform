@@ -50,7 +50,7 @@ Signed in as OWNER or ADMIN of the tenant (bearer token of that session). The co
 A gap article has no `InventoryValuation` average, no same-legal-entity `PURCHASE_RECEIPT` cost, no `CatalogItem.cost_price` and no `VendorArticle.last_cost`. Nothing is booked for it. Maintain a cost price or book a receipt, then run again.
 
 ## Failure and rerun
-Originals are processed in batches of 100, one database transaction per batch. If a statement fails, its whole batch rolls back (no partial pair, originals untouched) and the call returns an error. Batches committed before the failure stay complete. Fix the cause and run again; completed originals are skipped.
+Originals are processed in batches of up to 100, one database transaction per batch; one article's originals always stay in the same batch (an article with more than 100 gets its own). Inside a batch every Gegenbuchung is booked first, then the valued inbounds, then the valued outbounds. Cost lookups run one article at a time inside the 60 s batch transaction; on a very large tenant a batch can time out and roll back. Run again after the cause is clear. If a statement fails, its whole batch rolls back (no partial pair, originals untouched) and the call returns an error. Batches committed before the failure stay complete. Fix the cause and run again; completed originals are skipped.
 
 ## Verification queries (QA)
 ```sql
