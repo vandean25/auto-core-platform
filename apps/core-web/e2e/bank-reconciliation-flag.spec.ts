@@ -114,7 +114,7 @@ test.describe('Bank reconciliation feature flag (AUT-1004 Scenario 5)', () => {
 
     await page.goto('/finance/bank-reconciliation')
     await expect(page.getByRole('heading', { level: 1, name: deFinance.bankReconciliation.title })).toBeVisible()
-    await expect(page.getByText('RE-2026-0042')).toBeVisible()
+    await expect(page.getByText('RE-2026-0042').first()).toBeVisible()
     await testInfo.attach('bank-reconciliation-flag-on-de-1280', {
       body: await page.screenshot(),
       contentType: 'image/png',

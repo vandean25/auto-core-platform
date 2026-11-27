@@ -56,11 +56,17 @@ export async function seedBankReconciliationScenario(
   const apiBase = `http://127.0.0.1:${E2E_FULLSTACK_API_PORT}/api`
   const headers = { Authorization: `Bearer ${fixture.authToken}` }
 
+  const ownerHeaders = { Authorization: `Bearer ${fixture.ownerAuthToken}` }
+  const getSettingsRes = await request.get(`${apiBase}/finance/settings`, {
+    headers: ownerHeaders,
+  })
+  expect(getSettingsRes.ok(), `GET /finance/settings failed: ${getSettingsRes.status()} ${await getSettingsRes.text()}`).toBeTruthy()
+
   const settingsRes = await request.patch(`${apiBase}/finance/settings`, {
-    headers: { Authorization: `Bearer ${fixture.ownerAuthToken}` },
+    headers: ownerHeaders,
     data: { bank_reconciliation_enabled: true },
   })
-  expect(settingsRes.ok()).toBeTruthy()
+  expect(settingsRes.ok(), `PATCH /finance/settings failed: ${settingsRes.status()} ${await settingsRes.text()}`).toBeTruthy()
 
   const entitiesRes = await request.get(`${apiBase}/finance/legal-entities`, { headers })
   expect(entitiesRes.ok()).toBeTruthy()
