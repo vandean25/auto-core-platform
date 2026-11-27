@@ -822,7 +822,7 @@ describe('Accounting export (e2e)', () => {
         quantity: '-1.000',
         type: 'ADJUSTMENT',
         cost_basis: '10.0000',
-        reason: 'DAMAGE',
+        reason: 'BREAKAGE',
         createdAt: new Date('2027-02-13T10:00:00.000Z'),
       },
     });
