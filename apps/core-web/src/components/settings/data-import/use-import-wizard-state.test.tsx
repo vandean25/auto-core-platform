@@ -94,4 +94,20 @@ describe('useImportWizardState job isolation', () => {
     expect(result.current.acceptAllPriceJumps).toBe(true)
     expect(result.current.acceptedRowNumbers).toEqual([3])
   })
+
+  it('clears a custom_fields mapping when a standard field is assigned to the same CSV header', async () => {
+    const { changeImportMapping } = await import('./data-import-settings-handlers')
+    const { result } = renderWizard()
+
+    act(() => {
+      changeImportMapping(result.current, 'custom_fields.score', 'Score')
+    })
+    expect(result.current.mapping['custom_fields.score']).toBe('Score')
+
+    act(() => {
+      changeImportMapping(result.current, 'email', 'Score')
+    })
+    expect(result.current.mapping.email).toBe('Score')
+    expect(result.current.mapping['custom_fields.score']).toBe('')
+  })
 })

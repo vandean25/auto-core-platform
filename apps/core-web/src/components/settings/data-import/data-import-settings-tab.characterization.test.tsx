@@ -534,6 +534,35 @@ describe('DataImportSettingsTab characterization', () => {
       expect(screen.getByText(messageMatcher(di.dryRun.issueWarning, 'Hinweis zur Zeile'))).toBeInTheDocument()
     })
 
+    it('renders the German catalog message with field name for CUSTOM_FIELD_VALUE_INVALID instead of English issue.message', async () => {
+      installImportApiMocks({
+        dryRunJob: customerDryRunJob,
+        rows: [
+          {
+            ...customerRow,
+            action: 'ERROR',
+            errors: [
+              {
+                code: 'CUSTOM_FIELD_VALUE_INVALID',
+                field: 'custom_fields.score',
+                message: 'Custom field "score" expects a finite number.',
+              } as never,
+            ],
+            warnings: [],
+          },
+        ],
+        rowsMeta: { total: 1, page: 1, limit: 200 },
+      })
+      renderImportSettingsTab()
+
+      await goToMappingStep()
+      await runDryRun()
+
+      const expected = `${deErrors.codes.CUSTOM_FIELD_VALUE_INVALID} (score)`
+      expect(screen.getByText(messageMatcher(di.dryRun.issueError, expected))).toBeInTheDocument()
+      expect(screen.queryByText(/expects a finite number/i)).not.toBeInTheDocument()
+    })
+
     it('shows the loading state while the rows are loaded', async () => {
       installImportApiMocks({ dryRunJob: customerDryRunJob, rowsLoading: true })
       renderImportSettingsTab()

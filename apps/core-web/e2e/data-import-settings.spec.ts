@@ -662,6 +662,7 @@ test.describe('AUT-1045: custom fields import mapping', () => {
           errors: [
             {
               code: 'CUSTOM_FIELD_VALUE_INVALID',
+              field: 'custom_fields.score',
               message: 'Custom field "score" expects a finite number.',
             },
           ],
@@ -680,14 +681,19 @@ test.describe('AUT-1045: custom fields import mapping', () => {
       DE_SETTINGS.dataImport.dryRun.totals.error.replace('{{value}}', '1'),
     )
     await expect(errorBadge).toBeVisible()
+    const errorRow = page.locator('tbody tr').filter({ hasText: 'ERROR' }).first()
+    await expect(errorRow).toBeVisible()
+    await expect(errorRow).toContainText('Der Wert für dieses eigene Feld ist ungültig. (score)')
+    await expect(errorRow).not.toContainText('expects a finite number')
+    await errorRow.scrollIntoViewIfNeeded()
     await testInfo.attach('import-custom-fields-validation-error-de-1280', {
       body: await page.screenshot(),
       contentType: 'image/png',
     })
 
     await page.setViewportSize({ width: 375, height: 812 })
-    await errorBadge.scrollIntoViewIfNeeded()
-    await expect(errorBadge).toBeVisible()
+    await errorRow.scrollIntoViewIfNeeded()
+    await expect(errorRow).toBeVisible()
     await testInfo.attach('import-custom-fields-validation-error-de-375', {
       body: await page.screenshot(),
       contentType: 'image/png',
@@ -748,13 +754,17 @@ test.describe('AUT-1045: custom fields import mapping', () => {
     const mappingTitle = page.getByRole('heading', { name: DE_SETTINGS.dataImport.mapping.title })
     await expect(mappingTitle).toBeVisible()
     await expect(page.getByText(DE_SETTINGS.dataImport.mapping.customFields.title)).toHaveCount(0)
+    const updateExistingOption = page.locator('#import-opt-update-existing')
+    await updateExistingOption.scrollIntoViewIfNeeded()
+    await expect(updateExistingOption).toBeVisible()
     await testInfo.attach('import-custom-fields-flag-off-de-1280', {
       body: await page.screenshot(),
       contentType: 'image/png',
     })
 
     await page.setViewportSize({ width: 375, height: 812 })
-    await expect(mappingTitle).toBeVisible()
+    await updateExistingOption.scrollIntoViewIfNeeded()
+    await expect(updateExistingOption).toBeVisible()
     await testInfo.attach('import-custom-fields-flag-off-de-375', {
       body: await page.screenshot(),
       contentType: 'image/png',

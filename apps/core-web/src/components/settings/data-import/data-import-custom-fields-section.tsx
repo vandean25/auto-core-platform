@@ -138,16 +138,19 @@ function InlineCustomFieldCreateForm({
       </div>
 
       {state.needsArt9Confirm ? (
-        <div className="flex items-start gap-2 rounded-md border border-border bg-background p-2.5 text-xs">
-          <Checkbox
-            id="import-cf-art9-confirm"
-            checked={state.confirmNoArt9}
-            onCheckedChange={(checked) => onChange({ ...state, confirmNoArt9: checked === true })}
-          />
-          <Label htmlFor="import-cf-art9-confirm" className="cursor-pointer font-normal leading-snug">
-            {t('dataImport.mapping.customFields.art9Confirm')}
-          </Label>
-        </div>
+        <Label
+          htmlFor="import-cf-art9-confirm"
+          className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background p-2.5 text-xs font-normal leading-snug max-sm:min-h-11"
+        >
+          <span className="flex shrink-0 items-center justify-center max-sm:min-h-11 max-sm:min-w-11">
+            <Checkbox
+              id="import-cf-art9-confirm"
+              checked={state.confirmNoArt9}
+              onCheckedChange={(checked) => onChange({ ...state, confirmNoArt9: checked === true })}
+            />
+          </span>
+          <span className="max-sm:py-2.5">{t('dataImport.mapping.customFields.art9Confirm')}</span>
+        </Label>
       ) : null}
 
       {state.errorMessage ? (
@@ -158,11 +161,17 @@ function InlineCustomFieldCreateForm({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
+        <Button type="submit" size="sm" className="max-sm:min-h-11" disabled={isPending}>
           {isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
           {t('dataImport.mapping.customFields.createAction')}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="max-sm:min-h-11"
+          onClick={onCancel}
+        >
           {t('common:actions.cancel')}
         </Button>
       </div>

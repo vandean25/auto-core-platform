@@ -76,6 +76,17 @@ export type DataImportMappingStepProps = {
 export function DataImportMappingStep(props: DataImportMappingStepProps) {
   const { t } = useTranslation(['settings', 'common'])
 
+  const handleStandardMappingChange = (fieldKey: string, csvColumn: string) => {
+    if (csvColumn) {
+      for (const [key, mappedColumn] of Object.entries(props.mapping)) {
+        if (key.startsWith('custom_fields.') && mappedColumn === csvColumn) {
+          props.onMappingChange(key, '')
+        }
+      }
+    }
+    props.onMappingChange(fieldKey, csvColumn)
+  }
+
   return (
     <section className="space-y-4" aria-labelledby="import-step-mapping">
       <h4 id="import-step-mapping" className="font-medium">
@@ -128,7 +139,7 @@ export function DataImportMappingStep(props: DataImportMappingStepProps) {
         fields={props.fields}
         mapping={props.mapping}
         csvHeaders={props.csvHeaders}
-        onMappingChange={props.onMappingChange}
+        onMappingChange={handleStandardMappingChange}
       />
 
       {props.entityType === 'CUSTOMER' || props.entityType === 'VEHICLE' ? (
