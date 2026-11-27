@@ -20,6 +20,8 @@ export interface ValuationBookingInput {
   type: TransactionType;
   costBasis?: Decimal | number | string | null;
   isReversal?: boolean;
+  /** AUT-1050 Gegenbuchung: moves quantity only, skips the moving-average step. */
+  valuationNeutral?: boolean;
 }
 
 export interface PreparedValuationBatch {
