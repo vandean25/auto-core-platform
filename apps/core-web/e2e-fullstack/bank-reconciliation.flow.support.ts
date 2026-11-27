@@ -68,16 +68,16 @@ export async function seedBankReconciliationScenario(
   })
   expect(settingsRes.ok(), `PATCH /finance/settings failed: ${settingsRes.status()} ${await settingsRes.text()}`).toBeTruthy()
 
-  const entitiesRes = await request.get(`${apiBase}/finance/legal-entities`, { headers })
-  expect(entitiesRes.ok()).toBeTruthy()
+  const entitiesRes = await request.get(`${apiBase}/legal-entities`, { headers })
+  expect(entitiesRes.ok(), `GET /legal-entities failed: ${entitiesRes.status()} ${await entitiesRes.text()}`).toBeTruthy()
   const entities = (await entitiesRes.json()) as Array<{ id: string; bank_iban?: string | null }>
   const receivingIban = entities.find((e) => e.bank_iban)?.bank_iban ?? 'AT611904300234573201'
   if (!entities[0]?.bank_iban && entities[0]?.id) {
-    const patchEntity = await request.patch(`${apiBase}/finance/legal-entities/${entities[0].id}`, {
+    const patchEntity = await request.patch(`${apiBase}/legal-entities/${entities[0].id}`, {
       headers,
       data: { bank_iban: receivingIban },
     })
-    expect(patchEntity.ok()).toBeTruthy()
+    expect(patchEntity.ok(), `PATCH /legal-entities failed: ${patchEntity.status()} ${await patchEntity.text()}`).toBeTruthy()
   }
 
   const orderRes = await request.post(`${apiBase}/sales-orders`, {
