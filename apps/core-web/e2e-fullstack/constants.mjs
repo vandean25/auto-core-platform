@@ -4,5 +4,7 @@ export const E2E_FULLSTACK_JWT_SECRET =
 /** Fixture HMAC key for ADR-0038 scope contexts: cursor lists load only after a successful handshake. */
 export const E2E_FULLSTACK_SCOPE_CONTEXT_HMAC_SECRET =
   'e2e-fullstack-scope-context-hmac-secret-xx'
+export const E2E_FULLSTACK_BANK_RECONCILIATION_IBAN_HMAC_SECRET =
+  'e2e-fullstack-bank-iban-hmac-secret-min-32'
 export const E2E_FULLSTACK_API_PORT = '3100'
 export const E2E_FULLSTACK_WEB_PORT = '5175'

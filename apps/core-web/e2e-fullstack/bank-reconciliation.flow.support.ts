@@ -143,7 +143,7 @@ export async function seedBankReconciliationScenario(
       },
     },
   })
-  expect(importRes.ok()).toBeTruthy()
+  expect(importRes.ok(), `POST /bank-reconciliation/imports failed: ${importRes.status()} ${await importRes.text()}`).toBeTruthy()
 
   return {
     apiBase,
