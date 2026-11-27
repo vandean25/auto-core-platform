@@ -51,7 +51,7 @@ describe('planRevaluations (AUT-1050)', () => {
         reversalOfTransactionId: 'orig-1',
         costBasis: null,
         valueSource: null,
-        valuationNeutral: true,
+        revaluationGegenbuchung: true,
         note: 'nachbewertet',
         movementGroupId: 'group-1',
       });
@@ -65,7 +65,7 @@ describe('planRevaluations (AUT-1050)', () => {
         movementGroupId: 'group-1',
       });
       expect(valued.reversalOfTransactionId).toBeUndefined();
-      expect(valued.valuationNeutral).toBeUndefined();
+      expect(valued.revaluationGegenbuchung).toBeUndefined();
       const net = new Decimal(qty)
         .add(new Decimal(reversal.quantity))
         .add(new Decimal(valued.quantity));

@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import { AuditService } from '../src/audit/audit.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { InventoryValuationService } from '../src/inventory/inventory-valuation.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -329,42 +330,78 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     });
   });
 
-  // Review 2f4bfbb0: a Gegenbuchung that clamps the pool to 0 so the new row restarts it (valued qty 5, the 2 already valued units lost) fails here.
-  it('keeps the existing valued pool when the correction is larger than the valued quantity', async () => {
-    const f = await createFixture('aut1050-pool');
-    const itemId = await createItem(f, 9.99);
-    await f.tenantPrisma.inventoryValuation.create({
-      data: {
-        tenant_id: f.tenant.tenantId,
-        legal_entity_id: f.legalEntityId,
-        catalog_item_id: itemId,
-        average_unit_cost: 10,
-        valued_quantity: 2,
-      },
-    });
-    await insertLegacyUnvaluedAdjustment(f, {
-      itemId,
-      siteId: f.siteId,
-      binId: f.binId,
-      quantity: 5,
-      onHandAfter: 7,
-    });
+  // Review 2f4bfbb0: a Gegenbuchung that restarts the pool (+5 on 2 ends at 5, the 2 valued units lost) fails here.
+  // Review 99b11878: a pair that takes an unvalued -3 out of the pool a second time (7 ends at 4) fails here.
+  // Both cases also fail if the AUT-1047 backfill replay of the ledger lands on a different pool than the live run.
+  it.each([
+    {
+      label: 'a +5 correction larger than the pool',
+      receipt: 2,
+      cost: 10,
+      correction: 5,
+    },
+    {
+      label: 'a -3 correction the pool already contains',
+      receipt: 10,
+      cost: 4,
+      correction: -3,
+    },
+  ])(
+    'keeps the valued pool for $label, live and after a backfill replay',
+    async ({ receipt, cost, correction }) => {
+      const f = await createFixture('aut1050-pool');
+      const itemId = await createItem(f, 9.99);
+      const onHandAfter = receipt + correction;
+      await f.tenantPrisma.inventoryTransaction.create({
+        data: {
+          tenant_id: f.tenant.tenantId,
+          site_id: f.siteId,
+          item_id: itemId,
+          location_id: f.binId,
+          quantity: receipt,
+          type: TransactionType.PURCHASE_RECEIPT,
+          cost_basis: cost,
+        },
+      });
+      await insertLegacyUnvaluedAdjustment(f, {
+        itemId,
+        siteId: f.siteId,
+        binId: f.binId,
+        quantity: correction,
+        onHandAfter,
+      });
+      const backfill = () =>
+        runWithTenantContext(f.tenant.tenantId, () =>
+          app.get(InventoryValuationService).backfillTenant(f.tenant.tenantId),
+        );
+      const pool = async () => {
+        const v = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
+          where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
+        });
+        return {
+          valued: v.valued_quantity.toString(),
+          average: v.average_unit_cost?.toString(),
+        };
+      };
+      const expected = { valued: String(onHandAfter), average: String(cost) };
+      // The pool the ledger produced before the revaluation, unvalued correction included.
+      await backfill();
+      expect(await pool()).toEqual(expected);
 
-    const res = await revalue(f.token, false).expect(200);
+      const res = await revalue(f.token, false).expect(200);
 
-    expect(res.body.revalued).toHaveLength(1);
-    expect(res.body.revalued[0]).toMatchObject({
-      quantity: '5',
-      unitCost: '10',
-      valueSource: 'AVG',
-    });
-    expect(await onHand(f, itemId)).toBe('7');
-    const valuation = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
-      where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
-    });
-    expect(valuation.valued_quantity.toString()).toBe('7');
-    expect(valuation.average_unit_cost?.toString()).toBe('10');
-  });
+      expect(res.body.revalued).toHaveLength(1);
+      expect(res.body.revalued[0]).toMatchObject({
+        quantity: String(correction),
+        unitCost: String(cost),
+        valueSource: 'AVG',
+      });
+      expect(await onHand(f, itemId)).toBe(String(onHandAfter));
+      expect(await pool()).toEqual(expected);
+      await backfill();
+      expect(await pool()).toEqual(expected);
+    },
+  );
 
   // Scenario 2: a rerun that books a second pair (or re-reverses a manually reversed row) fails here.
   it('Scenario 2: a second run books nothing more and reports already-nachbewertet and already-reversed originals', async () => {
