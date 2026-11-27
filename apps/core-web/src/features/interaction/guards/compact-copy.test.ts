@@ -82,8 +82,8 @@ describe('compact copy guard (AUT-1036)', () => {
   })
 
   it('keeps invoice settlement and workshop pick drawer free of removed helper sentences', () => {
-    expect(deFinance.settlement.fullSettlement).not.toContain('für die Werkstattrechnung')
-    expect(enFinance.settlement.fullSettlement).not.toContain('for the workshop invoice')
+    expect(deFinance.settlement.outstanding).not.toContain('für die Werkstattrechnung')
+    expect(enFinance.settlement.outstanding).not.toContain('for the workshop invoice')
     for (const [path, source] of Object.entries(productionSources)) {
       expect(source, path).not.toContain('pick.drawer.chooseTote')
     }

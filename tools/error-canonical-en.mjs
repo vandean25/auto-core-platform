@@ -255,8 +255,7 @@ export const CANONICAL_EN_MESSAGES = {
     'The person who requested the extraction is no longer a member of this entity.',
   BRAND_REQUESTER_UNAVAILABLE:
     'The person who requested the extraction is no longer available.',
-  SETTLEMENT_INVOICE_HAS_CREDIT_NOTES:
-    'This invoice has finalized credit notes and cannot be settled.',
+  SETTLEMENT_NOTHING_OUTSTANDING: 'Nothing is outstanding on this invoice.',
   ACP_RKSV_UNAVAILABLE:
     'ACP RKSV (fiskaly) is not yet available in this environment.',
 }

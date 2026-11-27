@@ -8,12 +8,17 @@ const OPEN_RECEIPT_STATES = ['PENDING', 'UNKNOWN']
 const CANCELLATION_BLOCKING_STATES = ['PENDING', 'UNKNOWN', 'SIGNED']
 
 /** What the settlement actions offer for an invoice: record, reconcile or cancel a fiscal receipt. */
-export function settlementState(invoiceStatus: string, payment: SettlementPayment | undefined) {
+export function settlementState(
+  invoiceStatus: string,
+  payment: SettlementPayment | undefined,
+  outstanding?: string,
+) {
   const receipts = payment?.fiscalReceipts ?? []
   const signedNormal = receipts.find((receipt) => receipt.receiptType === 'NORMAL' && receipt.state === 'SIGNED')
   const hasOpenReceipt = receipts.some((receipt) => OPEN_RECEIPT_STATES.includes(receipt.state))
 
   const canRecord = !payment || payment.status === 'REJECTED' || !OPEN_PAYMENT_STATES.includes(payment.status)
+  const nothingOutstanding = outstanding !== undefined && Number(outstanding) <= 0
   const cancellationInFlight = receipts.some(
     (receipt) => receipt.receiptType === 'CANCELLATION' && CANCELLATION_BLOCKING_STATES.includes(receipt.state),
   )
@@ -21,7 +26,7 @@ export function settlementState(invoiceStatus: string, payment: SettlementPaymen
   return {
     hasOpenReceipt,
     signedNormal,
-    showRecord: invoiceStatus === 'ISSUED' && canRecord,
+    showRecord: invoiceStatus === 'ISSUED' && canRecord && !nothingOutstanding,
     showReconcile: Boolean(payment && hasOpenReceipt),
     showCancel: invoiceStatus === 'PAID' && Boolean(signedNormal) && !cancellationInFlight,
   }

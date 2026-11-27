@@ -125,7 +125,7 @@ function InvoiceDetailView({ invoice, settlement, creditNotes, pdf }: InvoiceDet
 
       {showSettlement ? (
         <InvoiceSettlementPanel
-          totalGross={toNumber(invoice.total_gross)}
+          outstanding={toNumber(settlement?.outstanding ?? invoice.total_gross)}
           payment={settlement?.payment}
           rksvMode={settlement?.rksvMode}
           siteTimezone={settlement?.siteTimezone}

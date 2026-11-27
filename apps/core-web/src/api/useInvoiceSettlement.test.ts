@@ -55,17 +55,17 @@ describe('throwIfSettlementResponseNotOk', () => {
     expect(getErrorMessage(thrown, 'Reconciliation failed')).toBe('Fiskalperiode ist gesperrt.')
   })
 
-  it('maps SETTLEMENT_INVOICE_HAS_CREDIT_NOTES to the localized German error line', () => {
+  it('maps SETTLEMENT_NOTHING_OUTSTANDING to the localized German error line', () => {
     const response = new Response(
       JSON.stringify({
-        code: 'SETTLEMENT_INVOICE_HAS_CREDIT_NOTES',
-        message: 'This invoice has finalized credit notes and cannot be settled.',
+        code: 'SETTLEMENT_NOTHING_OUTSTANDING',
+        message: 'Nothing is outstanding on this invoice.',
       }),
       { status: 422 },
     )
     const body = {
-      code: 'SETTLEMENT_INVOICE_HAS_CREDIT_NOTES',
-      message: 'This invoice has finalized credit notes and cannot be settled.',
+      code: 'SETTLEMENT_NOTHING_OUTSTANDING',
+      message: 'Nothing is outstanding on this invoice.',
     }
 
     let thrown: unknown
@@ -75,9 +75,9 @@ describe('throwIfSettlementResponseNotOk', () => {
       thrown = error
     }
 
-    expect(getErrorCode(thrown)).toBe('SETTLEMENT_INVOICE_HAS_CREDIT_NOTES')
+    expect(getErrorCode(thrown)).toBe('SETTLEMENT_NOTHING_OUTSTANDING')
     expect(getErrorMessage(thrown, 'Settlement failed')).toBe(
-      'Für diese Rechnung liegen ausgestellte Gutschriften vor. Abrechnung nicht möglich.',
+      'Bei dieser Rechnung ist nichts offen.',
     )
   })
 

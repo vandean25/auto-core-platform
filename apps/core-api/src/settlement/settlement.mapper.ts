@@ -37,6 +37,8 @@ export type SettlementResponseDto = {
   invoiceStatus: string;
   rksvMode?: string;
   siteTimezone?: string;
+  /** Amount still collectable (gross - finalized credit notes - paid); GET only. */
+  outstanding?: string;
   payment: SettlementPaymentSummaryDto | null;
 };
 

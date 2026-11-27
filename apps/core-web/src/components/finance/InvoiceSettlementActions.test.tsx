@@ -45,7 +45,7 @@ describe('fiscal settlement disabled (AUT-844)', () => {
   })
 
   it('keeps the settlement panel hidden while fiscal settlement is off', () => {
-    render(<InvoiceSettlementPanel totalGross={100} payment={null} rksvMode="OFF" />)
+    render(<InvoiceSettlementPanel outstanding={100} payment={null} rksvMode="OFF" />)
 
     expect(screen.queryByText(deFinance.settlement.title)).not.toBeInTheDocument()
   })
@@ -67,17 +67,48 @@ describe('role without invoice permissions (AUT-852)', () => {
 })
 
 describe('compact settlement card (AUT-1036)', () => {
-  it('shows the settlement type and EUR amount without the explanatory sentence', () => {
+  it('shows the outstanding EUR amount without the explanatory sentence', () => {
     render(
       <InvoiceSettlementPanel
-        totalGross={96}
+        outstanding={96}
         payment={null}
         rksvMode="REQUIRED_EXTERNAL_KASSE"
       />,
     )
 
-    expect(screen.getByText('Volle EUR-Abrechnung (€ 96,00)')).toBeInTheDocument()
+    expect(screen.getByText('Offen: € 96,00')).toBeInTheDocument()
     expect(screen.queryByText(/für die Werkstattrechnung/)).not.toBeInTheDocument()
+  })
+})
+
+describe('outstanding amount after a finalized credit note (AUT-1069)', () => {
+  it('labels the outstanding amount, not the invoice gross, on the settlement panel', () => {
+    render(<InvoiceSettlementPanel outstanding={100} payment={null} rksvMode="REQUIRED_EXTERNAL_KASSE" />)
+
+    expect(screen.getByText('Offen: € 100,00')).toBeInTheDocument()
+    expect(screen.queryByText(/120,00/)).not.toBeInTheDocument()
+  })
+
+  it('shows a short status label instead of an amount when nothing is outstanding', () => {
+    render(<InvoiceSettlementPanel outstanding={0} payment={null} rksvMode="REQUIRED_EXTERNAL_KASSE" />)
+
+    expect(screen.getByText(deFinance.settlement.nothingOutstanding)).toBeInTheDocument()
+    expect(screen.queryByText(/Offen:/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['0.00', false],
+    ['100.00', true],
+  ])('with outstanding %s the settle action is offered: %s', (outstanding, offered) => {
+    vi.mocked(useInvoiceSettlement).mockReturnValue({
+      data: { rksvMode: 'REQUIRED_EXTERNAL_KASSE', payment: null, outstanding },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useInvoiceSettlement>)
+
+    render(<InvoiceSettlementActions invoiceId="inv-1" invoiceStatus="ISSUED" canManage />)
+
+    const record = screen.queryByRole('button', { name: deFinance.actions.recordSettlement })
+    expect(record !== null).toBe(offered)
   })
 })
 

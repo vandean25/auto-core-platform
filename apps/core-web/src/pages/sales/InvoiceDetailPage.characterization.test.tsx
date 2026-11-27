@@ -356,11 +356,18 @@ describe('InvoiceDetailPage characterization: settlement', () => {
       canManage: false,
     })
     expect(JSON.parse(screen.getByTestId('settlement-panel').textContent ?? '')).toEqual({
-      totalGross: 120,
+      outstanding: 120,
       payment: { id: 'pay-1' },
       rksvMode: 'ACTIVE',
       siteTimezone: 'Europe/Vienna',
     })
+  })
+
+  it('passes the API outstanding amount (not the invoice gross) to the settlement panel after a partial credit note', () => {
+    mockSettlement = { payment: null, rksvMode: 'REQUIRED_EXTERNAL_KASSE', outstanding: '100.00' }
+    mockRole = 'STAFF'
+    renderPage(makeInvoice({ status: 'ISSUED', workshop_order_id: 'wo-1' }))
+    expect(JSON.parse(screen.getByTestId('settlement-panel').textContent ?? '').outstanding).toBe(100)
   })
 
   it('hides settlement on a finalized workshop invoice', () => {

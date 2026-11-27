@@ -208,6 +208,7 @@ function InvoiceSettlementActionsLoaded({
   const { hasOpenReceipt, signedNormal, showRecord, showReconcile, showCancel } = settlementState(
     invoiceStatus,
     payment,
+    data?.outstanding,
   )
 
   const visibility = settlementVisibility(canManage, rksvMode, invoiceStatus)

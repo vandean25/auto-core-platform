@@ -270,6 +270,18 @@ Index `(tenant_id, invoice_id, status)` on payments and `(tenant_id, fiscal_regi
 
 Realtime: add `PAYMENT` and `FISCAL_RECEIPT` to `SUPPORTED_ENTITY_TYPES` and to `dashboard-entity-map.ts`. Emit to the invoice’s site room. Payloads are ids and statuses, not QR payloads, not secret refs, and not provider bodies.
 
+### Amount collected after a credit note (AUT-1069)
+
+The cash desk collects the outstanding amount, the same value bank reconciliation uses: invoice gross minus `FINALIZED` credit notes minus `SETTLED` and `SETTLED_EXTERNAL` payments, never below zero (`computeInvoiceBalance(...).outstanding`). `DRAFT` and `VOID` credit notes and `REVERSED` payments do not count.
+
+- Outstanding above 0: the payment `amount`, the RKSV sign body amount and the request hash all use that value. The invoice moves `ISSUED` to `PAID`. There are no partial-payment statuses.
+- Outstanding 0 (full credit note, or already paid) or below 0 (credit notes plus payments exceed the gross): `422` `SETTLEMENT_NOTHING_OUTSTANDING`. No payment row and no fiscal receipt are written. Refunds after a collected payment are out of scope.
+- The amount is read again inside the write transaction, after the finance-settings lock (and the fiscal-register lock on the ACP path). A credit note finalized after the first read changes the collected amount or refuses the request.
+- A replay with the same idempotency key is matched against the amount that request collected, not the current outstanding value, so it still returns the original payment after the invoice is paid.
+- A fiscal cancellation negates the stored payment `amount`, which is the collected amount.
+- `GET /api/invoices/:id/settlement` returns `outstanding` (2 decimals) for the settlement card. When it is 0 the web UI offers no settle action.
+- `SETTLEMENT_INVOICE_HAS_CREDIT_NOTES` is removed. Settlement is no longer blocked by a finalized credit note as such.
+
 ---
 
 ## API Contract Changes

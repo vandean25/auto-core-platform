@@ -450,7 +450,7 @@
     "SENDER_NOT_CONFIGURED": "Die Absenderadresse ist nicht konfiguriert.",
     "SESSION_NOT_FOUND": "Dieser Werkstattbefehl ist abgelaufen. Bitte formulieren Sie ihn neu.",
     "SETTLEMENT_AMOUNT_MISMATCH": "Abrechnungsbetrag stimmt nicht überein.",
-    "SETTLEMENT_INVOICE_HAS_CREDIT_NOTES": "Für diese Rechnung liegen ausgestellte Gutschriften vor. Abrechnung nicht möglich.",
+    "SETTLEMENT_NOTHING_OUTSTANDING": "Bei dieser Rechnung ist nichts offen.",
     "SETTLEMENT_NOT_IN_SLICE": "Abrechnung liegt nicht im Slice.",
     "SITE_MISMATCH": "Der genannte Standort ist nicht der aktive Standort.",
     "SOURCE_CONFLICT": "Mehrere Katalogversionen überschneiden sich. Manuelle Klärung erforderlich.",
