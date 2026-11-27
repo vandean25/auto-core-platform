@@ -38,8 +38,8 @@ const opts = parseArgs(process.argv.slice(2));
 const result = checkCloudBuildEnv({
   envTsSource: readFileSync(opts.envPath, 'utf8'),
   targets: [
-    { file: path.basename(opts.qaPath), content: readFileSync(opts.qaPath, 'utf8'), isProduction: false },
-    { file: path.basename(opts.prodPath), content: readFileSync(opts.prodPath, 'utf8'), isProduction: true },
+    { file: path.basename(opts.qaPath), content: readFileSync(opts.qaPath, 'utf8') },
+    { file: path.basename(opts.prodPath), content: readFileSync(opts.prodPath, 'utf8') },
   ],
   allowlist: opts.useDefaultAllowlist ? DEFAULT_ALLOWLIST : [],
 });

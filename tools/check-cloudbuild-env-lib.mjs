@@ -14,16 +14,20 @@ export const DEFAULT_ALLOWLIST = [
 ];
 
 const NON_SECRET_FLAG_KEYS = new Set([
+  'NODE_ENV',
   'CLOUD_TASKS_ENABLED',
   'CLOUD_TASKS_LOCATION',
   'CLOUD_TASKS_QUEUE',
   'CUSTOMER_ESTIMATE_SEND_ENABLED',
+  'SCHEDULER_MODE',
+  'SCHEDULER_ENABLED',
+  'NOTIFICATION_EMAIL_MODE',
 ]);
 
 /**
  * Extracts boot-required env keys from `apps/core-api/src/config/env.ts` AST.
  * @param {string} envTsSource
- * @returns {Array<{ key: string, scope: 'always' | 'production' | 'pdf-worker' | 'when-enabled', enabledBy?: string }>}
+ * @returns {Array<{ key: string, scope: string, enabledBy?: string, alternatives?: string[] }>}
  */
 export function extractBootRequiredEnvKeys(envTsSource) {
   const sourceFile = ts.createSourceFile('env.ts', envTsSource, ts.ScriptTarget.Latest, true);
@@ -35,10 +39,14 @@ export function extractBootRequiredEnvKeys(envTsSource) {
 
   const found = [];
   const seen = new Set();
-  const addKey = (key, scope, enabledBy) => {
-    if (seen.has(key)) return;
-    seen.add(key);
-    found.push(enabledBy ? { key, scope, enabledBy } : { key, scope });
+  const addKey = (key, scope, enabledBy, alternatives) => {
+    const dedupeId = `${key}:${scope}:${enabledBy ?? ''}`;
+    if (seen.has(dedupeId)) return;
+    seen.add(dedupeId);
+    const entry = { key, scope };
+    if (enabledBy) entry.enabledBy = enabledBy;
+    if (alternatives && alternatives.length > 0) entry.alternatives = alternatives;
+    found.push(entry);
   };
 
   visitBlockStatements(superRefineBody, 'always', undefined, helpers, addKey);
@@ -114,6 +122,30 @@ function handleIfStatement(stmt, scope, enabledBy, helpers, addKey) {
   }
 }
 
+function extractAlternativeKeys(expr, primaryKey) {
+  if (!expr) return [];
+  const alts = [];
+  const visit = (node) => {
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'env'
+    ) {
+      const name = node.name.text;
+      if (name !== primaryKey && !alts.includes(name)) {
+        alts.push(name);
+      }
+      return;
+    }
+    if (ts.isBinaryExpression(node)) {
+      visit(node.left);
+      visit(node.right);
+    }
+  };
+  visit(expr);
+  return alts;
+}
+
 function extractCallsFromNode(node, scope, enabledBy, helpers, addKey) {
   const visit = (n) => {
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
@@ -121,8 +153,23 @@ function extractCallsFromNode(node, scope, enabledBy, helpers, addKey) {
       if (fnName === 'addRequiredIssue' && n.arguments.length >= 2) {
         const keyArg = n.arguments[1];
         if (ts.isStringLiteral(keyArg)) {
-          addKey(keyArg.text, scope, enabledBy);
+          const alternatives = extractAlternativeKeys(n.arguments[2], keyArg.text);
+          addKey(keyArg.text, scope, enabledBy, alternatives);
         }
+        return;
+      }
+      if (fnName === 'notificationEnvIssues') {
+        addKey('NOTIFICATION_EMAIL_FROM_ADDRESS', 'notification-sending');
+        addKey('CLOUD_TASKS_NOTIFICATION_QUEUE', 'notification-live-prod');
+        addKey('CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL', 'notification-live-prod');
+        addKey('CLOUD_TASKS_LOCATION', 'notification-live-prod');
+        addKey('CLOUD_TASKS_INVOKER_SA', 'notification-live-prod');
+        addKey('CLOUD_TASKS_WORKER_SECRET', 'notification-live-prod');
+        return;
+      }
+      if (fnName === 'addSchedulerEnvValidationIssues') {
+        addKey('CRON_OIDC_AUDIENCE', 'scheduler-http');
+        addKey('CRON_INVOKER_SA_EMAIL', 'scheduler-http');
         return;
       }
       const helperBody = helpers.get(fnName);
@@ -234,36 +281,74 @@ export function parseCloudBuildDeploySteps(cloudBuildSource) {
   return steps;
 }
 
-function isPdfWorkerKeyRequired(step, hasPdfWorkerStep) {
-  if (step.role === 'pdf-worker') return true;
+function resolveNodeEnv(step) {
+  const raw = step.flags.get('NODE_ENV');
+  if (raw === 'production' || raw === 'test' || raw === 'development') {
+    return raw;
+  }
+  return 'development';
+}
+
+function resolveSchedulerModeForStep(step) {
+  const explicit = step.flags.get('SCHEDULER_MODE')?.trim().toLowerCase();
+  if (explicit === 'in-process' || explicit === 'in_process') {
+    return 'in-process';
+  }
+  if (explicit === 'http' || explicit === 'off') {
+    return explicit;
+  }
+  const enabled = step.flags.get('SCHEDULER_ENABLED')?.trim().toLowerCase();
+  if (enabled === 'false') {
+    return 'off';
+  }
+  return 'in-process';
+}
+
+function isPdfWorkerKeyRequired(step) {
   const enabled = step.flags.get('CLOUD_TASKS_ENABLED');
   if (enabled === 'false') return false;
   if (enabled === 'true') return true;
-  return Boolean(
-    step.flags.get('CLOUD_TASKS_LOCATION') ||
-    step.flags.get('CLOUD_TASKS_QUEUE') ||
-    hasPdfWorkerStep,
+  return (
+    resolveNodeEnv(step) === 'production' &&
+    Boolean(step.flags.get('CLOUD_TASKS_LOCATION') || step.flags.get('CLOUD_TASKS_QUEUE'))
   );
 }
 
-function isKeyRequiredForStep(req, ctx) {
-  if (req.scope === 'always') return true;
-  if (req.scope === 'production') return ctx.isProduction;
-  if (req.scope === 'when-enabled') {
-    return ctx.step.flags.get(req.enabledBy) === 'true';
-  }
-  if (req.scope === 'pdf-worker') {
-    return isPdfWorkerKeyRequired(ctx.step, ctx.hasPdfWorkerStep);
-  }
-  return false;
+const SCOPE_PREDICATES = {
+  always: (_req, step) => resolveNodeEnv(step) !== 'test',
+  production: (_req, step) => resolveNodeEnv(step) === 'production',
+  'when-enabled': (req, step) => step.flags.get(req.enabledBy) === 'true',
+  'pdf-worker': (_req, step) => isPdfWorkerKeyRequired(step),
+  'scheduler-http': (_req, step) =>
+    resolveNodeEnv(step) !== 'test' && resolveSchedulerModeForStep(step) === 'http',
+  'notification-sending': (_req, step) => {
+    const mode = step.flags.get('NOTIFICATION_EMAIL_MODE');
+    return resolveNodeEnv(step) !== 'test' && (mode === 'fake' || mode === 'live');
+  },
+  'notification-live-prod': (_req, step) =>
+    resolveNodeEnv(step) === 'production' && step.flags.get('NOTIFICATION_EMAIL_MODE') === 'live',
+};
+
+function isKeyRequiredForStep(req, step) {
+  const predicate = SCOPE_PREDICATES[req.scope];
+  return predicate ? predicate(req, step) : false;
 }
 
-function checkStepKeys(step, target, requiredKeys, hasPdfWorkerStep, allowlist, state) {
-  const ctx = { isProduction: target.isProduction, step, hasPdfWorkerStep };
+function isStepKeyMounted(step, req) {
+  if (step.keys.has(req.key)) return true;
+  return req.alternatives?.some((alt) => step.keys.has(alt)) ?? false;
+}
+
+function checkStepKeys(step, target, requiredKeys, allowlist, state) {
+  const reportedMissingKeys = new Set();
   for (const req of requiredKeys) {
-    if (!isKeyRequiredForStep(req, ctx) || step.keys.has(req.key)) {
+    if (!isKeyRequiredForStep(req, step) || isStepKeyMounted(step, req)) {
       continue;
     }
+    if (reportedMissingKeys.has(req.key)) {
+      continue;
+    }
+    reportedMissingKeys.add(req.key);
     const allowIdx = allowlist.findIndex(
       (entry) => entry.file === target.file && entry.key === req.key,
     );
@@ -291,9 +376,8 @@ export function checkCloudBuildEnv({ envTsSource, targets, allowlist = DEFAULT_A
       state.errors.push(`No Cloud Run deploy steps found in ${target.file}`);
       continue;
     }
-    const hasPdfWorkerStep = steps.some((s) => s.role === 'pdf-worker');
     for (const step of steps) {
-      checkStepKeys(step, target, requiredKeys, hasPdfWorkerStep, allowlist, state);
+      checkStepKeys(step, target, requiredKeys, allowlist, state);
     }
   }
 

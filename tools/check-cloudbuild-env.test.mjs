@@ -51,7 +51,7 @@ steps:
       - -lc
       - |
         gcloud run deploy "core-api-pdf-worker" \\
-          --set-env-vars "NODE_ENV=production" \\
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://qa.example.invalid" \\
           --set-secrets "DATABASE_URL=DB_DUMMY:latest,SECRET_ENCRYPTION_KEY=ENC_DUMMY:latest,CLOUD_TASKS_WORKER_SECRET=WORKER_DUMMY:latest"
 
   - id: deploy-cloud-run
@@ -60,7 +60,7 @@ steps:
       - -lc
       - |
         gcloud run deploy "core-api" \\
-          --set-env-vars "NODE_ENV=production,CLOUD_TASKS_ENABLED=true" \\
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://qa.example.invalid,CLOUD_TASKS_ENABLED=true" \\
           --set-secrets "DATABASE_URL=DB_DUMMY:latest,SECRET_ENCRYPTION_KEY=ENC_DUMMY:latest,CLOUD_TASKS_WORKER_SECRET=WORKER_DUMMY:latest"
 `;
 
@@ -110,8 +110,8 @@ test('WHEN all required keys are mounted, THEN the check passes', () => {
   const result = checkCloudBuildEnv({
     envTsSource: FIXTURE_ENV_TS,
     targets: [
-      { file: 'cloudbuild.yaml', content: QA_CLOUDBUILD_ALL_MOUNTED, isProduction: false },
-      { file: 'cloudbuild.staging.yaml', content: PROD_CLOUDBUILD_ALL_MOUNTED, isProduction: true },
+      { file: 'cloudbuild.yaml', content: QA_CLOUDBUILD_ALL_MOUNTED },
+      { file: 'cloudbuild.staging.yaml', content: PROD_CLOUDBUILD_ALL_MOUNTED },
     ],
     allowlist: [],
   });
@@ -121,11 +121,21 @@ test('WHEN all required keys are mounted, THEN the check passes', () => {
 });
 
 test('WHEN a production-only key is missing in the QA file, THEN the check passes', () => {
-  // QA_CLOUDBUILD_ALL_MOUNTED does not set FRONTEND_URL (production-only)
+  const qaNonProd = `
+steps:
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=development" \\
+          --set-secrets "DATABASE_URL=DB_DUMMY:latest,SECRET_ENCRYPTION_KEY=ENC_DUMMY:latest"
+`;
   const result = checkCloudBuildEnv({
     envTsSource: FIXTURE_ENV_TS,
     targets: [
-      { file: 'cloudbuild.yaml', content: QA_CLOUDBUILD_ALL_MOUNTED, isProduction: false },
+      { file: 'cloudbuild.yaml', content: qaNonProd },
     ],
     allowlist: [],
   });
@@ -268,3 +278,178 @@ test('CLI never prints secret values from --set-secrets even on failure', () => 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('WHEN a QA step sets NODE_ENV=production and omits FRONTEND_URL or FIREBASE_PROJECT_ID, THEN the check fails; GOOGLE_CLOUD_PROJECT satisfies FIREBASE_PROJECT_ID', () => {
+  const envWithFirebase = `
+import { z } from 'zod';
+const envSchema = z.object({
+  NODE_ENV: z.string(),
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  GOOGLE_CLOUD_PROJECT: z.string().optional(),
+  FRONTEND_URL: z.string().optional(),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production') {
+    addRequiredIssue(ctx, 'FIREBASE_PROJECT_ID', env.FIREBASE_PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT);
+    addRequiredIssue(ctx, 'FRONTEND_URL', env.FRONTEND_URL);
+  }
+});
+`;
+  const missingBoth = `
+steps:
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production"
+`;
+  const failRes = checkCloudBuildEnv({
+    envTsSource: envWithFirebase,
+    targets: [{ file: 'cloudbuild.yaml', content: missingBoth }],
+    allowlist: [],
+  });
+  assert.equal(failRes.ok, false);
+  assert.equal(failRes.errors.some((e) => e.includes('FIREBASE_PROJECT_ID') && e.includes('cloudbuild.yaml')), true);
+  assert.equal(failRes.errors.some((e) => e.includes('FRONTEND_URL') && e.includes('cloudbuild.yaml')), true);
+
+  const withGoogleCloudProject = `
+steps:
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production,GOOGLE_CLOUD_PROJECT=dummy-proj,FRONTEND_URL=https://qa.example.invalid"
+`;
+  const passRes = checkCloudBuildEnv({
+    envTsSource: envWithFirebase,
+    targets: [{ file: 'cloudbuild.yaml', content: withGoogleCloudProject }],
+    allowlist: [],
+  });
+  assert.equal(passRes.ok, true);
+});
+
+test('WHEN SCHEDULER_MODE resolves to http and cron OIDC keys are missing, THEN the check fails; SCHEDULER_MODE=off skips them', () => {
+  const envWithScheduler = `
+import { z } from 'zod';
+const envSchema = z.object({
+  NODE_ENV: z.string(),
+}).superRefine((env, ctx) => {
+  addSchedulerEnvValidationIssues(ctx, env);
+});
+`;
+  const qaHttpMissing = `
+substitutions:
+  _SCHEDULER_MODE: http
+steps:
+  - id: deploy-pdf-worker
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api-pdf-worker" \\
+          --set-env-vars "NODE_ENV=production,SCHEDULER_MODE=off"
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production,SCHEDULER_MODE=\${_SCHEDULER_MODE}"
+`;
+  const failRes = checkCloudBuildEnv({
+    envTsSource: envWithScheduler,
+    targets: [{ file: 'cloudbuild.yaml', content: qaHttpMissing }],
+    allowlist: [],
+  });
+  assert.equal(failRes.ok, false);
+  assert.equal(failRes.errors.some((e) => e.includes('CRON_OIDC_AUDIENCE') && e.includes('deploy-cloud-run')), true);
+  assert.equal(failRes.errors.some((e) => e.includes('CRON_INVOKER_SA_EMAIL') && e.includes('deploy-cloud-run')), true);
+  assert.equal(failRes.errors.some((e) => e.includes('deploy-pdf-worker')), false);
+});
+
+test('WHEN NOTIFICATION_EMAIL_MODE=live in production and notification keys are missing, THEN the check fails', () => {
+  const envWithNotif = `
+import { z } from 'zod';
+const envSchema = z.object({
+  NODE_ENV: z.string(),
+}).superRefine((env, ctx) => {
+  for (const issue of notificationEnvIssues(env)) {
+    if (issue.kind === 'required') {
+      addRequiredIssue(ctx, issue.key, undefined);
+    }
+  }
+});
+`;
+  const qaLiveMissing = `
+substitutions:
+  _NOTIFICATION_EMAIL_MODE: "live"
+steps:
+  - id: deploy-pdf-worker
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api-pdf-worker" \\
+          --set-env-vars "NODE_ENV=production"
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production,NOTIFICATION_EMAIL_MODE=\${_NOTIFICATION_EMAIL_MODE}"
+`;
+  const failRes = checkCloudBuildEnv({
+    envTsSource: envWithNotif,
+    targets: [{ file: 'cloudbuild.yaml', content: qaLiveMissing }],
+    allowlist: [],
+  });
+  assert.equal(failRes.ok, false);
+  for (const key of [
+    'NOTIFICATION_EMAIL_FROM_ADDRESS',
+    'CLOUD_TASKS_NOTIFICATION_QUEUE',
+    'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL',
+    'CLOUD_TASKS_LOCATION',
+    'CLOUD_TASKS_INVOKER_SA',
+    'CLOUD_TASKS_WORKER_SECRET',
+  ]) {
+    assert.equal(
+      failRes.errors.some((e) => e.includes(key) && e.includes('deploy-cloud-run')),
+      true,
+      `Expected error for ${key}`,
+    );
+  }
+  assert.equal(failRes.errors.some((e) => e.includes('deploy-pdf-worker')), false);
+});
+
+test('WHEN pdf-worker step does not enable Cloud Tasks, THEN CLOUD_TASKS_WORKER_SECRET is not required', () => {
+  const qaNoCloudTasks = `
+steps:
+  - id: deploy-pdf-worker
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api-pdf-worker" \\
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://qa.example.invalid" \\
+          --set-secrets "DATABASE_URL=DB_DUMMY:latest,SECRET_ENCRYPTION_KEY=ENC_DUMMY:latest"
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=https://qa.example.invalid" \\
+          --set-secrets "DATABASE_URL=DB_DUMMY:latest,SECRET_ENCRYPTION_KEY=ENC_DUMMY:latest"
+`;
+  const res = checkCloudBuildEnv({
+    envTsSource: FIXTURE_ENV_TS,
+    targets: [{ file: 'cloudbuild.yaml', content: qaNoCloudTasks }],
+    allowlist: [],
+  });
+  assert.equal(res.ok, true);
+});
+
