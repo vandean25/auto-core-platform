@@ -104,7 +104,10 @@ export async function seedBankReconciliationScenario(
 
   const finalizeRes = await request.put(`${apiBase}/sales/invoices/${draftInvoice.id}/finalize`, { headers })
   expect(finalizeRes.ok(), `PUT /finalize failed: ${finalizeRes.status()} ${await finalizeRes.text()}`).toBeTruthy()
-  const issuedInvoice = (await finalizeRes.json()) as {
+
+  const issueRes = await request.patch(`${apiBase}/invoices/${draftInvoice.id}/issue`, { headers })
+  expect(issueRes.ok(), `PATCH /invoices/:id/issue failed: ${issueRes.status()} ${await issueRes.text()}`).toBeTruthy()
+  const issuedInvoice = (await issueRes.json()) as {
     id: string
     invoice_number: string
     total_gross: string
