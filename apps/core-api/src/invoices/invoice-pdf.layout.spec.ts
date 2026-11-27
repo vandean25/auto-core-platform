@@ -592,6 +592,7 @@ describe('invoice-pdf.layout', () => {
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           status: InvoiceStatus.FINALIZED,
           date: new Date('2026-09-20T10:00:00.000Z'),
+          date_day: new Date('2026-09-20T00:00:00.000Z'),
           due_date: new Date('2026-10-04T10:00:00.000Z'),
           supply_date_from: new Date('2026-09-20T00:00:00.000Z'),
           supply_date_to: new Date('2026-09-20T00:00:00.000Z'),

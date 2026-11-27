@@ -15,6 +15,7 @@ describe('Invoice Snapshot Integrity', () => {
     draft_number: 'RE-D-1',
     draft_number_seq: 1,
     date: new Date('2023-01-01T10:00:00Z'),
+    date_day: new Date('2023-01-01T00:00:00.000Z'),
     due_date: new Date('2023-01-15T10:00:00Z'),
     notes: 'Thank you for your business',
     customer: customerRow({

@@ -37,6 +37,7 @@ describe('invoice list cursor helpers', () => {
       },
     });
     expect(resolveInvoiceCursorSort('date').config).toMatchObject({
+      prismaField: 'date_day',
       nullable: false,
       secondary: {
         prismaField: 'invoice_number',
