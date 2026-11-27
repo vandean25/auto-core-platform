@@ -21,6 +21,7 @@ import {
   Package,
   ReceiptEuro,
   ReceiptText,
+  Scale,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -43,6 +44,7 @@ export type NavAccessContext = {
   platformRole: string | null
   activeRole: components['schemas']['TenantMemberRole'] | null
   capabilities?: EffectiveCapabilities | null
+  bankReconciliationEnabled?: boolean
 }
 
 export type NavItem = {
@@ -321,6 +323,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         icon: ClipboardCheck,
         isVisible: (context) => hasRole(context, ['OWNER', 'ADMIN']),
         isActive: prefixMatch('/finance/accounting-export-readiness'),
+      },
+      {
+        id: 'bank-reconciliation',
+        labelKey: 'modules.bankReconciliation',
+        to: APP_ROUTE_PATHS.bankReconciliation,
+        icon: Scale,
+        isVisible: (context) =>
+          context.bankReconciliationEnabled === true && hasRole(context, ['OWNER', 'ADMIN']),
+        isActive: prefixMatch('/finance/bank-reconciliation'),
       },
       {
         id: 'finance',

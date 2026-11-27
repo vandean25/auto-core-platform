@@ -57,6 +57,10 @@ export const ENTITY_ACTION_IDS = {
   inventoryItemEdit: 'inventoryItem.edit',
   inventoryTransactionReverse: 'inventoryTransaction.reverse',
   salesOrderDelete: 'salesOrder.delete',
+  bankStatementUpload: 'bankStatement.upload',
+  bankTransactionConfirm: 'bankTransaction.confirm',
+  bankTransactionIgnore: 'bankTransaction.ignore',
+  bankTransactionUndo: 'bankTransaction.undo',
 } as const
 
 export const REGISTERED_ENTITY_ACTION_IDS: readonly string[] = Object.values(ENTITY_ACTION_IDS)

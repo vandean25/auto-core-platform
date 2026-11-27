@@ -29,6 +29,7 @@ export const PurchaseBillCreatePage = lazyWithRetry(() => import('@/pages/purcha
 export const CreditNotesPage = lazyWithRetry(() => import('@/pages/finance/CreditNotesPage'))
 export const CreditNoteDetailPage = lazyWithRetry(() => import('@/pages/finance/CreditNoteDetailPage'))
 export const AccountingExportReadinessPage = lazyWithRetry(() => import('@/pages/finance/AccountingExportReadinessPage'))
+export const BankReconciliationPage = lazyWithRetry(() => import('@/pages/finance/BankReconciliationPage'))
 export const SettingsPage = lazyWithRetry(() => import('@/pages/SettingsPage'))
 export const loadDashboardPage = () => import('@/pages/DashboardPage')
 export const DashboardPage = lazyWithRetry(loadDashboardPage)
