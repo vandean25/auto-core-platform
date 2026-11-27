@@ -883,6 +883,13 @@ describe('Accounting export (e2e)', () => {
     expect(minusLine!.split(';')[1]).toBe('"H"');
     expect(minusLine!.split(';')[8]).toBe('');
 
+    const invoiceLine1 = lines1.find(
+      (l) =>
+        !l.includes(plusTx.id.slice(0, 8)) &&
+        !l.includes(minusTx.id.slice(0, 8)),
+    );
+    expect(invoiceLine1).toBeDefined();
+
     // Unvalued adjustment must never appear
     expect(csv1).not.toContain(unvaluedTx.id.slice(0, 8));
 
@@ -908,5 +915,10 @@ describe('Accounting export (e2e)', () => {
     const csv2 = decodeDatevCsv(dl2.body as Buffer);
     expect(csv2).not.toContain(plusTx.id.slice(0, 8));
     expect(csv2).not.toContain(minusTx.id.slice(0, 8));
+
+    // Anti-criterion 3: invoice line (including BU-Schlüssel) is unchanged by adjustments
+    const lines2 = csv2.trimEnd().split('\r\n').slice(2);
+    expect(lines2).toHaveLength(1);
+    expect(invoiceLine1).toBe(lines2[0]);
   });
 });

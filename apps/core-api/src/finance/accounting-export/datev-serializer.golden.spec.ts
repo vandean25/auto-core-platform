@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+import { buildStockAdjustmentRows } from './accounting-export-booking-rows.js';
 import { computeSignedTotals } from './accounting-export-candidates.js';
 import type { AccountingExportBookingRow } from './accounting-export.types.js';
 import { serializeDatevBuchungsstapel } from './datev-serializer.js';
@@ -143,4 +145,76 @@ describe('datev-serializer golden bytes', () => {
       expect(totals[0]?.gross).toBe('0.00');
     },
   );
+
+  it('keeps invoice and credit lines including BU-Schlüssel intact when a stock adjustment is in the period (Anti-criterion 3)', () => {
+    const invoiceAndCreditRows: AccountingExportBookingRow[] = [
+      bookingRow({
+        taxRate: '19.00',
+        net: '100.00',
+        tax: '19.00',
+        gross: '119.00',
+        buKey: '3',
+      }),
+      bookingRow({
+        documentId: 'credit-1',
+        documentKind: 'CREDIT_NOTE',
+        documentNumber: 'CN-2026-0001',
+        documentDate: '2026-01-20',
+        polarity: 'H',
+        taxRate: '19.00',
+        net: '100.00',
+        tax: '19.00',
+        gross: '119.00',
+        buKey: '3',
+        bookingText: 'CN CN-2026-0001 / RE RE-2026-0001',
+        originalInvoiceNumber: 'RE-2026-0001',
+      }),
+    ];
+
+    const baseline = serializeDatevBuchungsstapel({
+      profile: baseProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: invoiceAndCreditRows,
+    });
+    const baselineLines = baseline.csvText.trimEnd().split('\r\n').slice(2);
+
+    const stockRows = buildStockAdjustmentRows(
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        seq: BigInt(103),
+        site_id: 'site-1',
+        quantity: new Prisma.Decimal('2.000'),
+        cost_basis: new Prisma.Decimal('1.2345'),
+        reason: 'INVENTORY_COUNT',
+        note: null,
+        reversal_of_transaction_id: null,
+        reversed_by: [],
+        item: { sku: 'BRK-001', name: 'Brake Pad' },
+        createdAt: new Date('2026-01-12T10:00:00.000Z'),
+      },
+      '2026-01-12',
+      '5800',
+    );
+
+    const withAdjustment = serializeDatevBuchungsstapel({
+      profile: baseProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: [...invoiceAndCreditRows, ...stockRows],
+    });
+    const combinedLines = withAdjustment.csvText
+      .trimEnd()
+      .split('\r\n')
+      .slice(2);
+
+    expect(combinedLines).toHaveLength(3);
+    expect(combinedLines.slice(0, 2)).toEqual(baselineLines);
+    expect(combinedLines[0].split(';')[8]).toBe('3');
+    expect(combinedLines[1].split(';')[8]).toBe('3');
+    expect(combinedLines[2].split(';')[0]).toBe('2,47');
+    expect(combinedLines[2].split(';')[8]).toBe('');
+  });
 });
