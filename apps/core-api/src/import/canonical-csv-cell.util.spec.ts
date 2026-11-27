@@ -1,4 +1,4 @@
-import { ImportEntityType, type Prisma } from '@prisma/client';
+import { ImportEntityType, ImportRowAction, type Prisma } from '@prisma/client';
 import { loadVehicleBoundMappings } from './canonical-csv-cell.util.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import { planVehicleDueDateDryRun } from './vehicle-due-date-import.dry-run.js';
@@ -52,6 +52,7 @@ function fixturePrisma(entityType: ImportEntityType, fullLoad: boolean) {
     async ({ where }: Prisma.ExternalIdMappingFindManyArgs) => {
       const type = where?.entity_type;
       const externalId = where?.external_id;
+      const entityId = where?.entity_id;
       return mappings.filter(
         (row) =>
           (!where?.tenant_id || row.tenant_id === where.tenant_id) &&
@@ -63,7 +64,10 @@ function fixturePrisma(entityType: ImportEntityType, fullLoad: boolean) {
           (fullLoad ||
             typeof externalId !== 'object' ||
             !Array.isArray(externalId.in) ||
-            externalId.in.includes(row.external_id)),
+            externalId.in.includes(row.external_id)) &&
+          (typeof entityId !== 'object' ||
+            !Array.isArray(entityId.in) ||
+            entityId.in.includes(row.entity_id)),
       );
     },
   );
@@ -73,7 +77,7 @@ function fixturePrisma(entityType: ImportEntityType, fullLoad: boolean) {
       findMany: async () => [{ id: 'vehicle-id', customer_id: 'customer-id' }],
     },
     vehicleParty: {
-      findMany: async () => [
+      findMany: jest.fn(async () => [
         {
           id: 'stored-id',
           vehicle_id: 'vehicle-id',
@@ -84,7 +88,7 @@ function fixturePrisma(entityType: ImportEntityType, fullLoad: boolean) {
           notes: null,
           source: 'LEGACY_IMPORT',
         },
-      ],
+      ]),
     },
     vehicleInspectionRecord: { findMany: async () => [] },
     vehicleNotice: {
@@ -234,6 +238,72 @@ describe('vehicle-bound mapping lookups', () => {
       ]);
     },
   );
+
+  it('matches the full mapping load when a stored owner already has an external ID outside the file', async () => {
+    const headers = [
+      'external_id',
+      'vehicle_external_id',
+      'customer_external_id',
+      'role',
+      'valid_from',
+    ];
+    const options = {
+      ...input,
+      mapping: Object.fromEntries(headers.map((name) => [name, name])),
+      options: { cutover_date: '2026-02-01' },
+    };
+    const parsed: ParsedCsv = {
+      headers,
+      rows: [['new-alias', 'vehicle', 'customer', 'OWNER', '2026-01-01']],
+      delimiter: ',',
+      sha256: '',
+    };
+    const oracle = await planVehiclePartyDryRun(
+      fixturePrisma(TYPE.VEHICLE_PARTY, true) as never,
+      options,
+      parsed,
+    );
+    const keyed = await planVehiclePartyDryRun(
+      fixturePrisma(TYPE.VEHICLE_PARTY, false) as never,
+      options,
+      parsed,
+    );
+
+    expect(keyed).toStrictEqual(oracle);
+    expect(keyed[0]).toMatchObject({
+      action: ImportRowAction.ERROR,
+      normalized: null,
+    });
+  });
+
+  it('looks up mapped stored parties by entity ID in tenant- and source-scoped chunks', async () => {
+    const prisma = fixturePrisma(TYPE.VEHICLE_PARTY, false);
+    const [owner] = await prisma.vehicleParty.findMany();
+    const ids = Array.from({ length: 1001 }, (_, index) => `party-${index}`);
+    prisma.vehicleParty.findMany.mockResolvedValueOnce(
+      ids.map((id) => ({ ...owner, id })),
+    );
+
+    await planVehiclePartyDryRun(prisma as never, input, {
+      headers: ['vehicle'],
+      rows: [['vehicle']],
+      delimiter: ',',
+      sha256: '',
+    });
+
+    expect(
+      prisma.externalIdMapping.findMany.mock.calls
+        .map(([{ where }]) => where)
+        .filter((where) => where?.entity_id),
+    ).toEqual(
+      [ids.slice(0, 1000), ids.slice(1000)].map((chunk) => ({
+        tenant_id: input.tenantId,
+        source_system: input.sourceSystem,
+        entity_type: TYPE.VEHICLE_PARTY,
+        entity_id: { in: chunk },
+      })),
+    );
+  });
 
   it('only loads external IDs for rows admitted by the planning budget', async () => {
     const prisma = fixturePrisma(TYPE.VEHICLE_DUE_DATE, false);

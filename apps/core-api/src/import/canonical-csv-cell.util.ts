@@ -158,20 +158,19 @@ export function prepareCanonicalRow<TRow extends { external_id: string }>(
 
 const MAPPING_KEY_CHUNK_SIZE = 1_000;
 
-async function loadBoundMappingRows(
+export async function loadImportMappingRows(
   prisma: PrismaService,
-  { tenantId, sourceSystem, mapping }: ImportDryRunInput,
-  rows: Array<{ record: Record<string, string> }>,
+  {
+    tenantId,
+    sourceSystem,
+  }: Pick<ImportDryRunInput, 'tenantId' | 'sourceSystem'>,
   type: ImportEntityType,
-  field: string,
+  keyField: 'external_id' | 'entity_id',
+  values: string[],
 ) {
+  // PostgreSQL text cannot contain a null byte, so such cells cannot match.
   const keys = [
-    ...new Set(
-      rows
-        .map(({ record }) => cell(record, mapping, field))
-        // PostgreSQL text cannot contain a null byte, so such cells cannot match.
-        .filter((key) => key !== '' && !key.includes('\0')),
-    ),
+    ...new Set(values.filter((key) => key !== '' && !key.includes('\0'))),
   ];
   const result: Pick<
     ExternalIdMapping,
@@ -184,7 +183,7 @@ async function loadBoundMappingRows(
         tenant_id: tenantId,
         source_system: sourceSystem,
         entity_type: type,
-        external_id: { in: chunk },
+        [keyField]: { in: chunk },
       },
       select: { entity_type: true, external_id: true, entity_id: true },
     });
@@ -203,20 +202,19 @@ export async function loadVehicleBoundMappings(
   rows: Array<{ record: Record<string, string> }>,
   types: ImportEntityType[],
 ) {
+  const loadByCell = (type: ImportEntityType, field: string) =>
+    loadImportMappingRows(
+      prisma,
+      input,
+      type,
+      'external_id',
+      rows.map(({ record }) => cell(record, input.mapping, field)),
+    );
   const mappings = (
     await Promise.all([
-      loadBoundMappingRows(
-        prisma,
-        input,
-        rows,
-        ImportEntityType.VEHICLE,
-        'vehicle_external_id',
-      ),
+      loadByCell(ImportEntityType.VEHICLE, 'vehicle_external_id'),
       ...types.map((type) =>
-        loadBoundMappingRows(
-          prisma,
-          input,
-          rows,
+        loadByCell(
           type,
           type === ImportEntityType.CUSTOMER
             ? 'customer_external_id'

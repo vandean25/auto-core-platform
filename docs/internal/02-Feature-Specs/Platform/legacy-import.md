@@ -28,7 +28,7 @@ The wizard can download entity templates and error-row CSVs. Marketing-consent c
 
 ### Dry-run mapping lookups
 
-Vehicle party and vehicle due date imports load external ID mappings for the current planning slice. They trim and deduplicate IDs per entity type and query up to 1,000 keys at a time within the tenant and import source. This applies to synchronous dry runs and background replanning and preserves row results and order.
+Vehicle party and vehicle due date imports load external ID mappings for the current planning slice. They trim and deduplicate IDs per entity type and query up to 1,000 keys at a time within the tenant and import source. Vehicle party imports also look up mappings by stored party ID for vehicles in the slice so an owner mapped under another external ID cannot be adopted again. This applies to synchronous dry runs and background replanning and preserves row results and order.
 
 File-proportional matching for the remaining imports requires indexed keys that preserve the existing normalization. Supplier EAN has no index and matching trims stored values. Customer email and name keys, labor codes, supplier SKUs and vendor article numbers also use normalized values. Vehicle plate matching needs a verified backfill for legacy rows before it can rely on the indexed `plate_normalized` column.
 
