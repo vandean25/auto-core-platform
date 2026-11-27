@@ -150,6 +150,47 @@ test('WHEN a required key is missing in a Cloud Build file, THEN the check fails
   assert.equal(result.errors.some((e) => e.includes('SECRET_ENCRYPTION_KEY') && e.includes('cloudbuild.yaml')), true);
 });
 
+test('WHEN a when-enabled flag is set via substitutions to true and its required key is absent, THEN the check fails naming the key and file', () => {
+  const envWithConditional = `
+import { z } from 'zod';
+const envSchema = z.object({
+  NODE_ENV: z.string(),
+  CUSTOMER_ESTIMATE_SEND_ENABLED: z.string().optional(),
+  ESTIMATE_APPROVAL_BASE_URL: z.string().optional(),
+}).superRefine((env, ctx) => {
+  if (env.CUSTOMER_ESTIMATE_SEND_ENABLED) {
+    addRequiredIssue(ctx, 'ESTIMATE_APPROVAL_BASE_URL', env.ESTIMATE_APPROVAL_BASE_URL);
+  }
+});
+`;
+  const qaWithSubEnabledMissingUrl = `
+substitutions:
+  _CUSTOMER_ESTIMATE_SEND_ENABLED: "true"
+steps:
+  - id: deploy-cloud-run
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - -lc
+      - |
+        gcloud run deploy "core-api" \\
+          --set-env-vars "NODE_ENV=production,CUSTOMER_ESTIMATE_SEND_ENABLED=\${_CUSTOMER_ESTIMATE_SEND_ENABLED}"
+`;
+  const result = checkCloudBuildEnv({
+    envTsSource: envWithConditional,
+    targets: [
+      { file: 'cloudbuild.yaml', content: qaWithSubEnabledMissingUrl, isProduction: false },
+    ],
+    allowlist: [],
+  });
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.errors.some(
+      (e) => e.includes('ESTIMATE_APPROVAL_BASE_URL') && e.includes('cloudbuild.yaml'),
+    ),
+    true,
+  );
+});
+
 test('WHEN a key is on the allowlist and missing, THEN the check passes with a warning naming the ticket', () => {
   const missingInProd = PROD_CLOUDBUILD_ALL_MOUNTED.replace(
     ',SECRET_ENCRYPTION_KEY=ENC_PROD_DUMMY:latest',

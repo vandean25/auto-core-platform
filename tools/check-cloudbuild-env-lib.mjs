@@ -9,7 +9,7 @@ export const DEFAULT_ALLOWLIST = [
   {
     file: 'cloudbuild.staging.yaml',
     key: 'CATALOG_HIT_HMAC_SECRET',
-    ticket: 'AUT-1061-followup',
+    ticket: 'AUT-1060',
   },
 ];
 
@@ -136,7 +136,49 @@ function extractCallsFromNode(node, scope, enabledBy, helpers, addKey) {
   visit(node);
 }
 
-function parseDeployStepArgs(body) {
+function parseSubstitutionValue(raw) {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+    const quote = trimmed[0];
+    const endIdx = trimmed.indexOf(quote, 1);
+    return endIdx >= 1 ? trimmed.slice(1, endIdx) : trimmed.slice(1);
+  }
+  return trimmed.replace(/\s+#.*$/, '').trim();
+}
+
+function parseCloudBuildSubstitutions(cloudBuildSource) {
+  const substitutions = new Map();
+  let inSubstitutions = false;
+
+  for (const line of cloudBuildSource.split(/\r?\n/)) {
+    if (!inSubstitutions) {
+      if (/^substitutions:\s*(?:#.*)?$/.test(line)) {
+        inSubstitutions = true;
+      }
+      continue;
+    }
+    if (/^\s*(?:#.*)?$/.test(line)) {
+      continue;
+    }
+    if (/^\S/.test(line)) {
+      break;
+    }
+    const match = /^\s+([A-Za-z0-9_]+)\s*:\s*(.*)$/.exec(line);
+    if (match) {
+      substitutions.set(match[1], parseSubstitutionValue(match[2]));
+    }
+  }
+
+  return substitutions;
+}
+
+function resolveSubstitutions(value, substitutions) {
+  return value.replace(/\$\{([A-Za-z0-9_]+)\}/g, (full, name) =>
+    substitutions.has(name) ? substitutions.get(name) : full,
+  );
+}
+
+function parseDeployStepArgs(body, substitutions) {
   const keys = new Set();
   const flags = new Map();
   const setArgPattern = /--set-(env-vars|secrets)\s+(?:"([^"]+)"|'([^']+)')/g;
@@ -150,7 +192,8 @@ function parseDeployStepArgs(body) {
       const key = entry.slice(0, eqIdx).trim();
       keys.add(key);
       if (kind === 'env-vars' && NON_SECRET_FLAG_KEYS.has(key)) {
-        flags.set(key, entry.slice(eqIdx + 1).trim());
+        const rawValue = entry.slice(eqIdx + 1).trim();
+        flags.set(key, resolveSubstitutions(rawValue, substitutions));
       }
     }
   }
@@ -165,6 +208,7 @@ function parseDeployStepArgs(body) {
  * @returns {Array<{ stepId: string, role: 'core-api' | 'pdf-worker', keys: Set<string>, flags: Map<string, string> }>}
  */
 export function parseCloudBuildDeploySteps(cloudBuildSource) {
+  const substitutions = parseCloudBuildSubstitutions(cloudBuildSource);
   const stepPattern = /^  - id: ([^\r\n]+)\r?$/gm;
   const matches = [...cloudBuildSource.matchAll(stepPattern)];
   const steps = [];
@@ -178,7 +222,7 @@ export function parseCloudBuildDeploySteps(cloudBuildSource) {
       continue;
     }
 
-    const { keys, flags } = parseDeployStepArgs(body);
+    const { keys, flags } = parseDeployStepArgs(body, substitutions);
     steps.push({
       stepId,
       role: stepId.includes('pdf-worker') ? 'pdf-worker' : 'core-api',
