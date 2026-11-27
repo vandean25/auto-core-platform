@@ -14,8 +14,8 @@ export interface ValuationBookingInput {
   quantity: Decimal | number | string;
   costBasis?: Decimal | number | string | null;
   isReversal?: boolean;
-  /** Moves stock quantity only: average and valued quantity stay as they are (AUT-1050 Gegenbuchung). */
-  valuationNeutral?: boolean;
+  /** AUT-1050 Gegenbuchung of an unvalued correction; see applyRevaluationGegenbuchungStep. */
+  revaluationGegenbuchung?: boolean;
 }
 
 export interface ValuationStepResult {
@@ -84,6 +84,32 @@ function computeOutboundAdjustmentAverage(
   return nextTotal.lte(0) ? ZERO : roundUnitCost(nextTotal.div(nextQty));
 }
 
+/**
+ * AUT-1050 Gegenbuchung of an unvalued correction (null cost, no export value).
+ * - Outbound: unwinds an unvalued inbound, which never entered the pool, so nothing changes.
+ * - Inbound: unwinds an unvalued outbound, which already took its quantity out of the pool at the
+ *   current average, so the quantity goes back at that average. The new valued row then removes it once.
+ * With no average the unvalued outbound removed nothing, so nothing goes back.
+ */
+function applyRevaluationGegenbuchungStep(
+  current: ValuationState,
+  quantity: Decimal,
+  incomingCost: Decimal | null,
+): ValuationStepResult {
+  const putsBack = quantity.gt(0) && current.averageUnitCost !== null;
+  const base = current.valuedQuantity.lt(0) ? ZERO : current.valuedQuantity;
+  return {
+    state: putsBack
+      ? {
+          averageUnitCost: current.averageUnitCost,
+          valuedQuantity: roundQuantity(base.add(quantity)),
+        }
+      : current,
+    stampedCostBasis: incomingCost,
+    isUnvaluedGap: false,
+  };
+}
+
 function applyInboundValuationStep(
   current: ValuationState,
   quantity: Decimal,
@@ -135,7 +161,7 @@ export function applyValuationStep(
   booking: ValuationBookingInput,
 ): ValuationStepResult {
   const incomingCost = toOptionalDecimal(booking.costBasis);
-  if (booking.valuationNeutral || isTransferTransactionType(booking.type)) {
+  if (isTransferTransactionType(booking.type)) {
     return {
       state: current,
       stampedCostBasis: incomingCost,
@@ -150,6 +176,10 @@ export function applyValuationStep(
       stampedCostBasis: incomingCost,
       isUnvaluedGap: false,
     };
+  }
+
+  if (booking.revaluationGegenbuchung) {
+    return applyRevaluationGegenbuchungStep(current, quantity, incomingCost);
   }
 
   if (quantity.gt(0)) {

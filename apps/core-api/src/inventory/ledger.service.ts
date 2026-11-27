@@ -32,8 +32,8 @@ export interface RecordTransactionParams {
   overrideReason?: string | null;
   createdByUserId?: string | null;
   reversalOfTransactionId?: string | null;
-  /** Not persisted: the booking moves quantity only and skips the moving-average step. */
-  valuationNeutral?: boolean;
+  /** Not persisted: AUT-1050 Gegenbuchung of an unvalued correction (see inventory-valuation.math). */
+  revaluationGegenbuchung?: boolean;
   partsReservationId?: string | null;
   movementGroupId?: string | null;
   stockTransferId?: string | null;
@@ -162,7 +162,7 @@ export class LedgerService {
         type: params.type,
         costBasis: params.costBasis,
         isReversal: Boolean(params.reversalOfTransactionId),
-        valuationNeutral: params.valuationNeutral,
+        revaluationGegenbuchung: params.revaluationGegenbuchung,
       })),
     );
 

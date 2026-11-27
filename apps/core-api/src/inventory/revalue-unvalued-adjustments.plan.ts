@@ -116,7 +116,7 @@ export function planRevaluations(
           referenceId: MANUAL_ADJUSTMENT_REVERSAL_REFERENCE,
           costBasis: null,
           valueSource: null,
-          valuationNeutral: true,
+          revaluationGegenbuchung: true,
           reversalOfTransactionId: original.id,
         },
         {

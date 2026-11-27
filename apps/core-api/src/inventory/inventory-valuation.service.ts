@@ -20,8 +20,8 @@ export interface ValuationBookingInput {
   type: TransactionType;
   costBasis?: Decimal | number | string | null;
   isReversal?: boolean;
-  /** AUT-1050 Gegenbuchung: moves quantity only, skips the moving-average step. */
-  valuationNeutral?: boolean;
+  /** AUT-1050 Gegenbuchung of an unvalued correction (see inventory-valuation.math). */
+  revaluationGegenbuchung?: boolean;
 }
 
 export interface PreparedValuationBatch {
@@ -299,7 +299,7 @@ export class InventoryValuationService {
         quantity: b.quantity,
         costBasis: b.costBasis,
         isReversal: b.isReversal,
-        valuationNeutral: b.valuationNeutral,
+        revaluationGegenbuchung: b.revaluationGegenbuchung,
       });
 
       stateByKey.set(key, step.state);
@@ -494,7 +494,7 @@ export class InventoryValuationService {
           quantity: row.quantity,
           costBasis: row.cost_basis,
           isReversal: row.reversal_of_transaction_id !== null,
-          valuationNeutral: isRevaluationGegenbuchung(row),
+          revaluationGegenbuchung: isRevaluationGegenbuchung(row),
         });
 
         current.state = step.state;
