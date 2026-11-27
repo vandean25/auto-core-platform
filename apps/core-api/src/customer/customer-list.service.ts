@@ -9,6 +9,7 @@ import {
   cappedCustomerListCount,
   fetchKeysetListPage,
 } from '../common/list-cursor/index.js';
+import { buildCustomFieldListFilters } from '../custom-fields/custom-field-list-filter.js';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import {
   attachLegacyIds,
@@ -91,12 +92,20 @@ export class CustomerListService {
   async findAllWithCursor(
     query: CustomerCursorQuery,
     scopeContextHeader: string | undefined,
+    customFields?: URLSearchParams,
   ) {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+      : null;
     const pageResult = await this.scopeContext.read(
       scopeContextHeader,
       { id: 'CustomerController.findAll', scope: 'tenant' },
       async ({ tx, tenantId, siteId, scopeContextDigest }) => {
         assertNoCustomerOffsetParams(query);
+        const customFilters = buildCustomFieldListFilters(
+          activeDefs,
+          customFields,
+        );
         const { field, direction, config } = resolveCustomerCursorSort(
           query.sortField,
           query.sortDirection,
@@ -114,13 +123,19 @@ export class CustomerListService {
             tenantId,
             siteId,
             scopeContextDigest,
-            filterHashInput: customerListFilterContext(query),
+            filterHashInput: {
+              ...customerListFilterContext(query),
+              ...(customFilters.length ? { customFilters } : {}),
+            },
             sortField: field,
             sortDirection: direction,
             sortConfig: config,
             cursor: query.cursor,
             limit: resolveCustomerCursorLimit(query.limit),
-            baseWhere: buildCustomerListWhere(tenantId, query, legacyEntityIds),
+            baseWhere: {
+              ...buildCustomerListWhere(tenantId, query, legacyEntityIds),
+              AND: customFilters,
+            },
           },
           {
             findMany: (where, orderBy, take) =>
@@ -144,9 +159,6 @@ export class CustomerListService {
         };
       },
     );
-    const activeDefs = this.customFields
-      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
-      : null;
     return {
       ...pageResult,
       data: pageResult.data.map((row) =>
@@ -159,7 +171,12 @@ export class CustomerListService {
   async cappedListCount(
     query: Pick<CustomerCursorQuery, 'search' | 'type'>,
     scopeContextHeader: string | undefined,
+    customFields?: URLSearchParams,
   ) {
+    const activeDefs =
+      this.customFields && customFields?.size
+        ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.CUSTOMER)
+        : null;
     return this.scopeContext.read(
       scopeContextHeader,
       { id: 'CustomerController.cappedCount', scope: 'tenant' },
@@ -171,10 +188,10 @@ export class CustomerListService {
               externalId: query.search,
             })
           : [];
-        return cappedCustomerListCount(
-          tx,
-          buildCustomerListWhere(tenantId, query, legacyEntityIds),
-        );
+        return cappedCustomerListCount(tx, {
+          ...buildCustomerListWhere(tenantId, query, legacyEntityIds),
+          AND: buildCustomFieldListFilters(activeDefs, customFields),
+        });
       },
     );
   }

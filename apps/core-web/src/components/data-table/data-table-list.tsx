@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { densityTokens, type DataTableDensity } from '@/lib/density-tokens'
 import { getTableRowId, type DataTableBodyRowModel } from './data-table-body-row'
 import { isDataTablePendingRow } from './data-table-states'
-import { getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
+import { getDataTableColumnMeta, getDataTableMobileSlots, type DataTableMobileSlots } from './data-table-column-meta'
 import type { DataTableRowBehaviour } from './data-table-row-behaviour'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
 import { observeScrollOffset, useDataTableVirtualEffects, useDataTableVirtualOptions } from './use-data-table-virtual'
@@ -159,6 +159,28 @@ function listRowClassName(interactionLocked: boolean, isPending: boolean, extra:
   )
 }
 
+function ListRowAdditionalFields({ row }: { row: DataTableBodyRowModel<object> }) {
+  const additionalCells = row.getVisibleCells().filter((cell) =>
+    getDataTableColumnMeta(cell.column.columnDef).mobile === 'additional' && cell.getValue() !== '',
+  )
+  if (additionalCells.length === 0) return null
+  return (
+    <dl className="grid w-full grid-cols-2 gap-x-2 gap-y-1 px-3 pb-2 text-sm">
+      {additionalCells.map((cell) => {
+        const { columnDef, id } = cell.column
+        return (
+          <div key={id} className="min-w-0 wrap-anywhere">
+            {typeof columnDef.header === 'string' ? (
+              <dt className="text-muted-foreground">{columnDef.header}</dt>
+            ) : null}
+            <dd>{flexRender(columnDef.cell as never, cell.getContext() as never)}</dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
 function DataTableListRow<TData extends object>({
   row,
   slots,
@@ -199,6 +221,7 @@ function DataTableListRow<TData extends object>({
       ) : null}
       {/* Wide content (controls, notes) needs its own line: inside the slots it would be truncated or squeeze the row. */}
       {detailsCell ? <div className="w-full px-3 pb-2">{detailsCell}</div> : null}
+      <ListRowAdditionalFields row={row} />
       {!interactionLocked && !isPending ? (
         <DataTableRowActions row={record} rowBehaviour={rowBehaviour} />
       ) : null}

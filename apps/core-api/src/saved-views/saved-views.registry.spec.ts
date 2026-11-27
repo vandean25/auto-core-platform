@@ -49,7 +49,23 @@ describe('saved-views registry & href validation', () => {
     },
   );
 
+  it.each(['/customers', '/vehicles'])(
+    'accepts custom field filters in a saved %s view',
+    (listPath) => {
+      const href = `${listPath}?cols=cf.segment&cf.segment%5Bin%5D=Fleet&cf.deleted=x`;
+      expect(
+        validateSavedViewInput({ listPath, href, name: 'Fleet' }).href,
+      ).toBe(href);
+    },
+  );
+
   it.each([
+    [
+      'custom field on another list',
+      '/inventory',
+      '/inventory?cf.segment=Fleet',
+      'Fleet',
+    ],
     ['unknown listPath', '/unknown/list', '/unknown/list', 'Valid Name'],
     [
       'absolute https URL',

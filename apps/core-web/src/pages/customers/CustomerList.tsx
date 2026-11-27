@@ -5,6 +5,8 @@ import { useCustomerListState } from '@/api/customer-list'
 import type { Customer } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { CustomerDialog } from '@/components/customers/CustomerDialog'
+import { CustomFieldListFilters } from '@/components/custom-fields/CustomFieldListFilters'
+import { useCustomFieldList } from '@/components/custom-fields/use-custom-field-list'
 import { Plus } from 'lucide-react'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
@@ -29,7 +31,9 @@ export default function CustomerList() {
     void ensureNamespaceLoaded('customers')
   }, [])
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
-  const list = useCustomerListState(queryParams)
+  const customFields = useCustomFieldList<Customer>('CUSTOMER')
+  const list = useCustomerListState(queryParams, customFields.params)
+  const canSort = customFields.filters.size === 0
 
   const customers = list.customers
   const pending = useCustomerPendingCreate(customers, list.dataUpdatedAt)
@@ -62,7 +66,9 @@ export default function CustomerList() {
       enableHiding: false,
     },
     {
-      accessorKey: 'company_name',
+      id: 'company_name',
+      accessorFn: (customer) => [customer.company_name, customer.first_name, customer.last_name].filter(Boolean).join(' '),
+      enableSorting: canSort,
       meta: { mobile: 'title' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.name')} />
@@ -70,7 +76,9 @@ export default function CustomerList() {
       cell: ({ row }) => <CustomerNameCell customer={row.original} onDismiss={pending.dismiss} />,
     },
     {
-      accessorKey: 'email',
+      id: 'email',
+      accessorFn: (customer) => [customer.email, customer.phone].filter(Boolean).join(' '),
+      enableSorting: canSort,
       meta: { mobile: 'details' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.contact')} />
@@ -97,7 +105,9 @@ export default function CustomerList() {
       },
     },
     {
-      accessorKey: 'address_city',
+      id: 'address_city',
+      accessorFn: (customer) => [customer.address_city, customer.address_country].filter(Boolean).join(' '),
+      enableSorting: canSort,
       meta: { mobile: 'subtitle' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.location')} />
@@ -108,6 +118,7 @@ export default function CustomerList() {
         </div>
       ),
     },
+    ...customFields.columns,
   ]
 
   return (
@@ -126,6 +137,8 @@ export default function CustomerList() {
         data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_CUSTOMERS}
+        enableMobileCsvExport={customFields.definitions.length > 0}
+        toolbarFilters={<CustomFieldListFilters definitions={customFields.definitions} filters={customFields.filters} onApply={customFields.apply} />}
         {...list.tableProps}
         searchPlaceholder={t('list.searchPlaceholder')}
         emptyState={

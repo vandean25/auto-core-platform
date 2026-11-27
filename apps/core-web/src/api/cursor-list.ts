@@ -33,7 +33,8 @@ export const CURSOR_PAGE_LIMIT = 50
 
 export type CappedListCount = components['schemas']['CappedListCountResponseDto']
 type CursorListPage<TRow> = { data: TRow[]; meta: { nextCursor: string | null; hasNextPage: boolean } }
-type QueryParams = Record<string, string | undefined>
+export type CursorListQueryParams = Record<string, string | readonly string[] | undefined>
+type QueryParams = CursorListQueryParams
 
 function restartListFetchSignal(_querySignal: AbortSignal): AbortSignal {
   return new AbortController().signal
@@ -54,7 +55,13 @@ async function fetchListPageAfterRecovery<TRow>(
 
 function urlOf(path: string, params: QueryParams) {
   const search = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) if (value) search.set(key, value)
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') {
+      if (value) search.append(key, value)
+    } else {
+      for (const entry of value ?? []) search.append(key, entry)
+    }
+  }
   const query = search.toString()
   return query ? `${path}?${query}` : path
 }
@@ -224,7 +231,7 @@ type CursorListOptions = {
   countParams: QueryParams
 }
 
-type RetryableQuery = { isError: boolean; refetch: () => Promise<unknown> }
+type RetryableQuery = { isError: boolean; error: unknown; refetch: () => Promise<unknown> }
 
 /** An auth-blocked list (401/403) surfaces an error state without retry controls; a scope-blocked list (quarantine,
  * pending explicit refresh) keeps isError=false so "Liste aktualisieren" is shown instead. */
@@ -251,7 +258,9 @@ function retryControls(
     onRetry: () => void list.refetch(),
     isCountError: count.isError,
     retryCount: () => void count.refetch(),
-    fetchErrorMessage: undefined,
+    fetchErrorMessage: isCursorListApiError(list.error) && list.error.code === 'CUSTOM_FIELD_FILTER_INVALID'
+      ? t('errors:codes.CUSTOM_FIELD_FILTER_INVALID')
+      : undefined,
   }
 }
 
