@@ -94,6 +94,33 @@ function assertProfileLayout(profile: AccountingExportProfileSnapshot): void {
   }
 }
 
+function buildBmdStockAdjustmentFields(
+  row: AccountingExportBookingRow,
+): string[] {
+  if (row.buKey !== null) {
+    throw new Error('BMD rows must not carry DATEV BU keys');
+  }
+  if (row.bookingText.length > BMD_BOOKING_TEXT_MAX_LENGTH) {
+    throw new Error(
+      `BMD booking text exceeds ${BMD_BOOKING_TEXT_MAX_LENGTH} characters`,
+    );
+  }
+  const byName: Record<BmdMtfPublicFieldName, string> = {
+    Buchungsdatum: formatBmdDate(row.documentDate),
+    Belegdatum: formatBmdDate(row.documentDate),
+    Belegnummer: quoteBmdText(row.documentNumber),
+    Konto: row.debtorAccount ? quoteBmdText(row.debtorAccount) : '',
+    Gegenkonto: row.revenueAccount ? quoteBmdText(row.revenueAccount) : '',
+    Betrag: formatBmdAmount(row.gross),
+    Sollhabenkennzeichen: row.polarity,
+    Steuercode: '',
+    Text: quoteBmdText(row.bookingText),
+    Kostenstelle: '',
+    'OP-Nummer': '',
+  };
+  return BMD_MTF_PUBLIC_FIELD_NAMES.map((name) => byName[name]);
+}
+
 /**
  * The eleven booking fields in `BMD_MTF_PUBLIC_FIELD_NAMES` order (spec A1 / S3).
  * Booking date equals document date, because the period is closed. Kostenstelle
@@ -103,6 +130,9 @@ export function buildBmdNtcsBookingFields(
   row: AccountingExportBookingRow,
   steuercodes: BmdSteuercodes,
 ): string[] {
+  if (row.documentKind === 'STOCK_ADJUSTMENT') {
+    return buildBmdStockAdjustmentFields(row);
+  }
   const isCredit = row.documentKind === 'CREDIT_NOTE';
   const expectedPolarity = isCredit ? 'H' : 'S';
   if (row.polarity !== expectedPolarity) {

@@ -121,6 +121,30 @@ function buildHeaderFields(
   ];
 }
 
+function buildRzlStockAdjustmentFields(
+  row: AccountingExportBookingRow,
+): string[] {
+  if (row.buKey !== null) {
+    throw new Error('RZL rows must not carry DATEV BU keys');
+  }
+  const byColumn: Record<RzlBookingColumn, string> = {
+    SATZART: RZL_RECORD_BOOKING,
+    BUCHUNGSART: RZL_BUCHUNGSART_BY_DOCUMENT_KIND.STOCK_ADJUSTMENT,
+    BELEGDATUM: formatRzlDate(row.documentDate),
+    BELEGNUMMER: quoteRzlText(row.documentNumber),
+    SOLL_HABEN: row.polarity,
+    BETRAG: formatRzlAmount(row.gross),
+    KONTO: row.debtorAccount ? quoteRzlText(row.debtorAccount) : '',
+    GEGENKONTO: row.revenueAccount ? quoteRzlText(row.revenueAccount) : '',
+    STEUERCODE: '',
+    BUCHUNGSTEXT: quoteRzlText(row.bookingText),
+    OP_BELEGNUMMER: '',
+    OP_MODUS: RZL_OP_MODUS_BY_DOCUMENT_KIND.STOCK_ADJUSTMENT,
+    KOSTENSTELLE: '',
+  };
+  return RZL_BOOKING_COLUMNS.map((name) => byColumn[name]);
+}
+
 /**
  * Booking fields for one frozen line in `RZL_BOOKING_COLUMNS` order (ACP draft).
  */
@@ -128,6 +152,9 @@ export function buildRzlFibuImportBookingFields(
   row: AccountingExportBookingRow,
   steuercodes: RzlSteuercodes,
 ): string[] {
+  if (row.documentKind === 'STOCK_ADJUSTMENT') {
+    return buildRzlStockAdjustmentFields(row);
+  }
   const isCredit = row.documentKind === 'CREDIT_NOTE';
   const expectedPolarity = isCredit ? 'H' : 'S';
   if (row.polarity !== expectedPolarity) {

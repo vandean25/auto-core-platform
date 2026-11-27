@@ -39,6 +39,7 @@ export type AccountingProfileSerializerParams = {
   marginScheme?: MarginSchemeSerializerParams;
   roundingAccount?: string;
   roundingSteuercode?: string;
+  stockAdjustmentAccount?: string;
 };
 
 /** Request-side shape before parsing: a PATCH may send only some margin fields. */
@@ -48,34 +49,48 @@ export type AccountingProfileSerializerParamsInput = {
   marginScheme?: Partial<MarginSchemeSerializerParams> | null;
   roundingAccount?: string | null;
   roundingSteuercode?: string | null;
+  stockAdjustmentAccount?: string | null;
 };
 
 const STEUERCODE_PATTERN = /^[0-9]{1,4}$/;
 const MARGIN_VAT_ACCOUNT_PATTERN = /^[0-9]{1,9}$/;
 
+function parseOptionalAccountDigitParam(
+  raw: unknown,
+  path: string,
+): string | undefined {
+  if (raw == null) {
+    return undefined;
+  }
+  if (typeof raw !== 'string' || !MARGIN_VAT_ACCOUNT_PATTERN.test(raw)) {
+    throw new BadRequestException(`${path} must be 1 to 9 digits`);
+  }
+  return raw;
+}
+
 export function parseRoundingSerializerParams(
   value: unknown,
 ): Pick<
   AccountingProfileSerializerParams,
-  'roundingAccount' | 'roundingSteuercode'
+  'roundingAccount' | 'roundingSteuercode' | 'stockAdjustmentAccount'
 > {
   if (!isPlainObject(value)) return {};
-  const account = value.roundingAccount;
-  if (
-    account != null &&
-    (typeof account !== 'string' || !MARGIN_VAT_ACCOUNT_PATTERN.test(account))
-  ) {
-    throw new BadRequestException(
-      'serializerParams.roundingAccount must be 1 to 9 digits',
-    );
-  }
+  const roundingAccount = parseOptionalAccountDigitParam(
+    value.roundingAccount,
+    'serializerParams.roundingAccount',
+  );
+  const stockAdjustmentAccount = parseOptionalAccountDigitParam(
+    value.stockAdjustmentAccount,
+    'serializerParams.stockAdjustmentAccount',
+  );
   const steuercode = parseSteuercodeValue(
     value.roundingSteuercode,
     'serializerParams.roundingSteuercode',
   );
   return {
-    ...(typeof account === 'string' ? { roundingAccount: account } : {}),
+    ...(roundingAccount ? { roundingAccount } : {}),
     ...(steuercode === null ? {} : { roundingSteuercode: steuercode }),
+    ...(stockAdjustmentAccount ? { stockAdjustmentAccount } : {}),
   };
 }
 
@@ -305,6 +320,10 @@ export function mergeAccountingProfileSerializerParams(
       patch.roundingSteuercode === undefined
         ? current.roundingSteuercode
         : patch.roundingSteuercode,
+    stockAdjustmentAccount:
+      patch.stockAdjustmentAccount === undefined
+        ? current.stockAdjustmentAccount
+        : patch.stockAdjustmentAccount,
   };
   if (
     patchMargin !== null &&

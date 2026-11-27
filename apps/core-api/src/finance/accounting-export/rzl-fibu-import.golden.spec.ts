@@ -195,23 +195,26 @@ describe('rzl-fibu-import golden files', () => {
 
   it('reads the handbook Ausgangsrechnung example without using the ACP serializer', () => {
     const fields = publicAusgangsrechnung.split(';');
-    expect(
-      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Belegkreis')],
-    ).toBe('AR');
+    expect(fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Belegkreis')]).toBe(
+      'AR',
+    );
     expect(
       fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Buchungsart')],
     ).toBe('1');
     expect(
       fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Schluessel')],
     ).toBe('20');
-    expect(
-      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Code')],
-    ).toBe('2');
+    expect(fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Code')]).toBe(
+      '2',
+    );
   });
 
   it('pins the ACP draft column record line against a committed reference', () => {
     const columnsRef = readFileSync(
-      new URL('./fixtures/rzl-acp-draft-columns.reference.txt', import.meta.url),
+      new URL(
+        './fixtures/rzl-acp-draft-columns.reference.txt',
+        import.meta.url,
+      ),
       'utf8',
     ).trimEnd();
     const [, columnLine] = serializeDraftEvidenced([
@@ -346,12 +349,73 @@ describe('rzl-fibu-import golden files', () => {
       );
       const golden = JSON.parse(
         readFileSync(
-          new URL('./fixtures/rzl-zero-rate-blockers.golden.json', import.meta.url),
+          new URL(
+            './fixtures/rzl-zero-rate-blockers.golden.json',
+            import.meta.url,
+          ),
           'utf8',
         ),
       );
 
       expect(blockers).toEqual(golden);
+    });
+  });
+
+  describe('AUT-1049: stock corrections (Bestandsveränderung) without fixed tax code', () => {
+    it('serializes plus, minus, and reversal pair with empty STEUERCODE and signed polarity (Scenarios 1, 3, 5, Anti-criterion 1)', () => {
+      const rows: AccountingExportBookingRow[] = [
+        {
+          documentId: 'tx-plus-1',
+          documentKind: 'STOCK_ADJUSTMENT',
+          documentNumber: 'BV-101',
+          documentDate: '2026-01-10',
+          lineId: 'tx-plus-1',
+          polarity: 'S',
+          net: '25.00',
+          tax: '0.00',
+          taxRate: '0.00',
+          gross: '25.00',
+          debtorAccount: '',
+          revenueAccount: '5800',
+          buKey: null,
+          bookingText: 'BV BRK-001 INVENTORY_COUNT tx-plus-',
+        },
+        {
+          documentId: 'tx-minus-1',
+          documentKind: 'STOCK_ADJUSTMENT',
+          documentNumber: 'BV-102',
+          documentDate: '2026-01-11',
+          lineId: 'tx-minus-1',
+          polarity: 'H',
+          net: '12.50',
+          tax: '0.00',
+          taxRate: '0.00',
+          gross: '12.50',
+          debtorAccount: '',
+          revenueAccount: '',
+          buKey: null,
+          bookingText: 'BV BRK-002 DAMAGE tx-minus rev:tx-plus-',
+        },
+      ];
+
+      const result = serializeGolden(rows);
+      const dataLines = result.csvText.trimEnd().split('\r\n').slice(2);
+      expect(dataLines).toHaveLength(2);
+
+      // STEUERCODE is column index 8 (0-based)
+      const plusFields = dataLines[0].split(';');
+      expect(plusFields[4]).toBe('S');
+      expect(plusFields[5]).toBe('25,00');
+      expect(plusFields[7]).toBe('"5800"');
+      expect(plusFields[8]).toBe('');
+      expect(plusFields[11]).toBe('');
+
+      const minusFields = dataLines[1].split(';');
+      expect(minusFields[4]).toBe('H');
+      expect(minusFields[5]).toBe('12,50');
+      expect(minusFields[7]).toBe('');
+      expect(minusFields[8]).toBe('');
+      expect(minusFields[11]).toBe('');
     });
   });
 });

@@ -86,20 +86,22 @@ export type RzlBookingColumn = (typeof RZL_BOOKING_COLUMNS)[number];
 
 export const RZL_CURRENCY = 'EUR';
 
-/** Buchungsart per document kind: sales invoice (AR) and sales credit note (AG). */
+/** Buchungsart per document kind: sales invoice (AR), credit note (AG), stock adjustment (BV). */
 export const RZL_BUCHUNGSART_BY_DOCUMENT_KIND = {
   INVOICE: 'AR',
   CREDIT_NOTE: 'AG',
+  STOCK_ADJUSTMENT: 'BV',
 } as const;
 
 /**
  * Open-item handling: an invoice opens an open item in the collective debtor
  * account (E = eröffnen); a credit note reduces it, referencing the original
- * invoice (M = mindern).
+ * invoice (M = mindern); stock adjustments have no open item.
  */
 export const RZL_OP_MODUS_BY_DOCUMENT_KIND = {
   INVOICE: 'E',
   CREDIT_NOTE: 'M',
+  STOCK_ADJUSTMENT: '',
 } as const;
 
 export type RzlSteuercodeKey = keyof RzlSteuercodes;

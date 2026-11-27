@@ -232,6 +232,13 @@ Accountant release evidence must identify the reviewer/date, official schema rev
 - [x] Linear project Next section updated to the AUT-296 approved handoff with repository link (2026-09-20).
 - [x] AUT-296 verified complete in Linear; Milestone 0 — Spec & ADR closed after acceptance/merge.
 
+## Valued Stock Corrections (Bestandsveränderung, AUT-1049)
+
+- **Candidate selection**: `InventoryTransaction` rows of type `ADJUSTMENT` with a non-null `cost_basis` (unit value) within the legal entity (via `location.site.legal_entity_id`) and period (`createdAt`), excluding transactions already recorded in a completed export's `document_manifest` (`kind: 'STOCK_ADJUSTMENT'`). Unvalued historic adjustments (`cost_basis = null`) are omitted and never exported as zero.
+- **Amount & polarity**: Exported amount is the signed extended value (`quantity × cost_basis`) rounded to 2 decimals (`ROUND_HALF_UP`), emitted as unsigned `gross` with polarity `S` (plus correction) or `H` (minus correction).
+- **Tax & account mapping**: No fixed tax code (`BU-Schlüssel` stays empty). `serializerParams.stockAdjustmentAccount` is unmapped by default so the workshop sets the Bestandsveränderung account with its Steuerberater; exports still succeed when unmapped.
+- **Reversals**: Both the original adjustment and its Gegenbuchung are exported with reversal pointers in `Buchungstext` (`rev:<id>` / `revBy:<id>`).
+
 ## References
 
 - [[legal-invoicing-and-credit-notes]]; [[2026-09-20-legal-invoicing-and-accounting-export]]; [[2026-04-12-fiscal-lock-date]]; [[2026-04-12-invoice-snapshotting]]; [[2026-08-31-site-operational-scope]].

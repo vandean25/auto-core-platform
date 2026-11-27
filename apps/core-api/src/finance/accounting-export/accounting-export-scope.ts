@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, TransactionType } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 
@@ -18,39 +18,59 @@ export async function listAccountingExportSites(
   dateTo: Date,
 ): Promise<AccountingExportSite[]> {
   const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
-  const invoiceSiteIds = await prisma.invoice.findMany({
-    where: {
-      tenant_id: tenantId,
-      legal_entity_id: legalEntityId,
-      site_id: { not: null },
-      status: {
-        in: [
-          InvoiceStatus.FINALIZED,
-          InvoiceStatus.ISSUED,
-          InvoiceStatus.PAID,
-          InvoiceStatus.CANCELLED,
-        ],
-      },
-      date: dateFilter,
-    },
-    select: { site_id: true },
-    distinct: ['site_id'],
+  const entitySites = await prisma.site.findMany({
+    where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+    select: { id: true },
   });
+  const entitySiteIds = entitySites.map((site) => site.id);
 
-  const creditSiteIds = await prisma.creditNote.findMany({
-    where: {
-      tenant_id: tenantId,
-      legal_entity_id: legalEntityId,
-      status: 'FINALIZED',
-      date: dateFilter,
-    },
-    select: { site_id: true },
-    distinct: ['site_id'],
-  });
+  const [invoiceSiteIds, creditSiteIds, adjustmentSiteIds] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        tenant_id: tenantId,
+        legal_entity_id: legalEntityId,
+        site_id: { not: null },
+        status: {
+          in: [
+            InvoiceStatus.FINALIZED,
+            InvoiceStatus.ISSUED,
+            InvoiceStatus.PAID,
+            InvoiceStatus.CANCELLED,
+          ],
+        },
+        date: dateFilter,
+      },
+      select: { site_id: true },
+      distinct: ['site_id'],
+    }),
+    prisma.creditNote.findMany({
+      where: {
+        tenant_id: tenantId,
+        legal_entity_id: legalEntityId,
+        status: 'FINALIZED',
+        date: dateFilter,
+      },
+      select: { site_id: true },
+      distinct: ['site_id'],
+    }),
+    entitySiteIds.length > 0
+      ? prisma.inventoryTransaction.findMany({
+          where: {
+            tenant_id: tenantId,
+            site_id: { in: entitySiteIds },
+            type: TransactionType.ADJUSTMENT,
+            cost_basis: { not: null },
+            createdAt: dateFilter,
+          },
+          select: { site_id: true },
+          distinct: ['site_id'],
+        })
+      : Promise.resolve([]),
+  ]);
 
   const siteIds = [
     ...new Set(
-      [...invoiceSiteIds, ...creditSiteIds]
+      [...invoiceSiteIds, ...creditSiteIds, ...adjustmentSiteIds]
         .map((row) => row.site_id)
         .filter((siteId): siteId is string => Boolean(siteId)),
     ),

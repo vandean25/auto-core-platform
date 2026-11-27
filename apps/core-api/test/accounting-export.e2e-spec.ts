@@ -253,10 +253,7 @@ describe('Accounting export (e2e)', () => {
     );
   }
 
-  function previewExport(
-    body: Record<string, unknown>,
-    token = authTokenA,
-  ) {
+  function previewExport(body: Record<string, unknown>, token = authTokenA) {
     return request(app.getHttpServer())
       .post('/api/finance/accounting-exports/preview')
       .set('Authorization', `Bearer ${token}`)
@@ -348,7 +345,12 @@ describe('Accounting export (e2e)', () => {
       .expect(404);
 
     await openFinancePeriod();
-    const februaryInvoice = await finalizeSalesInvoice(1, 60, '2026-02-10', deSiteId);
+    const februaryInvoice = await finalizeSalesInvoice(
+      1,
+      60,
+      '2026-02-10',
+      deSiteId,
+    );
     await tenantPrisma.invoice.updateMany({
       where: { id: februaryInvoice.id },
       data: { site_id: deSite2Id },
@@ -575,7 +577,9 @@ describe('Accounting export (e2e)', () => {
       DATEV_BUCHUNGSSTAPEL_COLUMN_COUNT,
     );
     expect(
-      createHash('sha256').update(download.body as Buffer).digest('hex'),
+      createHash('sha256')
+        .update(download.body as Buffer)
+        .digest('hex'),
     ).toBe(generated.body.sha256);
   });
 
@@ -649,7 +653,12 @@ describe('Accounting export (e2e)', () => {
     ).toBe(true);
 
     await openFinancePeriod();
-    const orphanInvoice = await finalizeSalesInvoice(1, 65, '2026-06-12', deSiteId);
+    const orphanInvoice = await finalizeSalesInvoice(
+      1,
+      65,
+      '2026-06-12',
+      deSiteId,
+    );
     await tenantPrisma.invoice.updateMany({
       where: { id: orphanInvoice.id },
       data: { legal_entity_id: null, site_id: deSite2Id },
@@ -698,7 +707,9 @@ describe('Accounting export (e2e)', () => {
 
     expect(downloadOnce.body).toEqual(downloadTwice.body);
     expect(
-      createHash('sha256').update(downloadOnce.body as Buffer).digest('hex'),
+      createHash('sha256')
+        .update(downloadOnce.body as Buffer)
+        .digest('hex'),
     ).toBe(generated.body.sha256);
   });
 
@@ -742,14 +753,18 @@ describe('Accounting export (e2e)', () => {
       .expect(200);
 
     expect(
-      list.body.data.some((row: { id: string }) => row.id === generated.body.id),
+      list.body.data.some(
+        (row: { id: string }) => row.id === generated.body.id,
+      ),
     ).toBe(true);
 
     const download = await downloadExport(generated.body.id);
 
     expect(download.headers['content-disposition']).toContain('.csv');
     expect(
-      createHash('sha256').update(download.body as Buffer).digest('hex'),
+      createHash('sha256')
+        .update(download.body as Buffer)
+        .digest('hex'),
     ).toBe(generated.body.sha256);
   });
 
@@ -772,5 +787,126 @@ describe('Accounting export (e2e)', () => {
       profileVersion: preview.body.profileVersion,
       idempotencyKey: `stale-${randomUUID()}`,
     }).expect(409);
+  });
+
+  it('AUT-1049: exports valued stock corrections (plus, minus, reversal, 2-decimal Wert, unmapped account), omits unvalued & already-exported, keeps invoices intact', async () => {
+    await openFinancePeriod();
+    const location = await tenantPrisma.storageLocation.findFirstOrThrow({
+      where: { site_id: deSiteId },
+      select: { id: true },
+    });
+
+    // Period 2027-02: invoice + plus (2 * 1.2345 = 2.47) + minus (-1 * 10 = -10.00) + unvalued (null cost_basis)
+    await finalizeSalesInvoice(1, 100, '2027-02-10', deSiteId);
+
+    const plusTx = await tenantPrisma.inventoryTransaction.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: deSiteId,
+        item_id: catalogItemId,
+        location_id: location.id,
+        quantity: '2.000',
+        type: 'ADJUSTMENT',
+        cost_basis: '1.2345',
+        reason: 'INVENTORY_COUNT',
+        createdAt: new Date('2027-02-12T10:00:00.000Z'),
+      },
+    });
+
+    const minusTx = await tenantPrisma.inventoryTransaction.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: deSiteId,
+        item_id: catalogItemId,
+        location_id: location.id,
+        quantity: '-1.000',
+        type: 'ADJUSTMENT',
+        cost_basis: '10.0000',
+        reason: 'DAMAGE',
+        createdAt: new Date('2027-02-13T10:00:00.000Z'),
+      },
+    });
+
+    const unvaluedTx = await tenantPrisma.inventoryTransaction.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        site_id: deSiteId,
+        item_id: catalogItemId,
+        location_id: location.id,
+        quantity: '5.000',
+        type: 'ADJUSTMENT',
+        cost_basis: null,
+        reason: 'OTHER',
+        note: 'Legacy unvalued',
+        createdAt: new Date('2027-02-14T10:00:00.000Z'),
+      },
+    });
+
+    await closeFinancePeriod(prisma, tenantA.tenantId, '2027-02-28');
+
+    const preview1 = await previewExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2027-02-01',
+      dateTo: '2027-02-28',
+    }).expect(200);
+
+    // 1 invoice + 2 valued adjustments (unvalued omitted)
+    expect(preview1.body.documentCount).toBe(3);
+    expect(preview1.body.canGenerate).toBe(true);
+
+    const gen1 = await generateExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2027-02-01',
+      dateTo: '2027-02-28',
+      previewHash: preview1.body.previewHash,
+      profileVersion: preview1.body.profileVersion,
+      idempotencyKey: `aut1049-1-${randomUUID()}`,
+      acknowledgeOverlap: true,
+    }).expect(201);
+
+    const dl1 = await downloadExport(gen1.body.id);
+    const csv1 = decodeDatevCsv(dl1.body as Buffer);
+    const lines1 = csv1.trimEnd().split('\r\n').slice(2);
+    expect(lines1).toHaveLength(3);
+
+    // Plus adjustment: 2,47, S, empty BU-Schlüssel
+    const plusLine = lines1.find((l) => l.includes(plusTx.id.slice(0, 8)));
+    expect(plusLine).toBeDefined();
+    expect(plusLine!.split(';')[0]).toBe('2,47');
+    expect(plusLine!.split(';')[1]).toBe('"S"');
+    expect(plusLine!.split(';')[8]).toBe('');
+
+    // Minus adjustment: 10,00, H, empty BU-Schlüssel
+    const minusLine = lines1.find((l) => l.includes(minusTx.id.slice(0, 8)));
+    expect(minusLine).toBeDefined();
+    expect(minusLine!.split(';')[0]).toBe('10,00');
+    expect(minusLine!.split(';')[1]).toBe('"H"');
+    expect(minusLine!.split(';')[8]).toBe('');
+
+    // Unvalued adjustment must never appear
+    expect(csv1).not.toContain(unvaluedTx.id.slice(0, 8));
+
+    // Scenario 4 / Anti-criterion 2: second export of same period must not duplicate adjustments
+    const preview2 = await previewExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2027-02-01',
+      dateTo: '2027-02-28',
+    }).expect(200);
+    expect(preview2.body.documentCount).toBe(1); // Only the invoice remains
+
+    const gen2 = await generateExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2027-02-01',
+      dateTo: '2027-02-28',
+      previewHash: preview2.body.previewHash,
+      profileVersion: preview2.body.profileVersion,
+      idempotencyKey: `aut1049-2-${randomUUID()}`,
+      acknowledgeOverlap: true,
+    }).expect(201);
+
+    const dl2 = await downloadExport(gen2.body.id);
+    const csv2 = decodeDatevCsv(dl2.body as Buffer);
+    expect(csv2).not.toContain(plusTx.id.slice(0, 8));
+    expect(csv2).not.toContain(minusTx.id.slice(0, 8));
   });
 });

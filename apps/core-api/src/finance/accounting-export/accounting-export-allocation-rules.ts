@@ -42,6 +42,7 @@ export type AccountingExportAllocationRules = {
   marginScheme: AccountingExportMarginSchemeRules;
   roundingAccount?: string;
   roundingSteuercode?: string;
+  stockAdjustmentAccount?: string;
   taxRateIssue(taxRate: string): AccountingExportRuleIssue | null;
   /** Optional per-allocation check for text the export file cannot carry. */
   allocationIssue?(
@@ -193,9 +194,18 @@ export function allocationRulesForProfile(
     const rules = marginScheme
       ? buildDatevAllocationRules(marginScheme)
       : DATEV_ALLOCATION_RULES;
-    return rounding.roundingAccount
-      ? { ...rules, roundingAccount: rounding.roundingAccount }
-      : rules;
+    if (!rounding.roundingAccount && !rounding.stockAdjustmentAccount) {
+      return rules;
+    }
+    return {
+      ...rules,
+      ...(rounding.roundingAccount
+        ? { roundingAccount: rounding.roundingAccount }
+        : {}),
+      ...(rounding.stockAdjustmentAccount
+        ? { stockAdjustmentAccount: rounding.stockAdjustmentAccount }
+        : {}),
+    };
   }
   const { rzl } = parseAccountingProfileSerializerParams(serializerParams);
   return { ...buildRzlAllocationRules(rzl?.steuercodes ?? {}), ...rounding };

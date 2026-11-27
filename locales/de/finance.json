@@ -122,7 +122,8 @@
     },
     "documentKind": {
       "INVOICE": "Rechnung",
-      "CREDIT_NOTE": "Gutschrift"
+      "CREDIT_NOTE": "Gutschrift",
+      "STOCK_ADJUSTMENT": "Bestandsveränderung"
     }
   },
   "creditNotes": {

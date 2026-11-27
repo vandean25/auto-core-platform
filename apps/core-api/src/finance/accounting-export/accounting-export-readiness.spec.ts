@@ -1,4 +1,5 @@
 import type { AccountingExportSite } from './accounting-export-scope.js';
+import { UNLISTED_BLOCKER_CODES } from './accounting-export-codes.js';
 import type {
   AccountingExportBlocker,
   AccountingExportBlockerCode,
@@ -107,7 +108,9 @@ describe('buildAccountingExportReadiness', () => {
     ).toEqual([
       ['INVOICE', 4, 2, 2],
       ['CREDIT_NOTE', 1, 1, 0],
+      ['STOCK_ADJUSTMENT', 0, 0, 0],
     ]);
+    expect(UNLISTED_BLOCKER_CODES).toEqual({});
   });
 
   it('counts a document once per reason even when several lines raise the same blocker', () => {
@@ -296,13 +299,15 @@ describe('buildAccountingExportReadiness', () => {
   it('links each listed document to its in-app page and resolves its site', () => {
     const view = build(mixedPeriod());
 
-    expect(view.data.find((document) => document.id === 'cn-de')).toMatchObject({
-      href: '/finance/credit-notes/cn-de',
-      site: { id: 'site-berlin', code: 'DE-BER', name: 'Berlin Branch' },
-    });
-    expect(
-      view.data.find((document) => document.id === 'inv-at')?.href,
-    ).toBe('/sales/invoices/inv-at');
+    expect(view.data.find((document) => document.id === 'cn-de')).toMatchObject(
+      {
+        href: '/finance/credit-notes/cn-de',
+        site: { id: 'site-berlin', code: 'DE-BER', name: 'Berlin Branch' },
+      },
+    );
+    expect(view.data.find((document) => document.id === 'inv-at')?.href).toBe(
+      '/sales/invoices/inv-at',
+    );
   });
 
   it('reports no site for a document without one', () => {

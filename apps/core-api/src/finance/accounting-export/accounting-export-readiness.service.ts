@@ -31,6 +31,7 @@ import type { AccountingExportReadinessQueryDto } from './dto/accounting-export-
 const DOCUMENT_PAGE_PATH: Record<AccountingExportDocumentKind, string> = {
   INVOICE: '/sales/invoices/:id',
   CREDIT_NOTE: '/finance/credit-notes/:id',
+  STOCK_ADJUSTMENT: '/inventory',
 };
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -113,6 +114,7 @@ export class AccountingExportReadinessService {
           settings.profile?.profile_code ?? null,
           settings.profile?.serializer_params,
         ),
+        authorizedSiteIds,
       ),
       loadTenantOwnershipBlockers(
         this.prisma,
