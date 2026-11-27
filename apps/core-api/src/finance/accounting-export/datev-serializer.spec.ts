@@ -1,3 +1,6 @@
+import { Prisma } from '@prisma/client';
+import { buildStockAdjustmentRows } from './accounting-export-booking-rows.js';
+import type { AccountingExportBookingRow } from './accounting-export.types.js';
 import {
   DATEV_ADMIN_HEADER_FIELD_COUNT,
   DATEV_BUCHUNGSSTAPEL_COLUMN_COUNT,
@@ -179,5 +182,65 @@ describe('datev-serializer', () => {
       '',
       '',
     ]);
+  });
+
+  it('AUT-1049: keeps invoice lines including BU-Schlüssel intact when a stock adjustment is in the period (Anti-criterion 3)', () => {
+    const invoiceRow: AccountingExportBookingRow = {
+      documentId: 'invoice-1',
+      documentKind: 'INVOICE',
+      documentNumber: 'RE-2026-0001',
+      documentDate: '2026-01-10',
+      lineId: 'line-1',
+      polarity: 'S',
+      net: '100.00',
+      tax: '19.00',
+      taxRate: '19.00',
+      gross: '119.00',
+      debtorAccount: '1000',
+      revenueAccount: '8400',
+      buKey: '3',
+      bookingText: 'RE RE-2026-0001',
+    };
+    const createdAt = new Date('2026-01-15T10:04:04.000Z');
+    const baseline = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: [invoiceRow],
+    });
+    const baselineLines = baseline.csvText.trimEnd().split('\r\n').slice(2);
+
+    const stockRows = buildStockAdjustmentRows(
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        seq: BigInt(103),
+        site_id: 'site-1',
+        quantity: new Prisma.Decimal('2.000'),
+        cost_basis: new Prisma.Decimal('1.2345'),
+        reason: 'INVENTORY_COUNT',
+        note: null,
+        reversal_of_transaction_id: null,
+        reversed_by: [],
+        item: { sku: 'BRK-001', name: 'Brake Pad' },
+        createdAt: new Date('2026-01-12T10:00:00.000Z'),
+      },
+      '2026-01-12',
+      '5800',
+    );
+    const combined = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: [invoiceRow, ...stockRows],
+    });
+    const combinedLines = combined.csvText.trimEnd().split('\r\n').slice(2);
+
+    expect(combinedLines).toHaveLength(2);
+    expect(combinedLines[0]).toBe(baselineLines[0]);
+    expect(combinedLines[0].split(';')[8]).toBe('3');
+    expect(combinedLines[1].split(';')[0]).toBe('2,47');
+    expect(combinedLines[1].split(';')[8]).toBe('');
   });
 });
