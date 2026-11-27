@@ -32,20 +32,13 @@ test.describe('Bank reconciliation keyboard review flow (AUT-1004 Scenarios 2, 3
 
     const firstOption = page.getByRole('option', { name: /Max Muster/i })
     await expect(firstOption).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('button', { name: deFinance.bankReconciliation.actions.confirm })).toBeVisible()
-    const diag = await page.evaluate(() => ({
-      activeTag: document.activeElement?.tagName ?? null,
-      activeRole: document.activeElement?.getAttribute('role') ?? null,
-      dialogs: document.querySelectorAll('[role="dialog"], [role="alertdialog"]').length,
-    }))
+    await expect(page.getByRole('button', { name: deFinance.bankReconciliation.actions.confirm })).toBeEnabled()
     const confirmResponsePromise = page.waitForResponse(
       (res) => res.request().method() === 'POST' && res.url().includes('/confirm'),
       { timeout: 15_000 },
     )
     await page.keyboard.press('Enter')
-    const confirmResponse = await confirmResponsePromise.catch((err) => {
-      throw new Error(`POST /confirm did not fire (diag=${JSON.stringify(diag)}): ${String(err)}`)
-    })
+    const confirmResponse = await confirmResponsePromise
     expect(
       confirmResponse.ok(),
       `POST /confirm failed: ${confirmResponse.status()} ${await confirmResponse.text()}`,
