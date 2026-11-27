@@ -1,9 +1,11 @@
 import { InvoiceTaxMode, Prisma } from '@prisma/client';
 import type { InvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
 import {
+  halfUpTax,
   INVOICE_SNAPSHOT_COUNTRY_PROFILE_VERSION,
   INVOICE_SNAPSHOT_SCHEMA_VERSION,
   INVOICE_SNAPSHOT_TEMPLATE_VERSION,
+  type InvoiceSnapshotV2TaxBucket,
 } from '../invoices/invoice-snapshot-v2.js';
 import type { OriginalLineSnapshot } from './credit-note-allocation.js';
 import {
@@ -58,37 +60,23 @@ export function extractOriginalLineSnapshots(
   }));
 }
 
-export function buildCreditNoteSnapshot(input: {
-  originalSnapshot: InvoiceSnapshotV2;
-  originalInvoiceId: string;
-  originalInvoiceNumber: string;
-  originalInvoiceDate: Date;
-  reason: string;
-  creditDate: Date;
-  isFullCredit: boolean;
-  lineSnapshots: CreditNoteLineSnapshot[];
-  committedAt: Date;
-  timeZone?: string;
-}): CreditNoteSnapshotV2 {
-  const timeZone = input.timeZone ?? DEFAULT_INVOICE_TIME_ZONE;
-  const totalNet = input.lineSnapshots.reduce(
-    (sum, line) => sum.add(new Prisma.Decimal(line.net)),
-    new Prisma.Decimal(0),
-  );
-  const totalTax = input.lineSnapshots.reduce(
-    (sum, line) => sum.add(new Prisma.Decimal(line.tax)),
-    new Prisma.Decimal(0),
-  );
-  const totalGross = input.lineSnapshots.reduce(
-    (sum, line) => sum.add(new Prisma.Decimal(line.gross)),
-    new Prisma.Decimal(0),
-  );
+type CreditTaxLine = Pick<
+  CreditNoteLineSnapshot,
+  'tax_rate' | 'net' | 'tax' | 'gross'
+>;
 
-  const taxBuckets = new Map<
-    string,
-    { rate: string; net: string; tax: string; gross: string }
-  >();
-  for (const line of input.lineSnapshots) {
+type CreditTaxSummary = {
+  totalNet: Prisma.Decimal;
+  totalTax: Prisma.Decimal;
+  totalGross: Prisma.Decimal;
+  taxBreakdown: InvoiceSnapshotV2TaxBucket[];
+};
+
+function sumLegacyCreditLines(
+  lineSnapshots: readonly CreditTaxLine[],
+): CreditTaxSummary {
+  const taxBuckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
+  for (const line of lineSnapshots) {
     const existing = taxBuckets.get(line.tax_rate) ?? {
       rate: line.tax_rate,
       net: '0.00',
@@ -108,6 +96,170 @@ export function buildCreditNoteSnapshot(input: {
       ),
     });
   }
+  const taxBreakdown = [...taxBuckets.values()];
+  const totalNet = lineSnapshots.reduce(
+    (sum, line) => sum.add(new Prisma.Decimal(line.net)),
+    new Prisma.Decimal(0),
+  );
+  const totalTax = lineSnapshots.reduce(
+    (sum, line) => sum.add(new Prisma.Decimal(line.tax)),
+    new Prisma.Decimal(0),
+  );
+  const totalGross = lineSnapshots.reduce(
+    (sum, line) => sum.add(new Prisma.Decimal(line.gross)),
+    new Prisma.Decimal(0),
+  );
+  return { totalNet, totalTax, totalGross, taxBreakdown };
+}
+
+export function computeCreditNoteTaxSummary(input: {
+  originalSnapshot: InvoiceSnapshotV2;
+  lineSnapshots: readonly CreditTaxLine[];
+  isFullCredit: boolean;
+  priorCreditTaxBuckets?: readonly InvoiceSnapshotV2TaxBucket[];
+}): CreditTaxSummary {
+  if (isMarginSchemeSnapshot(input.originalSnapshot)) {
+    const totalNet = input.lineSnapshots.reduce(
+      (sum, line) => sum.add(new Prisma.Decimal(line.net)),
+      new Prisma.Decimal(0),
+    );
+    const totalGross = input.lineSnapshots.reduce(
+      (sum, line) => sum.add(new Prisma.Decimal(line.gross)),
+      new Prisma.Decimal(0),
+    );
+    return {
+      totalNet,
+      totalTax: new Prisma.Decimal(0),
+      totalGross,
+      taxBreakdown: [],
+    };
+  }
+
+  if (input.lineSnapshots.length === 0) {
+    return {
+      totalNet: new Prisma.Decimal(0),
+      totalTax: new Prisma.Decimal(0),
+      totalGross: new Prisma.Decimal(0),
+      taxBreakdown: [],
+    };
+  }
+
+  if (input.originalSnapshot.vat_calculation !== 'PER_RATE') {
+    return sumLegacyCreditLines(input.lineSnapshots);
+  }
+
+  const priorTaxByRate = new Map<string, Prisma.Decimal>();
+  const priorNetByRate = new Map<string, Prisma.Decimal>();
+  for (const bucket of input.priorCreditTaxBuckets ?? []) {
+    const rate = moneyString(new Prisma.Decimal(bucket.rate));
+    priorTaxByRate.set(
+      rate,
+      (priorTaxByRate.get(rate) ?? new Prisma.Decimal(0)).add(
+        new Prisma.Decimal(bucket.tax),
+      ),
+    );
+    priorNetByRate.set(
+      rate,
+      (priorNetByRate.get(rate) ?? new Prisma.Decimal(0)).add(
+        new Prisma.Decimal(bucket.net),
+      ),
+    );
+  }
+
+  const originalNetByRate = new Map<string, Prisma.Decimal>();
+  const remainingTaxByRate = new Map<string, Prisma.Decimal>();
+  for (const bucket of input.originalSnapshot.tax_breakdown) {
+    const rate = moneyString(new Prisma.Decimal(bucket.rate));
+    originalNetByRate.set(rate, new Prisma.Decimal(bucket.net));
+    const remaining = new Prisma.Decimal(bucket.tax).sub(
+      priorTaxByRate.get(rate) ?? new Prisma.Decimal(0),
+    );
+    remainingTaxByRate.set(
+      rate,
+      Prisma.Decimal.max(remaining, new Prisma.Decimal(0)),
+    );
+  }
+
+  const netByRate = new Map<string, Prisma.Decimal>();
+  for (const line of input.lineSnapshots) {
+    const rate = moneyString(new Prisma.Decimal(line.tax_rate));
+    netByRate.set(
+      rate,
+      (netByRate.get(rate) ?? new Prisma.Decimal(0)).add(
+        new Prisma.Decimal(line.net),
+      ),
+    );
+  }
+
+  const taxBreakdown: InvoiceSnapshotV2TaxBucket[] = [...netByRate.entries()]
+    .sort(([left], [right]) =>
+      new Prisma.Decimal(left).comparedTo(new Prisma.Decimal(right)),
+    )
+    .map(([rate, net]) => {
+      const remainingTax = remainingTaxByRate.get(rate);
+      const originalNet = originalNetByRate.get(rate);
+      const priorNet = priorNetByRate.get(rate) ?? new Prisma.Decimal(0);
+      const isRateFullyCredited =
+        originalNet !== undefined && net.add(priorNet).eq(originalNet);
+      const tax =
+        (input.isFullCredit || isRateFullyCredited) &&
+        remainingTax !== undefined
+          ? remainingTax
+          : remainingTax !== undefined
+            ? Prisma.Decimal.min(
+                halfUpTax(net, new Prisma.Decimal(rate)),
+                remainingTax,
+              )
+            : halfUpTax(net, new Prisma.Decimal(rate));
+      return {
+        rate,
+        net: moneyString(net),
+        tax: moneyString(tax),
+        gross: moneyString(net.add(tax)),
+      };
+    });
+
+  const totalNet = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(new Prisma.Decimal(bucket.net)),
+    new Prisma.Decimal(0),
+  );
+  const totalTax = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(new Prisma.Decimal(bucket.tax)),
+    new Prisma.Decimal(0),
+  );
+  return {
+    totalNet,
+    totalTax,
+    totalGross: totalNet
+      .add(totalTax)
+      .add(
+        input.isFullCredit ? (input.originalSnapshot.rounding_amount ?? 0) : 0,
+      ),
+    taxBreakdown,
+  };
+}
+
+export function buildCreditNoteSnapshot(input: {
+  originalSnapshot: InvoiceSnapshotV2;
+  originalInvoiceId: string;
+  originalInvoiceNumber: string;
+  originalInvoiceDate: Date;
+  reason: string;
+  creditDate: Date;
+  isFullCredit: boolean;
+  lineSnapshots: CreditNoteLineSnapshot[];
+  committedAt: Date;
+  timeZone?: string;
+  priorCreditTaxBuckets?: readonly InvoiceSnapshotV2TaxBucket[];
+}): CreditNoteSnapshotV2 {
+  const timeZone = input.timeZone ?? DEFAULT_INVOICE_TIME_ZONE;
+  const { totalNet, totalTax, totalGross, taxBreakdown } =
+    computeCreditNoteTaxSummary({
+      originalSnapshot: input.originalSnapshot,
+      lineSnapshots: input.lineSnapshots,
+      isFullCredit: input.isFullCredit,
+      priorCreditTaxBuckets: input.priorCreditTaxBuckets,
+    });
 
   const seller = input.originalSnapshot.seller;
   const inheritedLocale =
@@ -149,9 +301,10 @@ export function buildCreditNoteSnapshot(input: {
       accounting_allocation: line.accounting_allocation as never,
     })),
     // Margin-scheme documents carry no VAT buckets, mirroring the original snapshot (ADR-0023).
-    tax_breakdown: isMarginSchemeSnapshot(input.originalSnapshot)
-      ? []
-      : [...taxBuckets.values()],
+    tax_breakdown: taxBreakdown,
+    ...(input.isFullCredit && input.originalSnapshot.rounding_amount
+      ? { rounding_amount: input.originalSnapshot.rounding_amount }
+      : {}),
     ...(input.originalSnapshot.margin
       ? { margin: input.originalSnapshot.margin }
       : {}),

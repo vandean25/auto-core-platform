@@ -33,5 +33,6 @@ Need who changed a draft line yesterday? **OWNER** / **ADMIN** → [Audit logs](
   </Accordion>
   <Accordion title="PDF language and number format">
     **Download PDF** uses the customer’s stored language (preferred language on the customer, else tenant default). Amounts on German invoice PDFs use Austrian formatting (thousands with a dot, decimals with a comma); net line totals are consistent on the PDF.
+    Converting VAT-inclusive workshop prices to net prices can leave a rounding difference. The PDF shows it as **Rounding** before the gross total. VAT is calculated on the net subtotal for each rate.
   </Accordion>
 </AccordionGroup>

@@ -131,7 +131,8 @@ export function buildBmdNtcsBookingFields(
     Gegenkonto: quoteBmdText(row.revenueAccount),
     Betrag: formatBmdAmount(row.gross),
     Sollhabenkennzeichen: BMD_SOLLHABEN_BY_DOCUMENT_KIND[row.documentKind],
-    Steuercode: resolveBmdSteuercode(row.taxRate, steuercodes),
+    Steuercode:
+      row.roundingSteuercode ?? resolveBmdSteuercode(row.taxRate, steuercodes),
     Text: quoteBmdText(row.bookingText),
     Kostenstelle: '',
     'OP-Nummer': quoteBmdText(opReference),

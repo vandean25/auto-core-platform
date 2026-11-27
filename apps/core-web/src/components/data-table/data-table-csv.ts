@@ -1,6 +1,6 @@
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
-import { serializeCsv } from '@/lib/csv'
+import { cellToText, serializeCsv } from '@/lib/csv'
 import { getDataTableColumnLabel } from './data-table-column-label'
 
 // Text-like form fields show their value as a property rather than as text, and that value is what a reader sees.
@@ -28,8 +28,16 @@ function readDisplayedText(node: Node): string {
  * Serialises the cells the table is rendering right now, as the user reads them: formatted amounts,
  * names and labels, not the raw record values. Server-paged lists therefore export the loaded page.
  */
-export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null): string {
+export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null, mobile = false): string {
   const columns = getDataTableExportColumns(table)
+  if (mobile && root?.querySelector('[data-table-list]')) {
+    const rowsById = table.getRowModel().rowsById
+    const body = Array.from(root.querySelectorAll('li[data-table-row][data-row-id]')).map((element) => {
+      const row = rowsById[element.getAttribute('data-row-id') ?? '']
+      return columns.map((column) => cellToText(row?.getValue(column.id)).replace(/\s+/g, ' ').trim())
+    })
+    return serializeCsv([columns.map(getDataTableColumnLabel), ...body])
+  }
   const renderedRows = root ? Array.from(root.querySelectorAll('tbody tr[data-table-row]')) : []
   const cellTexts = renderedRows.map((row) => {
     const cells = Array.from(row.children)

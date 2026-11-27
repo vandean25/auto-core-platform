@@ -18,10 +18,13 @@ import type {
   UpdateInvoiceDiscountLineDto,
   UpdateInvoiceDiscountsDto,
 } from './dto/update-invoice-discounts.dto.js';
-import { calculateInvoiceTotals } from './invoice-creation.helpers.js';
 import { omitInvoiceSnapshot } from './invoice-response.mapper.js';
 import { lockInvoiceRowForUpdate } from './invoice-snapshot-commit.service.js';
-import { lineNetBeforeGlobalDiscount } from './invoice-snapshot-v2.js';
+import {
+  computeStandardInvoiceTotals,
+  lineNetBeforeGlobalDiscount,
+  type InvoiceBilledLineInput,
+} from './invoice-snapshot-v2.js';
 
 type ResolvedDiscount = {
   type: DiscountType | null;
@@ -29,13 +32,7 @@ type ResolvedDiscount = {
   changed: boolean;
 };
 
-type ResolvedLineState = {
-  id: string;
-  quantity: Prisma.Decimal;
-  unitPrice: Prisma.Decimal;
-  taxRate: Prisma.Decimal;
-  lineDiscountType: DiscountType | null;
-  lineDiscountValue: Prisma.Decimal | null;
+type ResolvedLineState = InvoiceBilledLineInput & {
   lineTotal: Prisma.Decimal;
   changed: boolean;
 };
@@ -128,6 +125,7 @@ function resolveLineStates(
     id: string;
     quantity: Prisma.Decimal;
     unit_price: Prisma.Decimal;
+    gross_unit_price?: Prisma.Decimal | null;
     tax_rate: Prisma.Decimal;
     line_discount_type: DiscountType | null;
     line_discount_value: Prisma.Decimal | null;
@@ -191,6 +189,7 @@ function resolveLineStates(
       id: item.id,
       quantity,
       unitPrice,
+      grossUnitPrice: item.gross_unit_price,
       taxRate,
       lineDiscountType: resolved.type,
       lineDiscountValue: resolved.value,
@@ -256,15 +255,8 @@ export async function executeUpdateInvoiceDiscounts(
     netAfterLineDiscounts,
   );
 
-  const totals = calculateInvoiceTotals(
-    resolvedLines.map((line) => ({
-      id: line.id,
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      taxRate: line.taxRate,
-      line_discount_type: line.lineDiscountType,
-      line_discount_value: line.lineDiscountValue,
-    })),
+  const totals = computeStandardInvoiceTotals(
+    resolvedLines,
     resolvedGlobal.type,
     resolvedGlobal.value,
   );

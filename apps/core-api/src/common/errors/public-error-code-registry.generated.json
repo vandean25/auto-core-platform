@@ -419,6 +419,10 @@
       "public": false,
       "params": []
     },
+    "CUSTOM_FIELD_FILTER_INVALID": {
+      "public": true,
+      "params": []
+    },
     "CUSTOM_FIELD_KEY_CONFLICT": {
       "public": false,
       "params": []

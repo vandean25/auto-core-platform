@@ -289,4 +289,300 @@ describe('toRenderableCreditNoteSnapshot', () => {
     expect(built.date).toBe('2027-01-01');
     expect(built.original_document.date).toBe('2026-12-31');
   });
+
+  // AUT-1087 Scenario 6: reversing an old invoice reverses amounts as issued, not recomputed ones
+  it.each([
+    {
+      label: 'old invoice with line-summed VAT 6.00 < per-rate 6.01 (3 x 10.02 at 20%)',
+      unitPrice: '10.02',
+      lineTax: '2.00',
+      lineGross: '12.02',
+      issuedNet: '30.06',
+      issuedTax: '6.00',
+      issuedGross: '36.06',
+    },
+    {
+      label: 'old invoice with line-summed VAT 6.03 > per-rate 6.02 (3 x 10.03 at 20%)',
+      unitPrice: '10.03',
+      lineTax: '2.01',
+      lineGross: '12.04',
+      issuedNet: '30.09',
+      issuedTax: '6.03',
+      issuedGross: '36.12',
+    },
+  ])(
+    'AUT-1087 S6: reverses $label as issued, not recomputed',
+    ({ unitPrice, lineTax, lineGross, issuedNet, issuedTax, issuedGross }) => {
+      const lineSnapshots = ['l1', 'l2', 'l3'].map((id) => ({
+        original_item_id: id,
+        description: 'Part',
+        quantity: '1.000',
+        unit_price: unitPrice,
+        line_discount_type: null,
+        line_discount_value: null,
+        net: unitPrice,
+        tax: lineTax,
+        gross: lineGross,
+        tax_rate: '20.00',
+        revenue_group_name: 'Parts',
+        accounting_allocation: {},
+      }));
+
+      const built = buildCreditNoteSnapshot({
+        originalSnapshot: {
+          ...snapshot,
+          items: lineSnapshots.map((l) => ({ ...l, id: l.original_item_id })),
+          tax_breakdown: [
+            { rate: '20.00', net: issuedNet, tax: issuedTax, gross: issuedGross },
+          ],
+          total_net: issuedNet,
+          total_tax: issuedTax,
+          total_gross: issuedGross,
+        } as unknown as Parameters<
+          typeof buildCreditNoteSnapshot
+        >[0]['originalSnapshot'],
+        originalInvoiceId: 'inv-old',
+        originalInvoiceNumber: 'RE-2026-0001',
+        originalInvoiceDate: new Date('2026-10-01T10:00:00.000Z'),
+        reason: 'Full reversal of old invoice',
+        creditDate: new Date('2026-11-01T10:00:00.000Z'),
+        isFullCredit: true,
+        lineSnapshots,
+        committedAt: new Date('2026-11-01T10:00:00.000Z'),
+      });
+
+      expect(built.total_net).toBe(issuedNet);
+      expect(built.total_tax).toBe(issuedTax);
+      expect(built.total_gross).toBe(issuedGross);
+      expect(built.tax_breakdown).toEqual([
+        { rate: '20.00', net: issuedNet, tax: issuedTax, gross: issuedGross },
+      ]);
+    },
+  );
+
+  it('AUT-1087 S6: credits stored line VAT when a legacy bucket happens to equal per-rate VAT', () => {
+    const items = ['10.02', '10.02', '10.03', '10.03'].map((net, index) => ({
+      id: `l${index}`,
+      original_item_id: `l${index}`,
+      description: 'Part',
+      quantity: '1.000',
+      unit_price: net,
+      tax_rate: '20.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net,
+      tax: net === '10.02' ? '2.00' : '2.01',
+      gross: net === '10.02' ? '12.02' : '12.04',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    }));
+    const credit = buildCreditNoteSnapshot({
+      originalSnapshot: {
+        ...snapshot,
+        items,
+        total_net: '40.10',
+        total_tax: '8.02',
+        total_gross: '48.12',
+        tax_breakdown: [
+          { rate: '20.00', net: '40.10', tax: '8.02', gross: '48.12' },
+        ],
+      } as unknown as Parameters<
+        typeof buildCreditNoteSnapshot
+      >[0]['originalSnapshot'],
+      originalInvoiceId: 'inv-old',
+      originalInvoiceNumber: 'RE-2026-0001',
+      originalInvoiceDate: new Date('2026-10-01T10:00:00Z'),
+      reason: 'First two items returned',
+      creditDate: new Date('2026-11-01T10:00:00Z'),
+      isFullCredit: false,
+      lineSnapshots: items.slice(0, 2),
+      committedAt: new Date('2026-11-01T10:00:00Z'),
+    });
+
+    expect(credit.tax_breakdown).toEqual([
+      { rate: '20.00', net: '20.04', tax: '4.00', gross: '24.04' },
+    ]);
+  });
+
+  it('AUT-1087: full and partial credits on per-rate invoice use per-rate VAT and consume exact remaining cents', () => {
+    const originalItems = ['l1', 'l2', 'l3'].map((id) => ({
+      id,
+      description: 'Part',
+      quantity: '1.000',
+      unit_price: '10.02',
+      tax_rate: '20.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net: '10.02',
+      tax: '2.00',
+      gross: '12.02',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    }));
+    const perRateOriginal = {
+      ...snapshot,
+      vat_calculation: 'PER_RATE',
+      items: originalItems,
+      tax_breakdown: [
+        { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+      ],
+      total_net: '30.06',
+      total_tax: '6.01',
+      total_gross: '36.07',
+    } as unknown as Parameters<
+      typeof buildCreditNoteSnapshot
+    >[0]['originalSnapshot'];
+
+    const toCreditLine = (item: (typeof originalItems)[number]) => ({
+      original_item_id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      line_discount_type: null,
+      line_discount_value: null,
+      net: item.net,
+      tax: item.tax,
+      gross: item.gross,
+      tax_rate: item.tax_rate,
+      revenue_group_name: item.revenue_group_name,
+      accounting_allocation: {},
+    });
+
+    // Full credit on per-rate invoice
+    const full = buildCreditNoteSnapshot({
+      originalSnapshot: perRateOriginal,
+      originalInvoiceId: 'inv-new',
+      originalInvoiceNumber: 'RE-2026-0002',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'Full cancellation',
+      creditDate: new Date('2026-11-02T10:00:00.000Z'),
+      isFullCredit: true,
+      lineSnapshots: originalItems.map(toCreditLine),
+      committedAt: new Date('2026-11-02T10:00:00.000Z'),
+    });
+
+    expect(full.total_net).toBe('30.06');
+    expect(full.total_tax).toBe('6.01');
+    expect(full.total_gross).toBe('36.07');
+    expect(full.tax_breakdown).toEqual([
+      { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+    ]);
+
+    // Partial credit of 2 lines (20.04 * 20% = 4.008 -> 4.01)
+    const partial = buildCreditNoteSnapshot({
+      originalSnapshot: perRateOriginal,
+      originalInvoiceId: 'inv-new',
+      originalInvoiceNumber: 'RE-2026-0002',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'Partial return',
+      creditDate: new Date('2026-11-02T10:00:00.000Z'),
+      isFullCredit: false,
+      lineSnapshots: originalItems.slice(0, 2).map(toCreditLine),
+      committedAt: new Date('2026-11-02T10:00:00.000Z'),
+    });
+
+    expect(partial.total_net).toBe('20.04');
+    expect(partial.total_tax).toBe('4.01');
+    expect(partial.total_gross).toBe('24.05');
+    expect(partial.tax_breakdown).toEqual([
+      { rate: '20.00', net: '20.04', tax: '4.01', gross: '24.05' },
+    ]);
+  });
+
+  it('AUT-1087: second partial credit (isFullCredit: false) that completes a rate bucket consumes remaining VAT cents via priorCreditTaxBuckets', () => {
+    const items20 = ['l1', 'l2', 'l3'].map((id) => ({
+      id,
+      description: 'Part 20%',
+      quantity: '1.000',
+      unit_price: '10.01',
+      tax_rate: '20.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net: '10.01',
+      tax: '2.00',
+      gross: '12.01',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    }));
+    const item10 = {
+      id: 'l4',
+      description: 'Part 10%',
+      quantity: '1.000',
+      unit_price: '10.00',
+      tax_rate: '10.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net: '10.00',
+      tax: '1.00',
+      gross: '11.00',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    };
+    const originalWithTwoRates = {
+      ...snapshot,
+      vat_calculation: 'PER_RATE',
+      items: [...items20, item10],
+      tax_breakdown: [
+        { rate: '10.00', net: '10.00', tax: '1.00', gross: '11.00' },
+        { rate: '20.00', net: '30.03', tax: '6.01', gross: '36.04' },
+      ],
+      total_net: '40.03',
+      total_tax: '7.01',
+      total_gross: '47.04',
+    } as unknown as Parameters<
+      typeof buildCreditNoteSnapshot
+    >[0]['originalSnapshot'];
+
+    const toCreditLine = (item: (typeof items20)[number]) => ({
+      original_item_id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      line_discount_type: null,
+      line_discount_value: null,
+      net: item.net,
+      tax: item.tax,
+      gross: item.gross,
+      tax_rate: item.tax_rate,
+      revenue_group_name: item.revenue_group_name,
+      accounting_allocation: {},
+    });
+
+    // First partial: 2 x 10.01 at 20% -> halfUp(20.02 * 20%) = 4.00
+    const firstPartial = buildCreditNoteSnapshot({
+      originalSnapshot: originalWithTwoRates,
+      originalInvoiceId: 'inv-multi',
+      originalInvoiceNumber: 'RE-2026-0003',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'First partial return',
+      creditDate: new Date('2026-11-02T10:00:00.000Z'),
+      isFullCredit: false,
+      lineSnapshots: items20.slice(0, 2).map(toCreditLine),
+      committedAt: new Date('2026-11-02T10:00:00.000Z'),
+    });
+    expect(firstPartial.tax_breakdown).toEqual([
+      { rate: '20.00', net: '20.02', tax: '4.00', gross: '24.02' },
+    ]);
+
+    // Second partial (isFullCredit: false because 10% item remains): last 1 x 10.01 at 20%
+    // halfUp(10.01 * 20%) = 2.00 < remainingTax 2.01, but cumulative 20% net = 30.03 == original 30.03 -> 2.01
+    const secondPartial = buildCreditNoteSnapshot({
+      originalSnapshot: originalWithTwoRates,
+      originalInvoiceId: 'inv-multi',
+      originalInvoiceNumber: 'RE-2026-0003',
+      originalInvoiceDate: new Date('2026-11-01T10:00:00.000Z'),
+      reason: 'Second partial completes 20% bucket',
+      creditDate: new Date('2026-11-03T10:00:00.000Z'),
+      isFullCredit: false,
+      lineSnapshots: [toCreditLine(items20[2])],
+      committedAt: new Date('2026-11-03T10:00:00.000Z'),
+      priorCreditTaxBuckets: firstPartial.tax_breakdown,
+    });
+    expect(secondPartial.total_net).toBe('10.01');
+    expect(secondPartial.total_tax).toBe('2.01');
+    expect(secondPartial.total_gross).toBe('12.02');
+    expect(secondPartial.tax_breakdown).toEqual([
+      { rate: '20.00', net: '10.01', tax: '2.01', gross: '12.02' },
+    ]);
+  });
 });

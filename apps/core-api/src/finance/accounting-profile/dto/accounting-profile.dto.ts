@@ -145,6 +145,27 @@ export class MarginSchemeSerializerParamsDto {
 }
 
 export class AccountingProfileSerializerParamsDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Non-VAT posting account for document rounding. Use an account without automatic VAT.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,9}$/)
+  roundingAccount?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: 'Non-VAT posting code for document rounding in RZL or BMD.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  roundingSteuercode?: string | null;
+
   @ApiPropertyOptional({ type: RzlSerializerParamsDto })
   @IsOptional()
   @ValidateNested()

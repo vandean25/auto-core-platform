@@ -2,6 +2,7 @@ import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes
 import {
   parseAccountingProfileSerializerParams,
   parseMarginSchemeSerializerParams,
+  parseRoundingSerializerParams,
   type BmdSteuercodes,
   type MarginSchemeSerializerParams,
   type RzlSteuercodes,
@@ -39,6 +40,8 @@ export type AccountingExportAllocationRules = {
   unsupportedCountryMessage: string;
   allowManualBu: boolean;
   marginScheme: AccountingExportMarginSchemeRules;
+  roundingAccount?: string;
+  roundingSteuercode?: string;
   taxRateIssue(taxRate: string): AccountingExportRuleIssue | null;
   /** Optional per-allocation check for text the export file cannot carry. */
   allocationIssue?(
@@ -180,16 +183,20 @@ export function allocationRulesForProfile(
   profileCode: string | null,
   serializerParams: unknown,
 ): AccountingExportAllocationRules {
+  const rounding = parseRoundingSerializerParams(serializerParams);
   if (isBmdProfileCode(profileCode)) {
     const { bmd } = parseAccountingProfileSerializerParams(serializerParams);
-    return buildBmdAllocationRules(bmd?.steuercodes ?? {});
+    return { ...buildBmdAllocationRules(bmd?.steuercodes ?? {}), ...rounding };
   }
   if (!isRzlProfileCode(profileCode)) {
     const marginScheme = parseMarginSchemeSerializerParams(serializerParams);
-    return marginScheme
+    const rules = marginScheme
       ? buildDatevAllocationRules(marginScheme)
       : DATEV_ALLOCATION_RULES;
+    return rounding.roundingAccount
+      ? { ...rules, roundingAccount: rounding.roundingAccount }
+      : rules;
   }
   const { rzl } = parseAccountingProfileSerializerParams(serializerParams);
-  return buildRzlAllocationRules(rzl?.steuercodes ?? {});
+  return { ...buildRzlAllocationRules(rzl?.steuercodes ?? {}), ...rounding };
 }

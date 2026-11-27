@@ -46,7 +46,6 @@ function assertSnapshotLines(
   snapshot: InvoiceSnapshotV2,
   totalGross: Prisma.Decimal,
 ): void {
-  let sum = new Prisma.Decimal(0);
   for (const line of snapshot.items) {
     if (line.tax_rate !== STANDARD_VAT) {
       throw new UnprocessableEntityException({
@@ -54,9 +53,14 @@ function assertSnapshotLines(
         message: 'Only 20.00% STANDARD lines are supported in this slice.',
       });
     }
-    sum = sum.add(new Prisma.Decimal(line.gross));
   }
-  if (!sum.equals(totalGross)) {
+  const breakdownGross = snapshot.tax_breakdown.reduce(
+    (acc, bucket) => acc.add(new Prisma.Decimal(bucket.gross)),
+    new Prisma.Decimal(0),
+  );
+  const snapshotGross = new Prisma.Decimal(snapshot.total_gross);
+  const payableGross = breakdownGross.add(snapshot.rounding_amount ?? 0);
+  if (!payableGross.equals(totalGross) || !snapshotGross.equals(totalGross)) {
     throw new UnprocessableEntityException({
       code: SETTLEMENT_ERROR_CODES.SETTLEMENT_AMOUNT_MISMATCH,
       message: 'Invoice snapshot gross does not match total_gross.',

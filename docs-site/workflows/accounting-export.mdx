@@ -33,6 +33,8 @@ Nur **OWNER**- und **ADMIN**-Mitglieder mit vollständigem Standortzugriff könn
 
 <Tip>
 Der Text auf dem Bildschirm nennt DATEV Buchungsstapel-CSV, weil das das Standardprofil in der Demo-Oberfläche ist. Österreichische Rechtsträger mit **RZL-Export aktiviert** oder BMD-Profil `ACP-BMD-AT-EUR-1` (wenn freigegeben) nutzen denselben Vorschau- und Erzeugen-Flow; Dateiname und Spaltenlayout folgen dem Profil-Code des Rechtsträgers.
+
+Rundungsdifferenzen aus brutto erfassten Werkstattpreisen erhalten eine eigene Buchungszeile ohne Umsatzsteuer. Hinterlegen Sie über die Schnittstelle zum Buchhaltungsprofil ein Rundungskonto ohne automatische Umsatzsteuer. RZL und BMD benötigen zusätzlich den Steuercode für Buchungen ohne Umsatzsteuer. Fehlt die Zuordnung, sind Exportläufe mit betroffenen Rechnungen oder Gutschriften gesperrt. Negative Rundungsbeträge sperren den Export im aktuellen RZL- und BMD-Format ebenfalls.
 </Tip>
 
 <Warning>

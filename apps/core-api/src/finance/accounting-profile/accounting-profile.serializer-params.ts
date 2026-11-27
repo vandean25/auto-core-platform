@@ -37,6 +37,8 @@ export type AccountingProfileSerializerParams = {
   rzl?: RzlSerializerParams;
   bmd?: BmdSerializerParams;
   marginScheme?: MarginSchemeSerializerParams;
+  roundingAccount?: string;
+  roundingSteuercode?: string;
 };
 
 /** Request-side shape before parsing: a PATCH may send only some margin fields. */
@@ -44,10 +46,38 @@ export type AccountingProfileSerializerParamsInput = {
   rzl?: RzlSerializerParams | null;
   bmd?: BmdSerializerParams | null;
   marginScheme?: Partial<MarginSchemeSerializerParams> | null;
+  roundingAccount?: string | null;
+  roundingSteuercode?: string | null;
 };
 
 const STEUERCODE_PATTERN = /^[0-9]{1,4}$/;
 const MARGIN_VAT_ACCOUNT_PATTERN = /^[0-9]{1,9}$/;
+
+export function parseRoundingSerializerParams(
+  value: unknown,
+): Pick<
+  AccountingProfileSerializerParams,
+  'roundingAccount' | 'roundingSteuercode'
+> {
+  if (!isPlainObject(value)) return {};
+  const account = value.roundingAccount;
+  if (
+    account != null &&
+    (typeof account !== 'string' || !MARGIN_VAT_ACCOUNT_PATTERN.test(account))
+  ) {
+    throw new BadRequestException(
+      'serializerParams.roundingAccount must be 1 to 9 digits',
+    );
+  }
+  const steuercode = parseSteuercodeValue(
+    value.roundingSteuercode,
+    'serializerParams.roundingSteuercode',
+  );
+  return {
+    ...(typeof account === 'string' ? { roundingAccount: account } : {}),
+    ...(steuercode === null ? {} : { roundingSteuercode: steuercode }),
+  };
+}
 
 function parseMarginScheme(value: unknown): MarginSchemeSerializerParams {
   if (!isPlainObject(value)) {
@@ -188,7 +218,8 @@ export function parseAccountingProfileSerializerParams(
     throw new BadRequestException('serializerParams must be an object');
   }
 
-  const parsed: AccountingProfileSerializerParams = {};
+  const parsed: AccountingProfileSerializerParams =
+    parseRoundingSerializerParams(value);
   if (value.marginScheme !== undefined && value.marginScheme !== null) {
     parsed.marginScheme = parseMarginScheme(value.marginScheme);
   }
@@ -221,7 +252,8 @@ export function parseMarginSchemeSerializerParams(
 export function serializeAccountingProfileSerializerParams(
   value: AccountingProfileSerializerParams,
 ): Record<string, unknown> {
-  const serialized: Record<string, unknown> = {};
+  const serialized: Record<string, unknown> =
+    parseRoundingSerializerParams(value);
   if (value.rzl) {
     serialized.rzl = {
       firmNumber: value.rzl.firmNumber ?? null,
@@ -265,6 +297,14 @@ export function mergeAccountingProfileSerializerParams(
   const merged: Record<string, unknown> = {
     rzl: patchRzl === undefined ? current.rzl : patchRzl,
     bmd: patchBmd === undefined ? current.bmd : patchBmd,
+    roundingAccount:
+      patch.roundingAccount === undefined
+        ? current.roundingAccount
+        : patch.roundingAccount,
+    roundingSteuercode:
+      patch.roundingSteuercode === undefined
+        ? current.roundingSteuercode
+        : patch.roundingSteuercode,
   };
   if (
     patchMargin !== null &&

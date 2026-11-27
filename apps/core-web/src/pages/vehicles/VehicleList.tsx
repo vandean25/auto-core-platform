@@ -19,6 +19,8 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DASHBOARD_WIDGET_SOURCE_VEHICLES } from '@/features/dashboard-widgets/sources'
 import { Button } from '@/components/ui/button'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
+import { CustomFieldListFilters } from '@/components/custom-fields/CustomFieldListFilters'
+import { useCustomFieldList } from '@/components/custom-fields/use-custom-field-list'
 import { ensureNamespaceLoaded } from '@/lib/i18n'
 import { MAX_VEHICLE_LIST_PAGE_SIZE, VEHICLE_LIST_PAGE_SIZE_OPTIONS } from '@/lib/list-page-size'
 import type { VehicleListRow } from '@/features/actions/vehicle-row-actions'
@@ -37,6 +39,7 @@ type VehicleRow = VehicleListRow & {
   vin: string
   plate: string
   customer: string
+  custom_fields?: Record<string, unknown>
 }
 
 function getCustomerLabel(
@@ -61,7 +64,9 @@ export default function VehicleList() {
   }, [])
   const navigate = useNavigate()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
-  const list = useVehicleListState(queryParams)
+  const customFields = useCustomFieldList<VehicleRow>('VEHICLE')
+  const list = useVehicleListState(queryParams, customFields.params)
+  const canSort = customFields.filters.size === 0
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
@@ -72,6 +77,7 @@ export default function VehicleList() {
       vin: vehicle.vin || t('shared.notAvailable'),
       plate: vehicle.plate || t('shared.notAvailable'),
       customer: getCustomerLabel(t, vehicle.customer),
+      custom_fields: vehicle.custom_fields,
     }))
   }, [list.vehicles, t])
 
@@ -122,6 +128,7 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'vehicle',
+        enableSorting: canSort,
         meta: { rowLink: true, mobile: 'title' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
@@ -139,12 +146,14 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'year',
+        enableSorting: canSort,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.year')} />
         ),
       },
       {
         accessorKey: 'vin',
+        enableSorting: canSort,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.vin')} />
         ),
@@ -152,6 +161,7 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'plate',
+        enableSorting: canSort,
         meta: { mobile: 'trailing' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.plate')} />
@@ -159,13 +169,15 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'customer',
+        enableSorting: canSort,
         meta: { mobile: 'subtitle' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.customer')} />
         ),
       },
+      ...customFields.columns,
     ],
-    [dismissPending, t, tCommon],
+    [canSort, customFields.columns, dismissPending, t, tCommon],
   )
 
   return (
@@ -186,6 +198,8 @@ export default function VehicleList() {
         data={pending.rows}
         saveViewTitle={t('list.saveViewTitle')}
         dashboardSource={DASHBOARD_WIDGET_SOURCE_VEHICLES}
+        enableMobileCsvExport={customFields.definitions.length > 0}
+        toolbarFilters={<CustomFieldListFilters definitions={customFields.definitions} filters={customFields.filters} onApply={customFields.apply} />}
         {...list.tableProps}
         pageSizeOptions={VEHICLE_LIST_PAGE_SIZE_OPTIONS}
         searchPlaceholder={t('list.searchPlaceholder')}

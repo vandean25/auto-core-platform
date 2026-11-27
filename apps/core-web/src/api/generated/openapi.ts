@@ -1352,6 +1352,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List customers
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["CustomerController_findAll"];
         put?: never;
         post: operations["CustomerController_create"];
@@ -1368,7 +1372,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bounded match count for the customer list (ADR-0035) */
+        /**
+         * Bounded match count for the customer list (ADR-0035)
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["CustomerController_cappedCount"];
         put?: never;
         post?: never;
@@ -4256,7 +4263,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bounded match count for the customer vehicle list (ADR-0035) */
+        /**
+         * Bounded match count for the customer vehicle list (ADR-0035)
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["VehicleController_cappedCount"];
         put?: never;
         post?: never;
@@ -4273,6 +4283,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List vehicles
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["VehicleController_findAll"];
         put?: never;
         post: operations["VehicleController_create"];
@@ -7007,6 +7021,10 @@ export interface components {
             vatAccount?: string | null;
         };
         AccountingProfileSerializerParamsDto: {
+            /** @description Non-VAT posting account for document rounding. Use an account without automatic VAT. */
+            roundingAccount?: string | null;
+            /** @description Non-VAT posting code for document rounding in RZL or BMD. */
+            roundingSteuercode?: string | null;
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
             bmd?: components["schemas"]["BmdSerializerParamsDto"];
             marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
@@ -7439,6 +7457,11 @@ export interface components {
             total_tax: string;
             /** @example 120.00 */
             total_gross: string;
+            /**
+             * @description Frozen rounding adjustment included in the issued gross total.
+             * @example 0.01
+             */
+            rounding_amount?: string;
             tax_mode?: components["schemas"]["InvoiceTaxMode"];
             global_discount_type?: components["schemas"]["DiscountType"] | null;
             global_discount_value?: string | null;
@@ -8848,6 +8871,7 @@ export interface components {
             description: string;
             qty: number;
             unitPrice: number;
+            grossUnitPrice?: number | null;
             catalogItemId?: string | null;
             /** @enum {string|null} */
             partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
@@ -9089,6 +9113,8 @@ export interface components {
             /** @example 1.5 */
             qty: number;
             unitPrice: number;
+            /** @description Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing. */
+            grossUnitPrice?: number | null;
             /** Format: uuid */
             laborOperationId?: string;
             standardAw?: number;
@@ -16496,17 +16522,13 @@ export interface operations {
                 cursor?: string;
                 /** @description Cursor mode only. Default 50, maximum 100. */
                 limit?: number;
-                /** @description Page number */
                 page?: number;
-                /** @description Number of items per page */
                 pageSize?: number;
                 /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
                 pagination?: "offset" | "cursor";
                 /** @description Free-text search term for customer name, company name, email, or legacy ID */
                 search?: string;
-                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
-                /** @description Field name to sort by */
                 sortField?: string;
                 type?: "PRIVATE" | "COMPANY";
             };
@@ -22171,7 +22193,6 @@ export interface operations {
                 cursor?: string;
                 /** @description Cursor mode only. Default 50, maximum 100. */
                 limit?: string;
-                /** @description Page number */
                 page?: number;
                 /** @description Larger values are clamped to 50. */
                 pageSize?: number;
@@ -22179,9 +22200,7 @@ export interface operations {
                 pagination?: "offset" | "cursor";
                 /** @description Free-text search term for make, model, plate, VIN, engine code, customer, or legacy ID */
                 search?: string;
-                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
-                /** @description Field name to sort by */
                 sortField?: string;
             };
             header?: {

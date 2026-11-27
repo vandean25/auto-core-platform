@@ -1,5 +1,18 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { SCOPE_CONTEXT_HEADER } from '../../src/auth/scope-context/scope-context.constants.js';
+
+export function scopedListRequest(
+  app: INestApplication,
+  path: string,
+  bearer: string,
+  scopeContext: string,
+) {
+  return request(app.getHttpServer())
+    .get(path)
+    .set('Authorization', bearer)
+    .set(SCOPE_CONTEXT_HEADER, scopeContext);
+}
 
 export async function mintListScopeContext(
   app: INestApplication,

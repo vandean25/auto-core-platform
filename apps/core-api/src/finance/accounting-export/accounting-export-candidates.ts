@@ -4,6 +4,7 @@ import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validati
 import {
   DATEV_ALLOCATION_RULES,
   type AccountingExportAllocationRules,
+  type AccountingExportRuleIssue,
 } from './accounting-export-allocation-rules.js';
 import {
   buildCreditRows,
@@ -371,6 +372,148 @@ export async function loadTenantOwnershipBlockers(
   );
 }
 
+function blockRoundedCandidate(
+  candidate: AccountingExportCandidate,
+  code: AccountingExportBlocker['code'],
+  message: string,
+): AccountingExportCandidate {
+  return {
+    ...candidate,
+    rows: [],
+    blockers: [
+      {
+        code,
+        message,
+        documentId: candidate.id,
+        documentKind: candidate.kind,
+        documentNumber: candidate.number,
+      },
+    ],
+  };
+}
+
+const REVERSE_BOOKING_POLARITY = { S: 'H', H: 'S' } as const;
+
+function readRoundingFacts(snapshot: unknown) {
+  if (
+    !snapshot ||
+    typeof snapshot !== 'object' ||
+    !('rounding_amount' in snapshot)
+  ) {
+    return null;
+  }
+  const amount = snapshot.rounding_amount;
+  if (amount == null || amount === '0.00') return null;
+  return {
+    amount,
+    payable: 'total_gross' in snapshot ? snapshot.total_gross : undefined,
+  };
+}
+
+function roundingPostingSetup(
+  rules: AccountingExportAllocationRules,
+  isNegative: boolean,
+): { account: string; steuercode?: string } | AccountingExportRuleIssue {
+  const { roundingAccount, roundingSteuercode, countryIso } = rules;
+  if (!roundingAccount || (countryIso === 'AT' && !roundingSteuercode)) {
+    return {
+      code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+      message: 'The export profile is missing a non-VAT rounding mapping.',
+    };
+  }
+  if (countryIso === 'AT' && isNegative) {
+    return {
+      code: 'UNSUPPORTED_EXPORT_TAX_MODE',
+      message: 'This export format cannot post a negative rounding adjustment.',
+    };
+  }
+  return { account: roundingAccount, steuercode: roundingSteuercode };
+}
+
+function findRoundingDebtorRow(
+  rows: AccountingExportBookingRow[],
+  roundingAccount: string,
+  rounding: Prisma.Decimal,
+  payable: unknown,
+): AccountingExportBookingRow | undefined {
+  const [base] = rows;
+  const gross = rows.reduce((sum, row) => sum.add(row.gross), rounding);
+  if (
+    !base ||
+    gross.toFixed(2) !== payable ||
+    base.debtorAccount === roundingAccount ||
+    rows.some((row) => row.debtorAccount !== base.debtorAccount)
+  ) {
+    return undefined;
+  }
+  return base;
+}
+
+function buildRoundingPosting(
+  base: AccountingExportBookingRow,
+  rounding: Prisma.Decimal,
+  account: string,
+  steuercode: string | undefined,
+): AccountingExportBookingRow {
+  return {
+    ...base,
+    polarity: rounding.isNegative()
+      ? REVERSE_BOOKING_POLARITY[base.polarity]
+      : base.polarity,
+    net: '0.00',
+    tax: '0.00',
+    taxRate: '0.00',
+    gross: rounding.abs().toFixed(2),
+    revenueAccount: account,
+    buKey: null,
+    ...(steuercode ? { roundingSteuercode: steuercode } : {}),
+  };
+}
+
+function withDocumentRounding(
+  candidate: AccountingExportCandidate,
+  snapshot: unknown,
+  rules: AccountingExportAllocationRules,
+): AccountingExportCandidate {
+  const facts = readRoundingFacts(snapshot);
+  if (candidate.blockers.length || !facts) {
+    return candidate;
+  }
+  const { amount, payable } = facts;
+  if (typeof amount !== 'string' || !/^-?\d+\.\d{2}$/.test(amount)) {
+    return blockRoundedCandidate(
+      candidate,
+      'ACCOUNTING_MAPPING_INCOMPLETE',
+      'The document has an invalid rounding amount.',
+    );
+  }
+  const rounding = new Prisma.Decimal(amount);
+  const setup = roundingPostingSetup(rules, rounding.isNegative());
+  if ('code' in setup) {
+    return blockRoundedCandidate(candidate, setup.code, setup.message);
+  }
+  const base = findRoundingDebtorRow(
+    candidate.rows,
+    setup.account,
+    rounding,
+    payable,
+  );
+  if (!base) {
+    return blockRoundedCandidate(
+      candidate,
+      'ACCOUNTING_MAPPING_INCOMPLETE',
+      'The rounding posting requires a separate account and booking rows that reconcile to the document total and debtor.',
+    );
+  }
+  return {
+    ...candidate,
+    rows: [
+      ...candidate.rows,
+      buildRoundingPosting(base, rounding, setup.account, setup.steuercode),
+    ],
+  };
+}
+
 export async function loadAccountingExportCandidates(
   prisma: PrismaService,
   tenantId: string,
@@ -411,32 +554,40 @@ export async function loadAccountingExportCandidates(
     const rows =
       blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate, rules);
 
-    return {
-      id: invoice.id,
-      kind: 'INVOICE' as const,
-      number: invoice.invoice_number,
-      date: documentDate,
-      siteId: invoice.site_id ?? '',
-      snapshotHash: computeSnapshotHash(invoice.snapshot),
-      rows,
-      blockers,
-    };
+    return withDocumentRounding(
+      {
+        id: invoice.id,
+        kind: 'INVOICE' as const,
+        number: invoice.invoice_number,
+        date: documentDate,
+        siteId: invoice.site_id ?? '',
+        snapshotHash: computeSnapshotHash(invoice.snapshot),
+        rows,
+        blockers,
+      },
+      invoice.snapshot,
+      rules,
+    );
   });
 
   const creditCandidates = creditNotes.map((creditNote) => {
     const blockers = collectBlockersForCreditNote(creditNote, rules);
     const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote, rules);
 
-    return {
-      id: creditNote.id,
-      kind: 'CREDIT_NOTE' as const,
-      number: creditNote.credit_number,
-      date: creditNote.date.toISOString().slice(0, 10),
-      siteId: creditNote.site_id,
-      snapshotHash: computeSnapshotHash(creditNote.snapshot),
-      rows,
-      blockers,
-    };
+    return withDocumentRounding(
+      {
+        id: creditNote.id,
+        kind: 'CREDIT_NOTE' as const,
+        number: creditNote.credit_number,
+        date: creditNote.date.toISOString().slice(0, 10),
+        siteId: creditNote.site_id,
+        snapshotHash: computeSnapshotHash(creditNote.snapshot),
+        rows,
+        blockers,
+      },
+      creditNote.snapshot,
+      rules,
+    );
   });
 
   return [...invoiceCandidates, ...creditCandidates].sort((left, right) => {

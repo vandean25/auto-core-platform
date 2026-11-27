@@ -725,6 +725,34 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('20 % USt (Netto €\u00A0250,00):');
       expect(html).toContain('€\u00A050,00');
     });
+
+    it('AUT-1087 S4/Anti-criterion 2: renders frozen pre-change snapshot totals unchanged (6,00) and new per-rate totals (6,01)', () => {
+      const legacyFrozen = createV2Snapshot();
+      legacyFrozen.tax_breakdown = [
+        { rate: '20.00', net: '30.06', tax: '6.00', gross: '36.06' },
+      ];
+      legacyFrozen.total_net = '30.06';
+      legacyFrozen.total_tax = '6.00';
+      legacyFrozen.total_gross = '36.06';
+
+      const legacyHtml = buildInvoiceTotalsSection(legacyFrozen, escapeHtml);
+      expect(legacyHtml).toContain('€\u00A06,00');
+      expect(legacyHtml).toContain('€\u00A036,06');
+      expect(legacyHtml).not.toContain('€\u00A06,01');
+
+      const perRate = createV2Snapshot();
+      perRate.tax_breakdown = [
+        { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+      ];
+      perRate.total_net = '30.06';
+      perRate.total_tax = '6.01';
+      perRate.total_gross = '36.07';
+
+      const perRateHtml = buildInvoiceTotalsSection(perRate, escapeHtml);
+      expect(perRateHtml).toContain('20 % USt (Netto €\u00A030,06):');
+      expect(perRateHtml).toContain('€\u00A06,01');
+      expect(perRateHtml).toContain('€\u00A036,07');
+    });
   });
 
   describe('resolveMarginSchemeLegalNote', () => {

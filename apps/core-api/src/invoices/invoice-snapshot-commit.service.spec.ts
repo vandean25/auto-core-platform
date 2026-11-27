@@ -258,6 +258,7 @@ describe('InvoiceSnapshotCommitService', () => {
             description: 'Brake labor',
             quantity: new Prisma.Decimal(2),
             unit_price: new Prisma.Decimal(80),
+            gross_unit_price: null,
             tax_rate: new Prisma.Decimal(20),
             line_discount_type: null,
             line_discount_value: null,
@@ -276,6 +277,7 @@ describe('InvoiceSnapshotCommitService', () => {
             description: 'Brake pad',
             quantity: new Prisma.Decimal(1),
             unit_price: new Prisma.Decimal(20),
+            gross_unit_price: null,
             tax_rate: new Prisma.Decimal(20),
             line_discount_type: null,
             line_discount_value: null,
@@ -790,6 +792,101 @@ describe('InvoiceSnapshotCommitService', () => {
       response: {
         code: 'FISCAL_PERIOD_LOCKED',
       },
+    });
+  });
+
+  // AUT-1087 Scenario 5: a draft created before the change is recomputed with the per-rate rule on issue
+  it('AUT-1087 S5: recomputes pre-change line-summed draft totals (4.96 on 2 x 12.38 at 20%) to per-rate totals (4.95 / 29.71) on commit', async () => {
+    tx.financeSettings.findFirst.mockResolvedValue({ lock_date: null });
+    const commitTx = {
+      ...tx,
+      invoice: { updateMany: jest.fn() },
+      invoiceItem: { updateMany: jest.fn() },
+    };
+    const lineItemBase = {
+      tenant_id: 'tenant-1',
+      invoice_id: 'inv-draft-prechange',
+      catalog_item_id: 'part-1',
+      workshop_task_line_item_id: null,
+      description: 'Pre-change part',
+      quantity: new Prisma.Decimal('1'),
+      unit_price: new Prisma.Decimal('12.38'),
+      gross_unit_price: null,
+      tax_rate: new Prisma.Decimal('20'),
+      line_discount_type: null,
+      line_discount_value: null,
+      line_total: new Prisma.Decimal('12.38'),
+      revenue_group_name: 'Parts 20%',
+      accounting_snapshot: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const snapshot = await service.commitV2Snapshot({
+      tx: commitTx as never,
+      tenantId: 'tenant-1',
+      invoice: {
+        id: 'inv-draft-prechange',
+        tenant_id: 'tenant-1',
+        customer_id: customer.id,
+        vehicle_id: null,
+        sales_order_id: null,
+        workshop_order_id: 'wo-1',
+        vehicle_sale_id: null,
+        site_id: 'site-1',
+        legal_entity_id: 'le-1',
+        currency: 'EUR',
+        status: InvoiceStatus.DRAFT,
+        tax_mode: InvoiceTaxMode.STANDARD,
+        invoice_number: null,
+        draft_number: 'RE-D-1',
+        date: new Date('2026-06-01'),
+        due_date: new Date('2026-06-15'),
+        supply_date_from: null,
+        supply_date_to: null,
+        // Pre-change line-summed draft header: 2 x round(12.38 * 0.20) = 2 x 2.48 = 4.96
+        total_net: new Prisma.Decimal('24.76'),
+        total_tax: new Prisma.Decimal('4.96'),
+        total_gross: new Prisma.Decimal('29.72'),
+        notes: null,
+        internal_notes: null,
+        snapshot: null,
+        global_discount_type: null,
+        global_discount_value: null,
+        pdf_storage_bucket: null,
+        pdf_storage_key: null,
+        pdf_archive_bucket: null,
+        pdf_archive_key: null,
+        pdf_archive_generation: null,
+        pdf_archive_sha256: null,
+        pdf_generated_at: null,
+        pdf_generation_error: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        customer,
+        vehicle: null,
+        items: [
+          { ...lineItemBase, id: 'line-1' },
+          { ...lineItemBase, id: 'line-2' },
+        ],
+      },
+      invoiceNumber: 'RE-2026-0100',
+    });
+
+    expect(snapshot.total_net).toBe('24.76');
+    expect(snapshot.total_tax).toBe('4.95');
+    expect(snapshot.total_gross).toBe('29.71');
+    expect(snapshot.tax_breakdown).toEqual([
+      { rate: '20.00', net: '24.76', tax: '4.95', gross: '29.71' },
+    ]);
+    expect(commitTx.invoice.updateMany).toHaveBeenCalledWith({
+      where: { id: 'inv-draft-prechange', tenant_id: 'tenant-1' },
+      data: expect.objectContaining({
+        total_net: new Prisma.Decimal('24.76'),
+        total_tax: new Prisma.Decimal('4.95'),
+        total_gross: new Prisma.Decimal('29.71'),
+        snapshot,
+      }),
     });
   });
 
