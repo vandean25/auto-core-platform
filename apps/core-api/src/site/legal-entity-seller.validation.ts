@@ -122,7 +122,7 @@ function assertValidPaymentTermsDays(
     v === null || !Number.isInteger(v) || v < 0 || v > 365;
   if (
     (dtoValue !== undefined && isInvalid(dtoValue)) ||
-    (mergedValue !== null && isInvalid(mergedValue))
+    isInvalid(mergedValue)
   ) {
     throw new BadRequestException(
       'paymentTermsDays must be an integer between 0 and 365',

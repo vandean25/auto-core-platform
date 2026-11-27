@@ -620,6 +620,20 @@ describe('invoice-snapshot-v2.helpers', () => {
       expect(dueDate.toISOString()).toBe('2027-01-15T12:00:00.000Z');
     });
 
+    it('due date is invoice Vienna day + 14 when the customer has no terms and the legal entity has 14', () => {
+      const invoiceDate = new Date('2026-09-01T10:00:00.000Z');
+      const paymentDays = resolveInvoicePaymentTermsDays(
+        { payment_terms_days: null },
+        { payment_terms_days: 14 },
+      );
+      const { dueDate } = computeInvoiceDates(
+        { date: invoiceDate, supply_date_from: null, supply_date_to: null },
+        paymentDays,
+        'Europe/Vienna',
+      );
+      expect(dueDate.toISOString()).toBe('2026-09-15T12:00:00.000Z');
+    });
+
     it('allows explicit 0 paymentDays so dueDate equals the invoice Vienna calendar day', () => {
       const { dueDate } = computeInvoiceDates(
         {

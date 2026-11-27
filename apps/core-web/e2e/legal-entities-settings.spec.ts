@@ -305,6 +305,8 @@ test.describe('Legal entities seller settings', () => {
       DE_SETTINGS.legalEntities.seller.errors.paymentTermsDaysRequired,
     );
     await expect(paymentTermsInput).toHaveAttribute('aria-invalid', 'true');
+    // Wait past the 750 ms autosave debounce so a missing guard would have fired the PATCH.
+    await page.waitForTimeout(1200);
     expect(patchCount).toBe(0);
 
     await testInfo.attach('payment-terms-days-required-de-1280', {

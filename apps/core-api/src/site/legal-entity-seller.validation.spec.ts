@@ -25,7 +25,7 @@ const baseEntity = (): LegalEntitySellerRecord => ({
   registration_number: null,
   registration_court: null,
   representatives: null,
-  payment_terms_days: null,
+  payment_terms_days: 14,
   payment_terms_text: null,
 });
 
@@ -156,6 +156,15 @@ describe('legal-entity-seller.validation', () => {
         buildLegalEntitySellerUpdateData(baseEntity(), {
           paymentTermsDays: null as unknown as number,
         }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a partial update when the stored payment terms are null', () => {
+      expect(() =>
+        buildLegalEntitySellerUpdateData(
+          { ...baseEntity(), payment_terms_days: null },
+          { name: 'Renamed GmbH' },
+        ),
       ).toThrow(BadRequestException);
     });
 

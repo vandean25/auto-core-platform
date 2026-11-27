@@ -293,7 +293,7 @@
     "INVOICE_DISCOUNT_INVALID": "Invoice discount invalid.",
     "INVOICE_DISCOUNT_LINE_NOT_FOUND": "Discount line item does not belong to this invoice.",
     "INVOICE_NOT_DRAFT": "Discounts can only be updated on DRAFT invoices.",
-    "INVOICE_PAYMENT_TERMS_MISSING": "Invoice payment terms missing.",
+    "INVOICE_PAYMENT_TERMS_MISSING": "No payment term is set for the customer or the business. Please add a payment term.",
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": "Invoice source ownership changed during commitment.",
     "LABOR_CATEGORY_UNKNOWN": "The labor category was not found. Check the category; the row is imported without it.",
     "LABOR_NOT_AVAILABLE": "Labor position requires a configured labor operation",

@@ -1072,6 +1072,7 @@ function LegalEntitySellerForm({
             min={0}
             max={365}
             required
+            className="max-sm:min-h-11"
             aria-invalid={Boolean(paymentTermsDaysError)}
             aria-describedby={paymentTermsDaysError ? 'seller-payment-days-error' : undefined}
             value={form.paymentTermsDays}
