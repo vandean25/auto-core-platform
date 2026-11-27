@@ -72,32 +72,14 @@ describe('AUT-1088 mandatory LegalEntity payment terms migration (e2e)', () => {
     );
     const customer = await seedInvoiceReadyCustomer(prisma, tenant.tenantId);
     const catalogItem = await tenantPrisma.catalogItem.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        sku: `AUT1088-${Date.now()}`,
-        name: 'Brake Pad',
-        cost_price: 10,
-        retail_price: 20,
-      },
+      data: { tenant_id: tenant.tenantId, sku: `AUT1088-${Date.now()}`, name: 'Brake Pad', cost_price: 10, retail_price: 20 },
     });
     const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
     const location = await tenantPrisma.storageLocation.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        code: `LOC-${Date.now()}`,
-        name: 'Warehouse',
-        type: 'warehouse',
-        site_id: siteId,
-      },
+      data: { tenant_id: tenant.tenantId, code: `LOC-${Date.now()}`, name: 'Warehouse', type: 'warehouse', site_id: siteId },
     });
     await tenantPrisma.inventoryStock.create({
-      data: {
-        tenant_id: tenant.tenantId,
-        catalog_item_id: catalogItem.id,
-        site_id: siteId,
-        location_id: location.id,
-        quantity_on_hand: 10,
-      },
+      data: { tenant_id: tenant.tenantId, catalog_item_id: catalogItem.id, site_id: siteId, location_id: location.id, quantity_on_hand: 10 },
     });
 
     // Golden: an invoice issued before the migration.
@@ -106,21 +88,10 @@ describe('AUT-1088 mandatory LegalEntity payment terms migration (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customer_id: customer.id,
-        items: [
-          {
-            catalog_item_id: catalogItem.id,
-            description: 'Brake Pad',
-            quantity: 1,
-            unit_price: 100,
-            tax_rate: 20,
-          },
-        ],
+        items: [{ catalog_item_id: catalogItem.id, description: 'Brake Pad', quantity: 1, unit_price: 100, tax_rate: 20 }],
       })
       .expect(201);
-    await tenantPrisma.salesOrder.updateMany({
-      where: { id: orderRes.body.id },
-      data: { status: 'CONFIRMED' },
-    });
+    await tenantPrisma.salesOrder.updateMany({ where: { id: orderRes.body.id }, data: { status: 'CONFIRMED' } });
     const draft = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
       .set('Authorization', `Bearer ${authToken}`)
