@@ -360,6 +360,50 @@ describe('toRenderableCreditNoteSnapshot', () => {
     },
   );
 
+  it('AUT-1087 S6: credits stored line VAT when a legacy bucket happens to equal per-rate VAT', () => {
+    const items = ['10.02', '10.02', '10.03', '10.03'].map((net, index) => ({
+      id: `l${index}`,
+      original_item_id: `l${index}`,
+      description: 'Part',
+      quantity: '1.000',
+      unit_price: net,
+      tax_rate: '20.00',
+      line_discount_type: null,
+      line_discount_value: null,
+      net,
+      tax: net === '10.02' ? '2.00' : '2.01',
+      gross: net === '10.02' ? '12.02' : '12.04',
+      revenue_group_name: 'Parts',
+      accounting_allocation: {},
+    }));
+    const credit = buildCreditNoteSnapshot({
+      originalSnapshot: {
+        ...snapshot,
+        items,
+        total_net: '40.10',
+        total_tax: '8.02',
+        total_gross: '48.12',
+        tax_breakdown: [
+          { rate: '20.00', net: '40.10', tax: '8.02', gross: '48.12' },
+        ],
+      } as unknown as Parameters<
+        typeof buildCreditNoteSnapshot
+      >[0]['originalSnapshot'],
+      originalInvoiceId: 'inv-old',
+      originalInvoiceNumber: 'RE-2026-0001',
+      originalInvoiceDate: new Date('2026-10-01T10:00:00Z'),
+      reason: 'First two items returned',
+      creditDate: new Date('2026-11-01T10:00:00Z'),
+      isFullCredit: false,
+      lineSnapshots: items.slice(0, 2),
+      committedAt: new Date('2026-11-01T10:00:00Z'),
+    });
+
+    expect(credit.tax_breakdown).toEqual([
+      { rate: '20.00', net: '20.04', tax: '4.00', gross: '24.04' },
+    ]);
+  });
+
   it('AUT-1087: full and partial credits on per-rate invoice use per-rate VAT and consume exact remaining cents', () => {
     const originalItems = ['l1', 'l2', 'l3'].map((id) => ({
       id,
@@ -377,6 +421,7 @@ describe('toRenderableCreditNoteSnapshot', () => {
     }));
     const perRateOriginal = {
       ...snapshot,
+      vat_calculation: 'PER_RATE',
       items: originalItems,
       tax_breakdown: [
         { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
@@ -475,6 +520,7 @@ describe('toRenderableCreditNoteSnapshot', () => {
     };
     const originalWithTwoRates = {
       ...snapshot,
+      vat_calculation: 'PER_RATE',
       items: [...items20, item10],
       tax_breakdown: [
         { rate: '10.00', net: '10.00', tax: '1.00', gross: '11.00' },

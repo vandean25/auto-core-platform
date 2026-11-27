@@ -207,6 +207,12 @@ function localizedTotalsSection(
 
   const taxBreakdown = localizedTaxBreakdownSection(snapshot, escapeHtml, t);
   const numbers = createInvoicePdfNumberFormatter(snapshot);
+  const rounding = snapshot.rounding_amount
+    ? `<div class="total-row">
+        <span>${escapeHtml(t('invoice.roundingLabel'))}:</span>
+        <span>${escapeHtml(numbers.formatAmount(snapshot.rounding_amount))}</span>
+      </div>`
+    : '';
 
   return `
     ${taxBreakdown}
@@ -219,6 +225,7 @@ function localizedTotalsSection(
         <span>${escapeHtml(t('invoice.taxLabel'))}:</span>
         <span>${escapeHtml(numbers.formatAmount(snapshot.total_tax))}</span>
       </div>
+      ${rounding}
       <div class="total-row grand">
         <span>${escapeHtml(t('invoice.grossLabel'))}:</span>
         <span>${escapeHtml(numbers.formatAmount(snapshot.total_gross))}</span>

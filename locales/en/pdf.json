@@ -63,6 +63,7 @@
     "totalHeader": "Total",
     "netLabel": "Net",
     "taxLabel": "VAT",
+    "roundingLabel": "Rounding",
     "grossLabel": "Gross",
     "taxBreakdownTitle": "VAT breakdown",
     "taxRateRow": "{{rate}}% VAT (net {{net}})",

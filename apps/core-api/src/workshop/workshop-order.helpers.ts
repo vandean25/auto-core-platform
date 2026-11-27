@@ -88,6 +88,9 @@ export function normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
             description: line.description,
             qty: Number(line.quantity),
             unitPrice: Number(line.unit_price),
+            ...(line.gross_unit_price != null
+              ? { grossUnitPrice: Number(line.gross_unit_price) }
+              : {}),
             catalogItemId: line.catalog_item_id,
             partExecutionStatus: line.part_execution_status,
             laborOperationId: line.labor_operation_id,

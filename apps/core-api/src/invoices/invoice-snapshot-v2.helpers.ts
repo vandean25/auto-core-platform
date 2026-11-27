@@ -828,6 +828,7 @@ export async function resolveInvoiceLineAllocations(
     description: string;
     quantity: Prisma.Decimal;
     unitPrice: Prisma.Decimal;
+    grossUnitPrice: Prisma.Decimal | null;
     taxRate: Prisma.Decimal;
     lineDiscountType: DiscountType | null;
     lineDiscountValue: Prisma.Decimal | null;
@@ -870,6 +871,7 @@ export async function resolveInvoiceLineAllocations(
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unit_price,
+      grossUnitPrice: item.gross_unit_price,
       taxRate: item.tax_rate,
       lineDiscountType: item.line_discount_type,
       lineDiscountValue: item.line_discount_value,

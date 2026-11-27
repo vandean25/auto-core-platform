@@ -100,7 +100,9 @@ Version 2 retains existing customer/vehicle fields and adds:
 | `date`, `due_date`, `supply_date_from`, `supply_date_to` | ISO date-only fiscal/supply dates; due date derived from date + snapshotted days |
 | `payment_terms` | `days`, `text`; for credits this is original context, not an instruction to pay again |
 | `items[]` | Stable original item ID, description, quantity (3 decimals), price/discounts, allocated `net`, `tax`, `gross` (2 decimals), rate, group label, accounting allocation |
-| `tax_breakdown[]` | STANDARD: rate, net, tax, gross; stored sums must equal document totals |
+| `tax_breakdown[]` | STANDARD: rate, net, tax, gross before document rounding |
+| `vat_calculation` | STANDARD invoices issued with AUT-1087 store `PER_RATE`. Earlier snapshots use stored line VAT for credits. |
+| `rounding_amount` | Signed gross-price rounding (BT-114), included in the payable total when present |
 | `margin` | MARGIN_SCHEME only: frozen cost basis, margin tax and calculation/profile metadata; internal finance data, never customer-facing cost/VAT disclosure |
 | `original_document` | Credit only: original UUID, number, date, reason, original snapshot version |
 | `snapshot_created_at` | Commit timestamp |
@@ -109,7 +111,9 @@ Snapshot inclusion does not authorize disclosure: customer PDF/public serializat
 
 Money uses decimal arithmetic and EUR cents. For STANDARD, apply line discounts, allocate document discount proportionally to pre-document-discount line net amounts, floor allocations to cents and distribute remaining cents by descending fractional remainder, tie-breaking stable item ID. Per AUT-1072 / AUT-1087 (§ 11 UStG / UStR Rz 1512 ff. AT; § 14 Abs 4 Nr 8 UStG / UStAE 14.5 Abs 20 DE; EN 16931), line VAT is informational only: sum allocated line net amounts per tax rate bucket, compute each rate bucket's VAT to cents with half-up rounding (`half-up(Σ line net × rate)`), and derive document `total_net`, `total_tax = Σ bucket tax`, and `total_gross = total_net + total_tax`. Accounting exports (DATEV/RZL/BMD) reconcile booking-row tax/gross to the per-rate `tax_breakdown` buckets so line VAT rounding never enters totals or exports. Pre-change issued snapshots/PDFs/exports remain unchanged, and credit notes reversing pre-change invoices reverse the amounts as issued.
 
-For a partial credit on a per-rate (AUT-1087) invoice, allocate net per credited quantity and compute VAT per rate bucket (`half-up(Σ credited net × rate)`), capped at the remaining bucket tax; when cumulative credited net for a rate reaches the original bucket net (or on full credit), that rate receives the exact remaining bucket tax cents. For pre-change line-summed invoices, reverse the issued line/bucket tax amounts as issued. Full margin credits reverse the saved margin allocation exactly; never recalculate from today's vehicle ledger or tax rate.
+Workshop lines entered with an explicit gross unit price are converted to net at entry. Invoice issue freezes any gross-price rounding as a separate adjustment and adds it to the payable gross. The tax buckets retain their net and VAT amounts.
+
+For a partial credit on a per-rate (AUT-1087) invoice, allocate net per credited quantity and compute VAT per rate bucket (`half-up(Σ credited net × rate)`), capped at the remaining bucket tax. When cumulative credited net for a rate reaches the original bucket net, that rate receives the exact remaining bucket tax. The credit that closes the invoice also reverses its rounding adjustment. Pre-change invoices credit the issued line VAT. Full margin credits reverse the saved margin allocation.
 
 ### Validation and state transitions
 
@@ -244,7 +248,7 @@ Still required before M1/M4 activation: accountant review of corporate-footer ob
 - [[2026-09-20-legal-invoicing-and-accounting-export]]; [[datev-accounting-export]]; [[2026-04-12-invoice-snapshotting]]; [[2026-04-12-fiscal-lock-date]]; [[2026-04-12-sequential-document-numbering]]; [[2026-08-31-site-operational-scope]]; [[2026-04-12-async-pdf-pipeline]].
 - [German invoice requirements, UStG §14](https://www.gesetze-im-internet.de/ustg_1980/__14.html), official search excerpt checked 2026-09-20; full-page fetch timed out. Detailed country fixtures still need review.
 - [Austrian BMF/USP invoice guidance](https://www.usp.gv.at/themen/steuern-finanzen/umsatzsteuer-ueberblick/rechnung.html), checked 2026-09-20 (page updated 2026-01-01).
-- [German BMF e-invoice FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/e-rechnung.html), checked 2026-09-20: PDF delivery is not structured e-invoicing; transitional eligibility must be evaluated before launch. Deferring AUT-306 is not a claim of universal DE B2B readiness; AUT-1087 Scenario 7 (BT-110/BT-117 XML assertions) is deferred with AUT-306 until the EN 16931 / ebInterface generator exists.
+- AUT-306 owns structured e-invoice generation and validation. Its acceptance tests must check that exported BT-110 and BT-117 match the frozen per-rate totals and that the XML passes validation. See the [German BMF e-invoice FAQ](https://www.bundesfinanzministerium.de/Content/DE/FAQ/e-rechnung.html) for transitional eligibility guidance.
 
 ## Linear Tracking
 

@@ -141,6 +141,7 @@ describe('buildInvoiceSnapshotV2', () => {
             description: 'Service',
             quantity: new Prisma.Decimal('1.000'),
             unit_price: new Prisma.Decimal('100.00'),
+            gross_unit_price: null,
             tax_rate: new Prisma.Decimal('20.00'),
             line_discount_type: null,
             line_discount_value: null,

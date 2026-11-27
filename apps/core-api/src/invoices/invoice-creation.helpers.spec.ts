@@ -18,7 +18,6 @@ import {
   buildInvoiceCustomerAddressSnapshot,
   buildInvoiceDueDate,
   calculateInvoiceTotals,
-  convertGrossUnitPriceToNet,
   executeCreateDraftInvoice,
   loadAndLockWorkshopOrderForInvoice,
   persistDraftInvoice,
@@ -284,6 +283,28 @@ describe('invoice-creation.helpers', () => {
   });
 
   describe('calculateInvoiceTotals', () => {
+    it('keeps the net-priced lines on per-rate VAT in a mixed-price invoice', () => {
+      const totals = calculateInvoiceTotals([
+        {
+          quantity: 1,
+          unit_price: '10.00',
+          tax_rate: 20,
+          gross_unit_price: '12.00',
+        },
+        ...Array.from({ length: 3 }, () => ({
+          quantity: 1,
+          unit_price: '10.02',
+          tax_rate: 20,
+        })),
+      ]);
+
+      expect([
+        totals.totalTax.toFixed(2),
+        totals.roundingAmount?.toFixed(2),
+        totals.totalGross.toFixed(2),
+      ]).toEqual(['8.01', '0.00', '48.07']);
+    });
+
     it('correctly calculates totals for multiple items with different tax rates and quantities', () => {
       const lineItems = [
         {
@@ -388,20 +409,13 @@ describe('invoice-creation.helpers', () => {
         expectedRounding,
         expectedGross,
       }) => {
-        expect(
-          convertGrossUnitPriceToNet(
-            new Prisma.Decimal(unitPrice),
-            new Prisma.Decimal(taxRate),
-          ).toFixed(2),
-        ).toBe(expectedUnitNet);
-
         const lines = Array.from({ length: count }, (_, idx) => ({
           id: `gross-${idx + 1}`,
           description: 'Gross workshop item',
           quantity: 1,
-          unit_price: unitPrice,
+          unit_price: expectedUnitNet,
+          gross_unit_price: unitPrice,
           tax_rate: taxRate,
-          is_gross_price: true,
         }));
 
         const draftLine = buildDraftInvoiceLineItem(lines[0], 0, 'tenant-1');
@@ -965,4 +979,3 @@ describe('invoice-creation.helpers', () => {
     });
   });
 });
-

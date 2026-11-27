@@ -58,8 +58,7 @@ export interface DraftInvoiceLineItemInput {
   revenueGroupName?: string | null;
   tax_rate?: Prisma.Decimal | number | string;
   taxRate?: Prisma.Decimal | number | string;
-  is_gross_price?: boolean | null;
-  isGrossPrice?: boolean | null;
+  gross_unit_price?: Prisma.Decimal | number | string | null;
   line_discount_type?: DiscountType | null;
   line_discount_value?: Prisma.Decimal | number | string | null;
   part_execution_status?: WorkshopPartLineExecutionStatus | null;
@@ -136,32 +135,16 @@ export function buildInvoiceDueDate(
   return dueDate;
 }
 
-export function convertGrossUnitPriceToNet(
-  grossUnitPrice: Prisma.Decimal,
-  taxRate: Prisma.Decimal,
-): Prisma.Decimal {
-  const divisor = new Prisma.Decimal(1).add(taxRate.div(100));
-  return grossUnitPrice
-    .div(divisor)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-}
-
 export function buildDraftInvoiceLineItem(
   item: DraftInvoiceLineItemInput,
   lineIndex?: number,
   tenantId?: string,
 ): Prisma.InvoiceItemUncheckedCreateWithoutInvoiceInput {
   const quantity = new Prisma.Decimal(item.quantity);
-  const rawUnitPrice = new Prisma.Decimal(
-    item.unit_price ?? item.unitPrice ?? 0,
-  );
+  const unitPrice = new Prisma.Decimal(item.unit_price ?? item.unitPrice ?? 0);
   const taxRate = new Prisma.Decimal(
     item.tax_rate ?? item.taxRate ?? DEFAULT_VAT_RATE,
   );
-  const isGrossPrice = Boolean(item.is_gross_price ?? item.isGrossPrice);
-  const unitPrice = isGrossPrice
-    ? convertGrossUnitPriceToNet(rawUnitPrice, taxRate)
-    : rawUnitPrice;
   const net = quantity.mul(unitPrice);
 
   const discountType = item.line_discount_type ?? null;
@@ -190,6 +173,9 @@ export function buildDraftInvoiceLineItem(
     description: item.description,
     quantity,
     unit_price: unitPrice,
+    ...(item.gross_unit_price != null
+      ? { gross_unit_price: item.gross_unit_price }
+      : {}),
     tax_rate: taxRate,
     line_discount_type: discountType,
     line_discount_value: discountValue,
@@ -206,85 +192,39 @@ export function calculateInvoiceTotals(
     unitPrice?: Prisma.Decimal | number | string;
     tax_rate?: Prisma.Decimal | number | string;
     taxRate?: Prisma.Decimal | number | string;
-    is_gross_price?: boolean | null;
-    isGrossPrice?: boolean | null;
+    gross_unit_price?: Prisma.Decimal | number | string | null;
     line_discount_type?: DiscountType | null;
     line_discount_value?: Prisma.Decimal | number | string | null;
   }>,
   globalDiscountType: DiscountType | null = null,
   globalDiscountValue: Prisma.Decimal | null = null,
 ): InvoiceTotals {
-  const hasGrossLines = lineItems.some((item) =>
-    Boolean(item.is_gross_price ?? item.isGrossPrice),
-  );
-  const billedLines = lineItems.map((item, index) => {
-    const quantity = new Prisma.Decimal(item.quantity);
-    const rawUnitPrice = new Prisma.Decimal(
-      item.unit_price ?? item.unitPrice ?? 0,
-    );
-    const taxRate = new Prisma.Decimal(
+  const billedLines = lineItems.map((item, index) => ({
+    id: item.id ?? `line-${index}`,
+    quantity: new Prisma.Decimal(item.quantity),
+    unitPrice: new Prisma.Decimal(item.unit_price ?? item.unitPrice ?? 0),
+    grossUnitPrice:
+      item.gross_unit_price == null
+        ? null
+        : new Prisma.Decimal(item.gross_unit_price),
+    taxRate: new Prisma.Decimal(
       item.tax_rate ?? item.taxRate ?? DEFAULT_VAT_RATE,
-    );
-    const isGross = Boolean(item.is_gross_price ?? item.isGrossPrice);
-    return {
-      id: item.id ?? `line-${index}`,
-      quantity,
-      unitPrice: isGross
-        ? convertGrossUnitPriceToNet(rawUnitPrice, taxRate)
-        : rawUnitPrice,
-      taxRate,
-      lineDiscountType: item.line_discount_type ?? null,
-      lineDiscountValue: isPresent(item.line_discount_value)
-        ? new Prisma.Decimal(item.line_discount_value)
-        : null,
-    };
-  });
-  const { totalNet, totalTax, totalGross } = computeStandardInvoiceTotals(
+    ),
+    lineDiscountType: item.line_discount_type ?? null,
+    lineDiscountValue: isPresent(item.line_discount_value)
+      ? new Prisma.Decimal(item.line_discount_value)
+      : null,
+  }));
+  const totals = computeStandardInvoiceTotals(
     billedLines,
     globalDiscountType,
     globalDiscountValue,
   );
-  let roundingAmount = new Prisma.Decimal(0);
-  if (hasGrossLines && !globalDiscountType) {
-    const targetGross = lineItems.reduce((sum, item) => {
-      const quantity = new Prisma.Decimal(item.quantity);
-      const rawUnitPrice = new Prisma.Decimal(
-        item.unit_price ?? item.unitPrice ?? 0,
-      );
-      const taxRate = new Prisma.Decimal(
-        item.tax_rate ?? item.taxRate ?? DEFAULT_VAT_RATE,
-      );
-      const isGross = Boolean(item.is_gross_price ?? item.isGrossPrice);
-      if (isGross) {
-        return sum.add(
-          quantity
-            .mul(rawUnitPrice)
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-        );
-      }
-      const lineNet = quantity
-        .mul(rawUnitPrice)
-        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-      return sum.add(
-        lineNet.add(
-          lineNet
-            .mul(taxRate)
-            .div(100)
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-        ),
-      );
-    }, new Prisma.Decimal(0));
-    roundingAmount = targetGross.sub(totalGross);
-  }
-  const finalGross = totalGross.add(roundingAmount);
   return {
-    subtotal: totalNet,
-    taxTotal: totalTax,
-    total: finalGross,
-    totalNet,
-    totalTax,
-    totalGross: finalGross,
-    roundingAmount,
+    ...totals,
+    subtotal: totals.totalNet,
+    taxTotal: totals.totalTax,
+    total: totals.totalGross,
   };
 }
 

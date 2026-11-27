@@ -59,7 +59,8 @@ function assertSnapshotLines(
     new Prisma.Decimal(0),
   );
   const snapshotGross = new Prisma.Decimal(snapshot.total_gross);
-  if (!breakdownGross.equals(totalGross) || !snapshotGross.equals(totalGross)) {
+  const payableGross = breakdownGross.add(snapshot.rounding_amount ?? 0);
+  if (!payableGross.equals(totalGross) || !snapshotGross.equals(totalGross)) {
     throw new UnprocessableEntityException({
       code: SETTLEMENT_ERROR_CODES.SETTLEMENT_AMOUNT_MISMATCH,
       message: 'Invoice snapshot gross does not match total_gross.',

@@ -29367,6 +29367,10 @@
           "unitPrice": {
             "type": "number"
           },
+          "grossUnitPrice": {
+            "type": "number",
+            "nullable": true
+          },
           "catalogItemId": {
             "type": "string",
             "nullable": true
@@ -30260,6 +30264,13 @@
           "unitPrice": {
             "type": "number",
             "minimum": 0
+          },
+          "grossUnitPrice": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "multipleOf": 0.01,
+            "description": "Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing."
           },
           "laborOperationId": {
             "type": "string",

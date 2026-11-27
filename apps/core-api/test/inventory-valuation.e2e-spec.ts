@@ -253,6 +253,7 @@ describe('Inventory Valuation (e2e)', () => {
               description: item.name,
               quantity: new Decimal(3),
               unit_price: new Decimal(100),
+              gross_unit_price: null,
               tax_rate: new Decimal(20),
               line_discount_type: null,
               line_discount_value: null,

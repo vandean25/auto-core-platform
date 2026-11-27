@@ -54,6 +54,19 @@ export class ReplaceWorkshopTaskLineItemDto {
   @Type(() => Number)
   unitPrice!: number;
 
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 0,
+    multipleOf: 0.01,
+    description:
+      'Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  grossUnitPrice?: number | null;
+
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID()

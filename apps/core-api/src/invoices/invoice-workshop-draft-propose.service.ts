@@ -286,6 +286,9 @@ export class InvoiceWorkshopDraftProposeService {
       description: line.description,
       quantity: String(line.quantity),
       unit_price: String(line.unit_price ?? line.unitPrice ?? 0),
+      ...(line.gross_unit_price != null
+        ? { gross_unit_price: String(line.gross_unit_price) }
+        : {}),
       tax_rate: String(line.tax_rate ?? line.taxRate ?? ''),
       type: line.type ?? null,
       catalog_item_id: line.catalog_item_id ?? line.catalogItemId ?? null,

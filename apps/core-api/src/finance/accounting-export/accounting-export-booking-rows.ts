@@ -85,7 +85,7 @@ function reconcileRowsWithTaxBreakdown(
     const step = diff.gt(0)
       ? new Prisma.Decimal('0.01')
       : new Prisma.Decimal('-0.01');
-    let remaining = diff.abs().mul(100).toNumber();
+    let remaining = diff.abs();
     const rate = new Prisma.Decimal(rateKey);
 
     const ranked = [...indices].sort((leftIdx, rightIdx) => {
@@ -106,13 +106,13 @@ function reconcileRowsWithTaxBreakdown(
     });
 
     for (const idx of ranked) {
-      if (remaining <= 0) break;
+      if (remaining.lte(0)) break;
       const row = adjusted[idx];
       const nextTax = new Prisma.Decimal(row.tax).add(step);
       const nextGross = new Prisma.Decimal(row.net).add(nextTax);
       row.tax = nextTax.toFixed(2);
       row.gross = nextGross.toFixed(2);
-      remaining -= 1;
+      remaining = remaining.sub(step.abs());
     }
   }
 

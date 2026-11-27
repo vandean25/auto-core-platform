@@ -46,6 +46,9 @@ export function toRenderableCreditNoteSnapshot(
     total_net: snapshot.total_net,
     total_tax: snapshot.total_tax,
     total_gross: snapshot.total_gross,
+    ...(snapshot.rounding_amount
+      ? { rounding_amount: snapshot.rounding_amount }
+      : {}),
     notes: snapshot.notes,
     tax_mode: snapshot.tax_mode,
     customer: snapshot.customer,

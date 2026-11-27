@@ -60,20 +60,6 @@ export function extractOriginalLineSnapshots(
   }));
 }
 
-function isLegacyLineSummedSnapshot(
-  originalSnapshot: InvoiceSnapshotV2,
-): boolean {
-  return originalSnapshot.tax_breakdown.some(
-    (bucket) =>
-      !new Prisma.Decimal(bucket.tax).eq(
-        halfUpTax(
-          new Prisma.Decimal(bucket.net),
-          new Prisma.Decimal(bucket.rate),
-        ),
-      ),
-  );
-}
-
 export function computeCreditNoteTaxSummary(input: {
   originalSnapshot: InvoiceSnapshotV2;
   lineSnapshots: ReadonlyArray<{
@@ -116,7 +102,7 @@ export function computeCreditNoteTaxSummary(input: {
     };
   }
 
-  if (isLegacyLineSummedSnapshot(input.originalSnapshot)) {
+  if (input.originalSnapshot.vat_calculation !== 'PER_RATE') {
     const taxBuckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
     for (const line of input.lineSnapshots) {
       const existing = taxBuckets.get(line.tax_rate) ?? {
@@ -238,7 +224,11 @@ export function computeCreditNoteTaxSummary(input: {
   return {
     totalNet,
     totalTax,
-    totalGross: totalNet.add(totalTax),
+    totalGross: totalNet
+      .add(totalTax)
+      .add(
+        input.isFullCredit ? (input.originalSnapshot.rounding_amount ?? 0) : 0,
+      ),
     taxBreakdown,
   };
 }
@@ -306,6 +296,9 @@ export function buildCreditNoteSnapshot(input: {
     })),
     // Margin-scheme documents carry no VAT buckets, mirroring the original snapshot (ADR-0023).
     tax_breakdown: taxBreakdown,
+    ...(input.isFullCredit && input.originalSnapshot.rounding_amount
+      ? { rounding_amount: input.originalSnapshot.rounding_amount }
+      : {}),
     ...(input.originalSnapshot.margin
       ? { margin: input.originalSnapshot.margin }
       : {}),

@@ -8848,6 +8848,7 @@ export interface components {
             description: string;
             qty: number;
             unitPrice: number;
+            grossUnitPrice?: number | null;
             catalogItemId?: string | null;
             /** @enum {string|null} */
             partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
@@ -9089,6 +9090,8 @@ export interface components {
             /** @example 1.5 */
             qty: number;
             unitPrice: number;
+            /** @description Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing. */
+            grossUnitPrice?: number | null;
             /** Format: uuid */
             laborOperationId?: string;
             standardAw?: number;

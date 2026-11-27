@@ -23,6 +23,7 @@ export type InvoiceSnapshot = {
   total_net: string;
   total_tax: string;
   total_gross: string;
+  rounding_amount?: string;
   notes: string | null;
   tax_mode?: InvoiceTaxMode;
 

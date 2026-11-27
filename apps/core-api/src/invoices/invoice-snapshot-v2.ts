@@ -143,6 +143,8 @@ export type InvoiceSnapshotV2 = {
   };
   items: InvoiceSnapshotV2Item[];
   tax_breakdown: InvoiceSnapshotV2TaxBucket[];
+  vat_calculation?: 'PER_RATE';
+  rounding_amount?: string;
   margin?: InvoiceSnapshotV2Margin;
   branding?: InvoiceSnapshotV2Branding;
   total_net: string;
@@ -155,14 +157,8 @@ export type InvoiceSnapshotV2 = {
 
 type DecimalLike = Prisma.Decimal | number | string;
 
-type LineAllocationInput = {
-  id: string;
+type LineAllocationInput = InvoiceBilledLineInput & {
   description: string;
-  quantity: Prisma.Decimal;
-  unitPrice: Prisma.Decimal;
-  taxRate: Prisma.Decimal;
-  lineDiscountType: DiscountType | null;
-  lineDiscountValue: Prisma.Decimal | null;
   revenueGroupName: string | null;
   accountingAllocation: ResolvedAccountingAllocation;
 };
@@ -198,6 +194,15 @@ export const halfUpTax = (
 ): Prisma.Decimal =>
   net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
+export function convertGrossUnitPriceToNet(
+  grossUnitPrice: Prisma.Decimal,
+  taxRate: Prisma.Decimal,
+): Prisma.Decimal {
+  return grossUnitPrice
+    .div(new Prisma.Decimal(1).add(taxRate.div(100)))
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 export function lineNetBeforeGlobalDiscount(
   line: Pick<
     InvoiceBilledLineInput,
@@ -224,6 +229,7 @@ export type InvoiceBilledLineInput = {
   id: string;
   quantity: Prisma.Decimal;
   unitPrice: Prisma.Decimal;
+  grossUnitPrice?: Prisma.Decimal | null;
   taxRate: Prisma.Decimal;
   lineDiscountType: DiscountType | null;
   lineDiscountValue: Prisma.Decimal | null;
@@ -239,7 +245,43 @@ export type StandardInvoiceTotals = {
   totalNet: Prisma.Decimal;
   totalTax: Prisma.Decimal;
   totalGross: Prisma.Decimal;
+  roundingAmount: Prisma.Decimal;
 };
+
+function computeGrossPriceRounding(
+  lines: readonly InvoiceBilledLineInput[],
+  netForLine: (id: string) => Prisma.Decimal | undefined,
+): Prisma.Decimal {
+  const grossPricedNets: Array<{
+    taxRate: Prisma.Decimal;
+    net: Prisma.Decimal;
+  }> = [];
+  let targetGross = new Prisma.Decimal(0);
+  for (const line of lines) {
+    const net = netForLine(line.id)?.toDecimalPlaces(
+      2,
+      Prisma.Decimal.ROUND_HALF_UP,
+    );
+    if (line.grossUnitPrice == null || !net || net.isZero()) continue;
+    const gross = line.quantity
+      .mul(line.grossUnitPrice)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    const originalNet = line.quantity
+      .mul(line.unitPrice)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    const netDiscount = originalNet.sub(net);
+    targetGross = targetGross.add(
+      gross.sub(netDiscount).sub(halfUpTax(netDiscount, line.taxRate)),
+    );
+    grossPricedNets.push({ taxRate: line.taxRate, net });
+  }
+
+  // Gross-priced lines contribute the rounding adjustment. VAT uses the full rate bucket.
+  return buildTaxBreakdown(grossPricedNets).reduce(
+    (remaining, bucket) => remaining.sub(bucket.gross),
+    targetGross,
+  );
+}
 
 /** Per-line net, half-up tax, and gross using the same rules as `buildInvoiceSnapshotV2`. */
 export function computeStandardInvoiceBilledLineAmounts(
@@ -312,7 +354,16 @@ export function computeStandardInvoiceTotals(
     totalNet = totalNet.add(rateNet);
     totalTax = totalTax.add(halfUpTax(rateNet, toMoney(rate)));
   }
-  return { totalNet, totalTax, totalGross: totalNet.add(totalTax) };
+  const roundingAmount = computeGrossPriceRounding(
+    lines,
+    (id) => amounts.get(id)?.net,
+  );
+  return {
+    totalNet,
+    totalTax,
+    totalGross: totalNet.add(totalTax).add(roundingAmount),
+    roundingAmount,
+  };
 }
 
 function allocateGlobalDiscount(
@@ -455,7 +506,8 @@ export function buildInvoiceSnapshotV2(
     margin,
     branding,
   } = input;
-  if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+  const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  if (isMarginScheme) {
     assertMarginSchemeSellerCountrySupported(seller.country_iso);
   }
   const committedAt = input.committedAt ?? new Date();
@@ -468,27 +520,9 @@ export function buildInvoiceSnapshotV2(
   const snapshotItems: InvoiceSnapshotV2Item[] = lineAllocations.map((line) => {
     const net = netByLine.get(line.id) ?? new Prisma.Decimal(0);
 
-    if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-      return {
-        id: line.id,
-        description: line.description,
-        quantity: quantityString(line.quantity),
-        unit_price: moneyString(line.unitPrice),
-        tax_rate: moneyString(line.taxRate),
-        line_discount_type: line.lineDiscountType,
-        line_discount_value:
-          line.lineDiscountValue === null
-            ? null
-            : moneyString(line.lineDiscountValue),
-        net: moneyString(net),
-        tax: '0.00',
-        gross: moneyString(net),
-        revenue_group_name: line.revenueGroupName,
-        accounting_allocation: line.accountingAllocation,
-      };
-    }
-
-    const tax = halfUpTax(net, line.taxRate);
+    const tax = isMarginScheme
+      ? new Prisma.Decimal(0)
+      : halfUpTax(net, line.taxRate);
     const gross = net.add(tax);
     return {
       id: line.id,
@@ -509,7 +543,6 @@ export function buildInvoiceSnapshotV2(
     };
   });
 
-  const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
   const taxBreakdown = isMarginScheme
     ? []
     : buildTaxBreakdown(
@@ -530,9 +563,12 @@ export function buildInvoiceSnapshotV2(
         (sum, bucket) => sum.add(toMoney(bucket.tax)),
         new Prisma.Decimal(0),
       );
+  const roundingAmount = isMarginScheme
+    ? new Prisma.Decimal(0)
+    : computeGrossPriceRounding(lineAllocations, (id) => netByLine.get(id));
   const totalGross = isMarginScheme
     ? toMoney(invoice.total_gross)
-    : totalNet.add(totalTax);
+    : totalNet.add(totalTax).add(roundingAmount);
 
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
@@ -588,6 +624,10 @@ export function buildInvoiceSnapshotV2(
     },
     items: snapshotItems,
     tax_breakdown: taxBreakdown,
+    ...(!isMarginScheme ? { vat_calculation: 'PER_RATE' as const } : {}),
+    ...(!roundingAmount.isZero()
+      ? { rounding_amount: moneyString(roundingAmount) }
+      : {}),
     ...(margin ? { margin } : {}),
     total_net: moneyString(totalNet),
     total_tax: moneyString(totalTax),
