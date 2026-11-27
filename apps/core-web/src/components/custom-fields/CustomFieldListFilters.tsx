@@ -5,6 +5,7 @@ import type { CustomFieldDefinition } from '@/api/custom-fields'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { mobileFieldTextClass } from '@/lib/mobile-field-text'
 
 type Props = {
   definitions: readonly CustomFieldDefinition[]
@@ -17,7 +18,7 @@ type FilterInputProps = {
   filters: URLSearchParams
 }
 
-const selectClass = 'min-h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm max-sm:min-h-11'
+const selectClass = 'min-h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 max-sm:min-h-11'
 
 function TextFilter({ definition, filters }: FilterInputProps) {
   const { t } = useTranslation('common')
@@ -27,7 +28,7 @@ function TextFilter({ definition, filters }: FilterInputProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <select
-        className={selectClass}
+        className={`${selectClass} ${mobileFieldTextClass}`}
         aria-label={t('customFields.list.operator', { field: definition.label })}
         value={operator}
         onChange={(event) => setOperator(event.target.value)}
@@ -79,7 +80,7 @@ function BooleanFilter({ definition, filters }: FilterInputProps) {
   const name = `${id}[is]`
   const value = filters.get(name) ?? filters.get(`${id}[eq]`) ?? filters.get(id) ?? ''
   return (
-    <select className={selectClass} name={name} aria-label={definition.label} defaultValue={value}>
+    <select className={`${selectClass} ${mobileFieldTextClass}`} name={name} aria-label={definition.label} defaultValue={value}>
       <option value="">{t('customFields.list.any')}</option>
       <option value="true">{t('customFields.booleanYes')}</option>
       <option value="false">{t('customFields.booleanNo')}</option>
