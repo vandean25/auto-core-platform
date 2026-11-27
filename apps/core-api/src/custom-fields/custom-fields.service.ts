@@ -33,6 +33,7 @@ import {
   normalizeCustomFieldKey,
   validateAndMergeCustomFieldValues,
   validateSelectOptions,
+  type CustomFieldDefinitionLike,
   type CustomFieldScalar,
 } from './custom-fields.validation.js';
 import type {
@@ -329,7 +330,7 @@ export class CustomFieldsService {
 
   async loadVisibilityDefs(
     entity: CustomFieldEntity,
-  ): Promise<Array<{ key: string }> | null> {
+  ): Promise<CustomFieldDefinitionLike[] | null> {
     const tenantId = await this.tenantContext.getTenantId();
     const enabled = await this.isEnabledForTenant(tenantId);
     if (!enabled) {
@@ -338,7 +339,7 @@ export class CustomFieldsService {
 
     return this.prisma.customFieldDefinition.findMany({
       where: { tenant_id: tenantId, entity, archived: false },
-      select: { key: true },
+      select: { key: true, type: true, options: true, archived: true },
     });
   }
 

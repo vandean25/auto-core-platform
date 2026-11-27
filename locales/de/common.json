@@ -500,6 +500,15 @@
     "booleanYes": "Ja",
     "booleanNo": "Nein",
     "saved": "Gespeichert",
-    "saveFailed": "Speichern fehlgeschlagen."
+    "saveFailed": "Speichern fehlgeschlagen.",
+    "list": {
+      "apply": "Anwenden",
+      "operator": "Vergleich für {{field}}",
+      "contains": "Enthält",
+      "equals": "Ist gleich",
+      "any": "Beliebig",
+      "from": "Von",
+      "to": "Bis"
+    }
   }
 }

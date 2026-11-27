@@ -1,17 +1,27 @@
-import { Prisma, type BankTransaction } from '@prisma/client';
+import {
+  CreditNoteStatus,
+  PaymentStatus,
+  Prisma,
+  type BankTransaction,
+} from '@prisma/client';
+import { computeInvoiceBalance } from '../finance/receivables/invoice-balance.js';
 
 export function bankOutstanding(
   gross: Prisma.Decimal,
   finalizedCredits: readonly Prisma.Decimal[],
   settledPayments: readonly Prisma.Decimal[],
 ): Prisma.Decimal {
-  return Prisma.Decimal.max(
-    0,
-    [...finalizedCredits, ...settledPayments].reduce(
-      (balance, amount) => balance.minus(amount),
-      gross,
-    ),
-  );
+  return computeInvoiceBalance({
+    total_gross: gross,
+    credit_notes: finalizedCredits.map((total_gross) => ({
+      status: CreditNoteStatus.FINALIZED,
+      total_gross,
+    })),
+    payments: settledPayments.map((amount) => ({
+      status: PaymentStatus.SETTLED,
+      amount,
+    })),
+  }).outstanding;
 }
 
 export function isAllocatableCredit(

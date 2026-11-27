@@ -22,6 +22,11 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
+import {
+  computeInvoiceBalance,
+  invoiceBalanceSelect,
+  type InvoiceBalanceInput,
+} from '../finance/receivables/invoice-balance.js';
 import { lockFinanceSettingsAndAssertOpen } from '../finance/fiscal-lock.helpers.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import {
@@ -146,10 +151,11 @@ export class SettlementService {
       },
     });
 
+    const balance = computeInvoiceBalance(invoice);
     const requestHash = hashSettlementRecordRequest({
       invoiceId,
       method: dto.method,
-      amount: invoice.total_gross.toFixed(2),
+      amount: balance.gross.toFixed(2),
       currency: invoice.currency ?? 'EUR',
       mode: legalEntity.rksv_mode,
       externalReceiptNumber: dto.externalReceiptNumber,
@@ -495,7 +501,7 @@ export class SettlementService {
 
   private async recordExternalSettlement(params: {
     tenantId: string;
-    invoice: Prisma.InvoiceGetPayload<object>;
+    invoice: Prisma.InvoiceGetPayload<object> & InvoiceBalanceInput;
     dto: RecordSettlementDto;
     requestHash: string;
     recordedByUserId: string;
@@ -515,6 +521,7 @@ export class SettlementService {
       });
     }
 
+    const balance = computeInvoiceBalance(params.invoice);
     const result = await this.prisma.$transaction(async (tx) => {
       await lockFinanceSettingsAndAssertOpen(
         tx,
@@ -555,7 +562,7 @@ export class SettlementService {
           recorded_by_user_id: params.recordedByUserId,
           status: PaymentStatus.SETTLED_EXTERNAL,
           method: params.dto.method,
-          amount: params.invoice.total_gross,
+          amount: balance.gross,
           currency: 'EUR',
           idempotency_key: params.dto.idempotencyKey,
           request_hash: params.requestHash,
@@ -587,7 +594,7 @@ export class SettlementService {
 
   private async recordRksvSettlement(params: {
     tenantId: string;
-    invoice: Prisma.InvoiceGetPayload<object>;
+    invoice: Prisma.InvoiceGetPayload<object> & InvoiceBalanceInput;
     dto: RecordSettlementDto;
     requestHash: string;
     recordedByUserId: string;
@@ -618,13 +625,14 @@ export class SettlementService {
     }
     this.assertRegisterLegalEntity(register, params.invoice);
 
+    const balance = computeInvoiceBalance(params.invoice);
     const paymentId = randomUUID();
     const providerReceiptId = randomUUID();
     const requestBody = buildNormalSignRequestBody({
       invoiceId: params.invoice.id,
       invoiceNumber: params.invoice.invoice_number ?? '',
       paymentId,
-      grossAmount: params.invoice.total_gross,
+      grossAmount: balance.gross,
       method: params.dto.method,
     });
 
@@ -671,7 +679,7 @@ export class SettlementService {
           recorded_by_user_id: params.recordedByUserId,
           status: PaymentStatus.PENDING,
           method: params.dto.method,
-          amount: params.invoice.total_gross,
+          amount: balance.gross,
           currency: 'EUR',
           idempotency_key: params.dto.idempotencyKey,
           request_hash: params.requestHash,
@@ -1058,8 +1066,10 @@ export class SettlementService {
     siteId: string,
     invoiceId: string,
   ) {
+    const { credit_notes, payments } = invoiceBalanceSelect(tenantId);
     const invoice = await this.prisma.invoice.findFirst({
       where: { id: invoiceId, tenant_id: tenantId, site_id: siteId },
+      include: { credit_notes, payments },
     });
     if (!invoice) {
       throw new NotFoundException('Invoice not found');

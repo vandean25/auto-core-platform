@@ -70,4 +70,6 @@ export type DataTableCoreProps<TData extends object> = {
   infinite?: DataTableInfiniteProps
   enableCsvExport?: boolean
   csvFileName?: string
+  enableMobileCsvExport?: boolean
+  toolbarFilters?: React.ReactNode
 }

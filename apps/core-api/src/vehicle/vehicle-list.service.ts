@@ -10,6 +10,7 @@ import {
   fetchKeysetListPage,
 } from '../common/list-cursor/index.js';
 import { projectVehicleListOperationalFields } from '../common/projections/vehicle-entity.projection.js';
+import { buildCustomFieldListFilters } from '../custom-fields/custom-field-list-filter.js';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import {
@@ -80,12 +81,20 @@ export class VehicleListService {
   async findAllWithCursor(
     query: VehicleCursorQuery,
     scopeContextHeader: string | undefined,
+    customFields?: URLSearchParams,
   ) {
+    const activeDefs = this.customFields
+      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+      : null;
     const pageResult = await this.scopeContext.read(
       scopeContextHeader,
       { id: 'VehicleController.findAll', scope: 'tenant' },
       async ({ tx, tenantId, siteId, scopeContextDigest }) => {
         assertNoVehicleOffsetParams(query);
+        const customFilters = buildCustomFieldListFilters(
+          activeDefs,
+          customFields,
+        );
         const { field, direction, config } = resolveVehicleCursorSort(
           query.sortField,
           query.sortDirection,
@@ -106,17 +115,19 @@ export class VehicleListService {
             tenantId,
             siteId,
             scopeContextDigest,
-            filterHashInput: vehicleListFilterContext(query),
+            filterHashInput: {
+              ...vehicleListFilterContext(query),
+              ...(customFilters.length ? { customFilters } : {}),
+            },
             sortField: field,
             sortDirection: direction,
             sortConfig: config,
             cursor: query.cursor,
             limit: resolveVehicleCursorLimit(query.limit),
-            baseWhere: buildVehicleListWhere(
-              tenantId,
-              query.search,
-              legacyEntityIds,
-            ),
+            baseWhere: {
+              ...buildVehicleListWhere(tenantId, query.search, legacyEntityIds),
+              AND: customFilters,
+            },
           },
           {
             findMany: (where, orderBy, take) =>
@@ -155,9 +166,6 @@ export class VehicleListService {
         return { ...result, data: projected };
       },
     );
-    const activeDefs = this.customFields
-      ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
-      : null;
     return {
       ...pageResult,
       data: (pageResult.data ?? []).map((row) =>
@@ -170,7 +178,12 @@ export class VehicleListService {
   async cappedListCount(
     query: Pick<VehicleCursorQuery, 'search'>,
     scopeContextHeader: string | undefined,
+    customFields?: URLSearchParams,
   ) {
+    const activeDefs =
+      this.customFields && customFields?.size
+        ? await this.customFields.loadVisibilityDefs(CustomFieldEntity.VEHICLE)
+        : null;
     return this.scopeContext.read(
       scopeContextHeader,
       { id: 'VehicleController.cappedCount', scope: 'tenant' },
@@ -182,10 +195,10 @@ export class VehicleListService {
               externalId: query.search,
             })
           : [];
-        return cappedVehicleListCount(
-          tx,
-          buildVehicleListWhere(tenantId, query.search, legacyEntityIds),
-        );
+        return cappedVehicleListCount(tx, {
+          ...buildVehicleListWhere(tenantId, query.search, legacyEntityIds),
+          AND: buildCustomFieldListFilters(activeDefs, customFields),
+        });
       },
     );
   }

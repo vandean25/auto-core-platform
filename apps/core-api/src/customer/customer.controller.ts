@@ -16,6 +16,11 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
+import {
+  CUSTOM_FIELD_FILTER_DESCRIPTION,
+  CustomFieldFilterParams,
+  CustomFieldListQuery,
+} from '../custom-fields/custom-field-list-query.js';
 import { SCOPE_CONTEXT_HEADER } from '../auth/scope-context/scope-context.constants.js';
 import { CustomerService } from './customer.service.js';
 import { CustomerListService } from './customer-list.service.js';
@@ -126,38 +131,64 @@ export class CustomerController {
   @Get('capped-count')
   @ApiOperation({
     operationId: 'CustomerController_cappedCount',
+    description: CUSTOM_FIELD_FILTER_DESCRIPTION,
     summary: 'Bounded match count for the customer list (ADR-0035)',
   })
+  @ApiQuery({ type: CustomersCappedCountQueryDto, required: false })
   @ApiHeader({ name: SCOPE_CONTEXT_HEADER, required: true })
   @ApiOkResponse({ type: CappedListCountResponseDto })
   cappedCount(
-    @Query() query: CustomersCappedCountQueryDto,
+    @CustomFieldListQuery(CustomersCappedCountQueryDto)
+    query: CustomersCappedCountQueryDto,
     @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+    @CustomFieldFilterParams() customFields?: URLSearchParams,
   ) {
-    return this.customerList.cappedListCount(query, scopeContext);
+    return this.customerList.cappedListCount(query, scopeContext, customFields);
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'List customers',
+    description: CUSTOM_FIELD_FILTER_DESCRIPTION,
+  })
   @ApiHeader({
     name: SCOPE_CONTEXT_HEADER,
     required: false,
     description: 'Required in cursor mode (ADR-0038).',
   })
-  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description:
+      'Free-text search term for customer name, company name, email, or legacy ID',
+    schema: { type: 'string' },
+  })
   @ApiQuery({
     name: 'type',
     required: false,
     schema: { type: 'string', enum: ['PRIVATE', 'COMPANY'] },
   })
-  @ApiListOffsetPaginationQueries({ includeLimit: true })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Cursor mode only. Default 50, maximum 100.',
+    schema: { type: 'integer', minimum: 1 },
+  })
+  @ApiListOffsetPaginationQueries()
   @ApiListCursorModeQuery()
   @ApiPaginatedResponse(CustomerResponseDto)
   async findAll(
-    @Query() query: FindAllCustomersQueryDto,
+    @CustomFieldListQuery(FindAllCustomersQueryDto)
+    query: FindAllCustomersQueryDto,
     @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
+    @CustomFieldFilterParams() customFields?: URLSearchParams,
   ) {
     if (query.pagination === 'cursor' || query.cursor) {
-      return this.customerList.findAllWithCursor(query, scopeContext);
+      return this.customerList.findAllWithCursor(
+        query,
+        scopeContext,
+        customFields,
+      );
     }
     return findAllCustomersOffset(this.customerService, query);
   }

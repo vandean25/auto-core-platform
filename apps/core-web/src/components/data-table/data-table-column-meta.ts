@@ -9,11 +9,12 @@ export type DataTableFilterMeta =
     }
   | { type: 'dateRange'; title: string }
 
-export type DataTableMobileRole = 'title' | 'subtitle' | 'status' | 'trailing' | 'details' | 'hidden'
+export type DataTableMobileRole = 'title' | 'subtitle' | 'status' | 'trailing' | 'details' | 'additional' | 'hidden'
 
-export type DataTableMobileSlots = Partial<Record<Exclude<DataTableMobileRole, 'hidden'>, string>>
+export type DataTableMobileSlots = Partial<Record<Exclude<DataTableMobileRole, 'hidden' | 'additional'>, string>>
 
 type DataTableColumnMeta = {
+  defaultHidden?: boolean
   /** Slot of this column in the phone list mode (below md). Unannotated lists fall back to their first two data columns. */
   mobile?: DataTableMobileRole
   /** Adds a filter control to the toolbar. The value is a string, so it survives the URL round trip. */
@@ -44,12 +45,12 @@ export function getDataTableMobileSlots(
   columns: { id: string; accessorFn?: unknown; columnDef: { meta?: unknown } }[],
 ): DataTableMobileSlots {
   const candidates = columns.filter(
-    (column) => column.id !== 'select' && getDataTableColumnMeta(column.columnDef).mobile !== 'hidden',
+    (column) => column.id !== 'select' && !['hidden', 'additional'].includes(getDataTableColumnMeta(column.columnDef).mobile ?? ''),
   )
   const slots: DataTableMobileSlots = {}
   for (const column of candidates) {
     const role = getDataTableColumnMeta(column.columnDef).mobile
-    if (role && role !== 'hidden') slots[role] ??= column.id
+    if (role && role !== 'hidden' && role !== 'additional') slots[role] ??= column.id
   }
 
   const used = new Set(Object.values(slots))

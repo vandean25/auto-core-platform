@@ -5,6 +5,7 @@ import { SCOPE_CONTEXT_HEADER } from '../src/auth/scope-context/scope-context.co
 import { decodeListCursor } from '../src/common/list-cursor/list-cursor.codec.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createE2eApp } from './helpers/e2e-suite.js';
+import { scopedListRequest } from './helpers/list-scope-context.js';
 import {
   cleanupTestTenantGraph,
   createMemberBearer,
@@ -74,19 +75,92 @@ describe('Customer vehicles cursor list (AUT-957 e2e)', () => {
   }
 
   function list(query: Record<string, string>, context = scopeContext) {
-    return request(app.getHttpServer())
-      .get(VEHICLES)
-      .query({ pagination: 'cursor', ...query })
-      .set('Authorization', bearer)
-      .set(SCOPE_CONTEXT_HEADER, context);
+    return scopedListRequest(app, VEHICLES, bearer, context).query({
+      pagination: 'cursor',
+      ...query,
+    });
   }
 
   function count(context = scopeContext) {
-    return request(app.getHttpServer())
-      .get(COUNT)
-      .set('Authorization', bearer)
-      .set(SCOPE_CONTEXT_HEADER, context);
+    return scopedListRequest(app, COUNT, bearer, context);
   }
+
+  describe('vehicle custom filters', () => {
+    beforeAll(async () => {
+      await basePrisma.tenant.update({
+        where: { id: tenant.tenantId },
+        data: { custom_fields_enabled: true },
+      });
+      const fields = [
+        { key: 'capacity', type: 'NUMBER' },
+        { key: 'inspection', type: 'DATE' },
+        { key: 'on_site', type: 'BOOLEAN' },
+        { key: 'bay', type: 'TEXT' },
+      ] as const;
+      await prisma.customFieldDefinition.createMany({
+        data: fields.map((field) => ({
+          ...field,
+          tenant_id: tenant.tenantId,
+          entity: 'VEHICLE',
+          label: field.key,
+          purpose: 'Vehicle classification',
+        })),
+      });
+    });
+
+    beforeEach(async () => {
+      await prisma.vehicle.createMany({
+        data: [
+          { capacity: 2, inspection: '2026-01-02', on_site: true, bay: 'A_1' },
+          { capacity: 10, inspection: '2026-01-10', on_site: true, bay: 'AB1' },
+          {
+            capacity: 100,
+            inspection: '2026-02-01',
+            on_site: false,
+            bay: 'A_2',
+          },
+        ].map((customFields) => ({
+          tenant_id: tenant.tenantId,
+          make: 'Skoda',
+          model: String(customFields.capacity),
+          year: 2022,
+          createdAt: new Date(Date.UTC(2026, 0, customFields.capacity)),
+          custom_fields: customFields,
+        })),
+      });
+    });
+
+    it.each<{ filter: Record<string, string>; model: string; matches: number }>(
+      [
+        {
+          filter: { 'cf.capacity[gte]': '9', 'cf.capacity[lte]': '11' },
+          model: '10',
+          matches: 1,
+        },
+        {
+          filter: {
+            'cf.inspection[gte]': '2026-01-01',
+            'cf.inspection[lte]': '2026-01-09',
+          },
+          model: '2',
+          matches: 1,
+        },
+        { filter: { 'cf.on_site[is]': 'false' }, model: '100', matches: 1 },
+        { filter: { 'cf.bay[contains]': 'A_' }, model: '100', matches: 2 },
+        { filter: { 'cf.bay[eq]': 'AB1' }, model: '10', matches: 1 },
+      ],
+    )(
+      'applies $filter before the vehicle page limit and in the count',
+      async ({ filter, model, matches }) => {
+        const page = await list({ ...filter, limit: '1' }).expect(200);
+        const total = await count().query(filter).expect(200);
+        expect([
+          page.body.data.map((row: { model: string }) => row.model),
+          total.body.count,
+        ]).toEqual([[model], matches]);
+      },
+    );
+  });
 
   // Regression: a local-time or second-precision cursor value skips or repeats rows that share a createdAt.
   it('customerVehicles_static_timestamp_roundtrip', async () => {

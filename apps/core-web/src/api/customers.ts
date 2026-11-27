@@ -7,6 +7,7 @@ import type {
 } from './types'
 import { throwApiResponseError } from './api-error'
 import { fetchWithAuth } from './client'
+import type { CursorListQueryParams } from './cursor-list'
 import { readOffsetPage } from './cursor-recovery'
 import { readScopedOffset, scopedOffsetKey } from './offset-scope-gate'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
@@ -22,9 +23,9 @@ export const customerKeys = {
     list: (queryParams?: DataTableQueryParams) => [...customerKeys.lists(), queryParams] as const,
     /** ADR-0035 infinite customer list; its own family so an offset refresh never restarts the cursor chain. */
     cursorLists: () => [...customerKeys.all, 'cursor'] as const,
-    cursorList: (params: Record<string, string | undefined>) =>
+    cursorList: (params: CursorListQueryParams) =>
         [...customerKeys.cursorLists(), params] as const,
-    cappedCount: (filters: Record<string, string | undefined>) =>
+    cappedCount: (filters: CursorListQueryParams) =>
         [...customerKeys.all, 'capped-count', filters] as const,
     detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
     notes: (id: string) => [...customerKeys.detail(id), 'notes'] as const,

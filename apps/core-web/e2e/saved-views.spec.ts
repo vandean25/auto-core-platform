@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 import type { SavedViewDto } from '../src/api/saved-views'
 import deNav from '../../../locales/de/nav.json' with { type: 'json' }
 import enNav from '../../../locales/en/nav.json' with { type: 'json' }
@@ -169,6 +170,93 @@ async function openCustomerSavedView(page: Page, name: string) {
   await page.getByRole('dialog', { name: deCommon.savedViews.menuTitle })
     .getByRole('button', { name, exact: true }).click()
 }
+
+test.describe('Customer custom fields in list views (AUT-1044)', () => {
+  const field = 'Flottennummer'
+  const value = 'FL-1044'
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    await page.addInitScript((enabled) => {
+      window.localStorage.setItem('acp:ui-language', 'de')
+      window.localStorage.setItem('e2e-custom-fields-enabled', String(enabled))
+    }, !testInfo.title.startsWith('flag off'))
+    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), (route) => route.fulfill({
+      json: [{ id: 'def-list', entity: 'CUSTOMER', key: 'fleet_no', label: field, type: 'TEXT', options: null, archived: false }],
+    }))
+    await mockCursorList(page, {
+      path: '/api/customers',
+      rows: [{ ...createMockCustomer({ first_name: 'Anna', last_name: 'Huber' }), custom_fields: { fleet_no: value } }],
+    })
+  })
+
+  async function enableColumn(page: Page) {
+    await customerLayoutOptions(page).click()
+    await page.getByRole('menuitemcheckbox', { name: field }).click({ timeout: 5000 })
+    await page.keyboard.press('Escape')
+  }
+
+  test('reopening a saved view restores the enabled custom column and its filter', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [])
+    await new AutoCorePage(page, '').navigate('/customers?cf.deleted=x')
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+    await expect(page.getByText(value, { exact: true })).toHaveCount(0)
+    await enableColumn(page)
+    await page.getByRole('button', { name: 'Eigene Felder', exact: true }).click()
+    await page.getByRole('textbox', { name: field }).fill(value)
+    const filtered = page.waitForRequest((request) =>
+      new URL(request.url()).searchParams.get('cf.fleet_no[contains]') === value,
+    )
+    await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
+    await filtered
+    await page.getByRole('button', { name: deCommon.savedViews.saveAria.replace('{{title}}', 'Kunden') }).click()
+    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
+    await dialog.getByLabel(deCommon.savedViews.nameLabel, { exact: true }).fill('Flottenkunden')
+    await dialog.getByRole('button', { name: deCommon.actions.save, exact: true }).click()
+    await expect(dialog).toBeHidden()
+    await new AutoCorePage(page, '').navigate('/customers')
+    await openCustomerSavedView(page, 'Flottenkunden')
+    await expect(page).toHaveURL((url) => url.searchParams.get('cols') === 'cf.fleet_no' &&
+      url.searchParams.get('cf.fleet_no[contains]') === value &&
+      url.searchParams.get('cf.deleted') === 'x')
+    await expect(page.getByText(value, { exact: true })).toBeVisible()
+    await testInfo.attach('custom-column-saved-desktop', { body: await page.screenshot(), contentType: 'image/png' })
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expect(page.getByRole('definition').filter({ hasText: value })).toBeVisible()
+    await expectTouchTarget(customerLayoutOptions(page))
+    await expectTouchTarget(page.getByRole('button', { name: 'Eigene Felder', exact: true }))
+    await expectNoPageScroll(page)
+    await testInfo.attach('custom-column-saved-375', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
+  test('CSV includes the enabled custom column header and value', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate('/customers')
+    await enableColumn(page)
+    const csv = page.getByRole('button', { name: deCommon.dataTable.exportCsv, exact: true })
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 812 })
+      if (width === 375) await expectTouchTarget(csv)
+      const download = page.waitForEvent('download')
+      await csv.click()
+      const content = await readFile((await (await download).path())!, 'utf8')
+      const [header, firstRow] = content.split('\r\n')
+      expect(firstRow.split(';')[header.split(';').indexOf(field)]).toBe(value)
+      await testInfo.attach(`custom-column-csv-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
+    }
+  })
+
+  test('flag off suppresses custom column and filter controls even with a saved layout', async ({ page }, testInfo) => {
+    await new AutoCorePage(page, '').navigate('/customers?cols=cf.fleet_no&cf.fleet_no=FL-1044')
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 812 })
+      await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Eigene Felder', exact: true })).toHaveCount(0)
+      await customerLayoutOptions(page).click()
+      await expect(page.getByRole('menuitemcheckbox', { name: field })).toHaveCount(0)
+      await testInfo.attach(`custom-lists-flag-off-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
+      await page.keyboard.press('Escape')
+    }
+  })
+})
 
 test.describe('Customer view layout (AUT-1046)', () => {
   test.use({ viewport: { width: 375, height: 812 } })

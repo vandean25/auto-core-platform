@@ -1352,6 +1352,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List customers
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["CustomerController_findAll"];
         put?: never;
         post: operations["CustomerController_create"];
@@ -1368,7 +1372,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bounded match count for the customer list (ADR-0035) */
+        /**
+         * Bounded match count for the customer list (ADR-0035)
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["CustomerController_cappedCount"];
         put?: never;
         post?: never;
@@ -4256,7 +4263,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bounded match count for the customer vehicle list (ADR-0035) */
+        /**
+         * Bounded match count for the customer vehicle list (ADR-0035)
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["VehicleController_cappedCount"];
         put?: never;
         post?: never;
@@ -4273,6 +4283,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List vehicles
+         * @description Cursor lists and their capped counts accept tenant-defined `cf.<key>` parameters. Use `cf.<key>` or `cf.<key>[eq]` for equality, `[contains]` for text, `[gte]` and `[lte]` for inclusive numeric or YYYY-MM-DD bounds, repeated `[in]` for SELECT options, and `[is]=true|false` for booleans. Unknown and archived fields are ignored, as are all custom filters when custom fields are disabled. Invalid filters for active fields return HTTP 422 with `CUSTOM_FIELD_FILTER_INVALID`.
+         */
         get: operations["VehicleController_findAll"];
         put?: never;
         post: operations["VehicleController_create"];
@@ -16499,17 +16513,13 @@ export interface operations {
                 cursor?: string;
                 /** @description Cursor mode only. Default 50, maximum 100. */
                 limit?: number;
-                /** @description Page number */
                 page?: number;
-                /** @description Number of items per page */
                 pageSize?: number;
                 /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
                 pagination?: "offset" | "cursor";
                 /** @description Free-text search term for customer name, company name, email, or legacy ID */
                 search?: string;
-                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
-                /** @description Field name to sort by */
                 sortField?: string;
                 type?: "PRIVATE" | "COMPANY";
             };
@@ -22174,7 +22184,6 @@ export interface operations {
                 cursor?: string;
                 /** @description Cursor mode only. Default 50, maximum 100. */
                 limit?: string;
-                /** @description Page number */
                 page?: number;
                 /** @description Larger values are clamped to 50. */
                 pageSize?: number;
@@ -22182,9 +22191,7 @@ export interface operations {
                 pagination?: "offset" | "cursor";
                 /** @description Free-text search term for make, model, plate, VIN, engine code, customer, or legacy ID */
                 search?: string;
-                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
-                /** @description Field name to sort by */
                 sortField?: string;
             };
             header?: {
