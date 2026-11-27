@@ -92,7 +92,7 @@ describe('list-cursor.codec', () => {
     );
   });
 
-  it('accepts only v2 cursors bound to the verified scope on enforced lists', () => {
+  it('accepts only current-version cursors bound to the verified scope on enforced lists', () => {
     const payload = { ...samplePayload(), scopeContextDigest: 'scope-digest' };
     const context = {
       endpoint: payload.ep,
@@ -105,17 +105,36 @@ describe('list-cursor.codec', () => {
     };
     const bound = encodeListCursor(payload);
     expect(parseListCursorParam(bound, context)).toMatchObject({
-      v: 2,
+      v: LIST_CURSOR_VERSION,
       scopeContextDigest: context.scopeContextDigest,
     });
     const legacy = Buffer.from(
       JSON.stringify({ ...samplePayload(), v: 1, scopeContextDigest: undefined }),
     ).toString('base64url');
-    for (const [cursor, digest] of [
-      [bound, 'different-scope'],
-      [legacy, context.scopeContextDigest],
-    ]) {
-      const request = { ...context, scopeContextDigest: digest };
+    const preChangeDateCursor = encodeListCursor({
+      v: 2 as typeof LIST_CURSOR_VERSION,
+      ep: LIST_CURSOR_ENDPOINT.invoices,
+      sort: 'date',
+      dir: 'desc',
+      fh: 'filter-hash',
+      tid: tenantId,
+      sid: siteId,
+      scopeContextDigest: context.scopeContextDigest,
+      sv: '2026-01-01T10:00:00.000Z',
+      id: rowId,
+    });
+    for (const [cursor, digest, sortField, sortDirection, endpoint] of [
+      [bound, 'different-scope', context.sortField, context.sortDirection, context.endpoint],
+      [legacy, context.scopeContextDigest, context.sortField, context.sortDirection, context.endpoint],
+      [preChangeDateCursor, context.scopeContextDigest, 'date', 'desc', LIST_CURSOR_ENDPOINT.invoices],
+    ] as const) {
+      const request = {
+        ...context,
+        endpoint,
+        sortField,
+        sortDirection,
+        scopeContextDigest: digest,
+      };
       expect(() => parseListCursorParam(cursor, request)).toThrow(
         expect.objectContaining({
           response: expect.objectContaining({ code: 'LIST_CURSOR_INVALID' }),
