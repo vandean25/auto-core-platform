@@ -299,7 +299,7 @@ test.describe('Legal entities seller settings', () => {
     await paymentTermsInput.scrollIntoViewIfNeeded();
     await paymentTermsInput.fill('');
 
-    const fieldError = page.getByRole('alert');
+    const fieldError = page.locator('#seller-payment-days-error');
     await expect(fieldError).toBeVisible();
     await expect(fieldError).toHaveText(
       DE_SETTINGS.legalEntities.seller.errors.paymentTermsDaysRequired,

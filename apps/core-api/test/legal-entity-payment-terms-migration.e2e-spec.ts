@@ -10,6 +10,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import {
@@ -77,6 +78,25 @@ describe('AUT-1088 mandatory LegalEntity payment terms migration (e2e)', () => {
         name: 'Brake Pad',
         cost_price: 10,
         retail_price: 20,
+      },
+    });
+    const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
+    const location = await tenantPrisma.storageLocation.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        code: `LOC-${Date.now()}`,
+        name: 'Warehouse',
+        type: 'warehouse',
+        site_id: siteId,
+      },
+    });
+    await tenantPrisma.inventoryStock.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        catalog_item_id: catalogItem.id,
+        site_id: siteId,
+        location_id: location.id,
+        quantity_on_hand: 10,
       },
     });
 
