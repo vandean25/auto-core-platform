@@ -581,6 +581,7 @@ describe('invoice-pdf.layout', () => {
           tenant_id: 'tenant-1',
           invoice_number: 'RE-2026-0099',
           draft_number: 'RE-D-99',
+          draft_number_seq: 99,
           customer_id: 'cust-1',
           vehicle_id: 'veh-1',
           sales_order_id: null,

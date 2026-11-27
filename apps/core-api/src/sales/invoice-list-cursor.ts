@@ -18,12 +18,21 @@ const INVOICE_CURSOR_DEFAULT_LIMIT = 25;
  */
 export type InvoiceCursorSortField = 'invoice_number' | 'date';
 
+const INVOICE_SORT_FIELD_ALIASES: Record<string, InvoiceCursorSortField> = {
+  number: 'invoice_number',
+};
+
 const INVOICE_CURSOR_SORTS: Record<InvoiceCursorSortField, CursorSortConfig> = {
-  // Drafts have no number yet: NULLS LAST in both directions, ties broken by the unique id.
+  // Drafts have no number yet: NULLS LAST in both directions, ordered by numeric draft_number_seq then id.
   invoice_number: {
     prismaField: 'invoice_number',
     valueKind: 'string',
     nullable: true,
+    secondary: {
+      prismaField: 'draft_number_seq',
+      valueKind: 'int',
+      nullable: true,
+    },
   },
   date: {
     prismaField: 'date',
@@ -50,7 +59,10 @@ export function resolveInvoiceCursorSort(
   sortField?: string,
   sortDirection?: KeysetSortDirection,
 ) {
-  const field = sortField ?? 'date';
+  const rawField = sortField ?? 'date';
+  const field = Object.hasOwn(INVOICE_SORT_FIELD_ALIASES, rawField)
+    ? INVOICE_SORT_FIELD_ALIASES[rawField]
+    : rawField;
   if (!Object.hasOwn(INVOICE_CURSOR_SORTS, field)) {
     throw listCursorSortUnsupportedException();
   }

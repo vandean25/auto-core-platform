@@ -402,4 +402,34 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
     await testInfo.attach('aut-1066-invoice-list-empty-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
+
+  test('AUT-1062: WHEN /sales/invoices?sortField=number&sortDirection=desc is opened with issued and draft rows THEN it stays in infinite mode without classic page buttons (desktop and 375px)', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const mixedRows = [
+      { ...invoiceRows[0], id: 'inv-2', invoice_number: 'RE-2026-0002', draft_number: 'RE-D-2' },
+      { ...invoiceRows[0], id: 'inv-1', invoice_number: 'RE-2026-0001', draft_number: 'RE-D-1' },
+      { ...invoiceRows[0], id: 'draft-115', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-115' },
+      { ...invoiceRows[0], id: 'draft-100', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-100' },
+      { ...invoiceRows[0], id: 'draft-99', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-99' },
+      { ...invoiceRows[0], id: 'draft-56', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-56' },
+    ];
+    const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: mixedRows, unpaged: 'array' });
+    await openList(page, '?sortField=number&sortDirection=desc');
+
+    await expect(page.getByText('RE-2026-0002')).toBeVisible();
+    await expect(page.getByText('RE-D-115')).toBeVisible();
+    await expect(pageButtons(page)).toHaveCount(0);
+    const first = requests.list.find((url) => url.searchParams.get('pagination') === 'cursor');
+    expect(first?.searchParams.get('sortField')).toBe('invoice_number');
+    expect(first?.searchParams.get('sortDirection')).toBe('desc');
+    expect(requests.list.every((url) => url.searchParams.get('pagination') === 'cursor')).toBe(true);
+    await testInfo.attach('aut-1062-invoice-list-number-desc-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.getByText('RE-D-115')).toBeVisible();
+    expect(await pageOverflow(page)).toBe(0);
+    await testInfo.attach('aut-1062-invoice-list-number-desc-de-375', { body: await page.screenshot(), contentType: 'image/png' });
+  });
 });
