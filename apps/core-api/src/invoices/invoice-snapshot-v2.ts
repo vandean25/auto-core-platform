@@ -28,7 +28,7 @@ export const INVOICE_PAYMENT_TERMS_MISSING_CODE =
 
 export function resolveInvoicePaymentTermsDays(
   customer: Pick<Customer, 'payment_terms_days'>,
-  seller: Pick<LegalEntity, 'payment_terms_days'>,
+  seller: { payment_terms_days?: number | null },
 ): number {
   const days = customer.payment_terms_days ?? seller.payment_terms_days;
   if (
