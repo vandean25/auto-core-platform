@@ -59,6 +59,19 @@ describe('SettlementService', () => {
     };
   }
 
+  function issuedWorkshopInvoice() {
+    return {
+      id: invoiceId,
+      tenant_id: tenantId,
+      site_id: siteId,
+      legal_entity_id: 'le-1',
+      invoice_number: 'RE-2026-0001',
+      date: new Date('2026-10-15T10:00:00Z'),
+      total_gross: '120.00',
+      currency: 'EUR',
+    };
+  }
+
   it('loads the invoice before reconcile touches the provider', async () => {
     const openReceipt = {
       id: 'receipt-1',
@@ -551,17 +564,18 @@ describe('SettlementService', () => {
     );
   });
 
-  it('rejects recordSettlement with SETTLEMENT_INVOICE_HAS_CREDIT_NOTES before idempotency replay or fiskaly call when finalized credit notes exist', async () => {
-    const creditNoteCount = jest.fn().mockResolvedValue(1);
-    const paymentFindFirst = jest.fn().mockResolvedValue({
-      id: 'payment-1',
-      invoice_id: invoiceId,
-      status: PaymentStatus.SETTLED,
-    });
+  it('refuses recordSettlement with SETTLEMENT_NOTHING_OUTSTANDING when a full credit note leaves nothing to collect, before any fiskaly call', async () => {
+    const paymentCreate = jest.fn();
     const prisma = {
-      creditNote: { count: creditNoteCount },
-      payment: { findFirst: paymentFindFirst },
-      legalEntity: { findFirstOrThrow: jest.fn() },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: paymentCreate,
+      },
+      legalEntity: {
+        findFirstOrThrow: jest
+          .fn()
+          .mockResolvedValue({ rksv_mode: RksvMode.REQUIRED_EXTERNAL_KASSE }),
+      },
     } as unknown as PrismaService;
     const { service, provider } = createService(prisma);
     const signSpy = jest.spyOn(provider, 'signReceipt');
@@ -572,12 +586,11 @@ describe('SettlementService', () => {
       loadInvoiceForSite: jest
         .fn<Promise<unknown>, [string, string, string]>()
         .mockResolvedValue({
-          id: invoiceId,
-          tenant_id: tenantId,
-          site_id: siteId,
-          legal_entity_id: 'le-1',
-          total_gross: { toFixed: () => '120.00' },
-          currency: 'EUR',
+          ...issuedWorkshopInvoice(),
+          credit_notes: [
+            { status: CreditNoteStatus.FINALIZED, total_gross: '120.00' },
+          ],
+          payments: [],
         }),
     });
 
@@ -593,100 +606,153 @@ describe('SettlementService', () => {
 
     expect(caught).toBeInstanceOf(UnprocessableEntityException);
     expect((caught as UnprocessableEntityException).getResponse()).toMatchObject({
-      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
+      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
     });
-    expect(creditNoteCount).toHaveBeenCalledWith({
-      where: {
-        tenant_id: tenantId,
-        original_invoice_id: invoiceId,
-        status: CreditNoteStatus.FINALIZED,
-      },
-    });
-    expect(paymentFindFirst).not.toHaveBeenCalled();
+    expect(paymentCreate).not.toHaveBeenCalled();
     expect(signSpy).not.toHaveBeenCalled();
   });
 
-  it('rejects inside the write transaction before payment.create when a credit note finalizes after the pre-check', async () => {
-    const invoice = {
-      id: invoiceId,
-      tenant_id: tenantId,
-      site_id: siteId,
-      legal_entity_id: 'le-1',
-      invoice_number: 'RE-2026-0001',
-      date: new Date('2026-10-15T10:00:00Z'),
-      total_gross: { toFixed: () => '120.00' },
+  it('replays an idempotent request with the original payment even when the outstanding amount is now 0 (hash uses the stored collected amount)', async () => {
+    const stored = {
+      id: 'payment-1',
+      invoice_id: invoiceId,
+      status: PaymentStatus.SETTLED_EXTERNAL,
+      request_hash: hashSettlementRecordRequest({
+        invoiceId,
+        method: 'CASH',
+        amount: '100.00',
+        currency: 'EUR',
+        mode: RksvMode.REQUIRED_EXTERNAL_KASSE,
+      }),
+      method: 'CASH',
+      amount: new Prisma.Decimal('100.00'),
       currency: 'EUR',
+      idempotency_key: 'key-1',
+      external_receipt_number: null,
+      external_receipt_date: null,
+      fiscal_receipts: [],
     };
-    const register = {
-      id: 'reg-1',
-      tenant_id: tenantId,
-      site_id: siteId,
-      legal_entity_id: 'le-1',
-      provider_state: 'INITIALIZED',
-      provider_cash_register_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
-      env: 'TEST',
-    };
-    const txCreditNoteCount = jest.fn().mockResolvedValue(1);
-    const txPaymentCreate = jest.fn();
+    const prisma = {
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(stored),
+        findFirstOrThrow: jest.fn().mockResolvedValue(stored),
+      },
+      legalEntity: {
+        findFirstOrThrow: jest
+          .fn()
+          .mockResolvedValue({ rksv_mode: RksvMode.REQUIRED_EXTERNAL_KASSE }),
+      },
+    } as unknown as PrismaService;
+    const { service } = createService(prisma);
+    Object.assign(service, {
+      assertSettlementAccess: jest
+        .fn<Promise<void>, [string, string]>()
+        .mockResolvedValue(undefined),
+      loadInvoiceForSite: jest.fn().mockResolvedValue({
+        ...issuedWorkshopInvoice(),
+        credit_notes: [
+          { status: CreditNoteStatus.FINALIZED, total_gross: '20.00' },
+        ],
+        payments: [{ status: PaymentStatus.SETTLED_EXTERNAL, amount: '100.00' }],
+      }),
+    });
+
+    const replay = await service.recordSettlement(invoiceId, {
+      idempotencyKey: 'key-1',
+      method: 'CASH',
+    });
+
+    expect(replay.payment?.id).toBe('payment-1');
+    expect(replay.payment?.amount).toBe('100.00');
+  });
+
+  function rksvTxHarness(txInvoice: unknown) {
+    const paymentCreate = jest
+      .fn()
+      .mockRejectedValue(new Error('stop-after-create'));
     const prisma = {
       fiscalRegister: {
-        findFirst: jest.fn().mockResolvedValue(register),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'reg-1',
+          tenant_id: tenantId,
+          site_id: siteId,
+          legal_entity_id: 'le-1',
+          provider_state: 'INITIALIZED',
+          provider_cash_register_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+          env: 'TEST',
+        }),
       },
-      $transaction: jest.fn().mockImplementation(async (callback) => {
-        const tx = {
+      $transaction: jest.fn().mockImplementation(async (callback) =>
+        callback({
           $queryRaw: jest.fn().mockResolvedValue([]),
           financeSettings: {
             findFirst: jest.fn().mockResolvedValue({ lock_date: null }),
           },
-          creditNote: { count: txCreditNoteCount },
+          invoice: { findFirstOrThrow: jest.fn().mockResolvedValue(txInvoice) },
           payment: {
             findFirst: jest.fn().mockResolvedValue(null),
-            create: txPaymentCreate,
+            create: paymentCreate,
           },
           fiscalReceipt: { create: jest.fn() },
-        };
-        return callback(tx);
-      }),
+        }),
+      ),
     } as unknown as PrismaService;
     const { service, provider } = createService(prisma);
-    const signSpy = jest.spyOn(provider, 'signReceipt');
+    const run = () =>
+      (
+        service as unknown as {
+          recordRksvSettlement: (p: unknown) => Promise<unknown>;
+        }
+      ).recordRksvSettlement({
+        tenantId,
+        invoice: { ...issuedWorkshopInvoice(), credit_notes: [], payments: [] },
+        dto: {
+          idempotencyKey: '00000000-0000-4000-8000-0000000000c4',
+          method: 'CASH' as const,
+        },
+        recordedByUserId: 'user-1',
+        rksvMode: RksvMode.REQUIRED_ACP_RKSV,
+      });
+    return { run, paymentCreate, signSpy: jest.spyOn(provider, 'signReceipt') };
+  }
 
-    const params = {
-      tenantId,
-      invoice,
-      dto: {
-        idempotencyKey: '00000000-0000-4000-8000-0000000000c4',
-        method: 'CASH' as const,
-      },
-      requestHash: 'hash',
-      recordedByUserId: 'user-1',
-      rksvMode: RksvMode.REQUIRED_ACP_RKSV,
-    };
+  it('refuses inside the write transaction when a full credit note finalizes after the outer read', async () => {
+    const { run, paymentCreate, signSpy } = rksvTxHarness({
+      total_gross: '120.00',
+      credit_notes: [
+        { status: CreditNoteStatus.FINALIZED, total_gross: '120.00' },
+      ],
+      payments: [],
+    });
 
     let caught: unknown;
     try {
-      await (
-        service as unknown as {
-          recordRksvSettlement: (p: typeof params) => Promise<unknown>;
-        }
-      ).recordRksvSettlement(params);
+      await run();
     } catch (error) {
       caught = error;
     }
 
     expect(caught).toBeInstanceOf(UnprocessableEntityException);
     expect((caught as UnprocessableEntityException).getResponse()).toMatchObject({
-      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
+      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
     });
-    expect(txCreditNoteCount).toHaveBeenCalledWith({
-      where: {
-        tenant_id: tenantId,
-        original_invoice_id: invoiceId,
-        status: CreditNoteStatus.FINALIZED,
-      },
-    });
-    expect(txPaymentCreate).not.toHaveBeenCalled();
+    expect(paymentCreate).not.toHaveBeenCalled();
     expect(signSpy).not.toHaveBeenCalled();
+  });
+
+  it('collects the in-transaction outstanding amount (not the stale outer read) when a partial credit note finalizes after the outer read', async () => {
+    const { run, paymentCreate } = rksvTxHarness({
+      total_gross: '120.00',
+      credit_notes: [
+        { status: CreditNoteStatus.FINALIZED, total_gross: '20.00' },
+      ],
+      payments: [],
+    });
+
+    await expect(run()).rejects.toThrow('stop-after-create');
+
+    const created = paymentCreate.mock.calls[0][0].data.amount as Prisma.Decimal;
+    expect(created.toFixed(2)).toBe('100.00');
   });
 
   it('rejects settlement with ACP_RKSV_UNAVAILABLE and writes no Payment or FiscalReceipt when live signing is off', async () => {
