@@ -241,4 +241,16 @@ describe('CustomFieldsService', () => {
     ).toBeUndefined();
     expect(prisma.customFieldDefinition.findMany).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects creating a definition with an empty or whitespace-only purpose (422)', async () => {
+    const { service } = makeMocks('ADMIN');
+    await expect(
+      service.createDefinition({
+        entity: CustomFieldEntity.CUSTOMER,
+        label: 'Stammkunde',
+        type: CustomFieldType.TEXT,
+        purpose: '   ',
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+  });
 });

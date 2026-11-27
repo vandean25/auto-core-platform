@@ -30,6 +30,7 @@ export type ImportJobTotals = {
   skip: number;
   error: number;
   flagged_jumps?: number;
+  custom_field_counts?: Record<string, number>;
 };
 
 export type ImportRowIssue = {
@@ -51,6 +52,7 @@ export type NormalizedCustomerRow = {
   address_zip: string | null;
   address_city: string | null;
   address_country: string | null;
+  custom_fields?: Record<string, unknown>;
 };
 
 export type NormalizedLaborFitmentRow = {

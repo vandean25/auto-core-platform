@@ -108,7 +108,10 @@ export class RowByRowApplyRunner {
     const totals =
       options?.stopAfterBatch && storedTotals
         ? createResumedApplyTotals(rows.length, storedTotals)
-        : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
+        : createApplyTotals(
+            Math.max(rows.length, storedTotals?.rows ?? 0),
+            storedTotals?.custom_field_counts,
+          );
     const plan = planImportApplyBatch(rows, options);
     const guardedWrite = Boolean(options?.stopAfterBatch);
 

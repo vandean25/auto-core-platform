@@ -152,7 +152,7 @@ export class ImportUploadFlow {
         parsed,
       ),
     );
-    const totals = computeDryRunTotals(dryRunRows);
+    const totals = computeDryRunTotals(dryRunRows, params.mappingJson);
 
     const job = await this.createSyncDryRunJob(
       {

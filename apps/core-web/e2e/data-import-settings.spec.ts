@@ -509,3 +509,253 @@ test.describe('Data import settings wizard', () => {
     })
   })
 })
+
+test.describe('AUT-1045: custom fields import mapping', () => {
+  async function setupCustomFieldsWizard(
+    page: Page,
+    options: { customFieldsEnabled: boolean; csvContent: string },
+  ) {
+    await installSettingsShellMocks(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          user: { id: 'user-admin', email: 'admin@example.com' },
+          tenant: { id: 'tenant-1', name: 'Test Tenant' },
+          activeRole: 'ADMIN',
+          customFieldsEnabled: options.customFieldsEnabled,
+        }),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions*'), async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.goto('/settings/data-import')
+    await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue })).toBeEnabled({
+      timeout: 15_000,
+    })
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).click()
+
+    const fileInput = page.getByLabel(DE_SETTINGS.dataImport.upload.fileLabel)
+    await fileInput.setInputFiles({
+      name: 'customers.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(options.csvContent, 'utf8'),
+    })
+    await expect(page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue })).toBeEnabled()
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.source.continue }).click()
+  }
+
+  test('Scenario 1: WHEN an ADMIN maps an unmapped column to a new TEXT custom field THEN dry-run lists the mapped field and count', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await installImportMocks(page, {
+      job: createMockImportJob({
+        mapping: {
+          external_id: 'Kunden-Nr',
+          last_name: 'Nachname',
+          'custom_fields.altsystem_klasse': 'Altsystem_Klasse',
+        },
+        totals: {
+          rows: 1,
+          create: 1,
+          update: 0,
+          skip: 0,
+          error: 0,
+          custom_field_counts: { altsystem_klasse: 1 },
+        } as ImportJobMock['totals'],
+      }),
+      rows: [
+        {
+          row_no: 1,
+          external_id: '100',
+          action: 'CREATE',
+          entity_id: null,
+          errors: [],
+          warnings: [],
+        },
+      ],
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'cf-1',
+            entity: 'CUSTOMER',
+            key: 'altsystem_klasse',
+            label: 'Altsystem_Klasse',
+            type: 'TEXT',
+            options: null,
+            purpose: 'Migration aus Altsystem',
+            personal_data: true,
+            retention_class: 'PARENT_OBJECT',
+            archived: false,
+            sort_order: 0,
+          }),
+        })
+        return
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+
+    await setupCustomFieldsWizard(page, {
+      customFieldsEnabled: true,
+      csvContent: 'Kunden-Nr;Nachname;Altsystem_Klasse\n100;Muster;Gold\n',
+    })
+
+    const cfCopy = DE_SETTINGS.dataImport.mapping.customFields
+    await page.getByRole('combobox', { name: /Altsystem_Klasse/i }).click()
+    await page.getByRole('option', { name: cfCopy.createNew }).click()
+    await page.getByLabel(cfCopy.purpose).fill('Migration aus Altsystem')
+    await page.getByRole('button', { name: cfCopy.createAction }).click()
+
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.mapping.runDryRun }).click()
+    const countBadge = page.getByText('altsystem_klasse: 1', { exact: true })
+    await expect(countBadge).toBeVisible()
+    await testInfo.attach('import-custom-fields-mapped-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await countBadge.scrollIntoViewIfNeeded()
+    await expect(countBadge).toBeVisible()
+    await testInfo.attach('import-custom-fields-mapped-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('Scenario 2: WHEN a value fails type validation THEN that row is reported in the dry-run', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await installImportMocks(page, {
+      job: createMockImportJob({
+        totals: { rows: 1, create: 0, update: 0, skip: 0, error: 1 },
+      }),
+      rows: [
+        {
+          row_no: 1,
+          external_id: '100',
+          action: 'ERROR',
+          entity_id: null,
+          errors: [
+            {
+              code: 'CUSTOM_FIELD_VALUE_INVALID',
+              message: 'Custom field "score" expects a finite number.',
+            },
+          ],
+          warnings: [],
+        },
+      ],
+    })
+
+    await setupCustomFieldsWizard(page, {
+      customFieldsEnabled: true,
+      csvContent: 'Kunden-Nr;Nachname;Score\n100;Muster;keine-zahl\n',
+    })
+
+    await page.getByRole('button', { name: DE_SETTINGS.dataImport.mapping.runDryRun }).click()
+    const errorBadge = page.getByText(
+      DE_SETTINGS.dataImport.dryRun.totals.error.replace('{{value}}', '1'),
+    )
+    await expect(errorBadge).toBeVisible()
+    await testInfo.attach('import-custom-fields-validation-error-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await errorBadge.scrollIntoViewIfNeeded()
+    await expect(errorBadge).toBeVisible()
+    await testInfo.attach('import-custom-fields-validation-error-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('Scenario 3: WHEN the column name matches the Art 9 keyword list THEN creating the field requires confirmation', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await installImportMocks(page, {})
+    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED',
+            message: 'Art 9 confirmation required',
+          }),
+        })
+        return
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+
+    await setupCustomFieldsWizard(page, {
+      customFieldsEnabled: true,
+      csvContent: 'Kunden-Nr;Nachname;Allergie Kaffee\n100;Muster;Laktosefrei\n',
+    })
+
+    const cfCopy = DE_SETTINGS.dataImport.mapping.customFields
+    await page.getByRole('combobox', { name: /Allergie Kaffee/i }).click()
+    await page.getByRole('option', { name: cfCopy.createNew }).click()
+    await page.getByLabel(cfCopy.purpose).fill('Kundenservice')
+    await page.getByRole('button', { name: cfCopy.createAction }).click()
+
+    const confirmCheckbox = page.getByLabel(cfCopy.art9Confirm)
+    await expect(confirmCheckbox).toBeVisible()
+    await testInfo.attach('import-custom-fields-art9-confirm-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await confirmCheckbox.scrollIntoViewIfNeeded()
+    await expect(confirmCheckbox).toBeVisible()
+    await testInfo.attach('import-custom-fields-art9-confirm-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('Scenario 4: WHEN the custom_fields flag is OFF THEN the option is not shown', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await installImportMocks(page, {})
+
+    await setupCustomFieldsWizard(page, {
+      customFieldsEnabled: false,
+      csvContent: 'Kunden-Nr;Nachname;Altsystem_Klasse\n100;Muster;Gold\n',
+    })
+
+    const mappingTitle = page.getByRole('heading', { name: DE_SETTINGS.dataImport.mapping.title })
+    await expect(mappingTitle).toBeVisible()
+    await expect(page.getByText(DE_SETTINGS.dataImport.mapping.customFields.title)).toHaveCount(0)
+    await testInfo.attach('import-custom-fields-flag-off-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expect(mappingTitle).toBeVisible()
+    await testInfo.attach('import-custom-fields-flag-off-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+})

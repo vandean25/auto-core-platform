@@ -111,6 +111,7 @@
     "CUSTOM_FIELD_KEY_CONFLICT": "Ein eigenes Feld mit diesem Schlüssel existiert für diesen Bereich bereits.",
     "CUSTOM_FIELD_LIMIT_EXCEEDED": "Die maximale Anzahl eigener Felder pro Bereich ist erreicht.",
     "CUSTOM_FIELD_NOT_FOUND": "Das eigene Feld wurde nicht gefunden.",
+    "CUSTOM_FIELD_PURPOSE_REQUIRED": "Für ein eigenes Feld muss ein Zweck angegeben werden.",
     "CUSTOM_FIELD_SELECT_OPTIONS_REQUIRED": "Für ein Auswahlfeld muss mindestens eine Option angegeben werden.",
     "CUSTOM_FIELD_UNKNOWN_OR_ARCHIVED": "Dieses eigene Feld ist unbekannt oder archiviert.",
     "CUSTOM_FIELD_VALUE_INVALID": "Der Wert für dieses eigene Feld ist ungültig.",

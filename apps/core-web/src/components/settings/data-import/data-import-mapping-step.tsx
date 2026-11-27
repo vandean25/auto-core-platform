@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+import { DataImportCustomFieldsSection } from './data-import-custom-fields-section'
 import { DataImportMappingTable } from './data-import-mapping-table'
 import type { ImportEntityTypeUi, ImportFieldDefinition } from './import-field-labels'
 import type { ImportWizardOptions } from './import-wizard-logic'
@@ -129,6 +130,17 @@ export function DataImportMappingStep(props: DataImportMappingStepProps) {
         csvHeaders={props.csvHeaders}
         onMappingChange={props.onMappingChange}
       />
+
+      {props.entityType === 'CUSTOMER' || props.entityType === 'VEHICLE' ? (
+        <DataImportCustomFieldsSection
+          entityType={props.entityType}
+          unmappedHeaders={props.csvHeaders.filter(
+            (header) => !props.fields.some((field) => props.mapping[field.key] === header),
+          )}
+          mapping={props.mapping}
+          onMappingChange={props.onMappingChange}
+        />
+      ) : null}
 
       {props.missingRequired.length > 0 ? (
         <p className="text-sm text-destructive" role="alert">

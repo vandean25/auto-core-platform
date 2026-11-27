@@ -1140,7 +1140,22 @@
       "previewTitle": "Preview (first 20 rows)",
       "uploadProgress": "Uploading CSV… {{percent}}%",
       "back": "Back",
-      "runDryRun": "Run dry-run"
+      "runDryRun": "Run dry-run",
+      "customFields": {
+        "title": "Unmapped columns → Custom field",
+        "columnHeader": "CSV column",
+        "targetHeader": "→ Custom field",
+        "ignore": "Do not import",
+        "createNew": "+ Create new custom field…",
+        "createTitle": "New custom field for column \"{{column}}\"",
+        "label": "Label",
+        "type": "Type",
+        "options": "Options (one per line)",
+        "purpose": "Purpose (required)",
+        "purposeRequiredError": "Please enter a purpose for the custom field.",
+        "art9Confirm": "I explicitly confirm that no special-category personal data (GDPR Art. 9) will be stored in this field.",
+        "createAction": "Create and map field"
+      }
     },
     "background": {
       "title": "Processing import in the background",
@@ -1162,6 +1177,10 @@
         "update": "Update: {{value}}",
         "skip": "Skip: {{value}}",
         "error": "Error: {{value}}"
+      },
+      "customFields": {
+        "title": "Mapped custom fields",
+        "entry": "{{field}}: {{count}}"
       },
       "rerunRequired": "(Dry-run must be restarted)",
       "priceJumps": {

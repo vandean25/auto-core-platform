@@ -25,6 +25,7 @@ import {
   CUSTOM_FIELD_KEY_CONFLICT_CODE,
   CUSTOM_FIELD_LIMIT_EXCEEDED_CODE,
   CUSTOM_FIELD_NOT_FOUND_CODE,
+  CUSTOM_FIELD_PURPOSE_REQUIRED_CODE,
   DEFAULT_CUSTOM_FIELD_RETENTION_CLASS,
   MAX_CUSTOM_FIELDS_PER_ENTITY,
 } from './custom-fields.constants.js';
@@ -84,6 +85,14 @@ export class CustomFieldsService {
     const tenantId = await this.tenantContext.getTenantId();
     const actorUserId =
       this.tenantContext.getAuthenticatedUser()?.userId ?? null;
+
+    const purpose = dto.purpose?.trim();
+    if (!purpose) {
+      throw new UnprocessableEntityException({
+        code: CUSTOM_FIELD_PURPOSE_REQUIRED_CODE,
+        message: 'A purpose is required for custom fields.',
+      });
+    }
 
     const key = normalizeCustomFieldKey(dto.key ?? dto.label);
     assertArt9FieldSafety(dto.label, key, dto.confirmNoArt9);
