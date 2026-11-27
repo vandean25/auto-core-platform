@@ -228,6 +228,8 @@ describe('InvoiceListPage', () => {
   it.each([
     ['the default (newest first)', 'cursor', '', { sortField: 'date', sortDirection: 'desc' }],
     ['the number sort', 'cursor', '?sortField=invoice_number&sortDirection=asc', { sortField: 'invoice_number', sortDirection: 'asc' }],
+    ['the number alias sort', 'cursor', '?sortField=number&sortDirection=desc', { sortField: 'invoice_number', sortDirection: 'desc' }],
+    ['an unknown sortField (never silent classic fallback)', 'cursor', '?sortField=bogus&sortDirection=asc', { sortField: 'bogus', sortDirection: 'asc' }],
     ['the date sort', 'cursor', '?sortField=date&sortDirection=asc', { sortField: 'date', sortDirection: 'asc' }],
     ['the customer sort', 'unpaged', '?sortField=customer&sortDirection=asc', undefined],
     ['the status sort', 'unpaged', '?sortField=status&sortDirection=desc', undefined],

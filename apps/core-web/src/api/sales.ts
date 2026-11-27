@@ -21,9 +21,14 @@ export const invoiceKeys = {
     cappedCount: (filters: InvoiceCursorFilters) => [...invoiceKeys.all, 'capped-count', filters] as const,
 }
 
-/** Sorts the invoice cursor API approves; customer, status and total keep the unpaged list (ADR-0035 §3). */
+const UNPAGED_INVOICE_SORTS = new Set(['customer', 'status', 'total_gross'])
+
+/**
+ * Sorts the invoice cursor API approves; customer, status and total keep the unpaged list (ADR-0035 §3).
+ * Unknown sort fields stay in cursor mode so the API rejects them instead of silently falling back.
+ */
 export function isInvoiceCursorSort(sortField?: string): boolean {
-    return sortField === undefined || sortField === 'invoice_number' || sortField === 'date'
+    return sortField === undefined || !UNPAGED_INVOICE_SORTS.has(sortField)
 }
 
 /** Infinite invoice list (cap 2,000 rows) with its capped count; idle while the unpaged list is in charge. */

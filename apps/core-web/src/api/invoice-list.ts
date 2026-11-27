@@ -54,7 +54,7 @@ function useUnpagedInvoiceList(queryParams: DataTableQueryParams, enabled: boole
 export function useInvoiceListState(queryParams: DataTableQueryParams) {
   const listParams = {
     search: queryParams.search?.trim() || undefined,
-    sortField: queryParams.sortField,
+    sortField: queryParams.sortField === 'number' ? 'invoice_number' : queryParams.sortField,
     sortDirection: queryParams.sortDirection,
   }
   const sortEligible = isInvoiceCursorSort(queryParams.sortField)
