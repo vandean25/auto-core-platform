@@ -18,7 +18,7 @@ export default function BankReconciliationPage() {
   const review = useBankReconciliationReview(triggerUpload)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 sm:pb-0">
       <PageHeader
         className="mb-0"
         title={t('bankReconciliation.title')}
@@ -78,7 +78,10 @@ export default function BankReconciliationPage() {
           <TransactionDetailPane
             transaction={review.selectedTx}
             suggestions={review.suggestions}
-            isLoadingSuggestions={review.suggestionsQuery.isLoading}
+            isLoadingSuggestions={
+              review.suggestionsQuery.isLoading ||
+              (review.suggestions.length === 0 && review.suggestionsQuery.isFetching)
+            }
             isSuggestionsError={review.suggestionsQuery.isError}
             onRetrySuggestions={() => void review.suggestionsQuery.refetch()}
             selectedSuggestionIndex={review.selectedSuggestionIndex}

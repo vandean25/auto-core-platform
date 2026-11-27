@@ -132,6 +132,16 @@ export function TransactionListPane({
   )
 }
 
+function formatReasonValue(code: string, value: string): string {
+  if (code === 'AMOUNT_EXACT') {
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) {
+      return formatCurrency(numeric)
+    }
+  }
+  return value
+}
+
 function SuggestionCard({
   suggestion,
   index,
@@ -184,7 +194,9 @@ function SuggestionCard({
         <div className="mt-2 flex flex-wrap gap-1.5">
           {suggestion.reasons.map((reason, reasonIdx) => (
             <Badge key={`${reason.code}-${reasonIdx}`} variant="secondary">
-              {t(`bankReconciliation.reasons.${reason.code}`, { value: reason.value })}
+              {t(`bankReconciliation.reasons.${reason.code}`, {
+                value: formatReasonValue(reason.code, reason.value),
+              })}
             </Badge>
           ))}
         </div>

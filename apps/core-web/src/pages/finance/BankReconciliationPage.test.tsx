@@ -173,12 +173,70 @@ describe('BankReconciliationPage (AUT-1004)', () => {
     renderPage()
 
     expect(await screen.findByText('RE-2026-0042')).toBeInTheDocument()
-    expect(screen.getAllByText('Betrag exakt: 1250.50').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Betrag exakt:\s*€\s*1\.250,50/).length).toBeGreaterThan(0)
     expect(screen.getByText('Rechnungsnr.: RE-2026-0042')).toBeInTheDocument()
     expect(screen.getByText('Bekannte IBAN: •••• 4321')).toBeInTheDocument()
     expect(screen.getAllByText('Name ähnlich: Max Mustermann').length).toBeGreaterThan(0)
     expect(screen.getByText('RE-2026-0041')).toBeInTheDocument()
     expect(screen.getByText('RE-2026-0040')).toBeInTheDocument()
+  })
+
+  it('Scenario 2 & 3: confirm drops confirmed row from list and undo restores row and suggestions', async () => {
+    let confirmed = false
+    mockFetchWithAuth.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.startsWith('/api/bank-reconciliation/transactions?') || url === '/api/bank-reconciliation/transactions') {
+        return jsonResponse({ data: confirmed ? [TX_2] : [TX_1, TX_2], meta: { nextCursor: null, hasNextPage: false } })
+      }
+      if (url === '/api/bank-reconciliation/transactions/tx-1/suggestions') {
+        return jsonResponse(confirmed ? { data: [] } : SUGGESTIONS_TX_1)
+      }
+      if (url === '/api/bank-reconciliation/transactions/tx-2/suggestions') {
+        return jsonResponse({ data: [] })
+      }
+      if (url === '/api/bank-reconciliation/transactions/tx-1/confirm' && init?.method === 'POST') {
+        confirmed = true
+        return jsonResponse({
+          id: 'tx-1',
+          status: 'MATCHED',
+          version: 2,
+          unallocatedAmount: '0.00',
+          allocations: [{ id: 'alloc-1', invoiceId: 'inv-1', amount: '1250.50' }],
+        })
+      }
+      if (url === '/api/bank-reconciliation/transactions/tx-1/undo' && init?.method === 'POST') {
+        confirmed = false
+        return jsonResponse({
+          id: 'tx-1',
+          status: 'UNMATCHED',
+          version: 3,
+          unallocatedAmount: '1250.50',
+          allocations: [],
+        })
+      }
+      return jsonResponse({ error: 'Not found' }, 404)
+    })
+
+    const { getByRole } = renderPage()
+
+    expect(await screen.findByText('RE-2026-0042')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /Max Mustermann/i })).not.toBeInTheDocument()
+      expect(getByRole('option', { name: /Erika Musterfrau/i })).toHaveAttribute('aria-selected', 'true')
+      expect(getBankUndoEligibleEntry()).not.toBeNull()
+    })
+
+    const { runLatestEligibleUndoFromShortcut } = await import('@/features/interaction/undo-eligible-entry-store')
+    act(() => {
+      runLatestEligibleUndoFromShortcut()
+    })
+
+    await waitFor(() => {
+      expect(getByRole('option', { name: /Max Mustermann/i })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByText('RE-2026-0042')).toBeInTheDocument()
+      expect(screen.queryByText(deFinance.bankReconciliation.noSuggestions)).not.toBeInTheDocument()
+    })
   })
 
   it('Scenario 4: ArrowDown and ArrowUp move selection without confirming anything', async () => {

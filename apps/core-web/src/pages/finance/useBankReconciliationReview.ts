@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, EyeOff, Undo2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -83,11 +83,16 @@ function useBankReconciliationUndo(onRestored: (id: string) => void) {
   const { t } = useTranslation('finance')
   const undoMutation = useUndoBankTransaction()
   const undoEntry = useBankUndoEligibleEntry()
+  const undoToastIdRef = useRef<string | number | null>(null)
 
   const handleUndo = useCallback(async () => {
     const current = getBankUndoEligibleEntry()
     if (!current || isUndoInFlight()) {
       return
+    }
+    if (undoToastIdRef.current !== null) {
+      toast.dismiss(undoToastIdRef.current)
+      undoToastIdRef.current = null
     }
     try {
       const restored = await runUndoInFlight(() =>
@@ -119,12 +124,15 @@ function useBankReconciliationUndo(onRestored: (id: string) => void) {
 
   const recordUndoAndNotify = useCallback(
     (entry: { transactionId: string; expectedVersion: number; allocationId?: string; label: string }, message: string) => {
+      if (undoToastIdRef.current !== null) {
+        toast.dismiss(undoToastIdRef.current)
+      }
       setBankUndoEligibleEntry({
         actionId: ENTITY_ACTION_IDS.bankTransactionUndo,
         ...entry,
         contextGeneration: getClientSessionGeneration(),
       })
-      toast.success(message, {
+      undoToastIdRef.current = toast.success(message, {
         duration: UNDO_TOAST_DURATION_MS,
         action: {
           label: t('bankReconciliation.actions.undo'),

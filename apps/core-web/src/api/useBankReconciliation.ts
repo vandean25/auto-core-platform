@@ -1,8 +1,8 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, type QueryClient, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useScopeContextDigest } from '@/auth/use-scope-context-digest'
 import { getErrorMessageFromResponse } from '@/lib/error-utils'
 import { i18n } from '@/lib/i18n'
-import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
+import { infiniteListQueryOptions, refreshInfiniteList } from '@/lib/infinite-list-query'
 import { fetchWithAuth } from './client'
 import type { components } from './generated/openapi'
 
@@ -20,6 +20,38 @@ export const bankReconciliationKeys = {
     [...bankReconciliationKeys.all, 'transactions', status, scopeDigest ?? 'default'] as const,
   suggestions: (scopeDigest: string | undefined, transactionId: string | null) =>
     [...bankReconciliationKeys.all, 'suggestions', transactionId ?? 'none', scopeDigest ?? 'default'] as const,
+}
+
+function removeTransactionFromUnmatchedCache(
+  queryClient: QueryClient,
+  scopeDigest: string | undefined,
+  transactionId: string,
+) {
+  queryClient.setQueryData<InfiniteData<ListBankTransactionsResponse>>(
+    bankReconciliationKeys.transactions(scopeDigest, 'UNMATCHED'),
+    (old) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: page.data.filter((tx) => tx.id !== transactionId),
+        })),
+      }
+    },
+  )
+}
+
+function dropTransactionAndSuggestions(
+  queryClient: QueryClient,
+  scopeDigest: string | undefined,
+  transactionId: string,
+) {
+  removeTransactionFromUnmatchedCache(queryClient, scopeDigest, transactionId)
+  queryClient.removeQueries({
+    queryKey: bankReconciliationKeys.suggestions(scopeDigest, transactionId),
+    exact: true,
+  })
 }
 
 async function parseJsonOrThrow<T>(response: Response, fallbackMessage: string): Promise<T> {
@@ -78,6 +110,7 @@ export function useBankTransactionSuggestions(transactionId: string | null) {
 
 export function useImportBankStatement() {
   const queryClient = useQueryClient()
+  const scopeDigest = useScopeContextDigest()
 
   return useMutation({
     mutationKey: ['bank-reconciliation', 'import-statement'],
@@ -94,13 +127,14 @@ export function useImportBankStatement() {
       )
     },
     onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: bankReconciliationKeys.all })
+      await refreshInfiniteList(queryClient, bankReconciliationKeys.transactions(scopeDigest, 'UNMATCHED'))
     },
   })
 }
 
 export function useConfirmBankTransaction() {
   const queryClient = useQueryClient()
+  const scopeDigest = useScopeContextDigest()
 
   return useMutation({
     mutationKey: ['bank-reconciliation', 'confirm'],
@@ -126,14 +160,15 @@ export function useConfirmBankTransaction() {
         i18n.t('finance:bankReconciliation.toast.confirmFailed'),
       )
     },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: bankReconciliationKeys.all })
+    onSuccess: (_data, variables) => {
+      dropTransactionAndSuggestions(queryClient, scopeDigest, variables.transactionId)
     },
   })
 }
 
 export function useIgnoreBankTransaction() {
   const queryClient = useQueryClient()
+  const scopeDigest = useScopeContextDigest()
 
   return useMutation({
     mutationKey: ['bank-reconciliation', 'ignore'],
@@ -158,14 +193,15 @@ export function useIgnoreBankTransaction() {
         i18n.t('finance:bankReconciliation.toast.ignoreFailed'),
       )
     },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: bankReconciliationKeys.all })
+    onSuccess: (_data, variables) => {
+      dropTransactionAndSuggestions(queryClient, scopeDigest, variables.transactionId)
     },
   })
 }
 
 export function useUndoBankTransaction() {
   const queryClient = useQueryClient()
+  const scopeDigest = useScopeContextDigest()
 
   return useMutation({
     mutationKey: ['bank-reconciliation', 'undo'],
@@ -190,8 +226,12 @@ export function useUndoBankTransaction() {
         i18n.t('finance:bankReconciliation.toast.undoFailed'),
       )
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: bankReconciliationKeys.all })
+    onSuccess: async (_data, variables) => {
+      await refreshInfiniteList(queryClient, bankReconciliationKeys.transactions(scopeDigest, 'UNMATCHED'))
+      await queryClient.invalidateQueries({
+        queryKey: bankReconciliationKeys.suggestions(scopeDigest, variables.transactionId),
+        exact: true,
+      })
     },
   })
 }
