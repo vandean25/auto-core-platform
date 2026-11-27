@@ -870,6 +870,10 @@
         "paymentTermsDays": "Zahlungsziel (Tage)",
         "paymentTermsText": "Zahlungsbedingungen (Text)"
       },
+      "errors": {
+        "paymentTermsDaysRequired": "Zahlungsziel (Tage) ist erforderlich.",
+        "paymentTermsDaysRange": "Bitte geben Sie eine ganze Zahl zwischen 0 und 365 ein."
+      },
       "rksv": {
         "off": "Aus",
         "unknown": "Unbekannt",

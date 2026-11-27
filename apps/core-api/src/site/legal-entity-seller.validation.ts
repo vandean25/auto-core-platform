@@ -114,6 +114,22 @@ function validateTaxIdentifiers(
   }
 }
 
+function assertValidPaymentTermsDays(
+  dtoValue: number | undefined,
+  mergedValue: number | null,
+): void {
+  const isInvalid = (v: number | null) =>
+    v === null || !Number.isInteger(v) || v < 0 || v > 365;
+  if (
+    (dtoValue !== undefined && isInvalid(dtoValue)) ||
+    (mergedValue !== null && isInvalid(mergedValue))
+  ) {
+    throw new BadRequestException(
+      'paymentTermsDays must be an integer between 0 and 365',
+    );
+  }
+}
+
 export function buildLegalEntitySellerUpdateData(
   existing: LegalEntitySellerRecord,
   dto: UpdateLegalEntityDto,
@@ -196,14 +212,7 @@ export function buildLegalEntitySellerUpdateData(
   assertMaxLength('representatives', merged.representatives, 500);
   assertMaxLength('paymentTermsText', merged.payment_terms_text, 1000);
 
-  if (
-    merged.payment_terms_days !== null &&
-    (merged.payment_terms_days < 0 || merged.payment_terms_days > 365)
-  ) {
-    throw new BadRequestException(
-      'paymentTermsDays must be between 0 and 365 when provided',
-    );
-  }
+  assertValidPaymentTermsDays(dto.paymentTermsDays, merged.payment_terms_days);
 
   if (merged.iban !== null && !isValidIban(merged.iban)) {
     throw new BadRequestException('iban is not a valid IBAN');

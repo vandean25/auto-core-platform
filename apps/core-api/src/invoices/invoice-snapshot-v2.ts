@@ -1,3 +1,4 @@
+import { UnprocessableEntityException } from '@nestjs/common';
 import {
   CustomerType,
   DiscountType,
@@ -21,6 +22,30 @@ import {
   calendarDateInTimeZone,
   DEFAULT_INVOICE_TIME_ZONE,
 } from '../sales/helpers/invoice-number.helpers.js';
+
+export const INVOICE_PAYMENT_TERMS_MISSING_CODE =
+  'INVOICE_PAYMENT_TERMS_MISSING';
+
+export function resolveInvoicePaymentTermsDays(
+  customer: Pick<Customer, 'payment_terms_days'>,
+  seller: Pick<LegalEntity, 'payment_terms_days'>,
+): number {
+  const days = customer.payment_terms_days ?? seller.payment_terms_days;
+  if (
+    days === null ||
+    days === undefined ||
+    !Number.isInteger(days) ||
+    days < 0
+  ) {
+    throw new UnprocessableEntityException({
+      code: INVOICE_PAYMENT_TERMS_MISSING_CODE,
+      message:
+        'Payment terms days must be configured on the customer or legal entity before issuing an invoice.',
+    });
+  }
+
+  return days;
+}
 
 export const INVOICE_SNAPSHOT_SCHEMA_VERSION = 2;
 export const INVOICE_SNAPSHOT_TEMPLATE_VERSION = 'invoice-pdf-v1';
@@ -532,7 +557,7 @@ export function buildInvoiceSnapshotV2(
 
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
-  const paymentDays = seller.payment_terms_days ?? 0;
+  const paymentDays = resolveInvoicePaymentTermsDays(invoice.customer, seller);
   const timeZone = input.timeZone ?? DEFAULT_INVOICE_TIME_ZONE;
 
   const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;

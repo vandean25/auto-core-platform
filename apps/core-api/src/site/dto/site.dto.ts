@@ -130,7 +130,7 @@ export class UpdateLegalEntityDto {
   representatives?: string;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 365 })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
   @Max(365)
@@ -217,8 +217,8 @@ export class LegalEntityResponseDto {
   @ApiPropertyOptional({ type: String, nullable: true })
   representatives!: string | null;
 
-  @ApiPropertyOptional({ type: Number, nullable: true })
-  payment_terms_days!: number | null;
+  @ApiProperty({ minimum: 0, maximum: 365 })
+  payment_terms_days!: number;
 
   @ApiPropertyOptional({ type: String, nullable: true })
   payment_terms_text!: string | null;

@@ -1167,6 +1167,10 @@
       "public": false,
       "params": []
     },
+    "INVOICE_PAYMENT_TERMS_MISSING": {
+      "public": true,
+      "params": []
+    },
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": {
       "public": false,
       "params": []

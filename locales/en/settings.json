@@ -870,6 +870,10 @@
         "paymentTermsDays": "Payment terms (days)",
         "paymentTermsText": "Payment terms text"
       },
+      "errors": {
+        "paymentTermsDaysRequired": "Payment terms (days) is required.",
+        "paymentTermsDaysRange": "Please enter a whole number between 0 and 365."
+      },
       "rksv": {
         "off": "Off",
         "unknown": "Unknown",

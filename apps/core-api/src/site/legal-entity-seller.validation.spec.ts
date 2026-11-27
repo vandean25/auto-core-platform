@@ -151,6 +151,22 @@ describe('legal-entity-seller.validation', () => {
       ).toThrow(BadRequestException);
     });
 
+    it('rejects null paymentTermsDays because legal entity payment terms are mandatory', () => {
+      expect(() =>
+        buildLegalEntitySellerUpdateData(baseEntity(), {
+          paymentTermsDays: null as unknown as number,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('accepts explicit 0 paymentTermsDays (due on receipt)', () => {
+      const data = buildLegalEntitySellerUpdateData(baseEntity(), {
+        paymentTermsDays: 0,
+      });
+
+      expect(data.payment_terms_days).toBe(0);
+    });
+
     it('validates DE tax identifiers', () => {
       const data = buildLegalEntitySellerUpdateData(
         { ...baseEntity(), country_iso: 'DE' },
