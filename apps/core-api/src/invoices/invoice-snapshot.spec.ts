@@ -13,6 +13,7 @@ describe('Invoice Snapshot Integrity', () => {
     id: 'inv-123',
     invoice_number: 'INV-2023-001',
     draft_number: 'RE-D-1',
+    draft_number_seq: 1,
     date: new Date('2023-01-01T10:00:00Z'),
     due_date: new Date('2023-01-15T10:00:00Z'),
     notes: 'Thank you for your business',
