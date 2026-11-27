@@ -519,6 +519,9 @@ test.describe('AUT-1045: custom fields import mapping', () => {
       createCustomFieldResponse?: { status: number; body: Record<string, unknown> }
     },
   ) {
+    await page.addInitScript((enabled) => {
+      window.localStorage.setItem('e2e-custom-fields-enabled', enabled ? 'true' : 'false')
+    }, options.customFieldsEnabled)
     await installSettingsShellMocks(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
       await route.fulfill({

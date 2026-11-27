@@ -791,7 +791,7 @@ describe('Legacy CSV import (e2e)', () => {
         .post(`/imports/${dryRunRes.body.id}/apply`)
         .set('Authorization', authHeaderA)
         .send({ errorThreshold: 0 })
-        .expect(201);
+        .expect(202);
 
       expect(applyRes.body.status).toBe('APPLIED');
       expect(applyRes.body.totals.custom_field_counts).toEqual({
@@ -870,7 +870,7 @@ describe('Legacy CSV import (e2e)', () => {
         .post(`/imports/${dryRunRes.body.id}/apply`)
         .set('Authorization', authHeaderA)
         .send({ errorThreshold: 1 })
-        .expect(201);
+        .expect(202);
 
       const writtenVeh = await prisma.vehicle.findFirst({
         where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000101' },
@@ -1020,7 +1020,7 @@ describe('Legacy CSV import (e2e)', () => {
         .post(`/imports/${dryRunRes.body.id}/apply`)
         .set('Authorization', authHeaderA)
         .send({ errorThreshold: 0 })
-        .expect(201);
+        .expect(202);
 
       const customer = await prisma.customer.findFirst({
         where: { tenant_id: tenantA.tenantId, email: 'unmapped@example.com' },
