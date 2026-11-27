@@ -95,15 +95,15 @@ export async function seedBankReconciliationScenario(
       ],
     },
   })
-  expect(orderRes.ok()).toBeTruthy()
+  expect(orderRes.ok(), `POST /sales-orders failed: ${orderRes.status()} ${await orderRes.text()}`).toBeTruthy()
   const order = (await orderRes.json()) as { id: string }
 
   const createInvRes = await request.post(`${apiBase}/sales-orders/${order.id}/create-invoice`, { headers })
-  expect(createInvRes.ok()).toBeTruthy()
+  expect(createInvRes.ok(), `POST /create-invoice failed: ${createInvRes.status()} ${await createInvRes.text()}`).toBeTruthy()
   const draftInvoice = (await createInvRes.json()) as { id: string }
 
-  const finalizeRes = await request.post(`${apiBase}/sales/invoices/${draftInvoice.id}/finalize`, { headers })
-  expect(finalizeRes.ok()).toBeTruthy()
+  const finalizeRes = await request.put(`${apiBase}/sales/invoices/${draftInvoice.id}/finalize`, { headers })
+  expect(finalizeRes.ok(), `PUT /finalize failed: ${finalizeRes.status()} ${await finalizeRes.text()}`).toBeTruthy()
   const issuedInvoice = (await finalizeRes.json()) as {
     id: string
     invoice_number: string
