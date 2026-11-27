@@ -147,6 +147,20 @@ export async function seedBankReconciliationScenario(
   })
   expect(importRes.ok(), `POST /bank-reconciliation/imports failed: ${importRes.status()} ${await importRes.text()}`).toBeTruthy()
 
+  const txListRes = await request.get(`${apiBase}/bank-reconciliation/transactions?status=UNMATCHED`, { headers })
+  expect(txListRes.ok(), `GET /bank-reconciliation/transactions failed: ${txListRes.status()} ${await txListRes.text()}`).toBeTruthy()
+  const txList = (await txListRes.json()) as { data: Array<{ id: string; remitter_name: string | null; amount: string }> }
+  const maxTx = txList.data.find((t) => t.remitter_name === 'Max Muster')
+  expect(maxTx, `Max Muster tx not found in ${JSON.stringify(txList.data)}`).toBeTruthy()
+
+  const sugRes = await request.get(`${apiBase}/bank-reconciliation/transactions/${maxTx!.id}/suggestions`, { headers })
+  expect(sugRes.ok(), `GET /suggestions failed: ${sugRes.status()} ${await sugRes.text()}`).toBeTruthy()
+  const sugBody = (await sugRes.json()) as { data: Array<{ invoiceId: string }> }
+  expect(
+    sugBody.data.length,
+    `No suggestions for tx=${JSON.stringify(maxTx)} invoice=${JSON.stringify(issuedInvoice)}`,
+  ).toBeGreaterThan(0)
+
   return {
     apiBase,
     headers,
