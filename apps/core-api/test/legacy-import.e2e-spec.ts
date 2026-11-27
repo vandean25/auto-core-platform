@@ -798,14 +798,18 @@ describe('Legacy CSV import (e2e)', () => {
         [fieldKey]: 1,
       });
 
-      const cust1 = await prisma.customer.findFirst({
-        where: { tenant_id: tenantA.tenantId, email: 'cf1@example.com' },
-      });
+      const cust1 = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'cf1@example.com' },
+        }),
+      );
       expect(cust1?.custom_fields).toEqual({ [fieldKey]: 'Gold' });
 
-      const cust2 = await prisma.customer.findFirst({
-        where: { tenant_id: tenantA.tenantId, email: 'cf2@example.com' },
-      });
+      const cust2 = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'cf2@example.com' },
+        }),
+      );
       expect(cust2?.custom_fields).toEqual({});
     });
 
@@ -872,14 +876,18 @@ describe('Legacy CSV import (e2e)', () => {
         .send({ errorThreshold: 1 })
         .expect(202);
 
-      const writtenVeh = await prisma.vehicle.findFirst({
-        where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000101' },
-      });
+      const writtenVeh = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.vehicle.findFirst({
+          where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000101' },
+        }),
+      );
       expect(writtenVeh?.custom_fields).toEqual({ [fieldKey]: 42.5 });
 
-      const skippedVeh = await prisma.vehicle.findFirst({
-        where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000102' },
-      });
+      const skippedVeh = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.vehicle.findFirst({
+          where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000102' },
+        }),
+      );
       expect(skippedVeh).toBeNull();
     });
 
@@ -1022,9 +1030,11 @@ describe('Legacy CSV import (e2e)', () => {
         .send({ errorThreshold: 0 })
         .expect(202);
 
-      const customer = await prisma.customer.findFirst({
-        where: { tenant_id: tenantA.tenantId, email: 'unmapped@example.com' },
-      });
+      const customer = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'unmapped@example.com' },
+        }),
+      );
       expect(customer?.custom_fields).toEqual({});
     });
   });
