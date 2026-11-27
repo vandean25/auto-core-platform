@@ -40,6 +40,11 @@ test.describe('Bank reconciliation keyboard review flow (AUT-1004 Scenarios 2, 3
     })
 
     await page.keyboard.press('ArrowUp')
+    const listbox = page.getByRole('listbox', { name: deFinance.bankReconciliation.aria.transactionsList })
+    await secondOption.scrollIntoViewIfNeeded()
+    await listbox.hover()
+    await page.mouse.wheel(0, 240)
+    await page.mouse.wheel(0, -240)
     expect(confirmRequests).toHaveLength(0)
 
     const firstOption = page.getByRole('option', { name: /Max Muster/i })

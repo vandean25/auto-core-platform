@@ -29,8 +29,11 @@ import { getErrorMessage, getHttpErrorStatus } from '@/lib/error-utils'
 
 const UNDO_TOAST_DURATION_MS = 6000
 
-function isInteractiveButtonOrLink(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('button, a, [role="menuitem"]') !== null
+function shouldSkipEnterShortcut(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.closest('[data-action-id]') !== null) return true
+  if (target.closest('[data-row-id], [data-suggestion-index]') !== null) return false
+  return target.closest('button, a, [role="menuitem"]') !== null
 }
 
 function resolveSelectedTransaction(
@@ -70,7 +73,8 @@ function dispatchBankShortcut(
   if (key === '1' || key === '2' || key === '3') {
     return handlers.pickSuggestion(Number(key) - 1)
   }
-  if (key === 'enter' && !isInteractiveButtonOrLink(event.target)) {
+  if (key === 'enter' && !shouldSkipEnterShortcut(event.target)) {
+    event.preventDefault()
     return handlers.confirmSelected()
   }
   if (key === 'i') {

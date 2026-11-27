@@ -50,7 +50,7 @@ export function TransactionListPane({
       <Card>
         <CardContent className="flex flex-col items-start gap-3 p-4">
           <p className="text-sm text-destructive">{t('finance:bankReconciliation.loadFailed')}</p>
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button variant="outline" size="sm" className="max-sm:min-h-11" onClick={onRetry}>
             {t('common:actions.retry')}
           </Button>
         </CardContent>
@@ -66,6 +66,7 @@ export function TransactionListPane({
         <EmptyContent>
           <Button
             variant="outline"
+            className="max-sm:min-h-11"
             data-action-id={ENTITY_ACTION_IDS.bankStatementUpload}
             onClick={onUploadClick}
           >
@@ -120,7 +121,7 @@ export function TransactionListPane({
         <Button
           variant="outline"
           size="sm"
-          className="w-full"
+          className="w-full max-sm:min-h-11"
           disabled={isFetchingNextPage}
           onClick={onLoadMore}
         >
@@ -158,6 +159,7 @@ function SuggestionCard({
   return (
     <button
       type="button"
+      data-suggestion-index={index}
       onClick={onSelect}
       className={cn(
         'w-full rounded-md border p-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
@@ -275,7 +277,7 @@ function SuggestionsSection({
           <p className="text-sm text-destructive">
             {t('finance:bankReconciliation.suggestionsLoadFailed')}
           </p>
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button variant="outline" size="sm" className="max-sm:min-h-11" onClick={onRetry}>
             {t('common:actions.retry')}
           </Button>
         </div>
@@ -316,7 +318,7 @@ function DetailActionFooter({
   const { t } = useTranslation('finance')
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 max-sm:scroll-mb-24">
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>{t('bankReconciliation.shortcuts.navigate')}</span>
         <span>{t('bankReconciliation.shortcuts.select')}</span>

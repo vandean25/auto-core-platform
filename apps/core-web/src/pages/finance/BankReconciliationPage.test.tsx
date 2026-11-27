@@ -263,6 +263,32 @@ describe('BankReconciliationPage (AUT-1004)', () => {
     expect(confirmCalls).toHaveLength(0)
   })
 
+  it('Enter confirms when focus is on a transaction row or suggestion card, but not on [data-action-id] buttons', async () => {
+    renderPage()
+
+    const firstRow = await screen.findByRole('option', { name: /Max Mustermann/i })
+    await screen.findByText('RE-2026-0042')
+
+    firstRow.focus()
+    fireEvent.keyDown(firstRow, { key: 'Enter' })
+
+    await waitFor(() => {
+      const confirmCalls = mockFetchWithAuth.mock.calls.filter(
+        ([url, init]) => String(url).includes('/confirm') && (init as RequestInit | undefined)?.method === 'POST',
+      )
+      expect(confirmCalls).toHaveLength(1)
+    })
+
+    const ignoreButton = screen.getByRole('button', { name: deFinance.bankReconciliation.actions.ignore })
+    ignoreButton.focus()
+    fireEvent.keyDown(ignoreButton, { key: 'Enter' })
+
+    const confirmCallsAfterIgnoreKeyDown = mockFetchWithAuth.mock.calls.filter(
+      ([url, init]) => String(url).includes('/confirm') && (init as RequestInit | undefined)?.method === 'POST',
+    )
+    expect(confirmCallsAfterIgnoreKeyDown).toHaveLength(1)
+  })
+
   it('Anti-criterion: tenant switch session reset clears the transaction list and undo entry', async () => {
     const { queryClient } = renderPage()
 
