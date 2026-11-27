@@ -535,7 +535,9 @@ test.describe('AUT-1045: custom fields import mapping', () => {
         }),
       })
     })
-    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions*'), async (route) => {
+    await page.route(
+      AutoCorePage.apiRouteMatcher(/\/api\/custom-fields\/definitions(\?.*)?$/),
+      async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
         return
