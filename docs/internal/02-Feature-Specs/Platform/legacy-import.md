@@ -26,6 +26,12 @@ The shipped five-step wizard is available to users who can manage team settings:
 
 The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
 
+### Dry-run mapping lookups
+
+Vehicle party and vehicle due date imports load external ID mappings for the current planning slice. They trim and deduplicate IDs per entity type and query up to 1,000 keys at a time within the tenant and import source. This applies to synchronous dry runs and background replanning and preserves row results and order.
+
+File-proportional matching for the remaining imports requires indexed keys that preserve the existing normalization. Supplier EAN has no index and matching trims stored values. Customer email and name keys, labor codes, supplier SKUs and vendor article numbers also use normalized values. Vehicle plate matching needs a verified backfill for legacy rows before it can rely on the indexed `plate_normalized` column.
+
 ### Import sources (AUT-809)
 
 Each tenant configures a list of **import sources** (normalized lower-case slug keys with display labels) in Settings → Data import. One source can be marked as the default. The wizard source step shows a select of the tenant's configured sources instead of a free-text field. This prevents re-import typos from creating duplicate `ExternalIdMapping` rows.

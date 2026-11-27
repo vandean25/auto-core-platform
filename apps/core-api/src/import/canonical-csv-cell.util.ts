@@ -1,4 +1,8 @@
-import { ImportEntityType, ImportRowAction } from '@prisma/client';
+import {
+  ImportEntityType,
+  ImportRowAction,
+  type ExternalIdMapping,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
@@ -152,9 +156,46 @@ export function prepareCanonicalRow<TRow extends { external_id: string }>(
   return prepared;
 }
 
+const MAPPING_KEY_CHUNK_SIZE = 1_000;
+
+async function loadBoundMappingRows(
+  prisma: PrismaService,
+  { tenantId, sourceSystem, mapping }: ImportDryRunInput,
+  rows: Array<{ record: Record<string, string> }>,
+  type: ImportEntityType,
+  field: string,
+) {
+  const keys = [
+    ...new Set(
+      rows
+        .map(({ record }) => cell(record, mapping, field))
+        // PostgreSQL text cannot contain a null byte, so such cells cannot match.
+        .filter((key) => key !== '' && !key.includes('\0')),
+    ),
+  ];
+  const result: Pick<
+    ExternalIdMapping,
+    'entity_type' | 'external_id' | 'entity_id'
+  >[] = [];
+  for (let offset = 0; offset < keys.length; offset += MAPPING_KEY_CHUNK_SIZE) {
+    const chunk = keys.slice(offset, offset + MAPPING_KEY_CHUNK_SIZE);
+    const mappings = await prisma.externalIdMapping.findMany({
+      where: {
+        tenant_id: tenantId,
+        source_system: sourceSystem,
+        entity_type: type,
+        external_id: { in: chunk },
+      },
+      select: { entity_type: true, external_id: true, entity_id: true },
+    });
+    result.push(...mappings);
+  }
+  return result;
+}
+
 /**
  * Mappings the vehicle-bound canonical files resolve against: external id to entity id per
- * type, plus the vehicles the file mentions.
+ * type, plus the vehicles the current planning slice mentions.
  */
 export async function loadVehicleBoundMappings(
   prisma: PrismaService,
@@ -162,13 +203,28 @@ export async function loadVehicleBoundMappings(
   rows: Array<{ record: Record<string, string> }>,
   types: ImportEntityType[],
 ) {
-  const mappings = await prisma.externalIdMapping.findMany({
-    where: {
-      tenant_id: input.tenantId,
-      source_system: input.sourceSystem,
-      entity_type: { in: [ImportEntityType.VEHICLE, ...types] },
-    },
-  });
+  const mappings = (
+    await Promise.all([
+      loadBoundMappingRows(
+        prisma,
+        input,
+        rows,
+        ImportEntityType.VEHICLE,
+        'vehicle_external_id',
+      ),
+      ...types.map((type) =>
+        loadBoundMappingRows(
+          prisma,
+          input,
+          rows,
+          type,
+          type === ImportEntityType.CUSTOMER
+            ? 'customer_external_id'
+            : 'external_id',
+        ),
+      ),
+    ])
+  ).flat();
   const byType = (type: ImportEntityType) =>
     new Map(
       mappings
