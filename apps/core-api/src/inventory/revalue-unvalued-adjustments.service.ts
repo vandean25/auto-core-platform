@@ -185,18 +185,22 @@ export class RevalueUnvaluedAdjustmentsService {
       return toReportEntry(p, reversalId, revaluedId);
     });
 
-    await chunkedPromiseAll(revalued, (entry) =>
-      this.auditService.recordTenantMutation(
-        {
-          entityType: 'CATALOG_ITEM',
-          entityId: entry.itemId,
-          action: AuditLogAction.UPDATE,
-          actorType: AuditActorType.MIGRATION,
-          source: 'inventory.adjustment_revaluation',
-          after: { ...entry, note: REVALUATION_NOTE },
-        },
-        tx,
-      ),
+    // One statement at a time: the interactive transaction has a single connection.
+    await chunkedPromiseAll(
+      revalued,
+      (entry) =>
+        this.auditService.recordTenantMutation(
+          {
+            entityType: 'CATALOG_ITEM',
+            entityId: entry.itemId,
+            action: AuditLogAction.UPDATE,
+            actorType: AuditActorType.MIGRATION,
+            source: 'inventory.adjustment_revaluation',
+            after: { ...entry, note: REVALUATION_NOTE },
+          },
+          tx,
+        ),
+      1,
     );
 
     return { revalued, gaps };
@@ -241,6 +245,8 @@ export class RevalueUnvaluedAdjustmentsService {
               k.itemId,
             ),
           ] as const,
+        // Sequential on the (possibly transactional) client.
+        1,
       ),
     );
     return new Map(

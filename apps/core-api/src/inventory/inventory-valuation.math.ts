@@ -14,6 +14,8 @@ export interface ValuationBookingInput {
   quantity: Decimal | number | string;
   costBasis?: Decimal | number | string | null;
   isReversal?: boolean;
+  /** Moves stock quantity only: average and valued quantity stay as they are (AUT-1050 Gegenbuchung). */
+  valuationNeutral?: boolean;
 }
 
 export interface ValuationStepResult {
@@ -133,7 +135,7 @@ export function applyValuationStep(
   booking: ValuationBookingInput,
 ): ValuationStepResult {
   const incomingCost = toOptionalDecimal(booking.costBasis);
-  if (isTransferTransactionType(booking.type)) {
+  if (booking.valuationNeutral || isTransferTransactionType(booking.type)) {
     return {
       state: current,
       stampedCostBasis: incomingCost,

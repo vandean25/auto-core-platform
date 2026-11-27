@@ -7,6 +7,7 @@ import {
   isTransferTransactionType,
   type ValuationState,
 } from './inventory-valuation.math.js';
+import { isRevaluationGegenbuchung } from './revalue-unvalued-adjustments.plan.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -296,6 +297,7 @@ export class InventoryValuationService {
         quantity: b.quantity,
         costBasis: b.costBasis,
         isReversal: b.isReversal,
+        valuationNeutral: b.valuationNeutral,
       });
 
       stateByKey.set(key, step.state);
@@ -449,6 +451,7 @@ export class InventoryValuationService {
                 quantity: true,
                 type: true,
                 cost_basis: true,
+                note: true,
                 reversal_of_transaction_id: true,
                 createdAt: true,
               },
@@ -489,6 +492,7 @@ export class InventoryValuationService {
           quantity: row.quantity,
           costBasis: row.cost_basis,
           isReversal: row.reversal_of_transaction_id !== null,
+          valuationNeutral: isRevaluationGegenbuchung(row),
         });
 
         current.state = step.state;

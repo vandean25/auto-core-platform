@@ -40,6 +40,22 @@ export interface PlannedRevaluation {
   bookings: [RecordTransactionParams, RecordTransactionParams];
 }
 
+/**
+ * The Gegenbuchung of a revaluation pair unwinds quantity only. Live bookings flag it explicitly;
+ * the valuation backfill recognises it by these persisted fields so a replay ends at the same pool.
+ */
+export function isRevaluationGegenbuchung(row: {
+  note: string | null;
+  reversal_of_transaction_id: string | null;
+  cost_basis: Decimal | null;
+}): boolean {
+  return (
+    row.note === REVALUATION_NOTE &&
+    row.reversal_of_transaction_id !== null &&
+    row.cost_basis === null
+  );
+}
+
 /** Splits originals that already have a reversal into revalued (marker on the Gegenbuchung) and otherwise reversed. */
 export function classifyProcessedOriginals(
   rows: ReadonlyArray<{
@@ -100,6 +116,7 @@ export function planRevaluations(
           referenceId: MANUAL_ADJUSTMENT_REVERSAL_REFERENCE,
           costBasis: null,
           valueSource: null,
+          valuationNeutral: true,
           reversalOfTransactionId: original.id,
         },
         {
