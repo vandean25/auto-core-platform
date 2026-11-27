@@ -63,6 +63,7 @@
     "totalHeader": "Gesamt",
     "netLabel": "Netto",
     "taxLabel": "Umsatzsteuer",
+    "roundingLabel": "Rundung",
     "grossLabel": "Brutto",
     "taxBreakdownTitle": "Umsatzsteuer-Aufschlüsselung",
     "taxRateRow": "{{rate}} % USt (Netto {{net}})",

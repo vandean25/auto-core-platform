@@ -11,6 +11,8 @@ import {
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DEFAULT_VAT_RATE } from '../invoices/invoice-creation.helpers.js';
+import { convertGrossUnitPriceToNet } from '../invoices/invoice-snapshot-v2.js';
 import {
   isActiveSlice,
   type ReservationSliceState,
@@ -140,6 +142,7 @@ export async function validateSubmittedLineItemIds(
       select: {
         id: true,
         quantity: true,
+        unit_price: true,
         part_execution_status: true,
       },
     })) ?? [];
@@ -434,6 +437,27 @@ function toDecimalOrNull(
   return value != null ? new Prisma.Decimal(value) : null;
 }
 
+function workshopLinePrice(
+  item: SubmittedLineItem,
+  previousPrice?: Prisma.Decimal,
+) {
+  if (item.grossUnitPrice != null) {
+    const gross = new Prisma.Decimal(item.grossUnitPrice);
+    return {
+      unit_price: convertGrossUnitPriceToNet(gross, DEFAULT_VAT_RATE),
+      gross_unit_price: gross,
+    };
+  }
+  const net = new Prisma.Decimal(item.unitPrice);
+  return {
+    unit_price: net,
+    ...(item.grossUnitPrice === null ||
+    (previousPrice && !net.eq(previousPrice))
+      ? { gross_unit_price: null }
+      : {}),
+  };
+}
+
 export function buildNewTaskLineItemRecord(
   tenantId: string,
   taskId: string,
@@ -450,7 +474,7 @@ export function buildNewTaskLineItemRecord(
     item_no: item.itemNo,
     description: item.description,
     quantity: new Prisma.Decimal(item.qty),
-    unit_price: new Prisma.Decimal(item.unitPrice),
+    ...workshopLinePrice(item),
     labor_operation_id: isLabor ? (item.laborOperationId ?? null) : null,
     standard_aw: isLabor ? toDecimalOrNull(item.standardAw) : null,
     actual_hours: isLabor ? toDecimalOrNull(item.actualHours) : null,
@@ -577,11 +601,12 @@ function assignLaborLineFields(
 export function buildExistingLineItemUpdateData(
   item: ExistingLineItemToUpdate,
   partStatus?: WorkshopPartLineExecutionStatus,
+  previousPrice?: Prisma.Decimal,
 ): Prisma.WorkshopTaskLineItemUncheckedUpdateManyInput {
   const data: Prisma.WorkshopTaskLineItemUncheckedUpdateManyInput = {
     description: item.description,
     quantity: new Prisma.Decimal(item.qty),
-    unit_price: new Prisma.Decimal(item.unitPrice),
+    ...workshopLinePrice(item, previousPrice),
   };
   assignLaborLineFields(data, item);
   if (item.type === WorkshopLineItemType.PART && partStatus) {
@@ -594,6 +619,7 @@ export async function executeExistingLineItemUpdates(
   ctx: UpdateTaskLineItemsContext,
   existingItems: ExistingLineItemToUpdate[],
   partExecutionStatusById: Map<string, WorkshopPartLineExecutionStatus>,
+  previousPrices?: ReadonlyMap<string, Prisma.Decimal>,
 ): Promise<void> {
   await Promise.all(
     existingItems.map((item) =>
@@ -607,6 +633,7 @@ export async function executeExistingLineItemUpdates(
         data: buildExistingLineItemUpdateData(
           item,
           partExecutionStatusById.get(item.id),
+          previousPrices?.get(item.id),
         ),
       }),
     ),
@@ -616,6 +643,7 @@ export async function executeExistingLineItemUpdates(
 export async function updateExistingTaskLineItems(
   ctx: UpdateTaskLineItemsContext,
   items: ReplaceWorkshopTaskLineItemsDto['items'],
+  previousPrices?: ReadonlyMap<string, Prisma.Decimal>,
 ): Promise<void> {
   const existingItemsToUpdate = items.filter(
     (item): item is ExistingLineItemToUpdate => Boolean(item.id),
@@ -658,6 +686,7 @@ export async function updateExistingTaskLineItems(
     ctx,
     existingItemsToUpdate,
     partExecutionStatusById,
+    previousPrices,
   );
 }
 

@@ -178,7 +178,14 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     return invoiceRes.body;
   }
 
-  async function createCompletedWorkshopDraftInvoice(lineCount = 1) {
+  async function createCompletedWorkshopDraftInvoice(
+    lineCount = 1,
+    linePrice: {
+      qty: number;
+      unitPrice: number;
+      grossUnitPrice?: number;
+    } = { qty: 2, unitPrice: 80 },
+  ) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/workshop/orders')
       .set('Authorization', `Bearer ${authToken}`)
@@ -208,8 +215,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
           type: 'LABOR',
           itemNo: `LAB-${String(index + 1).padStart(3, '0')}`,
           description: 'Brake labor',
-          qty: 2,
-          unitPrice: 80,
+          ...linePrice,
         })),
       })
       .expect(200);
@@ -228,6 +234,45 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     return { orderId: orderRes.body.id, invoice: invoiceRes.body };
   }
+
+  it('AUT-1087 S3: carries gross workshop rounding through issue separately from VAT', async () => {
+    const { invoice } = await createCompletedWorkshopDraftInvoice(3, {
+      qty: 1,
+      unitPrice: 10,
+      grossUnitPrice: 10,
+    });
+
+    expect(invoice).toMatchObject({
+      total_net: '24.99',
+      total_tax: '5',
+      total_gross: '30',
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/invoices/${invoice.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const issued = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id, tenant_id: tenant.tenantId },
+    });
+    expect({
+      gross: issued.total_gross.toFixed(2),
+      snapshot: issued.snapshot,
+    }).toMatchObject({
+      gross: '30.00',
+      snapshot: {
+        vat_calculation: 'PER_RATE',
+        total_net: '24.99',
+        total_tax: '5.00',
+        rounding_amount: '0.01',
+        total_gross: '30.00',
+        tax_breakdown: [
+          { rate: '20.00', net: '24.99', tax: '5.00', gross: '29.99' },
+        ],
+      },
+    });
+  });
 
   async function createSecondSite() {
     const legalEntity = await tenantPrisma.legalEntity.findFirstOrThrow({

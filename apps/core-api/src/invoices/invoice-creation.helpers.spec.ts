@@ -283,6 +283,28 @@ describe('invoice-creation.helpers', () => {
   });
 
   describe('calculateInvoiceTotals', () => {
+    it('keeps the net-priced lines on per-rate VAT in a mixed-price invoice', () => {
+      const totals = calculateInvoiceTotals([
+        {
+          quantity: 1,
+          unit_price: '10.00',
+          tax_rate: 20,
+          gross_unit_price: '12.00',
+        },
+        ...Array.from({ length: 3 }, () => ({
+          quantity: 1,
+          unit_price: '10.02',
+          tax_rate: 20,
+        })),
+      ]);
+
+      expect([
+        totals.totalTax.toFixed(2),
+        totals.roundingAmount?.toFixed(2),
+        totals.totalGross.toFixed(2),
+      ]).toEqual(['8.01', '0.00', '48.07']);
+    });
+
     it('correctly calculates totals for multiple items with different tax rates and quantities', () => {
       const lineItems = [
         {
@@ -319,15 +341,15 @@ describe('invoice-creation.helpers', () => {
       expect(totals.total).toEqual(new Prisma.Decimal(0));
     });
 
-    it('Scenario 1: rounds tax half-up per line so 2 x 12.38 at 20% matches snapshot (24.76 / 4.96 / 29.72)', () => {
+    it('AUT-1087: rounds tax half-up per tax rate on summed net so 2 x 12.38 at 20% matches snapshot (24.76 / 4.95 / 29.71)', () => {
       const totals = calculateInvoiceTotals([
         { id: 'l1', quantity: 1, unit_price: 12.38, tax_rate: 20 },
         { id: 'l2', quantity: 1, unit_price: 12.38, tax_rate: 20 },
       ]);
 
       expect(totals.totalNet.toFixed(2)).toBe('24.76');
-      expect(totals.totalTax.toFixed(2)).toBe('4.96');
-      expect(totals.totalGross.toFixed(2)).toBe('29.72');
+      expect(totals.totalTax.toFixed(2)).toBe('4.95');
+      expect(totals.totalGross.toFixed(2)).toBe('29.71');
     });
 
     it('applies line and global discounts when calculating totals', () => {
@@ -350,6 +372,65 @@ describe('invoice-creation.helpers', () => {
       expect(totals.totalTax.toFixed(2)).toBe('16.00');
       expect(totals.totalGross.toFixed(2)).toBe('96.00');
     });
+
+    // AUT-1087 Scenario 3 & Anti-criterion 4: gross workshop prices convert to net, VAT uses per-rate formula, residual cent lands in RoundingAmount / BT-114
+    it.each([
+      {
+        label: '3 x 10.00 gross at 20% (net 24.99, tax 5.00, BT-114 0.01)',
+        unitPrice: '10.00',
+        taxRate: '20',
+        count: 3,
+        expectedUnitNet: '8.33',
+        expectedNet: '24.99',
+        expectedTax: '5.00',
+        expectedRounding: '0.01',
+        expectedGross: '30.00',
+      },
+      {
+        label: '2 x 10.00 gross at 19% (net 16.80, tax 3.19 not 3.20, BT-114 0.01)',
+        unitPrice: '10.00',
+        taxRate: '19',
+        count: 2,
+        expectedUnitNet: '8.40',
+        expectedNet: '16.80',
+        expectedTax: '3.19',
+        expectedRounding: '0.01',
+        expectedGross: '20.00',
+      },
+    ])(
+      'AUT-1087 S3/Anti-criterion 4: $label',
+      ({
+        unitPrice,
+        taxRate,
+        count,
+        expectedUnitNet,
+        expectedNet,
+        expectedTax,
+        expectedRounding,
+        expectedGross,
+      }) => {
+        const lines = Array.from({ length: count }, (_, idx) => ({
+          id: `gross-${idx + 1}`,
+          description: 'Gross workshop item',
+          quantity: 1,
+          unit_price: expectedUnitNet,
+          gross_unit_price: unitPrice,
+          tax_rate: taxRate,
+        }));
+
+        const draftLine = buildDraftInvoiceLineItem(lines[0], 0, 'tenant-1');
+        expect(draftLine.unit_price).toEqual(
+          new Prisma.Decimal(expectedUnitNet),
+        );
+
+        const totals = calculateInvoiceTotals(lines);
+        expect(totals.totalNet.toFixed(2)).toBe(expectedNet);
+        // Tax strictly equals half-up(summed net * rate); residual cent is never absorbed into tax
+        expect(totals.totalTax.toFixed(2)).toBe(expectedTax);
+        expect(totals.roundingAmount?.toFixed(2)).toBe(expectedRounding);
+        expect(totals.totalGross.toFixed(2)).toBe(expectedGross);
+      },
+    );
   });
 
   describe('assertOrderInvoiceable', () => {
@@ -898,4 +979,3 @@ describe('invoice-creation.helpers', () => {
     });
   });
 });
-

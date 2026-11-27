@@ -58,6 +58,7 @@ export interface DraftInvoiceLineItemInput {
   revenueGroupName?: string | null;
   tax_rate?: Prisma.Decimal | number | string;
   taxRate?: Prisma.Decimal | number | string;
+  gross_unit_price?: Prisma.Decimal | number | string | null;
   line_discount_type?: DiscountType | null;
   line_discount_value?: Prisma.Decimal | number | string | null;
   part_execution_status?: WorkshopPartLineExecutionStatus | null;
@@ -71,6 +72,7 @@ export interface InvoiceTotals {
   totalNet: Prisma.Decimal;
   totalTax: Prisma.Decimal;
   totalGross: Prisma.Decimal;
+  roundingAmount?: Prisma.Decimal;
 }
 
 export function validateCustomerAddress(
@@ -171,6 +173,9 @@ export function buildDraftInvoiceLineItem(
     description: item.description,
     quantity,
     unit_price: unitPrice,
+    ...(item.gross_unit_price != null
+      ? { gross_unit_price: item.gross_unit_price }
+      : {}),
     tax_rate: taxRate,
     line_discount_type: discountType,
     line_discount_value: discountValue,
@@ -187,6 +192,7 @@ export function calculateInvoiceTotals(
     unitPrice?: Prisma.Decimal | number | string;
     tax_rate?: Prisma.Decimal | number | string;
     taxRate?: Prisma.Decimal | number | string;
+    gross_unit_price?: Prisma.Decimal | number | string | null;
     line_discount_type?: DiscountType | null;
     line_discount_value?: Prisma.Decimal | number | string | null;
   }>,
@@ -197,6 +203,10 @@ export function calculateInvoiceTotals(
     id: item.id ?? `line-${index}`,
     quantity: new Prisma.Decimal(item.quantity),
     unitPrice: new Prisma.Decimal(item.unit_price ?? item.unitPrice ?? 0),
+    grossUnitPrice:
+      item.gross_unit_price == null
+        ? null
+        : new Prisma.Decimal(item.gross_unit_price),
     taxRate: new Prisma.Decimal(
       item.tax_rate ?? item.taxRate ?? DEFAULT_VAT_RATE,
     ),
@@ -205,18 +215,16 @@ export function calculateInvoiceTotals(
       ? new Prisma.Decimal(item.line_discount_value)
       : null,
   }));
-  const { totalNet, totalTax, totalGross } = computeStandardInvoiceTotals(
+  const totals = computeStandardInvoiceTotals(
     billedLines,
     globalDiscountType,
     globalDiscountValue,
   );
   return {
-    subtotal: totalNet,
-    taxTotal: totalTax,
-    total: totalGross,
-    totalNet,
-    totalTax,
-    totalGross,
+    ...totals,
+    subtotal: totals.totalNet,
+    taxTotal: totals.totalTax,
+    total: totals.totalGross,
   };
 }
 

@@ -6,6 +6,18 @@ import {
   serializeAccountingProfileSerializerParams,
 } from './accounting-profile.serializer-params.js';
 
+describe('accounting-profile rounding params', () => {
+  it('preserves the rounding account when a patch clears the non-VAT code', () => {
+    const saved = mergeAccountingProfileSerializerParams(
+      { roundingAccount: '4900', roundingSteuercode: '0' },
+      { roundingSteuercode: null },
+    );
+    expect(serializeAccountingProfileSerializerParams(saved)).toEqual({
+      roundingAccount: '4900',
+    });
+  });
+});
+
 describe('accounting-profile serializer params (margin scheme)', () => {
   it('stores nothing for profiles without a margin setting, so default profiles keep their stored JSON', () => {
     expect(parseAccountingProfileSerializerParams({})).toEqual({});

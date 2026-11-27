@@ -565,6 +565,23 @@ describe('invoice-snapshot-v2.helpers', () => {
       ]);
     });
 
+    it('AUT-1087: buildTotalsSnapshot computes tax per rate on summed net rather than summing line tax', () => {
+      const items = [
+        { net: '10.02', tax: '2.00', gross: '12.02', tax_rate: '20.00' },
+        { net: '10.02', tax: '2.00', gross: '12.02', tax_rate: '20.00' },
+        { net: '10.02', tax: '2.00', gross: '12.02', tax_rate: '20.00' },
+      ];
+
+      const totals = buildTotalsSnapshot(items);
+
+      expect(totals.total_net).toBe('30.06');
+      expect(totals.total_tax).toBe('6.01');
+      expect(totals.total_gross).toBe('36.07');
+      expect(totals.tax_breakdown).toEqual([
+        { rate: '20.00', net: '30.06', tax: '6.01', gross: '36.07' },
+      ]);
+    });
+
     it('buildTotalsSnapshot handles MARGIN_SCHEME mode', () => {
       const items = [
         { net: '5000.00', tax: '0.00', gross: '5000.00', tax_rate: '0.00' },

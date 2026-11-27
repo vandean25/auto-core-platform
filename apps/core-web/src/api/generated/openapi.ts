@@ -7021,6 +7021,10 @@ export interface components {
             vatAccount?: string | null;
         };
         AccountingProfileSerializerParamsDto: {
+            /** @description Non-VAT posting account for document rounding. Use an account without automatic VAT. */
+            roundingAccount?: string | null;
+            /** @description Non-VAT posting code for document rounding in RZL or BMD. */
+            roundingSteuercode?: string | null;
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
             bmd?: components["schemas"]["BmdSerializerParamsDto"];
             marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
@@ -7453,6 +7457,11 @@ export interface components {
             total_tax: string;
             /** @example 120.00 */
             total_gross: string;
+            /**
+             * @description Frozen rounding adjustment included in the issued gross total.
+             * @example 0.01
+             */
+            rounding_amount?: string;
             tax_mode?: components["schemas"]["InvoiceTaxMode"];
             global_discount_type?: components["schemas"]["DiscountType"] | null;
             global_discount_value?: string | null;
@@ -8862,6 +8871,7 @@ export interface components {
             description: string;
             qty: number;
             unitPrice: number;
+            grossUnitPrice?: number | null;
             catalogItemId?: string | null;
             /** @enum {string|null} */
             partExecutionStatus?: "PENDING_PICK" | "STAGED" | "CONSUMED" | "CANCELLED" | null;
@@ -9103,6 +9113,8 @@ export interface components {
             /** @example 1.5 */
             qty: number;
             unitPrice: number;
+            /** @description Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing. */
+            grossUnitPrice?: number | null;
             /** Format: uuid */
             laborOperationId?: string;
             standardAw?: number;

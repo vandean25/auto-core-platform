@@ -474,32 +474,32 @@ export function buildTaxBreakdown(
     rate?: DecimalLike;
     tax_rate?: DecimalLike;
     net: DecimalLike;
-    tax: DecimalLike;
-    gross: DecimalLike;
+    tax?: DecimalLike;
+    gross?: DecimalLike;
   }>,
 ): InvoiceSnapshotV2TaxBucket[] {
-  const buckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
+  const netByRate = new Map<string, Prisma.Decimal>();
 
   for (const item of items) {
     const rawRate = item.taxRate ?? item.rate ?? item.tax_rate ?? '0.00';
     const rate = moneyString(toMoney(rawRate));
-    const existing = buckets.get(rate) ?? {
+    netByRate.set(
       rate,
-      net: '0.00',
-      tax: '0.00',
-      gross: '0.00',
-    };
-    buckets.set(rate, {
-      rate,
-      net: moneyString(toMoney(existing.net).add(toMoney(item.net))),
-      tax: moneyString(toMoney(existing.tax).add(toMoney(item.tax))),
-      gross: moneyString(toMoney(existing.gross).add(toMoney(item.gross))),
-    });
+      (netByRate.get(rate) ?? new Prisma.Decimal(0)).add(toMoney(item.net)),
+    );
   }
 
-  return [...buckets.values()].sort((left, right) =>
-    toMoney(left.rate).comparedTo(toMoney(right.rate)),
-  );
+  return [...netByRate.entries()]
+    .sort(([left], [right]) => toMoney(left).comparedTo(toMoney(right)))
+    .map(([rate, net]) => {
+      const tax = halfUpTax(net, toMoney(rate));
+      return {
+        rate,
+        net: moneyString(net),
+        tax: moneyString(tax),
+        gross: moneyString(net.add(tax)),
+      };
+    });
 }
 
 export function buildTotalsSnapshot(
@@ -532,24 +532,22 @@ export function buildTotalsSnapshot(
     };
   }
 
-  const totalNet = items.reduce(
-    (sum, item) => sum.add(toMoney(item.net)),
+  const taxBreakdown = buildTaxBreakdown(items);
+  const totalNet = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.net)),
     new Prisma.Decimal(0),
   );
-  const totalTax = items.reduce(
-    (sum, item) => sum.add(toMoney(item.tax)),
+  const totalTax = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.tax)),
     new Prisma.Decimal(0),
   );
-  const totalGross = items.reduce(
-    (sum, item) => sum.add(toMoney(item.gross)),
-    new Prisma.Decimal(0),
-  );
+  const totalGross = totalNet.add(totalTax);
 
   return {
     total_net: moneyString(totalNet),
     total_tax: moneyString(totalTax),
     total_gross: moneyString(totalGross),
-    tax_breakdown: buildTaxBreakdown(items),
+    tax_breakdown: taxBreakdown,
   };
 }
 
@@ -830,6 +828,7 @@ export async function resolveInvoiceLineAllocations(
     description: string;
     quantity: Prisma.Decimal;
     unitPrice: Prisma.Decimal;
+    grossUnitPrice: Prisma.Decimal | null;
     taxRate: Prisma.Decimal;
     lineDiscountType: DiscountType | null;
     lineDiscountValue: Prisma.Decimal | null;
@@ -872,6 +871,7 @@ export async function resolveInvoiceLineAllocations(
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unit_price,
+      grossUnitPrice: item.gross_unit_price,
       taxRate: item.tax_rate,
       lineDiscountType: item.line_discount_type,
       lineDiscountValue: item.line_discount_value,

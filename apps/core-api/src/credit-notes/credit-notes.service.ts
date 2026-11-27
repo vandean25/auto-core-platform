@@ -20,7 +20,10 @@ import {
 } from '../common/utils/status-transition.js';
 import { lockFinanceSettingsAndAssertOpen } from '../finance/fiscal-lock.helpers.js';
 import { isInvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.validation.js';
-import type { InvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
+import type {
+  InvoiceSnapshotV2,
+  InvoiceSnapshotV2TaxBucket,
+} from '../invoices/invoice-snapshot-v2.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import {
@@ -48,6 +51,7 @@ import { hashCreditNoteFinalizeRequest } from './credit-note-request-hash.js';
 import {
   buildCreditNoteLineSnapshot,
   buildCreditNoteSnapshot,
+  computeCreditNoteTaxSummary,
   extractOriginalLineSnapshots,
   isMarginSchemeSnapshot,
 } from './credit-note-snapshot.js';
@@ -121,11 +125,18 @@ export class CreditNotesService {
     );
     const creditDate = this.parseCreditDate(dto.date, timeZone);
 
+    const priorCreditTaxBuckets = await this.loadPriorCreditTaxBuckets(
+      tenantId,
+      invoice.id,
+    );
+    const isFullCredit = this.isFullCreditDraft(draftLines, remaining);
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
       draftLines,
       originalSnapshot,
       priorCredits,
       originalLines,
+      isFullCredit,
+      priorCreditTaxBuckets,
     });
 
     const creditNote = await this.prisma.$transaction(async (tx) => {
@@ -375,11 +386,20 @@ export class CreditNotesService {
       this.assertFullCreditDraft(draftLines, remaining);
     }
 
+    const priorCreditTaxBuckets = await this.loadPriorCreditTaxBuckets(
+      tenantId,
+      invoice.id,
+      this.prisma,
+      id,
+    );
+    const isFullCredit = this.isFullCreditDraft(draftLines, remaining);
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
       draftLines,
       originalSnapshot,
       priorCredits,
       originalLines,
+      isFullCredit,
+      priorCreditTaxBuckets,
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -526,17 +546,25 @@ export class CreditNotesService {
           originalLines,
         });
 
+        const priorCreditTaxBuckets = await this.loadPriorCreditTaxBuckets(
+          tenantId,
+          invoice.id,
+          tx,
+          id,
+        );
+        const isFullCredit = this.isFullCreditDraft(
+          draftLines,
+          computeRemainingLineBalances(originalLines, priorCredits),
+        );
         const { totals, itemPayloads } = this.buildDraftItemPayloads({
           draftLines,
           originalSnapshot,
           priorCredits,
           originalLines,
+          isFullCredit,
+          priorCreditTaxBuckets,
         });
 
-        const isFullCredit = this.isFullCreditDraft(
-          draftLines,
-          computeRemainingLineBalances(originalLines, priorCredits),
-        );
         const committedAt = new Date();
         const snapshot = buildCreditNoteSnapshot({
           originalSnapshot,
@@ -549,6 +577,7 @@ export class CreditNotesService {
           lineSnapshots: itemPayloads.map((item) => item.snapshot),
           committedAt,
           timeZone: siteTimeZone,
+          priorCreditTaxBuckets,
         });
 
         const creditNumber = await generateCreditNoteNumber(
@@ -895,6 +924,8 @@ export class CreditNotesService {
     originalSnapshot: InvoiceSnapshotV2;
     priorCredits: PriorCreditLine[];
     originalLines: OriginalLineSnapshot[];
+    isFullCredit: boolean;
+    priorCreditTaxBuckets: readonly InvoiceSnapshotV2TaxBucket[];
   }) {
     if (input.draftLines.length === 0) {
       throw new ConflictException({
@@ -909,10 +940,6 @@ export class CreditNotesService {
     const snapshotById = new Map(
       input.originalSnapshot.items.map((item) => [item.id, item]),
     );
-
-    let totalNet = new Prisma.Decimal(0);
-    let totalTax = new Prisma.Decimal(0);
-    let totalGross = new Prisma.Decimal(0);
 
     const itemPayloads = input.draftLines.map((line) => {
       const original = originalById.get(line.originalItemId);
@@ -946,10 +973,6 @@ export class CreditNotesService {
         gross: amounts.gross,
       });
 
-      totalNet = totalNet.add(amounts.net);
-      totalTax = totalTax.add(amounts.tax);
-      totalGross = totalGross.add(amounts.gross);
-
       return {
         originalItemId: line.originalItemId,
         quantity: amounts.quantity,
@@ -957,8 +980,19 @@ export class CreditNotesService {
       };
     });
 
+    const summary = computeCreditNoteTaxSummary({
+      originalSnapshot: input.originalSnapshot,
+      lineSnapshots: itemPayloads.map((item) => item.snapshot),
+      isFullCredit: input.isFullCredit,
+      priorCreditTaxBuckets: input.priorCreditTaxBuckets,
+    });
+
     return {
-      totals: { net: totalNet, tax: totalTax, gross: totalGross },
+      totals: {
+        net: summary.totalNet,
+        tax: summary.totalTax,
+        gross: summary.totalGross,
+      },
       itemPayloads,
     };
   }
@@ -1053,6 +1087,33 @@ export class CreditNotesService {
       excludeCreditNoteId,
     );
     return byInvoice.get(invoiceId) ?? [];
+  }
+
+  private async loadPriorCreditTaxBuckets(
+    tenantId: string,
+    invoiceId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+    excludeCreditNoteId?: string,
+  ): Promise<InvoiceSnapshotV2TaxBucket[]> {
+    const credits = await tx.creditNote.findMany({
+      where: {
+        tenant_id: tenantId,
+        original_invoice_id: invoiceId,
+        status: CreditNoteStatus.FINALIZED,
+        ...(excludeCreditNoteId ? { id: { not: excludeCreditNoteId } } : {}),
+      },
+      select: { snapshot: true },
+    });
+    const buckets: InvoiceSnapshotV2TaxBucket[] = [];
+    for (const credit of credits) {
+      const snap = credit.snapshot as {
+        tax_breakdown?: InvoiceSnapshotV2TaxBucket[];
+      } | null;
+      if (Array.isArray(snap?.tax_breakdown)) {
+        buckets.push(...snap.tax_breakdown);
+      }
+    }
+    return buckets;
   }
 
   private async loadPriorCreditsByInvoice(

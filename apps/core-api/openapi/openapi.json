@@ -22597,6 +22597,16 @@
       "AccountingProfileSerializerParamsDto": {
         "type": "object",
         "properties": {
+          "roundingAccount": {
+            "type": "string",
+            "nullable": true,
+            "description": "Non-VAT posting account for document rounding. Use an account without automatic VAT."
+          },
+          "roundingSteuercode": {
+            "type": "string",
+            "nullable": true,
+            "description": "Non-VAT posting code for document rounding in RZL or BMD."
+          },
           "rzl": {
             "$ref": "#/components/schemas/RzlSerializerParamsDto"
           },
@@ -24063,6 +24073,11 @@
           "total_gross": {
             "type": "string",
             "example": "120.00"
+          },
+          "rounding_amount": {
+            "type": "string",
+            "example": "0.01",
+            "description": "Frozen rounding adjustment included in the issued gross total."
           },
           "tax_mode": {
             "allOf": [
@@ -29366,6 +29381,10 @@
           "unitPrice": {
             "type": "number"
           },
+          "grossUnitPrice": {
+            "type": "number",
+            "nullable": true
+          },
           "catalogItemId": {
             "type": "string",
             "nullable": true
@@ -30259,6 +30278,13 @@
           "unitPrice": {
             "type": "number",
             "minimum": 0
+          },
+          "grossUnitPrice": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "multipleOf": 0.01,
+            "description": "Gross unit price including VAT. Overrides unitPrice. Send null to switch to net pricing."
           },
           "laborOperationId": {
             "type": "string",

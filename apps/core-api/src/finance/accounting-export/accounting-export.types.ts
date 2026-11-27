@@ -41,6 +41,7 @@ export type AccountingExportBookingRow = {
   debtorAccount: string;
   revenueAccount: string;
   buKey: string | null;
+  roundingSteuercode?: string;
   bookingText: string;
   originalInvoiceNumber?: string;
 };

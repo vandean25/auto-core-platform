@@ -3641,6 +3641,7 @@ model InvoiceItem {
   description         String
   quantity            Decimal       @db.Decimal(10, 3)
   unit_price          Decimal       @db.Decimal(10, 2)
+  gross_unit_price    Decimal?      @db.Decimal(10, 2)
   tax_rate            Decimal       @db.Decimal(5, 2)
   line_discount_type  DiscountType?
   line_discount_value Decimal?      @db.Decimal(10, 2)
@@ -4955,6 +4956,7 @@ model WorkshopTaskLineItem {
   description               String
   quantity                  Decimal                          @db.Decimal(10, 3)
   unit_price                Decimal                          @db.Decimal(10, 2)
+  gross_unit_price          Decimal?                         @db.Decimal(10, 2)
   catalog_item_id           String?
   catalog_item              CatalogItem?                     @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   source_system             String?

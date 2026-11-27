@@ -77,6 +77,9 @@ export class WorkshopTaskLineItemResponseDto {
   @ApiProperty()
   unitPrice!: number;
 
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  grossUnitPrice?: number | null;
+
   @ApiProperty({ type: String, required: false, nullable: true })
   catalogItemId?: string | null;
 

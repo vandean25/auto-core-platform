@@ -397,8 +397,8 @@ describe('SalesOrderService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           total_net: new Prisma.Decimal('24.76'),
-          total_tax: new Prisma.Decimal('4.96'),
-          total_gross: new Prisma.Decimal('29.72'),
+          total_tax: new Prisma.Decimal('4.95'),
+          total_gross: new Prisma.Decimal('29.71'),
         }),
       }),
     );

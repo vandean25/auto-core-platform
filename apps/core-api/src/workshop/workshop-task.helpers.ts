@@ -513,6 +513,7 @@ export async function executeLineItemReplacement(
       taskId,
     },
     dto.items,
+    new Map(existingItems.map((item) => [item.id, item.unit_price])),
   );
 }
 

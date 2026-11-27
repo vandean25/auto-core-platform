@@ -143,6 +143,8 @@ export type InvoiceSnapshotV2 = {
   };
   items: InvoiceSnapshotV2Item[];
   tax_breakdown: InvoiceSnapshotV2TaxBucket[];
+  vat_calculation?: 'PER_RATE';
+  rounding_amount?: string;
   margin?: InvoiceSnapshotV2Margin;
   branding?: InvoiceSnapshotV2Branding;
   total_net: string;
@@ -155,14 +157,8 @@ export type InvoiceSnapshotV2 = {
 
 type DecimalLike = Prisma.Decimal | number | string;
 
-type LineAllocationInput = {
-  id: string;
+type LineAllocationInput = InvoiceBilledLineInput & {
   description: string;
-  quantity: Prisma.Decimal;
-  unitPrice: Prisma.Decimal;
-  taxRate: Prisma.Decimal;
-  lineDiscountType: DiscountType | null;
-  lineDiscountValue: Prisma.Decimal | null;
   revenueGroupName: string | null;
   accountingAllocation: ResolvedAccountingAllocation;
 };
@@ -198,6 +194,15 @@ export const halfUpTax = (
 ): Prisma.Decimal =>
   net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
+export function convertGrossUnitPriceToNet(
+  grossUnitPrice: Prisma.Decimal,
+  taxRate: Prisma.Decimal,
+): Prisma.Decimal {
+  return grossUnitPrice
+    .div(new Prisma.Decimal(1).add(taxRate.div(100)))
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 export function lineNetBeforeGlobalDiscount(
   line: Pick<
     InvoiceBilledLineInput,
@@ -224,6 +229,7 @@ export type InvoiceBilledLineInput = {
   id: string;
   quantity: Prisma.Decimal;
   unitPrice: Prisma.Decimal;
+  grossUnitPrice?: Prisma.Decimal | null;
   taxRate: Prisma.Decimal;
   lineDiscountType: DiscountType | null;
   lineDiscountValue: Prisma.Decimal | null;
@@ -239,7 +245,43 @@ export type StandardInvoiceTotals = {
   totalNet: Prisma.Decimal;
   totalTax: Prisma.Decimal;
   totalGross: Prisma.Decimal;
+  roundingAmount: Prisma.Decimal;
 };
+
+function computeGrossPriceRounding(
+  lines: readonly InvoiceBilledLineInput[],
+  netForLine: (id: string) => Prisma.Decimal | undefined,
+): Prisma.Decimal {
+  const grossPricedNets: Array<{
+    taxRate: Prisma.Decimal;
+    net: Prisma.Decimal;
+  }> = [];
+  let targetGross = new Prisma.Decimal(0);
+  for (const line of lines) {
+    const net = netForLine(line.id)?.toDecimalPlaces(
+      2,
+      Prisma.Decimal.ROUND_HALF_UP,
+    );
+    if (line.grossUnitPrice == null || !net || net.isZero()) continue;
+    const gross = line.quantity
+      .mul(line.grossUnitPrice)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    const originalNet = line.quantity
+      .mul(line.unitPrice)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    const netDiscount = originalNet.sub(net);
+    targetGross = targetGross.add(
+      gross.sub(netDiscount).sub(halfUpTax(netDiscount, line.taxRate)),
+    );
+    grossPricedNets.push({ taxRate: line.taxRate, net });
+  }
+
+  // Gross-priced lines contribute the rounding adjustment. VAT uses the full rate bucket.
+  return buildTaxBreakdown(grossPricedNets).reduce(
+    (remaining, bucket) => remaining.sub(bucket.gross),
+    targetGross,
+  );
+}
 
 /** Per-line net, half-up tax, and gross using the same rules as `buildInvoiceSnapshotV2`. */
 export function computeStandardInvoiceBilledLineAmounts(
@@ -295,23 +337,33 @@ export function computeStandardInvoiceTotals(
     globalDiscountType,
     globalDiscountValue,
   );
-  let totalNet = new Prisma.Decimal(0);
-  let totalTax = new Prisma.Decimal(0);
-  let totalGross = new Prisma.Decimal(0);
+  const netByRate = new Map<string, Prisma.Decimal>();
   for (const line of lines) {
     const entry = amounts.get(line.id);
     if (!entry) continue;
-    totalNet = totalNet.add(
-      entry.net.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-    );
-    totalTax = totalTax.add(
-      entry.tax.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-    );
-    totalGross = totalGross.add(
-      entry.gross.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    const rateKey = moneyString(line.taxRate);
+    const lineNet = entry.net.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    netByRate.set(
+      rateKey,
+      (netByRate.get(rateKey) ?? new Prisma.Decimal(0)).add(lineNet),
     );
   }
-  return { totalNet, totalTax, totalGross };
+  let totalNet = new Prisma.Decimal(0);
+  let totalTax = new Prisma.Decimal(0);
+  for (const [rate, rateNet] of netByRate.entries()) {
+    totalNet = totalNet.add(rateNet);
+    totalTax = totalTax.add(halfUpTax(rateNet, toMoney(rate)));
+  }
+  const roundingAmount = computeGrossPriceRounding(
+    lines,
+    (id) => amounts.get(id)?.net,
+  );
+  return {
+    totalNet,
+    totalTax,
+    totalGross: totalNet.add(totalTax).add(roundingAmount),
+    roundingAmount,
+  };
 }
 
 function allocateGlobalDiscount(
@@ -394,31 +446,29 @@ function buildTaxBreakdown(
   items: Array<{
     taxRate: Prisma.Decimal;
     net: Prisma.Decimal;
-    tax: Prisma.Decimal;
-    gross: Prisma.Decimal;
   }>,
 ): InvoiceSnapshotV2TaxBucket[] {
-  const buckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
+  const netByRate = new Map<string, Prisma.Decimal>();
 
   for (const item of items) {
     const rate = moneyString(item.taxRate);
-    const existing = buckets.get(rate) ?? {
+    netByRate.set(
       rate,
-      net: '0.00',
-      tax: '0.00',
-      gross: '0.00',
-    };
-    buckets.set(rate, {
-      rate,
-      net: moneyString(toMoney(existing.net).add(item.net)),
-      tax: moneyString(toMoney(existing.tax).add(item.tax)),
-      gross: moneyString(toMoney(existing.gross).add(item.gross)),
-    });
+      (netByRate.get(rate) ?? new Prisma.Decimal(0)).add(item.net),
+    );
   }
 
-  return [...buckets.values()].sort((left, right) =>
-    toMoney(left.rate).comparedTo(toMoney(right.rate)),
-  );
+  return [...netByRate.entries()]
+    .sort(([left], [right]) => toMoney(left).comparedTo(toMoney(right)))
+    .map(([rate, net]) => {
+      const tax = halfUpTax(net, toMoney(rate));
+      return {
+        rate,
+        net: moneyString(net),
+        tax: moneyString(tax),
+        gross: moneyString(net.add(tax)),
+      };
+    });
 }
 
 export function buildSellerSnapshot(
@@ -444,6 +494,77 @@ export function buildSellerSnapshot(
   };
 }
 
+function buildCustomerSnapshot(
+  customer: Customer,
+): InvoiceSnapshotV2['customer'] {
+  return {
+    type: customer.type,
+    company_name: customer.company_name ?? null,
+    first_name: customer.first_name,
+    last_name: customer.last_name,
+    email: customer.email ?? null,
+    phone: customer.phone ?? null,
+    vat_id: customer.vat_id ?? null,
+    address_street: customer.address_street ?? null,
+    address_city: customer.address_city ?? null,
+    address_zip: customer.address_zip ?? null,
+    address_country: customer.address_country ?? null,
+  };
+}
+
+function buildSnapshotAmounts(
+  invoice: Pick<Invoice, 'tax_mode' | 'total_gross'>,
+  items: InvoiceSnapshotV2Item[],
+  lineAllocations: LineAllocationInput[],
+  netByLine: ReadonlyMap<string, Prisma.Decimal>,
+): Pick<
+  InvoiceSnapshotV2,
+  | 'tax_breakdown'
+  | 'vat_calculation'
+  | 'rounding_amount'
+  | 'total_net'
+  | 'total_tax'
+  | 'total_gross'
+> {
+  if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+    const gross = moneyString(toMoney(invoice.total_gross));
+    return {
+      tax_breakdown: [],
+      total_net: gross,
+      total_tax: '0.00',
+      total_gross: gross,
+    };
+  }
+
+  const taxBreakdown = buildTaxBreakdown(
+    items.map((item) => ({
+      taxRate: toMoney(item.tax_rate),
+      net: toMoney(item.net),
+    })),
+  );
+  const totalNet = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.net)),
+    new Prisma.Decimal(0),
+  );
+  const totalTax = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.tax)),
+    new Prisma.Decimal(0),
+  );
+  const roundingAmount = computeGrossPriceRounding(lineAllocations, (id) =>
+    netByLine.get(id),
+  );
+  return {
+    tax_breakdown: taxBreakdown,
+    vat_calculation: 'PER_RATE',
+    ...(!roundingAmount.isZero()
+      ? { rounding_amount: moneyString(roundingAmount) }
+      : {}),
+    total_net: moneyString(totalNet),
+    total_tax: moneyString(totalTax),
+    total_gross: moneyString(totalNet.add(totalTax).add(roundingAmount)),
+  };
+}
+
 export function buildInvoiceSnapshotV2(
   input: BuildInvoiceSnapshotV2Input,
 ): InvoiceSnapshotV2 {
@@ -456,7 +577,8 @@ export function buildInvoiceSnapshotV2(
     margin,
     branding,
   } = input;
-  if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+  const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  if (isMarginScheme) {
     assertMarginSchemeSellerCountrySupported(seller.country_iso);
   }
   const committedAt = input.committedAt ?? new Date();
@@ -469,27 +591,9 @@ export function buildInvoiceSnapshotV2(
   const snapshotItems: InvoiceSnapshotV2Item[] = lineAllocations.map((line) => {
     const net = netByLine.get(line.id) ?? new Prisma.Decimal(0);
 
-    if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-      return {
-        id: line.id,
-        description: line.description,
-        quantity: quantityString(line.quantity),
-        unit_price: moneyString(line.unitPrice),
-        tax_rate: moneyString(line.taxRate),
-        line_discount_type: line.lineDiscountType,
-        line_discount_value:
-          line.lineDiscountValue === null
-            ? null
-            : moneyString(line.lineDiscountValue),
-        net: moneyString(net),
-        tax: '0.00',
-        gross: moneyString(net),
-        revenue_group_name: line.revenueGroupName,
-        accounting_allocation: line.accountingAllocation,
-      };
-    }
-
-    const tax = halfUpTax(net, line.taxRate);
+    const tax = isMarginScheme
+      ? new Prisma.Decimal(0)
+      : halfUpTax(net, line.taxRate);
     const gross = net.add(tax);
     return {
       id: line.id,
@@ -509,26 +613,6 @@ export function buildInvoiceSnapshotV2(
       accounting_allocation: line.accountingAllocation,
     };
   });
-
-  const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
-  const totalNet = isMarginScheme
-    ? toMoney(invoice.total_gross)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.net)),
-        new Prisma.Decimal(0),
-      );
-  const totalTax = isMarginScheme
-    ? new Prisma.Decimal(0)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.tax)),
-        new Prisma.Decimal(0),
-      );
-  const totalGross = isMarginScheme
-    ? toMoney(invoice.total_gross)
-    : snapshotItems.reduce(
-        (sum, item) => sum.add(toMoney(item.gross)),
-        new Prisma.Decimal(0),
-      );
 
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
@@ -551,19 +635,7 @@ export function buildInvoiceSnapshotV2(
     legal_entity_id: legalEntityId,
     currency: 'EUR',
     seller: buildSellerSnapshot(seller),
-    customer: {
-      type: invoice.customer.type,
-      company_name: invoice.customer.company_name ?? null,
-      first_name: invoice.customer.first_name,
-      last_name: invoice.customer.last_name,
-      email: invoice.customer.email ?? null,
-      phone: invoice.customer.phone ?? null,
-      vat_id: invoice.customer.vat_id ?? null,
-      address_street: invoice.customer.address_street ?? null,
-      address_city: invoice.customer.address_city ?? null,
-      address_zip: invoice.customer.address_zip ?? null,
-      address_country: invoice.customer.address_country ?? null,
-    },
+    customer: buildCustomerSnapshot(invoice.customer),
     vehicle: invoice.vehicle
       ? {
           make: invoice.vehicle.make,
@@ -583,20 +655,8 @@ export function buildInvoiceSnapshotV2(
       text: seller.payment_terms_text ?? '',
     },
     items: snapshotItems,
-    tax_breakdown: isMarginScheme
-      ? []
-      : buildTaxBreakdown(
-          snapshotItems.map((item) => ({
-            taxRate: toMoney(item.tax_rate),
-            net: toMoney(item.net),
-            tax: toMoney(item.tax),
-            gross: toMoney(item.gross),
-          })),
-        ),
+    ...buildSnapshotAmounts(invoice, snapshotItems, lineAllocations, netByLine),
     ...(margin ? { margin } : {}),
-    total_net: moneyString(totalNet),
-    total_tax: moneyString(totalTax),
-    total_gross: moneyString(totalGross),
     notes: invoice.notes ?? null,
     tax_mode: invoice.tax_mode,
     snapshot_created_at: committedAt.toISOString(),
