@@ -410,6 +410,54 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     },
   );
 
+  // Review ddcc8e58: without a prior average, +5 and -2 booked pair by pair end at 5 @ 10 (the -2 put back although it never left the pool).
+  it('values an article without a prior average at last EK for mixed-sign corrections, live and after a backfill replay', async () => {
+    const f = await createFixture('aut1050-mixed');
+    const itemId = await createItem(f, 10);
+    const inbound = await insertLegacyUnvaluedAdjustment(f, {
+      itemId,
+      siteId: f.siteId,
+      binId: f.binId,
+      quantity: 5,
+      onHandAfter: 5,
+    });
+    const outbound = await insertLegacyUnvaluedAdjustment(f, {
+      itemId,
+      siteId: f.siteId,
+      binId: f.binId,
+      quantity: -2,
+      onHandAfter: 3,
+    });
+
+    const res = await revalue(f.token, false).expect(200);
+
+    expect(res.body.gaps).toEqual([]);
+    expect(
+      res.body.revalued.map(
+        (r: { originalTransactionId: string }) => r.originalTransactionId,
+      ),
+    ).toEqual([inbound.id, outbound.id]);
+    expect(res.body.revalued).toEqual([
+      expect.objectContaining({ unitCost: '10', valueSource: 'LAST_EK' }),
+      expect.objectContaining({ unitCost: '10', valueSource: 'LAST_EK' }),
+    ]);
+    expect(await onHand(f, itemId)).toBe('3');
+    const pool = async () => {
+      const v = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
+        where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
+      });
+      return {
+        valued: v.valued_quantity.toString(),
+        average: v.average_unit_cost?.toString(),
+      };
+    };
+    expect(await pool()).toEqual({ valued: '3', average: '10' });
+    await runWithTenantContext(f.tenant.tenantId, () =>
+      app.get(InventoryValuationService).backfillTenant(f.tenant.tenantId),
+    );
+    expect(await pool()).toEqual({ valued: '3', average: '10' });
+  });
+
   // Scenario 2: a rerun that books a second pair (or re-reverses a manually reversed row) fails here.
   it('Scenario 2: a second run books nothing more and reports already-nachbewertet and already-reversed originals', async () => {
     const f = await createFixture('aut1050-s2');

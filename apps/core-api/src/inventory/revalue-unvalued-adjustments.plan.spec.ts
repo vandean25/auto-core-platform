@@ -5,18 +5,24 @@ import {
   TransactionType,
 } from '@prisma/client';
 import {
+  batchByArticle,
   classifyProcessedOriginals,
   isRevaluationGegenbuchung,
+  orderBatchBookings,
   planRevaluations,
   type RevaluationCandidate,
 } from './revalue-unvalued-adjustments.plan.js';
 
 import Decimal = Prisma.Decimal;
 
-function candidate(id: string, quantity: number): RevaluationCandidate {
+function candidate(
+  id: string,
+  quantity: number,
+  itemId = `item-${id}`,
+): RevaluationCandidate {
   return {
     id,
-    item_id: `item-${id}`,
+    item_id: itemId,
     location_id: 'bin-1',
     site_id: 'site-1',
     quantity: new Decimal(quantity),
@@ -93,6 +99,76 @@ describe('planRevaluations (AUT-1050)', () => {
     expect(planned.map((p) => p.original.id)).toEqual(['valued']);
     expect(planned[0].valueSource).toBe(StockAdjustmentValueSource.LAST_EK);
     expect(gaps.map((g) => g.id)).toEqual(['gap']);
+  });
+});
+
+describe('orderBatchBookings (AUT-1050)', () => {
+  // Review ddcc8e58: +5 and -2 on an article without an average; booking pair by pair lets the +5 open an average
+  // before the -2 Gegenbuchung, which then puts 2 back that never left the pool (ends at 5 instead of 3).
+  it('books every Gegenbuchung before the valued rows, and valued inbounds before valued outbounds', () => {
+    const cost = {
+      unitCost: new Decimal('10'),
+      valueSource: StockAdjustmentValueSource.LAST_EK,
+    };
+    const { planned } = planRevaluations(
+      [candidate('out-1', -2, 'item'), candidate('in-1', 5, 'item')],
+      new Map([
+        ['out-1', cost],
+        ['in-1', cost],
+      ]),
+      () => 'group',
+    );
+
+    const order = orderBatchBookings(planned).map((b) => [
+      b.reversalOfTransactionId ? 'gegen' : 'valued',
+      new Decimal(b.quantity).toNumber(),
+    ]);
+
+    expect(order).toEqual([
+      ['gegen', 2],
+      ['gegen', -5],
+      ['valued', 5],
+      ['valued', -2],
+    ]);
+  });
+});
+
+describe('batchByArticle (AUT-1050)', () => {
+  // Review ddcc8e58: an article split across two batches lets the second batch's Gegenbuchung see an average the first batch created.
+  it('keeps all originals of one article in one batch and fills batches up to the size', () => {
+    const batches = batchByArticle(
+      [
+        candidate('a1', 1, 'A'),
+        candidate('b1', 1, 'B'),
+        candidate('a2', -1, 'A'),
+        candidate('c1', 1, 'C'),
+        candidate('c2', 1, 'C'),
+        candidate('c3', 1, 'C'),
+      ],
+      3,
+    );
+
+    expect(batches.map((b) => b.map((c) => c.id))).toEqual([
+      ['a1', 'a2', 'b1'],
+      ['c1', 'c2', 'c3'],
+    ]);
+  });
+
+  it('gives an article with more originals than the batch size a batch of its own', () => {
+    const batches = batchByArticle(
+      [
+        candidate('b1', 1, 'B'),
+        candidate('a1', 1, 'A'),
+        candidate('a2', 1, 'A'),
+        candidate('a3', 1, 'A'),
+      ],
+      2,
+    );
+
+    expect(batches.map((b) => b.map((c) => c.id))).toEqual([
+      ['b1'],
+      ['a1', 'a2', 'a3'],
+    ]);
   });
 });
 
