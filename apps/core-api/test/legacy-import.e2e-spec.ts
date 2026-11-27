@@ -644,9 +644,27 @@ describe('Legacy CSV import (e2e)', () => {
       last_name: 'Nachname',
     };
 
+    let prevUploadStorage: string | undefined;
+    let prevSyncMaxBytes: string | undefined;
+
     beforeAll(() => {
+      prevUploadStorage = process.env.IMPORT_UPLOAD_STORAGE;
+      prevSyncMaxBytes = process.env.IMPORT_SYNC_MAX_FILE_BYTES;
       process.env.IMPORT_UPLOAD_STORAGE = 'local';
       process.env.IMPORT_SYNC_MAX_FILE_BYTES = '1';
+    });
+
+    afterAll(() => {
+      if (prevUploadStorage === undefined) {
+        delete process.env.IMPORT_UPLOAD_STORAGE;
+      } else {
+        process.env.IMPORT_UPLOAD_STORAGE = prevUploadStorage;
+      }
+      if (prevSyncMaxBytes === undefined) {
+        delete process.env.IMPORT_SYNC_MAX_FILE_BYTES;
+      } else {
+        process.env.IMPORT_SYNC_MAX_FILE_BYTES = prevSyncMaxBytes;
+      }
     });
 
     it('queues a background dry-run for files above the sync byte threshold', async () => {

@@ -513,7 +513,11 @@ test.describe('Data import settings wizard', () => {
 test.describe('AUT-1045: custom fields import mapping', () => {
   async function setupCustomFieldsWizard(
     page: Page,
-    options: { customFieldsEnabled: boolean; csvContent: string },
+    options: {
+      customFieldsEnabled: boolean
+      csvContent: string
+      createCustomFieldResponse?: { status: number; body: Record<string, unknown> }
+    },
   ) {
     await installSettingsShellMocks(page)
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), async (route) => {
@@ -531,6 +535,14 @@ test.describe('AUT-1045: custom fields import mapping', () => {
     await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions*'), async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
+      if (route.request().method() === 'POST' && options.createCustomFieldResponse) {
+        await route.fulfill({
+          status: options.createCustomFieldResponse.status,
+          contentType: 'application/json',
+          body: JSON.stringify(options.createCustomFieldResponse.body),
+        })
         return
       }
       await route.continue()
@@ -584,33 +596,25 @@ test.describe('AUT-1045: custom fields import mapping', () => {
       ],
     })
 
-    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), async (route) => {
-      if (route.request().method() === 'POST') {
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            id: 'cf-1',
-            entity: 'CUSTOMER',
-            key: 'altsystem_klasse',
-            label: 'Altsystem_Klasse',
-            type: 'TEXT',
-            options: null,
-            purpose: 'Migration aus Altsystem',
-            personal_data: true,
-            retention_class: 'PARENT_OBJECT',
-            archived: false,
-            sort_order: 0,
-          }),
-        })
-        return
-      }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
-
     await setupCustomFieldsWizard(page, {
       customFieldsEnabled: true,
       csvContent: 'Kunden-Nr;Nachname;Altsystem_Klasse\n100;Muster;Gold\n',
+      createCustomFieldResponse: {
+        status: 201,
+        body: {
+          id: 'cf-1',
+          entity: 'CUSTOMER',
+          key: 'altsystem_klasse',
+          label: 'Altsystem_Klasse',
+          type: 'TEXT',
+          options: null,
+          purpose: 'Migration aus Altsystem',
+          personal_data: true,
+          retention_class: 'PARENT_OBJECT',
+          archived: false,
+          sort_order: 0,
+        },
+      },
     })
 
     const cfCopy = DE_SETTINGS.dataImport.mapping.customFields
@@ -690,24 +694,17 @@ test.describe('AUT-1045: custom fields import mapping', () => {
   }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await installImportMocks(page, {})
-    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), async (route) => {
-      if (route.request().method() === 'POST') {
-        await route.fulfill({
-          status: 422,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            code: 'CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED',
-            message: 'Art 9 confirmation required',
-          }),
-        })
-        return
-      }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    })
 
     await setupCustomFieldsWizard(page, {
       customFieldsEnabled: true,
       csvContent: 'Kunden-Nr;Nachname;Allergie Kaffee\n100;Muster;Laktosefrei\n',
+      createCustomFieldResponse: {
+        status: 422,
+        body: {
+          code: 'CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED',
+          message: 'Art 9 confirmation required',
+        },
+      },
     })
 
     const cfCopy = DE_SETTINGS.dataImport.mapping.customFields

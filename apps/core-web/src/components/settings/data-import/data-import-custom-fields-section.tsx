@@ -119,7 +119,7 @@ function InlineCustomFieldCreateForm({
           <Label htmlFor="import-cf-options">{t('dataImport.mapping.customFields.options')}</Label>
           <textarea
             id="import-cf-options"
-            className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={state.optionsText}
             onChange={(e) => onChange({ ...state, optionsText: e.target.value })}
             rows={3}
