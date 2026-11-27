@@ -763,8 +763,9 @@ test.describe('AUT-1045: custom fields import mapping', () => {
     })
 
     await page.setViewportSize({ width: 375, height: 812 })
-    await updateExistingOption.scrollIntoViewIfNeeded()
+    await updateExistingOption.evaluate((el) => el.scrollIntoView({ block: 'center' }))
     await expect(updateExistingOption).toBeVisible()
+    await expect(page.getByText(DE_SETTINGS.dataImport.mapping.customFields.title)).toHaveCount(0)
     await testInfo.attach('import-custom-fields-flag-off-de-375', {
       body: await page.screenshot(),
       contentType: 'image/png',

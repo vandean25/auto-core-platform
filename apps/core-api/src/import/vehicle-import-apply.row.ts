@@ -141,7 +141,13 @@ async function createVehicle(
     created.id,
     AuditLogAction.CREATE,
     null,
-    pickVehicleImportAuditSnapshot({ ...created, customer_id: customerId }),
+    {
+      ...pickVehicleImportAuditSnapshot({
+        ...created,
+        customer_id: customerId,
+      }),
+      ...(createCf ? { custom_fields: created.custom_fields ?? createCf } : {}),
+    },
   );
 }
 
@@ -204,8 +210,14 @@ async function updateVehicle(
     'Vehicle',
     after.id,
     AuditLogAction.UPDATE,
-    pickVehicleImportAuditSnapshot(before),
-    pickVehicleImportAuditSnapshot(after),
+    {
+      ...pickVehicleImportAuditSnapshot(before),
+      ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
+    },
+    {
+      ...pickVehicleImportAuditSnapshot(after),
+      ...(incomingCf ? { custom_fields: after.custom_fields } : {}),
+    },
   );
 }
 

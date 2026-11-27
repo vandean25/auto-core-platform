@@ -125,7 +125,10 @@ async function createCustomer(
     created.id,
     AuditLogAction.CREATE,
     null,
-    pickCustomerAuditSnapshot(created),
+    {
+      ...pickCustomerAuditSnapshot(created),
+      ...(createCf ? { custom_fields: created.custom_fields ?? createCf } : {}),
+    },
   );
 }
 
@@ -186,8 +189,14 @@ async function updateCustomer(
     'Customer',
     after.id,
     AuditLogAction.UPDATE,
-    pickCustomerAuditSnapshot(before),
-    pickCustomerAuditSnapshot(after),
+    {
+      ...pickCustomerAuditSnapshot(before),
+      ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
+    },
+    {
+      ...pickCustomerAuditSnapshot(after),
+      ...(incomingCf ? { custom_fields: after.custom_fields } : {}),
+    },
   );
 }
 

@@ -88,6 +88,7 @@ function InlineCustomFieldCreateForm({
           <Label htmlFor="import-cf-label">{t('dataImport.mapping.customFields.label')}</Label>
           <Input
             id="import-cf-label"
+            className="max-sm:min-h-11"
             value={state.label}
             onChange={(e) => onChange({ ...state, label: e.target.value })}
             maxLength={60}
@@ -100,7 +101,7 @@ function InlineCustomFieldCreateForm({
             value={state.type}
             onValueChange={(value) => onChange({ ...state, type: value as CustomFieldType })}
           >
-            <SelectTrigger id="import-cf-type">
+            <SelectTrigger id="import-cf-type" className="max-sm:min-h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -131,6 +132,7 @@ function InlineCustomFieldCreateForm({
         <Label htmlFor="import-cf-purpose">{t('dataImport.mapping.customFields.purpose')}</Label>
         <Input
           id="import-cf-purpose"
+          className="max-sm:min-h-11"
           value={state.purpose}
           onChange={(e) => onChange({ ...state, purpose: e.target.value })}
           maxLength={500}
@@ -288,6 +290,7 @@ export function DataImportCustomFieldsSection(props: DataImportCustomFieldsSecti
                     onValueChange={(value) => handleSelectChange(header, value)}
                   >
                     <SelectTrigger
+                      className="max-sm:min-h-11"
                       aria-label={`${header} ${t('dataImport.mapping.customFields.targetHeader')}`}
                     >
                       <SelectValue placeholder={t('dataImport.mapping.customFields.ignore')} />
