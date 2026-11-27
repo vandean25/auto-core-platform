@@ -23,6 +23,7 @@ export const A11Y_SMOKE_PATHS_BY_NAME = {
   'inventory list': '/inventory',
   'vehicle stock list': '/vehicle-stock',
   'vendors list': '/vendors',
+  'bank reconciliation': '/finance/bank-reconciliation',
 } as const;
 
 export const A11Y_SMOKE_ROUTE_PATHS: readonly string[] = Object.values(A11Y_SMOKE_PATHS_BY_NAME);

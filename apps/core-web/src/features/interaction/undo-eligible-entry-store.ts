@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { ENTITY_ACTION_IDS } from '@/features/actions/entity-action'
 
 export type UndoEligibleEntry = {
@@ -8,7 +9,17 @@ export type UndoEligibleEntry = {
   contextGeneration: number
 }
 
+export type BankUndoEligibleEntry = {
+  actionId: typeof ENTITY_ACTION_IDS.bankTransactionUndo
+  transactionId: string
+  expectedVersion: number
+  allocationId?: string
+  label: string
+  contextGeneration: number
+}
+
 let entry: UndoEligibleEntry | null = null
+let bankEntry: BankUndoEligibleEntry | null = null
 let undoInFlight = false
 const listeners = new Set<() => void>()
 
@@ -29,20 +40,46 @@ export function getUndoEligibleEntry(): UndoEligibleEntry | null {
   return entry
 }
 
+export function getBankUndoEligibleEntry(): BankUndoEligibleEntry | null {
+  return bankEntry
+}
+
+export function useBankUndoEligibleEntry(): BankUndoEligibleEntry | null {
+  return useSyncExternalStore(
+    subscribeUndoEligibleEntry,
+    getBankUndoEligibleEntry,
+    getBankUndoEligibleEntry,
+  )
+}
+
 export function setUndoEligibleEntry(next: UndoEligibleEntry): void {
   entry = next
   emit()
 }
 
+export function setBankUndoEligibleEntry(next: BankUndoEligibleEntry): void {
+  bankEntry = next
+  emit()
+}
+
 export function clearUndoEligibleEntry(): void {
-  if (!entry) return
+  if (!entry && !bankEntry) return
   entry = null
+  bankEntry = null
   emit()
 }
 
 export function clearUndoEligibleEntryForContext(contextGeneration: number): void {
-  if (entry?.contextGeneration !== contextGeneration) {
+  let changed = false
+  if (entry && entry.contextGeneration !== contextGeneration) {
     entry = null
+    changed = true
+  }
+  if (bankEntry && bankEntry.contextGeneration !== contextGeneration) {
+    bankEntry = null
+    changed = true
+  }
+  if (changed) {
     emit()
   }
 }
@@ -66,6 +103,7 @@ export async function runUndoInFlight<T>(work: () => Promise<T>): Promise<T | un
 }
 
 let globalUndoRunner: ((orderId: string) => void) | null = null
+let bankUndoRunner: (() => void) | null = null
 
 export function setGlobalUndoRunner(
   runner: ((orderId: string) => void) | null,
@@ -73,12 +111,22 @@ export function setGlobalUndoRunner(
   globalUndoRunner = runner
 }
 
+export function setBankUndoRunner(runner: (() => void) | null): void {
+  bankUndoRunner = runner
+}
+
 /** Invoked from Cmd/Ctrl+Z when no editable control owns the keystroke. */
 export function runLatestEligibleUndoFromShortcut(): boolean {
-  const eligible = entry
-  if (!eligible || !globalUndoRunner || undoInFlight) {
+  if (undoInFlight) {
     return false
   }
-  globalUndoRunner(eligible.orderId)
-  return true
+  if (bankEntry && bankUndoRunner) {
+    bankUndoRunner()
+    return true
+  }
+  if (entry && globalUndoRunner) {
+    globalUndoRunner(entry.orderId)
+    return true
+  }
+  return false
 }

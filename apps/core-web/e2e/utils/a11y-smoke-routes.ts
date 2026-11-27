@@ -3,6 +3,7 @@ import { AutoCorePage } from '../pom/AutoCorePage';
 import { DE_SETTINGS } from '../helpers/de-settings';
 import { A11Y_SMOKE_IDS, A11Y_SMOKE_PATHS_BY_NAME } from './a11y-smoke-route-paths';
 import inventoryDe from '../../../../locales/de/inventory.json' with { type: 'json' };
+import financeDe from '../../../../locales/de/finance.json' with { type: 'json' };
 import {
   createMockBay,
   createMockBrand,
@@ -339,5 +340,60 @@ export const A11Y_SMOKE_ROUTES: A11ySmokeRoute[] = [
       await mockApi(page, '/api/vendors', createMockListResponse([]));
     },
     ready: titleReady(),
+  },
+  {
+    name: 'bank reconciliation',
+    path: A11Y_SMOKE_PATHS_BY_NAME['bank reconciliation'],
+    mock: async (page) => {
+      await page.addInitScript(() => {
+        window.localStorage.setItem('e2e-bank-reconciliation-enabled', 'true');
+      });
+      await mockShellApis(page);
+      await mockApi(page, '/api/bank-reconciliation/transactions', {
+        data: [
+          {
+            id: 'tx-a11y-1',
+            legal_entity_id: 'le-a11y-1',
+            import_id: 'imp-a11y-1',
+            receiving_iban: 'AT611904300234573201',
+            booking_date: '2026-11-10',
+            value_date: '2026-11-10',
+            amount: '1250.50',
+            currency: 'EUR',
+            is_credit: true,
+            non_eur: false,
+            remitter_name: 'Max Mustermann',
+            remitter_iban_last4: '4321',
+            reference_text: 'Rechnung RE-2026-0901',
+            bank_ref: 'REF-A11Y-1',
+            status: 'UNMATCHED',
+            version: 1,
+            createdAt: '2026-11-10T10:00:00.000Z',
+          },
+        ],
+        meta: { nextCursor: null, hasNextPage: false },
+      });
+      await mockApi(page, '/api/bank-reconciliation/transactions/tx-a11y-1/suggestions', {
+        data: [
+          {
+            invoiceId: 'inv-a11y-1',
+            invoiceNumber: 'RE-2026-0901',
+            outstandingAmount: '1250.50',
+            suggestedAmount: '1250.50',
+            remainingInvoiceAmount: '0.00',
+            unallocatedTransferAmount: '0.00',
+            score: 100,
+            reasons: [
+              { code: 'AMOUNT_EXACT', value: '1250.50' },
+              { code: 'INVOICE_NO_IN_REFERENCE', value: 'RE-2026-0901' },
+            ],
+          },
+        ],
+      });
+    },
+    ready: async (page) => {
+      await titleReady(financeDe.bankReconciliation.title)(page);
+      await expect(page.getByText('RE-2026-0901').first()).toBeVisible();
+    },
   },
 ];

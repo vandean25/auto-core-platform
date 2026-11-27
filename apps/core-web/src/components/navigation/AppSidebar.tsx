@@ -109,8 +109,14 @@ export function AppSidebar({
   onSwitchSite,
   onSignOut,
 }: AppSidebarProps) {
-  const capabilities = selectEffectiveCapabilities(useAuthSession().data)
-  const accessContext = { platformRole, activeRole, capabilities }
+  const authSession = useAuthSession().data
+  const capabilities = selectEffectiveCapabilities(authSession)
+  const accessContext = {
+    platformRole,
+    activeRole,
+    capabilities,
+    bankReconciliationEnabled: Boolean(authSession?.bankReconciliationEnabled),
+  }
   const groups = getVisibleNavGroups(accessContext)
   const { isMobile } = useSidebar()
 

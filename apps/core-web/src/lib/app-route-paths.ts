@@ -49,6 +49,7 @@ export const APP_ROUTE_PATHS = {
   creditNotes: '/finance/credit-notes',
   creditNoteDetail: '/finance/credit-notes/:id',
   accountingExportReadiness: '/finance/accounting-export-readiness',
+  bankReconciliation: '/finance/bank-reconciliation',
   purchaseInvoiceNew: '/purchase-invoices/new',
   settings: '/settings',
   settingsSection: '/settings/:section',

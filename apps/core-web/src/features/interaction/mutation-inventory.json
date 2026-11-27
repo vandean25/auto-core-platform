@@ -534,6 +534,34 @@
       "sourceFile": "api/custom-fields.ts",
       "classification": "server-confirmed",
       "serverConfirmedReason": "Reordering custom field definitions updates server sort_order atomically in a transaction and records an audit entry."
+    },
+    {
+      "operationId": "bankReconciliation.importStatement",
+      "owningHook": "useImportBankStatement",
+      "sourceFile": "api/useBankReconciliation.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Statement import parses the uploaded file on the server, deduplicates entries, and persists BankStatementImport and BankTransaction rows."
+    },
+    {
+      "operationId": "bankReconciliation.confirm",
+      "owningHook": "useConfirmBankTransaction",
+      "sourceFile": "api/useBankReconciliation.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Confirming a bank transaction checks the optimistic version lock, creates a settlement allocation, updates invoice status, and returns the allocationId and new version needed for undo."
+    },
+    {
+      "operationId": "bankReconciliation.ignore",
+      "owningHook": "useIgnoreBankTransaction",
+      "sourceFile": "api/useBankReconciliation.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Ignoring a bank transaction checks the optimistic version lock and returns the updated version needed for undo."
+    },
+    {
+      "operationId": "bankReconciliation.undo",
+      "owningHook": "useUndoBankTransaction",
+      "sourceFile": "api/useBankReconciliation.ts",
+      "classification": "server-confirmed",
+      "serverConfirmedReason": "Undoing a bank reconciliation confirmation or ignore reverses the settlement allocation under version lock and restores invoice and transaction state on the server."
     }
   ]
 }
