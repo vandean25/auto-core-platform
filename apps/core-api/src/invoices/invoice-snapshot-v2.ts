@@ -494,6 +494,77 @@ export function buildSellerSnapshot(
   };
 }
 
+function buildCustomerSnapshot(
+  customer: Customer,
+): InvoiceSnapshotV2['customer'] {
+  return {
+    type: customer.type,
+    company_name: customer.company_name ?? null,
+    first_name: customer.first_name,
+    last_name: customer.last_name,
+    email: customer.email ?? null,
+    phone: customer.phone ?? null,
+    vat_id: customer.vat_id ?? null,
+    address_street: customer.address_street ?? null,
+    address_city: customer.address_city ?? null,
+    address_zip: customer.address_zip ?? null,
+    address_country: customer.address_country ?? null,
+  };
+}
+
+function buildSnapshotAmounts(
+  invoice: Pick<Invoice, 'tax_mode' | 'total_gross'>,
+  items: InvoiceSnapshotV2Item[],
+  lineAllocations: LineAllocationInput[],
+  netByLine: ReadonlyMap<string, Prisma.Decimal>,
+): Pick<
+  InvoiceSnapshotV2,
+  | 'tax_breakdown'
+  | 'vat_calculation'
+  | 'rounding_amount'
+  | 'total_net'
+  | 'total_tax'
+  | 'total_gross'
+> {
+  if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+    const gross = moneyString(toMoney(invoice.total_gross));
+    return {
+      tax_breakdown: [],
+      total_net: gross,
+      total_tax: '0.00',
+      total_gross: gross,
+    };
+  }
+
+  const taxBreakdown = buildTaxBreakdown(
+    items.map((item) => ({
+      taxRate: toMoney(item.tax_rate),
+      net: toMoney(item.net),
+    })),
+  );
+  const totalNet = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.net)),
+    new Prisma.Decimal(0),
+  );
+  const totalTax = taxBreakdown.reduce(
+    (sum, bucket) => sum.add(toMoney(bucket.tax)),
+    new Prisma.Decimal(0),
+  );
+  const roundingAmount = computeGrossPriceRounding(lineAllocations, (id) =>
+    netByLine.get(id),
+  );
+  return {
+    tax_breakdown: taxBreakdown,
+    vat_calculation: 'PER_RATE',
+    ...(!roundingAmount.isZero()
+      ? { rounding_amount: moneyString(roundingAmount) }
+      : {}),
+    total_net: moneyString(totalNet),
+    total_tax: moneyString(totalTax),
+    total_gross: moneyString(totalNet.add(totalTax).add(roundingAmount)),
+  };
+}
+
 export function buildInvoiceSnapshotV2(
   input: BuildInvoiceSnapshotV2Input,
 ): InvoiceSnapshotV2 {
@@ -543,33 +614,6 @@ export function buildInvoiceSnapshotV2(
     };
   });
 
-  const taxBreakdown = isMarginScheme
-    ? []
-    : buildTaxBreakdown(
-        snapshotItems.map((item) => ({
-          taxRate: toMoney(item.tax_rate),
-          net: toMoney(item.net),
-        })),
-      );
-  const totalNet = isMarginScheme
-    ? toMoney(invoice.total_gross)
-    : taxBreakdown.reduce(
-        (sum, bucket) => sum.add(toMoney(bucket.net)),
-        new Prisma.Decimal(0),
-      );
-  const totalTax = isMarginScheme
-    ? new Prisma.Decimal(0)
-    : taxBreakdown.reduce(
-        (sum, bucket) => sum.add(toMoney(bucket.tax)),
-        new Prisma.Decimal(0),
-      );
-  const roundingAmount = isMarginScheme
-    ? new Prisma.Decimal(0)
-    : computeGrossPriceRounding(lineAllocations, (id) => netByLine.get(id));
-  const totalGross = isMarginScheme
-    ? toMoney(invoice.total_gross)
-    : totalNet.add(totalTax).add(roundingAmount);
-
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
   const paymentDays = seller.payment_terms_days ?? 0;
@@ -591,19 +635,7 @@ export function buildInvoiceSnapshotV2(
     legal_entity_id: legalEntityId,
     currency: 'EUR',
     seller: buildSellerSnapshot(seller),
-    customer: {
-      type: invoice.customer.type,
-      company_name: invoice.customer.company_name ?? null,
-      first_name: invoice.customer.first_name,
-      last_name: invoice.customer.last_name,
-      email: invoice.customer.email ?? null,
-      phone: invoice.customer.phone ?? null,
-      vat_id: invoice.customer.vat_id ?? null,
-      address_street: invoice.customer.address_street ?? null,
-      address_city: invoice.customer.address_city ?? null,
-      address_zip: invoice.customer.address_zip ?? null,
-      address_country: invoice.customer.address_country ?? null,
-    },
+    customer: buildCustomerSnapshot(invoice.customer),
     vehicle: invoice.vehicle
       ? {
           make: invoice.vehicle.make,
@@ -623,15 +655,8 @@ export function buildInvoiceSnapshotV2(
       text: seller.payment_terms_text ?? '',
     },
     items: snapshotItems,
-    tax_breakdown: taxBreakdown,
-    ...(!isMarginScheme ? { vat_calculation: 'PER_RATE' as const } : {}),
-    ...(!roundingAmount.isZero()
-      ? { rounding_amount: moneyString(roundingAmount) }
-      : {}),
+    ...buildSnapshotAmounts(invoice, snapshotItems, lineAllocations, netByLine),
     ...(margin ? { margin } : {}),
-    total_net: moneyString(totalNet),
-    total_tax: moneyString(totalTax),
-    total_gross: moneyString(totalGross),
     notes: invoice.notes ?? null,
     tax_mode: invoice.tax_mode,
     snapshot_created_at: committedAt.toISOString(),
