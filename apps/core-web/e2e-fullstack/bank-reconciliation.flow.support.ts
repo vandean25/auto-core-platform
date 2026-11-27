@@ -111,7 +111,9 @@ export async function seedBankReconciliationScenario(
     date: string
   }
 
-  const bookingDate = new Date(issuedInvoice.date).toISOString().slice(0, 10)
+  const issuedDate = new Date(issuedInvoice.date)
+  const bookingDate = issuedDate.toISOString().slice(0, 10)
+  const earlierBookingDate = new Date(issuedDate.getTime() - 86_400_000).toISOString().slice(0, 10)
   const xml = buildCamt053Xml({
     receivingIban,
     statementId: `STMT-${Date.now()}`,
@@ -125,7 +127,7 @@ export async function seedBankReconciliationScenario(
       },
       {
         amount: '42.00',
-        bookingDate,
+        bookingDate: earlierBookingDate,
         bankRef: `REF-2-${Date.now()}`,
         remitterName: 'Zweiter Auftraggeber',
         referenceText: 'Sonstige Zahlung',
