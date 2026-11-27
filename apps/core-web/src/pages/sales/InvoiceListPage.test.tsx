@@ -8,7 +8,9 @@ import { fetchWithAuth } from '@/api/client'
 import { mockListLayout, settleVirtualizerTimers } from '@/components/data-table/data-table-infinite-test-utils'
 import { createEchoSafeInvalidator } from '@/features/realtime/echo-safe-invalidator'
 import { getQueryKeysToInvalidateForEntityType } from '@/features/realtime/dashboard-entity-map'
+import { resetCursorRecoveryForTests } from '@/api/cursor-recovery'
 import deCommon from '../../../../../locales/de/common.json'
+import deErrors from '../../../../../locales/de/errors.json'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
@@ -134,6 +136,7 @@ describe('InvoiceListPage', () => {
   let restoreLayout: () => void
 
   beforeEach(() => {
+    resetCursorRecoveryForTests()
     restoreLayout = mockListLayout()
     mockNavigate.mockReset()
     mockUseAuth.mockReturnValue({ claims: { role: 'ADMIN' } })
@@ -247,6 +250,28 @@ describe('InvoiceListPage', () => {
       await waitFor(() => expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith(expect.objectContaining({ enabled: true })))
       expect(listRequests()).toHaveLength(0)
     }
+  })
+
+  it('WHEN sortField=bogus receives 400 LIST_CURSOR_SORT_UNSUPPORTED THEN useInvoices stays disabled and the error is shown', async () => {
+    vi.mocked(fetchWithAuth).mockImplementation(async (url) => {
+      const parsed = new URL(String(url), 'http://acp.test')
+      if (parsed.pathname.endsWith('/capped-count')) return jsonResponse({ count: 1, isCapped: false })
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          statusCode: 400,
+          code: 'LIST_CURSOR_SORT_UNSUPPORTED',
+          message: 'LIST_CURSOR_SORT_UNSUPPORTED',
+        }),
+      } as Response
+    })
+
+    renderPage('/sales/invoices?sortField=bogus&sortDirection=asc')
+
+    expect(await screen.findByText(deErrors.codes.LIST_CURSOR_SORT_UNSUPPORTED)).toBeInTheDocument()
+    expect(asMock(salesApi.useInvoices)).not.toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
+    expect(asMock(salesApi.useInvoices)).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }))
   })
 
   // Scenario 1: blocks continue from the cursor the server returned, with the same sort, so the order cannot reshuffle.

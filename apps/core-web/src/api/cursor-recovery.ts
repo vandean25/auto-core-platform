@@ -280,12 +280,13 @@ export async function resolveCursorListFailure(
     semanticKey: string
     listKey: QueryKey
     countKey: QueryKey
+    allowOffsetLatch?: boolean
   },
 ): Promise<CursorRecoveryOutcome> {
-  const { error, semanticKey, listKey, countKey } = options
+  const { error, semanticKey, listKey, countKey, allowOffsetLatch = true } = options
   const episode = readEpisodeState(episodeKeyOf(getCursorEpisodeCounter(), semanticKey))
 
-  if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') {
+  if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED' && allowOffsetLatch) {
     armOffsetHandoff(episode)
     await flushListCache(client, listKey, { cancelInFlight: false })
     return { type: 'offset-latch' }

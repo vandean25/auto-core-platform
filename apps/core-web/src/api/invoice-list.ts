@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { formatInvoiceNumber } from '@/lib/format'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
-import { invoiceKeys, isInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
+import { invoiceKeys, isInvoiceCursorSort, isKnownInvoiceCursorSort, useInvoiceCursorList, useInvoices } from './sales'
 import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import type { Invoice } from './types'
 
@@ -58,8 +58,9 @@ export function useInvoiceListState(queryParams: DataTableQueryParams) {
     sortDirection: queryParams.sortDirection,
   }
   const sortEligible = isInvoiceCursorSort(queryParams.sortField)
-  const cursorList = useInvoiceCursorList(listParams, sortEligible)
-  const offsetLatched = cursorList.tableProps.scopeOffsetLatch === true
+  const allowOffsetLatch = isKnownInvoiceCursorSort(queryParams.sortField)
+  const cursorList = useInvoiceCursorList(listParams, sortEligible, { allowOffsetLatch })
+  const offsetLatched = allowOffsetLatch && cursorList.tableProps.scopeOffsetLatch === true
   const infiniteMode = sortEligible && !offsetLatched
   const unpaged = useUnpagedInvoiceList(queryParams, !infiniteMode)
   if (infiniteMode) {

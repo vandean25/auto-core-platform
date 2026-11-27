@@ -70,6 +70,7 @@ type RecoveryQueryContext = {
   semanticEpisodeKey: string
   listKey: QueryKey
   countKey: QueryKey
+  allowOffsetLatch?: boolean
 }
 
 function throwQueryAborted(): never {
@@ -95,6 +96,7 @@ async function recoverCursorListFailure(
     semanticKey: ctx.semanticEpisodeKey,
     listKey: ctx.listKey,
     countKey: ctx.countKey,
+    allowOffsetLatch: ctx.allowOffsetLatch,
   })
 }
 
@@ -168,9 +170,10 @@ async function runListQuery<TRow>(
     semanticEpisodeKey: string
     listKey: QueryKey
     countKey: QueryKey
+    allowOffsetLatch?: boolean
   },
 ): Promise<CursorListPage<TRow>> {
-  const { path, params, pageParam, signal, semanticEpisodeKey, listKey, countKey } = options
+  const { path, params, pageParam, signal, semanticEpisodeKey, listKey, countKey, allowOffsetLatch } = options
   const queryClient = client
   const cursorParams = {
     pagination: 'cursor',
@@ -179,7 +182,7 @@ async function runListQuery<TRow>(
     cursor: pageParam,
   }
 
-  const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
+  const recoveryCtx = { semanticEpisodeKey, listKey, countKey, allowOffsetLatch }
   const expectedScopeDigest = typeof listKey.at(-1) === 'string' ? String(listKey.at(-1)) : undefined
   try {
     return await fetchCursorListPage<TRow>(urlOf(path, cursorParams), signal, { expectedScopeDigest })
@@ -203,10 +206,11 @@ async function runCountQuery(
     semanticEpisodeKey: string
     listKey: QueryKey
     countKey: QueryKey
+    allowOffsetLatch?: boolean
   },
 ): Promise<CappedListCount> {
-  const { countPath, countParams, signal, semanticEpisodeKey, listKey, countKey } = options
-  const recoveryCtx = { semanticEpisodeKey, listKey, countKey }
+  const { countPath, countParams, signal, semanticEpisodeKey, listKey, countKey, allowOffsetLatch } = options
+  const recoveryCtx = { semanticEpisodeKey, listKey, countKey, allowOffsetLatch }
   const expectedScopeDigest = typeof countKey.at(-1) === 'string' ? String(countKey.at(-1)) : undefined
   try {
     return await fetchCursorListCount<CappedListCount>(urlOf(countPath, countParams), signal, { expectedScopeDigest })
@@ -219,6 +223,7 @@ async function runCountQuery(
 
 type CursorListOptions = {
   enabled: boolean
+  allowOffsetLatch?: boolean
   /** List endpoint and its separate capped-count endpoint (ADR-0035 §5). */
   path: string
   countPath: string
@@ -232,6 +237,13 @@ type CursorListOptions = {
 }
 
 type RetryableQuery = { isError: boolean; error: unknown; refetch: () => Promise<unknown> }
+
+function cursorFetchErrorMessage(error: unknown, t: TFunction<['common', 'errors']>): string | undefined {
+  if (!isCursorListApiError(error)) return undefined
+  if (error.code === 'CUSTOM_FIELD_FILTER_INVALID') return t('errors:codes.CUSTOM_FIELD_FILTER_INVALID')
+  if (error.code === 'LIST_CURSOR_SORT_UNSUPPORTED') return t('errors:codes.LIST_CURSOR_SORT_UNSUPPORTED')
+  return undefined
+}
 
 /** An auth-blocked list (401/403) surfaces an error state without retry controls; a scope-blocked list (quarantine,
  * pending explicit refresh) keeps isError=false so "Liste aktualisieren" is shown instead. */
@@ -258,9 +270,7 @@ function retryControls(
     onRetry: () => void list.refetch(),
     isCountError: count.isError,
     retryCount: () => void count.refetch(),
-    fetchErrorMessage: isCursorListApiError(list.error) && list.error.code === 'CUSTOM_FIELD_FILTER_INVALID'
-      ? t('errors:codes.CUSTOM_FIELD_FILTER_INVALID')
-      : undefined,
+    fetchErrorMessage: cursorFetchErrorMessage(list.error, t),
   }
 }
 
@@ -301,6 +311,7 @@ function scopeScopedKey(base: QueryKey, digest: string | undefined): QueryKey {
  */
 export function useCursorList<TRow extends { id: string }>({
   enabled,
+  allowOffsetLatch,
   path,
   countPath,
   semanticEpisodeKey,
@@ -339,6 +350,7 @@ export function useCursorList<TRow extends { id: string }>({
         semanticEpisodeKey,
         listKey: scopedListKey,
         countKey: scopedCountKey,
+        allowOffsetLatch,
       }),
     getNextPageParam: (lastPage) => lastPage.meta.nextCursor ?? undefined,
   })
@@ -356,6 +368,7 @@ export function useCursorList<TRow extends { id: string }>({
         semanticEpisodeKey,
         listKey: scopedListKey,
         countKey: scopedCountKey,
+        allowOffsetLatch,
       }),
   })
 
