@@ -468,13 +468,16 @@ export class RowByRowApplyRunner {
       }
       const { expectedRows, flaggedJumps } =
         await readImportJobExpectedRowCount(tx, job.tenant_id, jobId);
-      const persistedTotals = await tallyImportApplyTotalsFromRows(
+      const tallied = await tallyImportApplyTotalsFromRows(
         tx,
         job.tenant_id,
         jobId,
         expectedRows || totals.rows,
         flaggedJumps,
       );
+      const persistedTotals: ImportJobTotals = totals.custom_field_counts
+        ? { ...tallied, custom_field_counts: totals.custom_field_counts }
+        : tallied;
       const appliedAt = new Date();
       const data = {
         status: ImportJobStatus.APPLIED,

@@ -154,7 +154,10 @@ export async function commitBackgroundApplySpanInTransaction(
           flaggedJumps,
         );
         return storedTotals.custom_field_counts
-          ? { ...tallied, custom_field_counts: storedTotals.custom_field_counts }
+          ? {
+              ...tallied,
+              custom_field_counts: storedTotals.custom_field_counts,
+            }
           : tallied;
       })()
     : totals;
