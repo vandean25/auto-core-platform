@@ -1,4 +1,5 @@
 import { resolveInvoiceMarginSchemeLegalNote } from './invoice-margin-scheme-legal-note.helpers.js';
+import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 
 type InvoiceResponseWithPrivateFields = {
   snapshot: unknown;
@@ -26,6 +27,7 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
   invoice: T,
 ): Omit<T, PrivateInvoiceResponseField> & {
   margin_scheme_legal_note?: string | null;
+  rounding_amount?: string;
 } {
   const {
     snapshot: _snapshot,
@@ -54,12 +56,14 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
     snapshot: _snapshot,
   });
 
-  if (!marginSchemeLegalNote) {
-    return response;
-  }
-
+  const rounding = isInvoiceSnapshotV2(_snapshot)
+    ? _snapshot.rounding_amount
+    : undefined;
   return {
     ...response,
-    margin_scheme_legal_note: marginSchemeLegalNote,
+    ...(marginSchemeLegalNote
+      ? { margin_scheme_legal_note: marginSchemeLegalNote }
+      : {}),
+    ...(typeof rounding === 'string' ? { rounding_amount: rounding } : {}),
   };
 }

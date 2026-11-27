@@ -1,8 +1,22 @@
-import { InvoiceTaxMode } from '@prisma/client';
-import { DATEV_ALLOCATION_RULES } from './accounting-export-allocation-rules.js';
-import { buildCreditRows, buildInvoiceRows } from './accounting-export-booking-rows.js';
-import { computeSignedTotals } from './accounting-export-candidates.js';
+import { InvoiceStatus, InvoiceTaxMode, Prisma } from '@prisma/client';
+import type { PrismaService } from '../../prisma/prisma.service.js';
+import {
+  allocationRulesForProfile,
+  DATEV_ALLOCATION_RULES,
+} from './accounting-export-allocation-rules.js';
+import {
+  buildCreditRows,
+  buildInvoiceRows,
+} from './accounting-export-booking-rows.js';
+import {
+  computeSignedTotals,
+  loadAccountingExportCandidates,
+} from './accounting-export-candidates.js';
 import type { AccountingExportBookingRow } from './accounting-export.types.js';
+import { buildBmdNtcsBookingFields } from './bmd-ntcs-import.serializer.js';
+import { BMD_MTF_PUBLIC_FIELD_NAMES } from './bmd-format.constants.js';
+import { buildRzlFibuImportBookingFields } from './rzl-fibu-import.serializer.js';
+import { RZL_BOOKING_COLUMNS } from './rzl-format.constants.js';
 
 describe('computeSignedTotals', () => {
   const baseRow = (
@@ -150,6 +164,220 @@ describe('AUT-1087: accounting export booking rows use per-rate VAT, not informa
     tax_mode: InvoiceTaxMode.STANDARD,
     snapshot_created_at: '2026-10-01T10:00:00.000Z',
   });
+
+  const roundedCandidates = (
+    countryIso: 'AT' | 'DE',
+    roundingAmount = '0.01',
+  ) => {
+    const roundedAllocation = { ...allocation, countryIso };
+    const snapshot = {
+      ...baseSnapshot('5.00', '29.99'),
+      items: ['l1', 'l2', 'l3'].map((id) => ({
+        ...makeLine(id),
+        unit_price: '8.33',
+        net: '8.33',
+        tax: '1.67',
+        gross: '10.00',
+        accounting_allocation: roundedAllocation,
+      })),
+      tax_breakdown: [
+        { rate: '20.00', net: '24.99', tax: '5.00', gross: '29.99' },
+      ],
+      total_net: '24.99',
+      rounding_amount: roundingAmount,
+      total_gross: roundingAmount === '0.01' ? '30.00' : '29.98',
+    };
+    const date = new Date('2026-10-01T12:00:00Z');
+    const common = { date, site_id: 'site-1', legal_entity_id: 'le-1' };
+    const prisma = {
+      invoice: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...common,
+            id: 'inv-1',
+            invoice_number: 'RE-1',
+            status: InvoiceStatus.ISSUED,
+            tax_mode: InvoiceTaxMode.STANDARD,
+            snapshot,
+            items: snapshot.items.map((item) => ({
+              id: item.id,
+              accounting_snapshot: roundedAllocation,
+            })),
+          },
+        ]),
+      },
+      creditNote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...common,
+            id: 'cn-1',
+            credit_number: 'CN-1',
+            snapshot: {
+              ...snapshot,
+              document_kind: 'CREDIT_NOTE',
+              original_document: { number: 'RE-1' },
+            },
+          },
+        ]),
+      },
+    } as unknown as PrismaService;
+    return { prisma, date, snapshot };
+  };
+
+  it.each([
+    {
+      profile: 'ACP-DATEV-DE-EUR-1',
+      country: 'DE' as const,
+      serializer: null,
+      amount: '0.01',
+    },
+    {
+      profile: 'ACP-DATEV-DE-EUR-1',
+      country: 'DE' as const,
+      serializer: null,
+      amount: '-0.01',
+    },
+    {
+      profile: 'ACP-RZL-AT-EUR-1',
+      country: 'AT' as const,
+      serializer: 'rzl',
+      amount: '0.01',
+    },
+    {
+      profile: 'ACP-BMD-AT-EUR-1',
+      country: 'AT' as const,
+      serializer: 'bmd',
+      amount: '0.01',
+    },
+  ])(
+    'books the full signed invoice and credit payable for $profile with $amount rounding',
+    async ({ profile, country, serializer, amount }) => {
+      const { prisma, date, snapshot } = roundedCandidates(country, amount);
+      const configuredCodes = { vat20: '20' };
+      const rules = allocationRulesForProfile(profile, {
+        roundingAccount: '4900',
+        ...(serializer
+          ? {
+              roundingSteuercode: '0',
+              [serializer]: { steuercodes: configuredCodes },
+            }
+          : {}),
+      });
+      const candidates = await loadAccountingExportCandidates(
+        prisma,
+        'tenant-1',
+        'le-1',
+        date,
+        date,
+        rules,
+      );
+
+      expect(
+        candidates.map(({ kind, blockers, rows }) => {
+          const totals = computeSignedTotals(rows);
+          const rounding = rows.find((row) => row.revenueAccount === '4900');
+          return {
+            kind,
+            blockers,
+            gross: totals
+              .reduce((sum, row) => sum.add(row.gross), new Prisma.Decimal(0))
+              .toFixed(2),
+            tax: totals
+              .reduce((sum, row) => sum.add(row.tax), new Prisma.Decimal(0))
+              .toFixed(2),
+            rounding: rounding && {
+              gross: rounding.gross,
+              net: rounding.net,
+              tax: rounding.tax,
+              debtor: rounding.debtorAccount,
+              buKey: rounding.buKey,
+            },
+            code:
+              rounding && serializer === 'rzl'
+                ? buildRzlFibuImportBookingFields(rounding, configuredCodes)[
+                    RZL_BOOKING_COLUMNS.indexOf('STEUERCODE')
+                  ]
+                : rounding && serializer === 'bmd'
+                  ? buildBmdNtcsBookingFields(rounding, configuredCodes)[
+                      BMD_MTF_PUBLIC_FIELD_NAMES.indexOf('Steuercode')
+                    ]
+                  : undefined,
+          };
+        }),
+      ).toEqual([
+        {
+          kind: 'CREDIT_NOTE',
+          blockers: [],
+          gross: '-' + snapshot.total_gross,
+          tax: '-5.00',
+          rounding: {
+            gross: '0.01',
+            net: '0.00',
+            tax: '0.00',
+            debtor: '1000',
+            buKey: null,
+          },
+          code: serializer ? '0' : undefined,
+        },
+        {
+          kind: 'INVOICE',
+          blockers: [],
+          gross: snapshot.total_gross,
+          tax: '5.00',
+          rounding: {
+            gross: '0.01',
+            net: '0.00',
+            tax: '0.00',
+            debtor: '1000',
+            buKey: null,
+          },
+          code: serializer ? '0' : undefined,
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    { label: 'the account is missing', amount: '0.01', params: {} },
+    {
+      label: 'the Austrian non-VAT code is missing',
+      amount: '0.01',
+      params: { roundingAccount: '4900' },
+    },
+    {
+      label: 'the Austrian layout cannot encode negative rounding',
+      amount: '-0.01',
+      params: { roundingAccount: '4900', roundingSteuercode: '0' },
+    },
+  ])(
+    'blocks both documents without writing incomplete rows when $label',
+    async ({ amount, params }) => {
+      const { prisma, date } = roundedCandidates('AT', amount);
+      const rules = allocationRulesForProfile('ACP-RZL-AT-EUR-1', {
+        ...params,
+        rzl: { steuercodes: { vat20: '20' } },
+      });
+      const candidates = await loadAccountingExportCandidates(
+        prisma,
+        'tenant-1',
+        'le-1',
+        date,
+        date,
+        rules,
+      );
+
+      expect(
+        candidates.map(({ kind, blockers, rows }) => ({
+          kind,
+          blocked: blockers.length > 0,
+          rows,
+        })),
+      ).toEqual([
+        { kind: 'CREDIT_NOTE', blocked: true, rows: [] },
+        { kind: 'INVOICE', blocked: true, rows: [] },
+      ]);
+    },
+  );
 
   it('AUT-1087 Anti-criterion 3: exports per-rate VAT (6.01 / 36.07) instead of informational line VAT sum (6.00 / 36.06)', () => {
     const rows = buildInvoiceRows(

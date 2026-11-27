@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DiscountType, InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
 import { ListCursorPageMetaDto } from '../../common/dto/list-cursor-response.dto.js';
 import { CustomerVehicleReferenceDto } from './customer-vehicle-reference.dto.js';
@@ -76,6 +76,14 @@ export class InvoiceResponseDto extends CustomerVehicleReferenceDto {
 
   @ApiProperty({ type: String, example: '120.00' })
   total_gross!: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    example: '0.01',
+    description:
+      'Frozen rounding adjustment included in the issued gross total.',
+  })
+  rounding_amount?: string;
 
   @ApiProperty({
     enum: InvoiceTaxMode,

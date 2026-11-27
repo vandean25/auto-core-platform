@@ -152,7 +152,8 @@ export function buildRzlFibuImportBookingFields(
     BETRAG: formatRzlAmount(row.gross),
     KONTO: quoteRzlText(row.debtorAccount),
     GEGENKONTO: quoteRzlText(row.revenueAccount),
-    STEUERCODE: resolveRzlSteuercode(row.taxRate, steuercodes),
+    STEUERCODE:
+      row.roundingSteuercode ?? resolveRzlSteuercode(row.taxRate, steuercodes),
     BUCHUNGSTEXT: quoteRzlText(row.bookingText),
     OP_BELEGNUMMER: quoteRzlText(opReference),
     OP_MODUS: RZL_OP_MODUS_BY_DOCUMENT_KIND[row.documentKind],

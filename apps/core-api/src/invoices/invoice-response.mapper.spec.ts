@@ -55,6 +55,24 @@ const marginV2SnapshotBase = {
 };
 
 describe('omitInvoiceSnapshot', () => {
+  it('exposes issued rounding separately while keeping the invoice snapshot private', () => {
+    const response = omitInvoiceSnapshot({
+      id: 'invoice-rounded',
+      status: 'ISSUED',
+      snapshot: {
+        ...marginV2SnapshotBase,
+        seller: { name: 'Garage GmbH' },
+        tax_mode: 'STANDARD',
+        rounding_amount: '0.01',
+      },
+    });
+    expect(response).toEqual({
+      id: 'invoice-rounded',
+      status: 'ISSUED',
+      rounding_amount: '0.01',
+    });
+  });
+
   it('does not expose private snapshot data in an API response', () => {
     const response = omitInvoiceSnapshot({
       id: 'invoice-1',

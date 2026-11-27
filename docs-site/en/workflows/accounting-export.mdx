@@ -33,6 +33,8 @@ Only **OWNER** and **ADMIN** members with complete site access can preview or ge
 
 <Tip>
 The on-screen copy references DATEV Buchungsstapel CSV because that is the default profile in the demo UI. Austrian entities with **RZL export enabled** or **BMD** profile `ACP-BMD-AT-EUR-1` (when released) use the same preview and generate flow; the downloaded filename and column layout follow the entity profile code.
+
+Rounding from VAT-inclusive workshop prices gets a separate booking row without VAT. Set a rounding account without automatic VAT through the accounting profile API. RZL and BMD also require the code for postings without VAT. A missing mapping blocks export runs containing affected invoices or credits. The current RZL and BMD formats also block negative rounding adjustments.
 </Tip>
 
 <Warning>
