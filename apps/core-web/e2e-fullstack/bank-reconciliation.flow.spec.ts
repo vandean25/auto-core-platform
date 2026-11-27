@@ -30,6 +30,7 @@ test.describe('Bank reconciliation keyboard review flow (AUT-1004 Scenarios 2, 3
 
     const firstOption = page.getByRole('option', { name: /Max Muster/i })
     await expect(firstOption).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('button', { name: deFinance.bankReconciliation.actions.confirm })).toBeVisible()
     await page.keyboard.press('Enter')
 
     await expect(page.getByRole('button', { name: deFinance.bankReconciliation.actions.undo })).toBeVisible()
