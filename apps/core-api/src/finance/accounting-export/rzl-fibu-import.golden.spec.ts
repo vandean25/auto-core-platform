@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { Prisma } from '@prisma/client';
 import type { AccountingExportBookingRow } from './accounting-export.types.js';
 import { buildRzlAllocationRules } from './accounting-export-allocation-rules.js';
+import { buildStockAdjustmentRows } from './accounting-export-booking-rows.js';
 import { collectBlockersForInvoice } from './accounting-export-candidates.js';
 import {
   RZL_DRAFT_EVIDENCED_CREATED_AT,
@@ -195,23 +197,26 @@ describe('rzl-fibu-import golden files', () => {
 
   it('reads the handbook Ausgangsrechnung example without using the ACP serializer', () => {
     const fields = publicAusgangsrechnung.split(';');
-    expect(
-      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Belegkreis')],
-    ).toBe('AR');
+    expect(fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Belegkreis')]).toBe(
+      'AR',
+    );
     expect(
       fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Buchungsart')],
     ).toBe('1');
     expect(
       fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Schluessel')],
     ).toBe('20');
-    expect(
-      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Code')],
-    ).toBe('2');
+    expect(fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Code')]).toBe(
+      '2',
+    );
   });
 
   it('pins the ACP draft column record line against a committed reference', () => {
     const columnsRef = readFileSync(
-      new URL('./fixtures/rzl-acp-draft-columns.reference.txt', import.meta.url),
+      new URL(
+        './fixtures/rzl-acp-draft-columns.reference.txt',
+        import.meta.url,
+      ),
       'utf8',
     ).trimEnd();
     const [, columnLine] = serializeDraftEvidenced([
@@ -346,12 +351,117 @@ describe('rzl-fibu-import golden files', () => {
       );
       const golden = JSON.parse(
         readFileSync(
-          new URL('./fixtures/rzl-zero-rate-blockers.golden.json', import.meta.url),
+          new URL(
+            './fixtures/rzl-zero-rate-blockers.golden.json',
+            import.meta.url,
+          ),
           'utf8',
         ),
       );
 
       expect(blockers).toEqual(golden);
+    });
+  });
+
+  describe('AUT-1049: stock corrections (Bestandsveränderung) without fixed tax code', () => {
+    it('serializes plus (2 * 1.2345 -> 2,47) and minus rows built via buildStockAdjustmentRows with BUCHUNGSART BV and empty STEUERCODE (Scenario 1, Anti-criteria 1 & 5)', () => {
+      const plusRows = buildStockAdjustmentRows(
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          seq: BigInt(101),
+          site_id: 'site-1',
+          quantity: new Prisma.Decimal('2.000'),
+          cost_basis: new Prisma.Decimal('1.2345'),
+          reason: 'INVENTORY_COUNT',
+          note: null,
+          reversal_of_transaction_id: null,
+          reversed_by: [],
+          item: { sku: 'BRK-001', name: 'Brake Pad' },
+          createdAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+        '2026-01-10',
+        '5800',
+      );
+      const minusRows = buildStockAdjustmentRows(
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          seq: BigInt(102),
+          site_id: 'site-1',
+          quantity: new Prisma.Decimal('-1.000'),
+          cost_basis: new Prisma.Decimal('12.5000'),
+          reason: 'BREAKAGE',
+          note: null,
+          reversal_of_transaction_id: null,
+          reversed_by: [],
+          item: { sku: 'BRK-002', name: 'Brake Disc' },
+          createdAt: new Date('2026-01-11T10:00:00.000Z'),
+        },
+        '2026-01-11',
+      );
+
+      const result = serializeGolden([...plusRows, ...minusRows]);
+      const dataLines = result.csvText.trimEnd().split('\r\n').slice(2);
+      expect(dataLines).toHaveLength(2);
+
+      // RZL columns: 1=BUCHUNGSART, 4=SOLL_HABEN, 5=BETRAG, 7=GEGENKONTO, 8=STEUERCODE, 11=OP_MODUS
+      const plusFields = dataLines[0].split(';');
+      expect(plusFields[1]).toBe('BV');
+      expect(plusFields[4]).toBe('S');
+      expect(plusFields[5]).toBe('2,47');
+      expect(plusFields[7]).toBe('"5800"');
+      expect(plusFields[8]).toBe('');
+      expect(plusFields[11]).toBe('');
+
+      const minusFields = dataLines[1].split(';');
+      expect(minusFields[1]).toBe('BV');
+      expect(minusFields[4]).toBe('H');
+      expect(minusFields[5]).toBe('12,50');
+      expect(minusFields[7]).toBe('');
+      expect(minusFields[8]).toBe('');
+      expect(minusFields[11]).toBe('');
+    });
+
+    it('keeps committed invoice golden lines including STEUERCODE intact when a stock adjustment is in the period (Anti-criterion 3)', () => {
+      const committed = readFileSync(
+        new URL(
+          './fixtures/rzl-golden-rate-20-invoice-credit.csv',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      const committedDataLines = committed.trimEnd().split('\r\n').slice(2);
+
+      const adjustmentRows = buildStockAdjustmentRows(
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          seq: BigInt(103),
+          site_id: 'site-1',
+          quantity: new Prisma.Decimal('2.000'),
+          cost_basis: new Prisma.Decimal('1.2345'),
+          reason: 'INVENTORY_COUNT',
+          note: null,
+          reversal_of_transaction_id: null,
+          reversed_by: [],
+          item: { sku: 'BRK-001', name: 'Brake Pad' },
+          createdAt: new Date('2026-01-12T10:00:00.000Z'),
+        },
+        '2026-01-12',
+        '5800',
+      );
+
+      const result = serializeGolden([...rzlGoldenRate20Rows, ...adjustmentRows]);
+      const dataLines = result.csvText.trimEnd().split('\r\n').slice(2);
+      expect(dataLines).toHaveLength(committedDataLines.length + 1);
+      expect(dataLines.slice(0, committedDataLines.length)).toEqual(
+        committedDataLines,
+      );
+      expect(dataLines[0].split(';')[8]).toBe('20');
+      expect(dataLines[1].split(';')[8]).toBe('20');
+
+      const adjFields = dataLines[committedDataLines.length].split(';');
+      expect(adjFields[1]).toBe('BV');
+      expect(adjFields[5]).toBe('2,47');
+      expect(adjFields[8]).toBe('');
     });
   });
 });

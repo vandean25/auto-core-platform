@@ -275,3 +275,71 @@ export function buildCreditRows(
     ? rows
     : reconcileRowsWithTaxBreakdown(rows, snapshot.tax_breakdown);
 }
+
+export type StockAdjustmentCandidateTx = {
+  id: string;
+  seq: bigint;
+  site_id: string;
+  quantity: Prisma.Decimal;
+  cost_basis: Prisma.Decimal;
+  reason: string | null;
+  note: string | null;
+  reversal_of_transaction_id: string | null;
+  reversed_by: { id: string }[];
+  item: { sku: string; name: string };
+  createdAt: Date;
+};
+
+function sanitizeStockAdjustmentText(value: string): string {
+  return value
+    .replace(/[\r\n;"]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildStockAdjustmentBookingText(
+  tx: StockAdjustmentCandidateTx,
+): string {
+  const reasonLabel = sanitizeStockAdjustmentText(tx.reason ?? 'ADJUSTMENT');
+  const txShort = tx.id.slice(0, 8);
+  const reversalPointer = tx.reversal_of_transaction_id
+    ? ` rev:${tx.reversal_of_transaction_id.slice(0, 8)}`
+    : tx.reversed_by.length > 0
+      ? ` revBy:${tx.reversed_by[0].id.slice(0, 8)}`
+      : '';
+  const suffix = ` ${reasonLabel} ${txShort}${reversalPointer}`;
+  const itemLabel = sanitizeStockAdjustmentText(tx.item.sku || tx.item.name);
+  const maxItemLen = Math.max(1, 60 - 3 - suffix.length);
+  return `BV ${itemLabel.slice(0, maxItemLen)}${suffix}`.slice(0, 60);
+}
+
+export function buildStockAdjustmentRows(
+  tx: StockAdjustmentCandidateTx,
+  documentDate: string,
+  stockAdjustmentAccount?: string,
+): AccountingExportBookingRow[] {
+  const extendedValue = new Prisma.Decimal(tx.quantity)
+    .mul(new Prisma.Decimal(tx.cost_basis))
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+  const absAmount = extendedValue.abs().toFixed(2);
+  const polarity: 'S' | 'H' = extendedValue.isNegative() ? 'H' : 'S';
+
+  return [
+    {
+      documentId: tx.id,
+      documentKind: 'STOCK_ADJUSTMENT',
+      documentNumber: `BV-${tx.seq}`,
+      documentDate,
+      lineId: tx.id,
+      polarity,
+      net: absAmount,
+      tax: '0.00',
+      taxRate: '0.00',
+      gross: absAmount,
+      debtorAccount: '',
+      revenueAccount: stockAdjustmentAccount ?? '',
+      buKey: null,
+      bookingText: buildStockAdjustmentBookingText(tx),
+    },
+  ];
+}

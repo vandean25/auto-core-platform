@@ -122,7 +122,8 @@
     },
     "documentKind": {
       "INVOICE": "Invoice",
-      "CREDIT_NOTE": "Credit note"
+      "CREDIT_NOTE": "Credit note",
+      "STOCK_ADJUSTMENT": "Stock adjustment"
     }
   },
   "creditNotes": {

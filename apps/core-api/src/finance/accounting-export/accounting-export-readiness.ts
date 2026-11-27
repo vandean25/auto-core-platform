@@ -84,6 +84,7 @@ export type AccountingExportReadinessView = {
 const KIND_SEARCH_LABEL: Record<AccountingExportDocumentKind, string> = {
   INVOICE: 'invoice',
   CREDIT_NOTE: 'credit note',
+  STOCK_ADJUSTMENT: 'stock adjustment',
 };
 
 // The Date column shows the day as "05 Mar 2026", so search matches that text too.

@@ -1,4 +1,9 @@
-import { InvoiceStatus, InvoiceTaxMode, Prisma } from '@prisma/client';
+import {
+  InvoiceStatus,
+  InvoiceTaxMode,
+  Prisma,
+  TransactionType,
+} from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validation.js';
 import {
@@ -9,6 +14,7 @@ import {
 import {
   buildCreditRows,
   buildInvoiceRows,
+  buildStockAdjustmentRows,
   isCreditNoteSnapshotV2,
   parseAllocation,
 } from './accounting-export-booking-rows.js';
@@ -514,6 +520,26 @@ function withDocumentRounding(
   };
 }
 
+function collectExportedAdjustmentIds(
+  exports: { document_manifest: unknown }[],
+): Set<string> {
+  const ids = new Set<string>();
+  for (const row of exports) {
+    if (!Array.isArray(row.document_manifest)) continue;
+    for (const entry of row.document_manifest) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        (entry as { kind?: unknown }).kind === 'STOCK_ADJUSTMENT' &&
+        typeof (entry as { id?: unknown }).id === 'string'
+      ) {
+        ids.add((entry as { id: string }).id);
+      }
+    }
+  }
+  return ids;
+}
+
 export async function loadAccountingExportCandidates(
   prisma: PrismaService,
   tenantId: string,
@@ -521,32 +547,64 @@ export async function loadAccountingExportCandidates(
   dateFrom: Date,
   dateTo: Date,
   rules: AccountingExportAllocationRules = DATEV_ALLOCATION_RULES,
+  authorizedSiteIds?: Set<string>,
 ): Promise<AccountingExportCandidate[]> {
   const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
-  const [invoices, creditNotes] = await Promise.all([
-    prisma.invoice.findMany({
-      where: {
-        tenant_id: tenantId,
-        legal_entity_id: legalEntityId,
-        date: dateFilter,
-        status: {
-          in: [...ELIGIBLE_INVOICE_STATUSES, InvoiceStatus.CANCELLED],
+  const [invoices, creditNotes, stockAdjustments, completedExports] =
+    await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          tenant_id: tenantId,
+          legal_entity_id: legalEntityId,
+          date: dateFilter,
+          status: {
+            in: [...ELIGIBLE_INVOICE_STATUSES, InvoiceStatus.CANCELLED],
+          },
         },
-      },
-      include: { items: { orderBy: { createdAt: 'asc' } } },
-      orderBy: [{ date: 'asc' }, { invoice_number: 'asc' }, { id: 'asc' }],
-    }),
-    prisma.creditNote.findMany({
-      where: {
-        tenant_id: tenantId,
-        legal_entity_id: legalEntityId,
-        status: 'FINALIZED',
-        date: dateFilter,
-      },
-      include: { items: true },
-      orderBy: [{ date: 'asc' }, { credit_number: 'asc' }, { id: 'asc' }],
-    }),
-  ]);
+        include: { items: { orderBy: { createdAt: 'asc' } } },
+        orderBy: [{ date: 'asc' }, { invoice_number: 'asc' }, { id: 'asc' }],
+      }),
+      prisma.creditNote.findMany({
+        where: {
+          tenant_id: tenantId,
+          legal_entity_id: legalEntityId,
+          status: 'FINALIZED',
+          date: dateFilter,
+        },
+        include: { items: true },
+        orderBy: [{ date: 'asc' }, { credit_number: 'asc' }, { id: 'asc' }],
+      }),
+      prisma.inventoryTransaction.findMany({
+        where: {
+          tenant_id: tenantId,
+          site_id: authorizedSiteIds
+            ? { in: [...authorizedSiteIds] }
+            : { not: '' },
+          type: TransactionType.ADJUSTMENT,
+          cost_basis: { not: null },
+          createdAt: dateFilter,
+          location: {
+            site: {
+              legal_entity_id: legalEntityId,
+            },
+          },
+        },
+        include: {
+          item: { select: { sku: true, name: true } },
+          reversed_by: { select: { id: true } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { seq: 'asc' }, { id: 'asc' }],
+      }),
+      prisma.accountingExport.findMany({
+        where: {
+          tenant_id: tenantId,
+          legal_entity_id: legalEntityId,
+        },
+        select: { document_manifest: true },
+      }),
+    ]);
+
+  const exportedAdjustmentIds = collectExportedAdjustmentIds(completedExports);
 
   const invoiceCandidates = invoices.map((invoice) => {
     const blockers = collectBlockersForInvoice(invoice, rules);
@@ -590,7 +648,53 @@ export async function loadAccountingExportCandidates(
     );
   });
 
-  return [...invoiceCandidates, ...creditCandidates].sort((left, right) => {
+  const stockAdjustmentCandidates = stockAdjustments
+    .filter((tx) => tx.cost_basis !== null && !exportedAdjustmentIds.has(tx.id))
+    .map((tx) => {
+      const documentDate = tx.createdAt.toISOString().slice(0, 10);
+      const costBasis = tx.cost_basis!;
+      const rows = buildStockAdjustmentRows(
+        {
+          id: tx.id,
+          seq: tx.seq,
+          site_id: tx.site_id,
+          quantity: tx.quantity,
+          cost_basis: costBasis,
+          reason: tx.reason,
+          note: tx.note,
+          reversal_of_transaction_id: tx.reversal_of_transaction_id,
+          reversed_by: tx.reversed_by,
+          item: tx.item,
+          createdAt: tx.createdAt,
+        },
+        documentDate,
+        rules.stockAdjustmentAccount,
+      );
+
+      return {
+        id: tx.id,
+        kind: 'STOCK_ADJUSTMENT' as const,
+        number: `BV-${tx.seq}`,
+        date: documentDate,
+        siteId: tx.site_id,
+        snapshotHash: computeSnapshotHash({
+          id: tx.id,
+          seq: tx.seq.toString(),
+          quantity: tx.quantity.toString(),
+          cost_basis: costBasis.toString(),
+          reason: tx.reason,
+          reversal_of_transaction_id: tx.reversal_of_transaction_id,
+        }),
+        rows,
+        blockers: [],
+      };
+    });
+
+  return [
+    ...invoiceCandidates,
+    ...creditCandidates,
+    ...stockAdjustmentCandidates,
+  ].sort((left, right) => {
     if (left.date !== right.date) {
       return left.date < right.date ? -1 : 1;
     }

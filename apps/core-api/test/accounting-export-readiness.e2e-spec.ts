@@ -385,7 +385,9 @@ describe('Accounting export readiness (e2e)', () => {
   // The codes the page shows: each listed row's blockers, then the tenant-wide notices.
   function readinessCodes(body: ReadinessBody) {
     return [
-      ...body.data.flatMap((row) => row.blockers.map((blocker) => blocker.code)),
+      ...body.data.flatMap((row) =>
+        row.blockers.map((blocker) => blocker.code),
+      ),
       ...body.tenantWideBlockers.map((blocker) => blocker.code),
     ];
   }
@@ -402,11 +404,22 @@ describe('Accounting export readiness (e2e)', () => {
       exportableCount: 3,
       blockedCount: 3,
       documentKinds: [
-        { kind: 'INVOICE', documentCount: 5, exportableCount: 2, blockedCount: 3 },
+        {
+          kind: 'INVOICE',
+          documentCount: 5,
+          exportableCount: 2,
+          blockedCount: 3,
+        },
         {
           kind: 'CREDIT_NOTE',
           documentCount: 1,
           exportableCount: 1,
+          blockedCount: 0,
+        },
+        {
+          kind: 'STOCK_ADJUSTMENT',
+          documentCount: 0,
+          exportableCount: 0,
           blockedCount: 0,
         },
       ],
@@ -491,10 +504,7 @@ describe('Accounting export readiness (e2e)', () => {
       limit: 2,
       pageCount: 3,
     });
-    expect(idsOf(page2.body)).toEqual([
-      ids.atInvoice,
-      ids.entityNoSite,
-    ]);
+    expect(idsOf(page2.body)).toEqual([ids.atInvoice, ids.entityNoSite]);
   });
 
   it('RD-03b: sorts the listed documents on the server before paging', async () => {
@@ -534,7 +544,10 @@ describe('Accounting export readiness (e2e)', () => {
       createTestAuthToken(authService, technician),
     ).expect(403);
 
-    const outsider = await seedAdminWithoutSiteAccess('aut352-outsider', 'ADMIN');
+    const outsider = await seedAdminWithoutSiteAccess(
+      'aut352-outsider',
+      'ADMIN',
+    );
     const scopeRefusal = await readinessRequest(
       {},
       createTestAuthToken(authService, outsider),
@@ -632,20 +645,25 @@ describe('Accounting export readiness (e2e)', () => {
     const row = readiness.body.data.find(
       (document: { id: string }) => document.id === ids.entityNoSite,
     );
-    expect(row.blockers.map((blocker: { code: string }) => blocker.code)).toEqual([
-      'CANCELLED_DOCUMENT',
-    ]);
+    expect(
+      row.blockers.map((blocker: { code: string }) => blocker.code),
+    ).toEqual(['CANCELLED_DOCUMENT']);
     // A site-less invoice's notice is redacted and names no document, as
     // preview's does. Only this one redacted notice is expected in the period.
     expect(
       readiness.body.tenantWideBlockers.filter(
         (blocker: { documentId?: string }) => blocker.documentId === undefined,
       ),
-    ).toEqual([{ code: 'MISSING_OWNERSHIP_EVIDENCE', message: REDACTED_NOTICE }]);
+    ).toEqual([
+      { code: 'MISSING_OWNERSHIP_EVIDENCE', message: REDACTED_NOTICE },
+    ]);
 
     const preview = await previewRequest().expect(200);
     expect(previewCodes(preview.body)).toEqual(
-      expect.arrayContaining(['CANCELLED_DOCUMENT', 'MISSING_OWNERSHIP_EVIDENCE']),
+      expect.arrayContaining([
+        'CANCELLED_DOCUMENT',
+        'MISSING_OWNERSHIP_EVIDENCE',
+      ]),
     );
   });
 });

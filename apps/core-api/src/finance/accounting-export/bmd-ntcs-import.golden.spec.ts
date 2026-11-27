@@ -163,8 +163,9 @@ describe('bmd-ntcs-import golden files', () => {
       bmdMtfEvidencedRows[0],
       steuercodes,
     );
-    const record = serializeMtfEvidenced([bmdMtfEvidencedRows[0]])
-      .csvText.replace(/\r\n$/, '');
+    const record = serializeMtfEvidenced([
+      bmdMtfEvidencedRows[0],
+    ]).csvText.replace(/\r\n$/, '');
 
     expect(fields.join(';')).toBe(record);
     expect(fields[BMD_MTF_PUBLIC_FIELD_NAMES.indexOf('Steuercode')]).toBe(
@@ -273,6 +274,67 @@ describe('bmd-ntcs-import golden files', () => {
       );
 
       expect(blockers).toEqual(golden);
+    });
+  });
+
+  describe('AUT-1049: stock corrections (Bestandsveränderung) without fixed tax code', () => {
+    it('serializes plus and minus stock corrections with empty Steuercode and signed Sollhabenkennzeichen', () => {
+      const result = serializeBmdNtcsImport({
+        profile: bmdSampleProfile,
+        dateFrom: BMD_SAMPLE_DATE_FROM,
+        dateTo: BMD_SAMPLE_DATE_TO,
+        createdAt: BMD_SAMPLE_CREATED_AT,
+        rows: [
+          {
+            documentId: 'tx-plus-1',
+            documentKind: 'STOCK_ADJUSTMENT',
+            documentNumber: 'BV-101',
+            documentDate: '2026-01-10',
+            lineId: 'tx-plus-1',
+            polarity: 'S',
+            net: '25.00',
+            tax: '0.00',
+            taxRate: '0.00',
+            gross: '25.00',
+            debtorAccount: '',
+            revenueAccount: '5800',
+            buKey: null,
+            bookingText: 'BV BRK-001 INVENTORY_COUNT tx-plus-',
+          },
+          {
+            documentId: 'tx-minus-1',
+            documentKind: 'STOCK_ADJUSTMENT',
+            documentNumber: 'BV-102',
+            documentDate: '2026-01-11',
+            lineId: 'tx-minus-1',
+            polarity: 'H',
+            net: '12.50',
+            tax: '0.00',
+            taxRate: '0.00',
+            gross: '12.50',
+            debtorAccount: '',
+            revenueAccount: '',
+            buKey: null,
+            bookingText: 'BV BRK-002 DAMAGE tx-minus rev:tx-plus-',
+          },
+        ],
+      });
+
+      const lines = result.csvText.trimEnd().split('\r\n');
+      expect(lines).toHaveLength(2);
+      const plusFields = lines[0].split(';');
+      expect(plusFields[4]).toBe('"5800"');
+      expect(plusFields[5]).toBe('25,00');
+      expect(plusFields[6]).toBe('S');
+      expect(plusFields[7]).toBe('');
+      expect(plusFields[10]).toBe('');
+
+      const minusFields = lines[1].split(';');
+      expect(minusFields[4]).toBe('');
+      expect(minusFields[5]).toBe('12,50');
+      expect(minusFields[6]).toBe('H');
+      expect(minusFields[7]).toBe('');
+      expect(minusFields[10]).toBe('');
     });
   });
 });

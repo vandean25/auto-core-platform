@@ -12,6 +12,9 @@ import {
   MinLength,
 } from 'class-validator';
 
+import { ACCOUNTING_EXPORT_DOCUMENT_KINDS } from '../accounting-export-codes.js';
+import type { AccountingExportDocumentKind } from '../accounting-export.types.js';
+
 export class PreviewAccountingExportDto {
   @ApiProperty()
   @IsUUID()
@@ -60,8 +63,8 @@ export class AccountingExportBlockerDto {
   @ApiPropertyOptional()
   documentId?: string;
 
-  @ApiPropertyOptional({ enum: ['INVOICE', 'CREDIT_NOTE'] })
-  documentKind?: 'INVOICE' | 'CREDIT_NOTE';
+  @ApiPropertyOptional({ enum: ACCOUNTING_EXPORT_DOCUMENT_KINDS })
+  documentKind?: AccountingExportDocumentKind;
 
   @ApiPropertyOptional({ type: String, nullable: true })
   documentNumber?: string | null;

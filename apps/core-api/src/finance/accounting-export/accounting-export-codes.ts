@@ -6,6 +6,7 @@ import type {
 export const ACCOUNTING_EXPORT_DOCUMENT_KINDS = [
   'INVOICE',
   'CREDIT_NOTE',
+  'STOCK_ADJUSTMENT',
 ] as const satisfies readonly AccountingExportDocumentKind[];
 
 export const ACCOUNTING_EXPORT_BLOCKER_CODES = [

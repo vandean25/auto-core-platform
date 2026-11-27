@@ -7025,6 +7025,8 @@ export interface components {
             roundingAccount?: string | null;
             /** @description Non-VAT posting code for document rounding in RZL or BMD. */
             roundingSteuercode?: string | null;
+            /** @description Optional ledger account for Bestandsveränderung (valued stock corrections). Unmapped by default. */
+            stockAdjustmentAccount?: string | null;
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
             bmd?: components["schemas"]["BmdSerializerParamsDto"];
             marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
@@ -8017,7 +8019,7 @@ export interface components {
             message: string;
             documentId?: string;
             /** @enum {string} */
-            documentKind?: "INVOICE" | "CREDIT_NOTE";
+            documentKind?: "INVOICE" | "CREDIT_NOTE" | "STOCK_ADJUSTMENT";
             documentNumber?: string | null;
         };
         AccountingExportOverlapSummaryDto: {
@@ -8098,7 +8100,7 @@ export interface components {
         };
         AccountingExportReadinessDocumentKindDto: {
             /** @enum {string} */
-            kind: "INVOICE" | "CREDIT_NOTE";
+            kind: "INVOICE" | "CREDIT_NOTE" | "STOCK_ADJUSTMENT";
             documentCount: number;
             exportableCount: number;
             blockedCount: number;
@@ -8130,7 +8132,7 @@ export interface components {
         AccountingExportReadinessDocumentDto: {
             id: string;
             /** @enum {string} */
-            kind: "INVOICE" | "CREDIT_NOTE";
+            kind: "INVOICE" | "CREDIT_NOTE" | "STOCK_ADJUSTMENT";
             number: string | null;
             /** @example 2026-01-15 */
             date: string;
@@ -17210,7 +17212,7 @@ export interface operations {
             query: {
                 dateFrom: string;
                 dateTo: string;
-                documentKind?: "INVOICE" | "CREDIT_NOTE";
+                documentKind?: "INVOICE" | "CREDIT_NOTE" | "STOCK_ADJUSTMENT";
                 legalEntityId: string;
                 limit?: number;
                 page?: number;

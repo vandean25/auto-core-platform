@@ -7,6 +7,7 @@ import {
 import {
   buildCreditRows,
   buildInvoiceRows,
+  buildStockAdjustmentRows,
 } from './accounting-export-booking-rows.js';
 import {
   computeSignedTotals,
@@ -41,7 +42,13 @@ describe('computeSignedTotals', () => {
 
   it('buckets signed totals by revenue account and frozen tax rate', () => {
     const totals = computeSignedTotals([
-      baseRow({ lineId: 'line-1', taxRate: '20.00', net: '100.00', tax: '20.00', gross: '120.00' }),
+      baseRow({
+        lineId: 'line-1',
+        taxRate: '20.00',
+        net: '100.00',
+        tax: '20.00',
+        gross: '120.00',
+      }),
       baseRow({
         lineId: 'line-2',
         taxRate: '7.00',
@@ -220,6 +227,8 @@ describe('AUT-1087: accounting export booking rows use per-rate VAT, not informa
           },
         ]),
       },
+      inventoryTransaction: { findMany: jest.fn().mockResolvedValue([]) },
+      accountingExport: { findMany: jest.fn().mockResolvedValue([]) },
     } as unknown as PrismaService;
     return { prisma, date, snapshot };
   };
@@ -469,5 +478,180 @@ describe('AUT-1087: accounting export booking rows use per-rate VAT, not informa
         gross: '-36.07',
       },
     ]);
+  });
+});
+
+describe('AUT-1049: valued stock corrections as Bestandsveränderung', () => {
+  const makeAdjustmentTx = (overrides: Record<string, unknown> = {}) => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    seq: BigInt(101),
+    site_id: 'site-1',
+    quantity: new Prisma.Decimal('2.000'),
+    cost_basis: new Prisma.Decimal('10.0000'),
+    reason: 'INVENTORY_COUNT' as const,
+    note: null,
+    reversal_of_transaction_id: null,
+    reversed_by: [] as { id: string }[],
+    item: { sku: 'BRK-001', name: 'Brake Pad' },
+    createdAt: new Date('2026-03-10T10:00:00.000Z'),
+    ...overrides,
+  });
+
+  it('rounds extended Wert (quantity * unit cost) to 2 decimals, never 4 decimals (Anti-criterion 5)', () => {
+    const rows = buildStockAdjustmentRows(
+      makeAdjustmentTx({
+        quantity: new Prisma.Decimal('2.000'),
+        cost_basis: new Prisma.Decimal('1.2345'),
+      }),
+      '2026-03-10',
+      '5800',
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      documentKind: 'STOCK_ADJUSTMENT',
+      polarity: 'S',
+      net: '2.47',
+      tax: '0.00',
+      taxRate: '0.00',
+      gross: '2.47',
+      revenueAccount: '5800',
+      debtorAccount: '',
+      buKey: null,
+    });
+  });
+
+  it('emits S for plus correction and H for minus correction, defaulting account to empty when unmapped', () => {
+    const plusRows = buildStockAdjustmentRows(
+      makeAdjustmentTx({
+        id: '11111111-1111-4111-8111-111111111111',
+        seq: BigInt(101),
+        quantity: new Prisma.Decimal('3.000'),
+        cost_basis: new Prisma.Decimal('12.5000'),
+      }),
+      '2026-03-10',
+    );
+    const minusRows = buildStockAdjustmentRows(
+      makeAdjustmentTx({
+        id: '22222222-2222-4222-8222-222222222222',
+        seq: BigInt(102),
+        quantity: new Prisma.Decimal('-2.000'),
+        cost_basis: new Prisma.Decimal('12.5000'),
+        reason: 'DAMAGE',
+      }),
+      '2026-03-11',
+    );
+
+    expect(plusRows[0]).toMatchObject({
+      polarity: 'S',
+      gross: '37.50',
+      revenueAccount: '',
+      debtorAccount: '',
+      buKey: null,
+    });
+    expect(minusRows[0]).toMatchObject({
+      polarity: 'H',
+      gross: '25.00',
+      revenueAccount: '',
+      debtorAccount: '',
+      buKey: null,
+    });
+    expect(computeSignedTotals([...plusRows, ...minusRows])).toEqual([
+      {
+        account: '',
+        taxRate: '0.00',
+        net: '12.50',
+        tax: '0.00',
+        gross: '12.50',
+      },
+    ]);
+  });
+
+  it('includes reversal pointers on both original and Gegenbuchung and nets to zero (Scenario 3)', () => {
+    const origId = '11111111-aaaa-4111-8111-111111111111';
+    const revId = '22222222-bbbb-4222-8222-222222222222';
+    const origRows = buildStockAdjustmentRows(
+      makeAdjustmentTx({
+        id: origId,
+        seq: BigInt(201),
+        quantity: new Prisma.Decimal('4.000'),
+        cost_basis: new Prisma.Decimal('15.0000'),
+        reversed_by: [{ id: revId }],
+      }),
+      '2026-03-12',
+      '5800',
+    );
+    const revRows = buildStockAdjustmentRows(
+      makeAdjustmentTx({
+        id: revId,
+        seq: BigInt(202),
+        quantity: new Prisma.Decimal('-4.000'),
+        cost_basis: new Prisma.Decimal('15.0000'),
+        reversal_of_transaction_id: origId,
+      }),
+      '2026-03-12',
+      '5800',
+    );
+
+    expect(origRows[0].bookingText).toContain(revId.slice(0, 8));
+    expect(revRows[0].bookingText).toContain(origId.slice(0, 8));
+    expect(computeSignedTotals([...origRows, ...revRows])).toEqual([
+      {
+        account: '5800',
+        taxRate: '0.00',
+        net: '0.00',
+        tax: '0.00',
+        gross: '0.00',
+      },
+    ]);
+  });
+
+  it('loads valued adjustments, omits unvalued (null cost_basis) and already-exported adjustments (Anti-criteria 2 & 4)', async () => {
+    const valuedNew = makeAdjustmentTx({
+      id: '33333333-3333-4333-8333-333333333333',
+      seq: BigInt(301),
+    });
+    const alreadyExported = makeAdjustmentTx({
+      id: '44444444-4444-4444-8444-444444444444',
+      seq: BigInt(302),
+    });
+
+    const prismaMock = {
+      invoice: { findMany: jest.fn().mockResolvedValue([]) },
+      creditNote: { findMany: jest.fn().mockResolvedValue([]) },
+      inventoryTransaction: {
+        findMany: jest.fn().mockResolvedValue([valuedNew, alreadyExported]),
+      },
+      accountingExport: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            document_manifest: [
+              { id: alreadyExported.id, kind: 'STOCK_ADJUSTMENT' },
+            ],
+          },
+        ]),
+      },
+    } as unknown as PrismaService;
+
+    const candidates = await loadAccountingExportCandidates(
+      prismaMock,
+      'tenant-1',
+      'le-1',
+      new Date('2026-03-01T00:00:00.000Z'),
+      new Date('2026-03-31T00:00:00.000Z'),
+      allocationRulesForProfile('ACP-DATEV-DE-EUR-1', {
+        stockAdjustmentAccount: '5800',
+      }),
+    );
+
+    expect(
+      (prismaMock.inventoryTransaction.findMany as jest.Mock).mock.calls[0][0]
+        .where,
+    ).toMatchObject({
+      cost_basis: { not: null },
+    });
+    expect(candidates.map((c) => c.id)).toEqual([valuedNew.id]);
+    expect(candidates[0].kind).toBe('STOCK_ADJUSTMENT');
+    expect(candidates[0].blockers).toEqual([]);
   });
 });

@@ -1,3 +1,6 @@
+import { Prisma } from '@prisma/client';
+import { buildStockAdjustmentRows } from './accounting-export-booking-rows.js';
+import type { AccountingExportBookingRow } from './accounting-export.types.js';
 import {
   DATEV_ADMIN_HEADER_FIELD_COUNT,
   DATEV_BUCHUNGSSTAPEL_COLUMN_COUNT,
@@ -90,5 +93,154 @@ describe('datev-serializer', () => {
     const decoded = decodeDatevCsv(result.bytes);
     expect(decoded).toBe(result.csvText);
     expect(DATEV_ENCODING).toBe('win1252');
+  });
+
+  const stockRow = (
+    overrides: Partial<
+      Parameters<typeof serializeDatevBuchungsstapel>[0]['rows'][number]
+    >,
+  ) => ({
+    documentId: 'tx-1',
+    documentKind: 'STOCK_ADJUSTMENT' as const,
+    documentNumber: 'BV-101',
+    documentDate: '2026-01-10',
+    lineId: 'tx-1',
+    polarity: 'S' as const,
+    net: '25.00',
+    tax: '0.00',
+    taxRate: '0.00',
+    gross: '25.00',
+    debtorAccount: '',
+    revenueAccount: '5800',
+    buKey: null,
+    bookingText: 'BV BRK-001 INVENTORY_COUNT tx-1',
+    ...overrides,
+  });
+
+  const stockProfile = {
+    version: 2,
+    profileCode: 'ACP-DATEV-DE-EUR-1',
+    formatVersion: 'EXTF-700-Buchungsstapel-13',
+    chart: 'SKR03',
+    accountLength: 4,
+    advisorNumber: '12345',
+    clientNumber: '1',
+    fiscalYearStartMonth: 1,
+    defaultDebtorAccount: '1000',
+    serializerParams: {},
+    isEnabled: true,
+  };
+
+  it('AUT-1049: serializes plus stock correction with mapped account and empty BU-Schlüssel (Scenario 2, Anti-criterion 1)', () => {
+    const result = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt: new Date('2026-01-15T10:04:04.000Z'),
+      rows: [stockRow({})],
+    });
+    const [plusLine] = result.csvText.trimEnd().split('\r\n').slice(2);
+    expect(plusLine.split(';').slice(0, 9)).toEqual([
+      '25,00',
+      '"S"',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '5800',
+      '',
+    ]);
+  });
+
+  it('AUT-1049: serializes minus stock correction with unmapped account and empty BU-Schlüssel (Scenario 5, Anti-criterion 1)', () => {
+    const result = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt: new Date('2026-01-15T10:04:04.000Z'),
+      rows: [
+        stockRow({
+          documentId: 'tx-2',
+          documentNumber: 'BV-102',
+          polarity: 'H',
+          net: '12.50',
+          gross: '12.50',
+          revenueAccount: '',
+        }),
+      ],
+    });
+    const [minusLine] = result.csvText.trimEnd().split('\r\n').slice(2);
+    expect(minusLine.split(';').slice(0, 9)).toEqual([
+      '12,50',
+      '"H"',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  it('AUT-1049: keeps invoice lines including BU-Schlüssel intact when a stock adjustment is in the period (Anti-criterion 3)', () => {
+    const invoiceRow: AccountingExportBookingRow = {
+      documentId: 'invoice-1',
+      documentKind: 'INVOICE',
+      documentNumber: 'RE-2026-0001',
+      documentDate: '2026-01-10',
+      lineId: 'line-1',
+      polarity: 'S',
+      net: '100.00',
+      tax: '19.00',
+      taxRate: '19.00',
+      gross: '119.00',
+      debtorAccount: '1000',
+      revenueAccount: '8400',
+      buKey: '3',
+      bookingText: 'RE RE-2026-0001',
+    };
+    const createdAt = new Date('2026-01-15T10:04:04.000Z');
+    const baseline = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: [invoiceRow],
+    });
+    const baselineLines = baseline.csvText.trimEnd().split('\r\n').slice(2);
+
+    const stockRows = buildStockAdjustmentRows(
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        seq: BigInt(103),
+        site_id: 'site-1',
+        quantity: new Prisma.Decimal('2.000'),
+        cost_basis: new Prisma.Decimal('1.2345'),
+        reason: 'INVENTORY_COUNT',
+        note: null,
+        reversal_of_transaction_id: null,
+        reversed_by: [],
+        item: { sku: 'BRK-001', name: 'Brake Pad' },
+        createdAt: new Date('2026-01-12T10:00:00.000Z'),
+      },
+      '2026-01-12',
+      '5800',
+    );
+    const combined = serializeDatevBuchungsstapel({
+      profile: stockProfile,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      createdAt,
+      rows: [invoiceRow, ...stockRows],
+    });
+    const combinedLines = combined.csvText.trimEnd().split('\r\n').slice(2);
+
+    expect(combinedLines).toHaveLength(2);
+    expect(combinedLines[0]).toBe(baselineLines[0]);
+    expect(combinedLines[0].split(';')[8]).toBe('3');
+    expect(combinedLines[1].split(';')[0]).toBe('2,47');
+    expect(combinedLines[1].split(';')[8]).toBe('');
   });
 });

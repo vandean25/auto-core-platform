@@ -229,6 +229,12 @@ ACP draft file choices not confirmed by a live RZL import.
 3. Confirm Steuercodes / `USt-Schlüssel` mapping with the accountant and whether 0% needs a approved code.
 4. Confirm open-item and due-date requirements with the accountant.
 
+## Valued Stock Corrections (Bestandsveränderung, AUT-1049)
+
+- **Candidate selection**: Valued `ADJUSTMENT` transactions (`cost_basis != null`) in the legal entity and period (`createdAt`) not already present in a completed export's `document_manifest` (`kind: 'STOCK_ADJUSTMENT'`). Unvalued adjustments are omitted.
+- **Amount & polarity**: Signed extended Wert (`quantity × cost_basis`) rounded to 2 decimals, emitted with `SOLL_HABEN` `S` (plus) or `H` (minus), `BUCHUNGSART` `BV`, and empty `OP_BELEGNUMMER` / `OP_MODUS`.
+- **Tax & account mapping**: `STEUERCODE` is always empty (no fixed VAT key). `GEGENKONTO` uses `serializerParams.stockAdjustmentAccount` when configured with the Steuerberater, and stays empty when unmapped without blocking the export.
+
 ## References
 
 - [[datev-accounting-export]], [[legal-invoicing-and-credit-notes]], [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]].

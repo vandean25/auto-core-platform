@@ -25,7 +25,7 @@ const FILTERABLE_REASON_CODES = (
   ] as AccountingExportBlockerCode[]
 ).filter((code) => code !== 'INACTIVE_SITE_BLOCKED')
 
-const DOCUMENT_KINDS: AccountingExportDocumentKind[] = ['INVOICE', 'CREDIT_NOTE']
+const DOCUMENT_KINDS: AccountingExportDocumentKind[] = ['INVOICE', 'CREDIT_NOTE', 'STOCK_ADJUSTMENT']
 
 type Period = { dateFrom: string; dateTo: string }
 

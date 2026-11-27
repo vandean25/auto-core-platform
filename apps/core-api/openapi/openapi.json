@@ -5427,7 +5427,8 @@
               "type": "string",
               "enum": [
                 "INVOICE",
-                "CREDIT_NOTE"
+                "CREDIT_NOTE",
+                "STOCK_ADJUSTMENT"
               ]
             }
           },
@@ -22607,6 +22608,11 @@
             "nullable": true,
             "description": "Non-VAT posting code for document rounding in RZL or BMD."
           },
+          "stockAdjustmentAccount": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional ledger account for Bestandsveränderung (valued stock corrections). Unmapped by default."
+          },
           "rzl": {
             "$ref": "#/components/schemas/RzlSerializerParamsDto"
           },
@@ -26296,7 +26302,8 @@
             "type": "string",
             "enum": [
               "INVOICE",
-              "CREDIT_NOTE"
+              "CREDIT_NOTE",
+              "STOCK_ADJUSTMENT"
             ]
           },
           "documentNumber": {
@@ -26611,7 +26618,8 @@
             "type": "string",
             "enum": [
               "INVOICE",
-              "CREDIT_NOTE"
+              "CREDIT_NOTE",
+              "STOCK_ADJUSTMENT"
             ]
           },
           "documentCount": {
@@ -26743,7 +26751,8 @@
             "type": "string",
             "enum": [
               "INVOICE",
-              "CREDIT_NOTE"
+              "CREDIT_NOTE",
+              "STOCK_ADJUSTMENT"
             ]
           },
           "number": {

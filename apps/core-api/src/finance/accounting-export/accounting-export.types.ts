@@ -1,4 +1,5 @@
-export type AccountingExportDocumentKind = 'INVOICE' | 'CREDIT_NOTE';
+export type AccountingExportDocumentKind =
+  'INVOICE' | 'CREDIT_NOTE' | 'STOCK_ADJUSTMENT';
 
 export type AccountingExportBlockerCode =
   | 'LEGACY_DOCUMENT_UNSUPPORTED'

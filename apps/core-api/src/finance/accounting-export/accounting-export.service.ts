@@ -665,6 +665,7 @@ export class AccountingExportService {
           profile.profile_code,
           profile.serializer_params,
         ),
+        authorizedSiteIds,
       ),
       loadTenantOwnershipBlockers(
         this.prisma,

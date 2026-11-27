@@ -157,6 +157,8 @@ function prismaFixture(): PrismaService {
   return {
     invoice: { findMany: jest.fn().mockResolvedValue(invoices) },
     creditNote: { findMany: jest.fn().mockResolvedValue(creditNotes) },
+    inventoryTransaction: { findMany: jest.fn().mockResolvedValue([]) },
+    accountingExport: { findMany: jest.fn().mockResolvedValue([]) },
   } as unknown as PrismaService;
 }
 

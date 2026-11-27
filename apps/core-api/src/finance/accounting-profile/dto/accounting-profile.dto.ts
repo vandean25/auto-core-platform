@@ -166,6 +166,17 @@ export class AccountingProfileSerializerParamsDto {
   @Matches(/^[0-9]{1,4}$/)
   roundingSteuercode?: string | null;
 
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Optional ledger account for Bestandsveränderung (valued stock corrections). Unmapped by default.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,9}$/)
+  stockAdjustmentAccount?: string | null;
+
   @ApiPropertyOptional({ type: RzlSerializerParamsDto })
   @IsOptional()
   @ValidateNested()
