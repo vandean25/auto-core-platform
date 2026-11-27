@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import {
   classifyProcessedOriginals,
+  isRevaluationGegenbuchung,
   planRevaluations,
   type RevaluationCandidate,
 } from './revalue-unvalued-adjustments.plan.js';
@@ -50,6 +51,7 @@ describe('planRevaluations (AUT-1050)', () => {
         reversalOfTransactionId: 'orig-1',
         costBasis: null,
         valueSource: null,
+        valuationNeutral: true,
         note: 'nachbewertet',
         movementGroupId: 'group-1',
       });
@@ -63,6 +65,7 @@ describe('planRevaluations (AUT-1050)', () => {
         movementGroupId: 'group-1',
       });
       expect(valued.reversalOfTransactionId).toBeUndefined();
+      expect(valued.valuationNeutral).toBeUndefined();
       const net = new Decimal(qty)
         .add(new Decimal(reversal.quantity))
         .add(new Decimal(valued.quantity));
@@ -90,6 +93,46 @@ describe('planRevaluations (AUT-1050)', () => {
     expect(planned.map((p) => p.original.id)).toEqual(['valued']);
     expect(planned[0].valueSource).toBe(StockAdjustmentValueSource.LAST_EK);
     expect(gaps.map((g) => g.id)).toEqual(['gap']);
+  });
+});
+
+describe('isRevaluationGegenbuchung (AUT-1050)', () => {
+  // Catches a valuation backfill that replays the Gegenbuchung into the pool (or skips a manual reversal).
+  it.each([
+    [
+      {
+        note: 'nachbewertet',
+        reversal_of_transaction_id: 'orig',
+        cost_basis: null,
+      },
+      true,
+    ],
+    [
+      {
+        note: 'Zählfehler',
+        reversal_of_transaction_id: 'orig',
+        cost_basis: null,
+      },
+      false,
+    ],
+    [
+      {
+        note: 'nachbewertet',
+        reversal_of_transaction_id: null,
+        cost_basis: null,
+      },
+      false,
+    ],
+    [
+      {
+        note: 'nachbewertet',
+        reversal_of_transaction_id: 'orig',
+        cost_basis: new Decimal('4.5'),
+      },
+      false,
+    ],
+  ])('classifies %o as %p', (row, expected) => {
+    expect(isRevaluationGegenbuchung(row)).toBe(expected);
   });
 });
 

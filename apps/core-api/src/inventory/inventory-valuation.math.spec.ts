@@ -201,4 +201,27 @@ describe('inventory-valuation.math', () => {
     expect(reversed.state.valuedQuantity.toFixed(3)).toBe('10.000');
     expect(reversed.state.averageUnitCost?.toFixed(4)).toBe('4.0000');
   });
+
+  // AUT-1050: a nachbewertet Gegenbuchung that shrank or restarted the pool (valued qty 4 instead of 5) fails here.
+  it.each([-1, 5])(
+    'leaves average and valued quantity untouched for a valuation-neutral booking of qty %p',
+    (quantity) => {
+      const initial: ValuationState = {
+        averageUnitCost: new Decimal('4.5000'),
+        valuedQuantity: new Decimal('4.000'),
+      };
+
+      const result = applyValuationStep(initial, {
+        type: TransactionType.ADJUSTMENT,
+        quantity,
+        costBasis: null,
+        isReversal: true,
+        valuationNeutral: true,
+      });
+
+      expect(result.state).toEqual(initial);
+      expect(result.stampedCostBasis).toBeNull();
+      expect(result.isUnvaluedGap).toBe(false);
+    },
+  );
 });

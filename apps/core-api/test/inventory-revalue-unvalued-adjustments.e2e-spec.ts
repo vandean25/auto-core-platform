@@ -245,8 +245,12 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     const res = await revalue(f.token, false).expect(200);
 
     const rows = await ledgerRows(f, itemId);
-    const reversal = rows.find((r) => r.reversal_of_transaction_id === original.id)!;
-    const valued = rows.find((r) => r.reference_id === 'manual-adjustment-revaluation')!;
+    const reversal = rows.find(
+      (r) => r.reversal_of_transaction_id === original.id,
+    )!;
+    const valued = rows.find(
+      (r) => r.reference_id === 'manual-adjustment-revaluation',
+    )!;
     expect(rows).toHaveLength(4);
     expect(res.body).toMatchObject({
       dryRun: false,
@@ -287,8 +291,12 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     });
     expect(valued.cost_basis?.toString()).toBe('4.5');
     expect(valued.quantity.toString()).toBe('1');
-    expect(reversal.createdAt.getTime()).toBeGreaterThanOrEqual(startedAt.getTime() - 1000);
-    expect(valued.createdAt.getTime()).toBeGreaterThanOrEqual(startedAt.getTime() - 1000);
+    expect(reversal.createdAt.getTime()).toBeGreaterThanOrEqual(
+      startedAt.getTime() - 1000,
+    );
+    expect(valued.createdAt.getTime()).toBeGreaterThanOrEqual(
+      startedAt.getTime() - 1000,
+    );
     // original + reversal + new = original
     expect(
       new Prisma.Decimal(before.quantity)
@@ -301,8 +309,9 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     const valuation = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
       where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
     });
+    // The Gegenbuchung unwinds quantity only; Lagerwert moves only by the new valued row (4 + 1 at 4.5).
     expect(valuation.average_unit_cost?.toString()).toBe('4.5');
-    expect(valuation.valued_quantity.toString()).toBe('4');
+    expect(valuation.valued_quantity.toString()).toBe('5');
 
     const audit = await f.tenantPrisma.auditLog.findMany({
       where: { tenant_id: f.tenant.tenantId, source: REVALUATION_SOURCE },
@@ -318,6 +327,43 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
         note: 'nachbewertet',
       }),
     });
+  });
+
+  // Review 2f4bfbb0: a Gegenbuchung that clamps the pool to 0 so the new row restarts it (valued qty 5, the 2 already valued units lost) fails here.
+  it('keeps the existing valued pool when the correction is larger than the valued quantity', async () => {
+    const f = await createFixture('aut1050-pool');
+    const itemId = await createItem(f, 9.99);
+    await f.tenantPrisma.inventoryValuation.create({
+      data: {
+        tenant_id: f.tenant.tenantId,
+        legal_entity_id: f.legalEntityId,
+        catalog_item_id: itemId,
+        average_unit_cost: 10,
+        valued_quantity: 2,
+      },
+    });
+    await insertLegacyUnvaluedAdjustment(f, {
+      itemId,
+      siteId: f.siteId,
+      binId: f.binId,
+      quantity: 5,
+      onHandAfter: 7,
+    });
+
+    const res = await revalue(f.token, false).expect(200);
+
+    expect(res.body.revalued).toHaveLength(1);
+    expect(res.body.revalued[0]).toMatchObject({
+      quantity: '5',
+      unitCost: '10',
+      valueSource: 'AVG',
+    });
+    expect(await onHand(f, itemId)).toBe('7');
+    const valuation = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
+      where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
+    });
+    expect(valuation.valued_quantity.toString()).toBe('7');
+    expect(valuation.average_unit_cost?.toString()).toBe('10');
   });
 
   // Scenario 2: a rerun that books a second pair (or re-reverses a manually reversed row) fails here.
@@ -345,9 +391,11 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       .expect(201);
 
     const first = await revalue(f.token, false).expect(200);
-    expect(first.body.revalued.map((r: { originalTransactionId: string }) => r.originalTransactionId)).toEqual([
-      revaluedOriginal.id,
-    ]);
+    expect(
+      first.body.revalued.map(
+        (r: { originalTransactionId: string }) => r.originalTransactionId,
+      ),
+    ).toEqual([revaluedOriginal.id]);
     const countAfterFirst = await f.tenantPrisma.inventoryTransaction.count({
       where: { tenant_id: f.tenant.tenantId },
     });
@@ -444,11 +492,27 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     // Closed fixture period (January 2026) that never meets the live clock.
     await openAccountingExportFinancePeriod(tenantPrisma, tenant.tenantId);
     await createAccountingExportInvoice(
-      { app, tenantPrisma, authToken: token, customerId: customer.id, catalogItemId: invoicedItemId },
-      { quantity: 1, unitPrice: 100, invoiceDate: '2026-01-15', siteId: deSite.id, legalEntityId: deEntity.id },
+      {
+        app,
+        tenantPrisma,
+        authToken: token,
+        customerId: customer.id,
+        catalogItemId: invoicedItemId,
+      },
+      {
+        quantity: 1,
+        unitPrice: 100,
+        invoiceDate: '2026-01-15',
+        siteId: deSite.id,
+        legalEntityId: deEntity.id,
+      },
     );
     await closeFinancePeriod(prisma, tenant.tenantId, '2026-01-31');
-    const period = { legalEntityId: deEntity.id, dateFrom: '2026-01-01', dateTo: '2026-01-31' };
+    const period = {
+      legalEntityId: deEntity.id,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+    };
     const preview = await request(app.getHttpServer())
       .post('/api/finance/accounting-exports/preview')
       .set('Authorization', `Bearer ${token}`)
@@ -479,9 +543,13 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     const res = await revalue(token, false).expect(200);
 
     expect(res.body.revalued).toHaveLength(1);
-    const { reversalTransactionId, revaluedTransactionId } = res.body.revalued[0];
+    const { reversalTransactionId, revaluedTransactionId } =
+      res.body.revalued[0];
     const newRows = await tenantPrisma.inventoryTransaction.findMany({
-      where: { tenant_id: tenant.tenantId, id: { in: [reversalTransactionId, revaluedTransactionId] } },
+      where: {
+        tenant_id: tenant.tenantId,
+        id: { in: [reversalTransactionId, revaluedTransactionId] },
+      },
     });
     expect(newRows).toHaveLength(2);
     const periodEnd = new Date('2026-01-31T23:59:59.999Z').getTime();
@@ -496,7 +564,9 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       .responseType('blob')
       .expect(200);
     const body = download.body as Buffer;
-    expect(createHash('sha256').update(body).digest('hex')).toBe(completed.body.sha256);
+    expect(createHash('sha256').update(body).digest('hex')).toBe(
+      completed.body.sha256,
+    );
     const text = body.toString('latin1');
     expect(text).not.toContain(reversalTransactionId);
     expect(text).not.toContain(revaluedTransactionId);
@@ -521,7 +591,9 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
 
     expect(res.body).toMatchObject({
       revalued: [],
-      gaps: [{ originalTransactionId: original.id, itemId, locationId: f.binId }],
+      gaps: [
+        { originalTransactionId: original.id, itemId, locationId: f.binId },
+      ],
     });
     expect(await ledgerRows(f, itemId)).toEqual([before]);
     expect(await onHand(f, itemId)).toBe('1');
@@ -555,7 +627,9 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
         },
       ],
     });
-    expect((await ledgerRows(f, itemId)).map((r) => r.id)).toEqual([original.id]);
+    expect((await ledgerRows(f, itemId)).map((r) => r.id)).toEqual([
+      original.id,
+    ]);
     expect(await onHand(f, itemId)).toBe('3');
     expect(
       await f.tenantPrisma.inventoryValuation.count({
@@ -593,14 +667,17 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       orderBy: { seq: 'asc' },
     });
     const auditService = app.get(AuditService);
-    const recordTenantMutation = auditService.recordTenantMutation.bind(auditService);
+    const recordTenantMutation =
+      auditService.recordTenantMutation.bind(auditService);
     let revaluationAudits = 0;
-    jest.spyOn(auditService, 'recordTenantMutation').mockImplementation(async (params, client) => {
-      if (params.source === REVALUATION_SOURCE && ++revaluationAudits === 2) {
-        throw new Error('simulated failure on the second pair');
-      }
-      return recordTenantMutation(params, client);
-    });
+    jest
+      .spyOn(auditService, 'recordTenantMutation')
+      .mockImplementation(async (params, client) => {
+        if (params.source === REVALUATION_SOURCE && ++revaluationAudits === 2) {
+          throw new Error('simulated failure on the second pair');
+        }
+        return recordTenantMutation(params, client);
+      });
 
     await revalue(f.token, false).expect(500);
 
@@ -616,7 +693,9 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     jest.restoreAllMocks();
     const retry = await revalue(f.token, false).expect(200);
     expect(
-      retry.body.revalued.map((r: { originalTransactionId: string }) => r.originalTransactionId),
+      retry.body.revalued.map(
+        (r: { originalTransactionId: string }) => r.originalTransactionId,
+      ),
     ).toEqual([originalA.id, originalB.id]);
   });
 
@@ -626,15 +705,25 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
     { role: 'SALES', status: 403 },
     { role: 'ADMIN', status: 200 },
     { role: 'OWNER', status: 200 },
-  ])('answers the revaluation command with $status for role $role', async ({ role, status }) => {
-    const f = await createFixture('aut1050-role');
-    await runWithTenantContext(f.tenant.tenantId, async () => {
-      await prisma.tenantMember.updateMany({ where: { tenant_id: f.tenant.tenantId }, data: { role } });
-    });
-    const token = createTestAuthToken(app.get(AuthService), { ...f.tenant, role }, { role });
+  ])(
+    'answers the revaluation command with $status for role $role',
+    async ({ role, status }) => {
+      const f = await createFixture('aut1050-role');
+      await runWithTenantContext(f.tenant.tenantId, async () => {
+        await prisma.tenantMember.updateMany({
+          where: { tenant_id: f.tenant.tenantId },
+          data: { role },
+        });
+      });
+      const token = createTestAuthToken(
+        app.get(AuthService),
+        { ...f.tenant, role },
+        { role },
+      );
 
-    await revalue(token, true).expect(status);
-  });
+      await revalue(token, true).expect(status);
+    },
+  );
 
   // Running without an explicit mode would apply by accident; a missing dryRun must be rejected.
   it('rejects a request without an explicit dryRun flag', async () => {
@@ -661,7 +750,14 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
 
     const res = await revalue(b.token, false).expect(200);
 
-    expect(res.body).toMatchObject({ revalued: [], gaps: [], alreadyRevalued: [], alreadyReversed: [] });
-    expect((await ledgerRows(a, itemId)).map((r) => r.id)).toEqual([original.id]);
+    expect(res.body).toMatchObject({
+      revalued: [],
+      gaps: [],
+      alreadyRevalued: [],
+      alreadyReversed: [],
+    });
+    expect((await ledgerRows(a, itemId)).map((r) => r.id)).toEqual([
+      original.id,
+    ]);
   });
 });
