@@ -283,6 +283,7 @@
   "INVOICE_DISCOUNT_INVALID": "Der Rabatt-Typ oder Rabattwert ist ungültig.",
   "INVOICE_DISCOUNT_LINE_NOT_FOUND": "Die Rabattposition gehört nicht zu dieser Rechnung.",
   "INVOICE_NOT_DRAFT": "Rabatte können nur auf Rechnungsentwürfen geändert werden.",
+  "INVOICE_PAYMENT_TERMS_MISSING": "Für den Kunden oder den Betrieb ist kein Zahlungsziel hinterlegt. Bitte ergänzen Sie die Zahlungsfrist.",
   "OPERATION_FENCED": "Der Vorgang wurde als nicht angewendet markiert.",
   "OPERATION_UNRESOLVED": "Der Vorgang ist noch nicht abgeschlossen.",
   "OUTCOME_UNAVAILABLE": "Das Ergebnis der Preisänderung ist nicht mehr verfügbar.",

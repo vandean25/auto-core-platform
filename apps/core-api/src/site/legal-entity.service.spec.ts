@@ -51,7 +51,7 @@ describe('LegalEntityService rksvMode guard (AUT-1071)', () => {
     registration_number: null,
     registration_court: null,
     representatives: null,
-    payment_terms_days: null,
+    payment_terms_days: 14,
     payment_terms_text: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),

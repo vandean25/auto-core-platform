@@ -95,14 +95,29 @@ function normalizeOptionalFormString(value: string): string | null {
   return trimmed.length === 0 ? null : trimmed
 }
 
+function getPaymentTermsDaysError(
+  value: string,
+  t: TFunction<'settings'>,
+): string | null {
+  const trimmed = value.trim()
+  if (trimmed === '') {
+    return t('legalEntities.seller.errors.paymentTermsDaysRequired')
+  }
+  if (!/^\d+$/.test(trimmed)) {
+    return t('legalEntities.seller.errors.paymentTermsDaysRange')
+  }
+  const parsed = Number.parseInt(trimmed, 10)
+  if (parsed < 0 || parsed > 365) {
+    return t('legalEntities.seller.errors.paymentTermsDaysRange')
+  }
+  return null
+}
+
 function buildUpdatePayload(
   entityId: string,
   form: SellerFormState,
 ): UpdateLegalEntityPayload {
-  const paymentTermsDays =
-    form.paymentTermsDays.trim() === ''
-      ? null
-      : Number.parseInt(form.paymentTermsDays, 10)
+  const paymentTermsDays = Number.parseInt(form.paymentTermsDays.trim(), 10)
 
   return {
     id: entityId,
@@ -827,9 +842,13 @@ function LegalEntitySellerForm({
     [entity.id, onSaved],
   )
 
+  const paymentTermsDaysError = getPaymentTermsDaysError(form.paymentTermsDays, t)
+
   const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
     save: saveSellerSettings,
-    shouldSave: (snapshot) => snapshot.name.trim().length > 0,
+    shouldSave: (snapshot) =>
+      snapshot.name.trim().length > 0 &&
+      getPaymentTermsDaysError(snapshot.paymentTermsDays, t) === null,
   })
 
   const updateField = <K extends keyof SellerFormState>(key: K, value: SellerFormState[K]) => {
@@ -1052,9 +1071,18 @@ function LegalEntitySellerForm({
             type="number"
             min={0}
             max={365}
+            required
+            className="max-sm:min-h-11"
+            aria-invalid={Boolean(paymentTermsDaysError)}
+            aria-describedby={paymentTermsDaysError ? 'seller-payment-days-error' : undefined}
             value={form.paymentTermsDays}
             onChange={(event) => updateField('paymentTermsDays', event.target.value)}
           />
+          {paymentTermsDaysError ? (
+            <p id="seller-payment-days-error" role="alert" className="text-xs text-destructive">
+              {paymentTermsDaysError}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="seller-payment-text">{t('legalEntities.seller.fields.paymentTermsText')}</Label>

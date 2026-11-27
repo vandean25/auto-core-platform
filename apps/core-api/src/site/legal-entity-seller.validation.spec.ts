@@ -25,7 +25,7 @@ const baseEntity = (): LegalEntitySellerRecord => ({
   registration_number: null,
   registration_court: null,
   representatives: null,
-  payment_terms_days: null,
+  payment_terms_days: 14,
   payment_terms_text: null,
 });
 
@@ -149,6 +149,31 @@ describe('legal-entity-seller.validation', () => {
           paymentTermsDays: 400,
         }),
       ).toThrow(BadRequestException);
+    });
+
+    it('rejects null paymentTermsDays because legal entity payment terms are mandatory', () => {
+      expect(() =>
+        buildLegalEntitySellerUpdateData(baseEntity(), {
+          paymentTermsDays: null as unknown as number,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a partial update when the stored payment terms are null', () => {
+      expect(() =>
+        buildLegalEntitySellerUpdateData(
+          { ...baseEntity(), payment_terms_days: null },
+          { name: 'Renamed GmbH' },
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('accepts explicit 0 paymentTermsDays (due on receipt)', () => {
+      const data = buildLegalEntitySellerUpdateData(baseEntity(), {
+        paymentTermsDays: 0,
+      });
+
+      expect(data.payment_terms_days).toBe(0);
     });
 
     it('validates DE tax identifiers', () => {

@@ -294,6 +294,7 @@
     "INVOICE_DISCOUNT_INVALID": "Der Rabatt-Typ oder Rabattwert ist ungültig.",
     "INVOICE_DISCOUNT_LINE_NOT_FOUND": "Die Rabattposition gehört nicht zu dieser Rechnung.",
     "INVOICE_NOT_DRAFT": "Rabatte können nur auf Rechnungsentwürfen geändert werden.",
+    "INVOICE_PAYMENT_TERMS_MISSING": "Für den Kunden oder den Betrieb ist kein Zahlungsziel hinterlegt. Bitte ergänzen Sie die Zahlungsfrist.",
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": "Die Eigentümerschaft der Rechnungsquelle hat sich während der Buchung geändert.",
     "LABOR_CATEGORY_UNKNOWN": "Die Arbeitskategorie wurde nicht gefunden. Bitte prüfen Sie die Kategorie; der Import erfolgt ohne Kategorie.",
     "LABOR_NOT_AVAILABLE": "Arbeitsposition erfordert einen konfigurierten Arbeitsvorgang.",

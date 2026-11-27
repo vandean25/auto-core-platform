@@ -538,7 +538,7 @@ model LegalEntity {
   registration_number              String?
   registration_court               String?
   representatives                  String?
-  payment_terms_days               Int?
+  payment_terms_days               Int                                   @default(14)
   payment_terms_text               String?
   rksv_mode                        RksvMode                              @default(OFF)
   sites                            Site[]

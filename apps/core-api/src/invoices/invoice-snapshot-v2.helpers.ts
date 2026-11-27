@@ -641,10 +641,18 @@ export function assertSupportedTaxProfile(taxMode: InvoiceTaxMode): void {
   }
 }
 
+import {
+  INVOICE_PAYMENT_TERMS_MISSING_CODE,
+  resolveInvoicePaymentTermsDays,
+} from './invoice-snapshot-v2.js';
+
+export { resolveInvoicePaymentTermsDays };
+
 export async function loadAndValidateSeller(
   tx: Prisma.TransactionClient,
   tenantId: string,
   legalEntityId: string,
+  customer?: Pick<Customer, 'payment_terms_days'>,
 ): Promise<LegalEntity> {
   const seller = await tx.legalEntity.findFirst({
     where: {
@@ -659,6 +667,10 @@ export async function loadAndValidateSeller(
       message: 'Seller legal entity is missing or inactive.',
       missingFields: ['legal_entity'],
     });
+  }
+
+  if (customer) {
+    resolveInvoicePaymentTermsDays(customer, seller);
   }
 
   const sellerReadiness = computeSellerReadiness(seller);
@@ -890,6 +902,19 @@ export function computeInvoiceDates(
   supplyTo: Date;
   dueDate: Date;
 } {
+  if (
+    paymentDays === null ||
+    paymentDays === undefined ||
+    !Number.isInteger(paymentDays) ||
+    paymentDays < 0
+  ) {
+    throw new UnprocessableEntityException({
+      code: INVOICE_PAYMENT_TERMS_MISSING_CODE,
+      message:
+        'Payment terms days must be configured on the customer or legal entity before issuing an invoice.',
+    });
+  }
+
   const invoiceDay = calendarDateInTimeZone(invoice.date, timeZone);
   // Noon UTC maps to the exact same calendar day in every timezone from UTC-11 to UTC+11.
   const defaultSupplyDate = new Date(`${invoiceDay}T12:00:00.000Z`);

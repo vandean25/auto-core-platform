@@ -45,6 +45,7 @@ import {
   loadAndValidateSeller,
   resolveBrandingSnapshot,
   resolveInvoiceLineAllocations,
+  resolveInvoicePaymentTermsDays,
   type InvoiceCommitmentContext,
   type InvoiceSourceIdentity,
 } from './invoice-snapshot-v2.helpers.js';
@@ -172,6 +173,7 @@ export class InvoiceSnapshotCommitService {
       tx,
       tenantId,
       ownership.legalEntityId,
+      invoice.customer,
     );
     assertCustomerComplete(invoice.customer);
     assertAtHighValueBusinessRecipientUid({
@@ -194,9 +196,13 @@ export class InvoiceSnapshotCommitService {
     );
 
     const timeZone = await resolveSiteTimeZone(tx, tenantId, ownership.siteId);
+    const paymentDays = resolveInvoicePaymentTermsDays(
+      invoice.customer,
+      seller,
+    );
     const { supplyFrom, supplyTo, dueDate } = computeInvoiceDates(
       invoice,
-      seller.payment_terms_days ?? 0,
+      paymentDays,
       timeZone,
     );
 

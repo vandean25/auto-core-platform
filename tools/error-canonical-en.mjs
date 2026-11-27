@@ -257,6 +257,8 @@ export const CANONICAL_EN_MESSAGES = {
     'The person who requested the extraction is no longer available.',
   SETTLEMENT_INVOICE_HAS_CREDIT_NOTES:
     'This invoice has finalized credit notes and cannot be settled.',
+  INVOICE_PAYMENT_TERMS_MISSING:
+    'No payment term is set for the customer or the business. Please add a payment term.',
   ACP_RKSV_UNAVAILABLE:
     'ACP RKSV (fiskaly) is not yet available in this environment.',
 }

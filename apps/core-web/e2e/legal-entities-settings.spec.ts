@@ -233,5 +233,94 @@ test.describe('Legal entities seller settings', () => {
       contentType: 'image/png',
     });
   });
+
+  test('WHEN clearing payment terms THEN UI shows field error and blocks PATCH', async ({
+    page,
+  }, testInfo) => {
+    const corePage = new AutoCorePage(page, 'Legal Entity');
+    const mockEntity = createMockLegalEntity();
+    const mockProfile = createMockAccountingProfile({
+      legal_entity_id: mockEntity.id,
+      tenant_id: mockEntity.tenant_id,
+    });
+    let patchCount = 0;
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([mockEntity]),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/legal-entities/${mockEntity.id}`),
+      async (route) => {
+        if (route.request().method() === 'PATCH') {
+          patchCount += 1;
+          await route.fulfill({
+            status: 400,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'paymentTermsDays must be an integer between 0 and 365' }),
+          });
+          return;
+        }
+        await route.continue();
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(
+        `/api/legal-entities/${mockEntity.id}/accounting-profile`,
+      ),
+      async (route) => {
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(mockProfile),
+          });
+          return;
+        }
+        await route.continue();
+      },
+    );
+
+    await corePage.navigate('/settings/legal-entities');
+
+    const paymentTermsInput = page.getByLabel(
+      DE_SETTINGS.legalEntities.seller.fields.paymentTermsDays,
+    );
+    await expect(paymentTermsInput).toBeVisible();
+    await paymentTermsInput.scrollIntoViewIfNeeded();
+    await paymentTermsInput.fill('');
+
+    const fieldError = page.locator('#seller-payment-days-error');
+    await expect(fieldError).toBeVisible();
+    await expect(fieldError).toHaveText(
+      DE_SETTINGS.legalEntities.seller.errors.paymentTermsDaysRequired,
+    );
+    await expect(paymentTermsInput).toHaveAttribute('aria-invalid', 'true');
+    // Wait past the 750 ms autosave debounce so a missing guard would have fired the PATCH.
+    await page.waitForTimeout(1200);
+    expect(patchCount).toBe(0);
+
+    await testInfo.attach('payment-terms-days-required-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await paymentTermsInput.scrollIntoViewIfNeeded();
+    await expect(fieldError).toBeVisible();
+    await testInfo.attach('payment-terms-days-required-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });
 

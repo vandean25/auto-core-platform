@@ -309,6 +309,8 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     expect(invoice.site_id).toBe(siteId);
     expect(invoice.legal_entity_id).toBeTruthy();
+    // AUT-1088: finalize never persists a null due_date (sales source).
+    expect(invoice.due_date).not.toBeNull();
     expect(invoice.snapshot).toMatchObject({
       schema_version: 2,
       site_id: siteId,
@@ -564,6 +566,8 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     });
 
     expect(stored.status).toBe('ISSUED');
+    // AUT-1088: issue never persists a null due_date (workshop source).
+    expect(stored.due_date).not.toBeNull();
     expect(stored.site_id).toBe(siteId);
     expect(stored.snapshot).toMatchObject({
       schema_version: 2,
@@ -617,6 +621,8 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       include: { items: true },
     });
 
+    // AUT-1088: vehicle-sale finalize never persists a null due_date.
+    expect(stored.due_date).not.toBeNull();
     expect(stored.site_id).toBe(siteId);
     expect(stored.snapshot).toMatchObject({
       schema_version: 2,

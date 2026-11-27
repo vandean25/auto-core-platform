@@ -6984,7 +6984,7 @@ export interface components {
             registration_number?: string | null;
             registration_court?: string | null;
             representatives?: string | null;
-            payment_terms_days?: number | null;
+            payment_terms_days: number;
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
             /** @enum {string} */

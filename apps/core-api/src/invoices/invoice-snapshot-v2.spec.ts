@@ -481,6 +481,43 @@ describe('buildInvoiceSnapshotV2', () => {
       expect(snapshot.supply_date_to).toBe(expectedDay);
     },
   );
+
+  it('prefers customer payment_terms_days over seller payment_terms_days', () => {
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: buildInvoice({
+        customer: {
+          ...buildInvoice().customer,
+          payment_terms_days: 30,
+        },
+      }),
+      seller,
+      siteId: 'site-1',
+      legalEntityId: seller.id,
+      lineAllocations: [buildLineAllocation()],
+    });
+
+    expect(snapshot.payment_terms.days).toBe(30);
+  });
+
+  it('throws 422 INVOICE_PAYMENT_TERMS_MISSING when neither customer nor seller has payment terms', () => {
+    expect(() =>
+      buildInvoiceSnapshotV2({
+        invoice: buildInvoice({
+          customer: {
+            ...buildInvoice().customer,
+            payment_terms_days: null,
+          },
+        }),
+        seller: {
+          ...seller,
+          payment_terms_days: null as unknown as number,
+        },
+        siteId: 'site-1',
+        legalEntityId: seller.id,
+        lineAllocations: [buildLineAllocation()],
+      }),
+    ).toThrow('Payment terms days must be configured');
+  });
 });
 
 describe('isInvoiceSnapshotV2 branding validation', () => {
