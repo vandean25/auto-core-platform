@@ -197,7 +197,14 @@ test.describe('Vehicle detail on a phone (AUT-792)', () => {
     })
 
     await page.setViewportSize({ width: 1280, height: 800 })
-    await expect(panel.getByRole('columnheader', { name: deVehicles.detail.tables.serviceOrderNumber })).toBeVisible()
+    const serviceOrderHeader = panel.getByRole('columnheader', { name: deVehicles.detail.tables.serviceOrderNumber })
+    await expect(serviceOrderHeader).toBeVisible()
+    await serviceOrderHeader.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await expect(serviceOrderHeader).toBeInViewport()
+    await expect(panel.getByText('WO-2026-1065')).toBeInViewport()
+    await expect(panel.getByText('WO-2026-1066')).toBeInViewport()
+    await expect(panel.getByText('In Bearbeitung', { exact: true })).toBeInViewport()
+    await expect(panel.getByText('Abgeschlossen', { exact: true })).toBeInViewport()
     await testInfo.attach('vehicle-work-orders-de-1280', {
       body: await page.screenshot(),
       contentType: 'image/png',
