@@ -1174,6 +1174,32 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
 
 test.describe('AUT-1063: Kompakte Texte third leftover set (1280px and 375px)', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'acp:dashboard-widgets:e2e-test-user',
+        JSON.stringify([
+          {
+            id: 'veh-list',
+            name: 'Vehicles List',
+            sourceKey: 'vehicles',
+            sourceLabel: 'Vehicles',
+            href: '/vehicles',
+            displayType: 'list',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            id: 'veh-total',
+            name: 'Vehicles Total',
+            sourceKey: 'vehicles',
+            sourceLabel: 'Vehicles',
+            href: '/vehicles',
+            displayType: 'metric',
+            metricCalculation: 'count',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+      )
+    })
     await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
       route.fulfill(
         json({
@@ -1429,9 +1455,14 @@ test.describe('AUT-1063: Kompakte Texte third leftover set (1280px and 375px)', 
       test.setTimeout(60_000)
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
 
-      await page.goto('/')
+      await page.goto('/dashboard')
       await page.waitForLoadState('networkidle')
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: deCommon.dashboard.title })).toBeVisible()
+      const widgetsGrid = page.locator('.dashboard-widgets-grid')
+      await expect(widgetsGrid.getByText('Fahrzeuge Liste')).toBeVisible()
+      await expect(widgetsGrid.getByText('Fahrzeuge Gesamt')).toBeVisible()
+      await expect(widgetsGrid.getByText(deCommon.dashboard.loadingWidget)).toHaveCount(0)
+      await expect(widgetsGrid.getByText(deCommon.dashboard.sources.vehicles, { exact: true })).toHaveCount(0)
       await expect(page.locator('p.text-xs.text-muted-foreground', { hasText: /^Fahrzeuge$/ })).toHaveCount(0)
       await testInfo.attach(`aut-1063-dashboard-de-${viewport.name}`, {
         body: await page.screenshot(),
