@@ -143,7 +143,6 @@ export default function VehicleStockList() {
       <div className={PAGE_HEADER_ROW}>
         <div className="min-w-0 max-sm:w-full">
           <h1 className="text-2xl font-semibold tracking-tight">{t('stockList.title')}</h1>
-          <p className="text-muted-foreground">{t('stockList.description')}</p>
         </div>
         <div className="flex gap-2 max-sm:flex-wrap">
           <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>

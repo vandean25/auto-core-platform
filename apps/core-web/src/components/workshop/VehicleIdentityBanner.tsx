@@ -86,19 +86,20 @@ export function VehicleIdentityBanner({
               <Badge variant='outline'>{vehicle.make}</Badge>
             )}
           </div>
-          <p className='text-xs text-muted-foreground break-words'>
-            {t('vehicleIdentity.keys', { keys: formatIdentityKeys(vehicle.identity_keys) })}
+          <p className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground break-words'>
+            <span>{t('vehicleIdentity.keys', { keys: formatIdentityKeys(vehicle.identity_keys) })}</span>
+            {vehicle.identity_resolved_at && (
+              <span>
+                ·{' '}
+                {t('vehicleIdentity.resolvedAt', {
+                  date: formatDateTime(vehicle.identity_resolved_at),
+                })}
+              </span>
+            )}
+            {!vehicle.vin && (
+              <span className='text-warning'>· {t('vehicleIdentity.vinRequired')}</span>
+            )}
           </p>
-          {vehicle.identity_resolved_at && (
-            <p className='text-xs text-muted-foreground'>
-              {t('vehicleIdentity.resolvedAt', {
-                date: formatDateTime(vehicle.identity_resolved_at),
-              })}
-            </p>
-          )}
-          {!vehicle.vin && (
-            <p className='text-xs text-warning'>{t('vehicleIdentity.vinRequired')}</p>
-          )}
         </div>
 
         <Button

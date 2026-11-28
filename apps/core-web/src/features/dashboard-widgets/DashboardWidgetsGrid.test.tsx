@@ -281,5 +281,17 @@ describe('DashboardWidgetsGrid empty state', () => {
     const infoBtn = screen.getByRole('button', { name: 'Hinweis zum Hinzufügen von Widgets anzeigen' })
     expect(infoBtn).toBeInTheDocument()
   })
+
+  it('WHEN DashboardWidgetsGrid renders THEN source label is not repeated as a widget subtitle', async () => {
+    mocks.widgets = [
+      widget('list', '/vehicles', { name: 'Vehicles List', displayType: 'list' }),
+      widget('total', '/vehicles', { name: 'Vehicles Total', displayType: 'metric', metricCalculation: 'count' }),
+    ]
+    renderGrid()
+
+    await waitFor(() => expect(screen.getByText('Fahrzeuge Liste')).toBeInTheDocument())
+    expect(screen.queryByText('Fahrzeuge')).not.toBeInTheDocument()
+  })
 })
+
 

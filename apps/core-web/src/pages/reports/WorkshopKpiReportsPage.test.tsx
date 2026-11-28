@@ -136,5 +136,16 @@ describe('KPI period on screen', () => {
   it('titles the page in German as Werkstatt-KPIs', () => {
     expect(deReports.workshopKpi.pageTitle).toBe('Werkstatt-KPIs')
   })
+
+  it('WHEN WorkshopKpiReportsPage renders THEN no subtitle sits under the page title and KPI footnote is compact', () => {
+    vi.mocked(useMySites).mockReturnValue({ data: [{ id: 'site-1', name: 'Wien' }] } as never)
+    vi.mocked(useAuthSession).mockReturnValue({ data: { activeSiteId: 'site-1' } } as never)
+    vi.mocked(useWorkshopKpiReport).mockReturnValue({ isLoading: false, isError: false, data: reportData } as never)
+    render(<MemoryRouter><WorkshopKpiReportsPage /></MemoryRouter>)
+
+    expect(screen.queryByText(deReports.workshopKpi.pageDescription)).not.toBeInTheDocument()
+    expect(screen.getByText('Zeitzone: Europe/Vienna · 0 ohne Standort')).toBeInTheDocument()
+  })
 })
+
 
