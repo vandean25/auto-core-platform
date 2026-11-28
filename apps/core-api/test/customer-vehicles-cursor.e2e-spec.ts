@@ -160,6 +160,72 @@ describe('Customer vehicles cursor list (AUT-957 e2e)', () => {
         ]).toEqual([[model], matches]);
       },
     );
+
+    it('rejects offset mode with an active custom field filter fail-closed (400 CUSTOM_FIELD_FILTER_REQUIRES_CURSOR)', async () => {
+      const response = await request(app.getHttpServer())
+        .get(VEHICLES)
+        .set('Authorization', bearer)
+        .query({ page: '1', pageSize: '25', 'cf.bay': 'AB1' })
+        .expect(400);
+      expect(response.body.code).toBe('CUSTOM_FIELD_FILTER_REQUIRES_CURSOR');
+    });
+
+    it('ignores unknown custom keys in offset mode so the list loads', async () => {
+      const response = await request(app.getHttpServer())
+        .get(VEHICLES)
+        .set('Authorization', bearer)
+        .query({ page: '1', pageSize: '25', 'cf.unknown': 'x' })
+        .expect(200);
+      expect(response.body.data).toHaveLength(3);
+    });
+
+    it('ignores active custom filters in offset mode when the custom_fields flag is off', async () => {
+      await basePrisma.tenant.update({
+        where: { id: tenant.tenantId },
+        data: { custom_fields_enabled: false },
+      });
+      try {
+        const response = await request(app.getHttpServer())
+          .get(VEHICLES)
+          .set('Authorization', bearer)
+          .query({ page: '1', pageSize: '25', 'cf.bay': 'AB1' })
+          .expect(200);
+        expect(response.body.data).toHaveLength(3);
+      } finally {
+        await basePrisma.tenant.update({
+          where: { id: tenant.tenantId },
+          data: { custom_fields_enabled: true },
+        });
+      }
+    });
+
+    it('sorts filtered vehicles by year in cursor mode across pages', async () => {
+      await prisma.vehicle.updateMany({
+        where: { tenant_id: tenant.tenantId, model: '2' },
+        data: { year: 2024 },
+      });
+      await prisma.vehicle.updateMany({
+        where: { tenant_id: tenant.tenantId, model: '100' },
+        data: { year: 2019 },
+      });
+      const first = await list({
+        'cf.bay[contains]': 'A_',
+        sortField: 'year',
+        sortDirection: 'asc',
+        limit: '1',
+      }).expect(200);
+      const second = await list({
+        'cf.bay[contains]': 'A_',
+        sortField: 'year',
+        sortDirection: 'asc',
+        limit: '1',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+      expect([
+        first.body.data.map((r: { year: number }) => r.year),
+        second.body.data.map((r: { year: number }) => r.year),
+      ]).toEqual([[2019], [2024]]);
+    });
   });
 
   // Regression: a local-time or second-precision cursor value skips or repeats rows that share a createdAt.

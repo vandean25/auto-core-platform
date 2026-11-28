@@ -423,6 +423,10 @@
       "public": true,
       "params": []
     },
+    "CUSTOM_FIELD_FILTER_REQUIRES_CURSOR": {
+      "public": true,
+      "params": []
+    },
     "CUSTOM_FIELD_KEY_CONFLICT": {
       "public": false,
       "params": []

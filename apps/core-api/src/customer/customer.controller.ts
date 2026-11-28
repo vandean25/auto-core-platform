@@ -190,6 +190,7 @@ export class CustomerController {
         customFields,
       );
     }
+    await this.customerList.assertNoOffsetCustomFieldFilters(customFields);
     return findAllCustomersOffset(this.customerService, query);
   }
 

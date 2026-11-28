@@ -6,7 +6,12 @@ import { customerKeys, useCustomers } from './customers'
 import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import type { Customer } from './types'
 
-const CURSOR_SORT_FIELDS: Record<string, string> = { createdAt: 'createdAt' }
+const CURSOR_SORT_FIELDS: Record<string, string> = {
+  createdAt: 'createdAt',
+  company_name: 'company_name',
+  email: 'email',
+  address_city: 'address_city',
+}
 
 const NO_CUSTOMERS: Customer[] = []
 

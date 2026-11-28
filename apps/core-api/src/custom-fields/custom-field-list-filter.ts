@@ -1,4 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { CustomFieldType, type Prisma } from '@prisma/client';
 import { MAX_CUSTOM_FIELD_SELECT_OPTIONS } from './custom-fields.constants.js';
 import {
@@ -104,4 +107,22 @@ export function buildCustomFieldListFilters(
     clauses.push(buildClause(def, operator, params.getAll(name)));
   }
   return clauses;
+}
+
+export function assertNoCustomFieldFiltersInOffsetMode(
+  definitions: readonly CustomFieldDefinitionLike[] | null,
+  params: URLSearchParams | undefined,
+): void {
+  if (!definitions?.length || !params?.size) return;
+  const active = new Set(definitions.map((def) => def.key));
+  for (const name of params.keys()) {
+    if (!name.startsWith('cf.')) continue;
+    const key = name.slice(3).split('[', 1)[0];
+    if (active.has(key)) {
+      throw new BadRequestException({
+        code: 'CUSTOM_FIELD_FILTER_REQUIRES_CURSOR',
+        message: 'Custom field filters require cursor pagination mode.',
+      });
+    }
+  }
 }

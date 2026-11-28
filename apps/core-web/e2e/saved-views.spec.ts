@@ -11,7 +11,7 @@ import enWorkshop from '../../../locales/en/workshop.json' with { type: 'json' }
 import { DE_SHELL } from './helpers/de-shell'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { mockCursorList } from './utils/cursor-list-mock'
-import { createMockCustomer, createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
+import { createMockCustomer, createMockListResponse, createMockVehicleListItem, createMockWorkshopOrder } from './utils/mock-factories'
 import { expectNoPageScroll } from './utils/phone-layout'
 
 test.describe('Saved views mobile (AUT-940)', () => {
@@ -255,6 +255,111 @@ test.describe('Customer custom fields in list views (AUT-1044)', () => {
       await testInfo.attach(`custom-lists-flag-off-${width}`, { body: await page.screenshot(), contentType: 'image/png' })
       await page.keyboard.press('Escape')
     }
+  })
+
+  test('keeps sort headers enabled with a custom filter, honours URL sortField, and reopens a saved view with both', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [])
+    await new AutoCorePage(page, '').navigate('/customers?cf.fleet_no=FL-1044')
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+
+    // Sort button on Name column must remain visible and interactive while cf.* is active
+    const nameSortButton = page.getByRole('button', { name: 'Name', exact: true })
+    await expect(nameSortButton).toBeVisible()
+    const sortedRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname === '/api/customers' &&
+        url.searchParams.get('pagination') === 'cursor' &&
+        url.searchParams.get('cf.fleet_no') === 'FL-1044' &&
+        url.searchParams.get('sortField') === 'company_name'
+      )
+    })
+    await nameSortButton.click()
+    await sortedRequest
+    await expect(page).toHaveURL((url) =>
+      url.searchParams.get('cf.fleet_no') === 'FL-1044' &&
+      url.searchParams.get('sortField') === 'company_name',
+    )
+
+    // Save the filtered + sorted view, navigate away, and reopen it
+    await page.getByRole('button', { name: deCommon.savedViews.saveAria.replace('{{title}}', 'Kunden') }).click()
+    const dialog = page.getByRole('dialog', { name: deCommon.savedViews.title })
+    await dialog.getByLabel(deCommon.savedViews.nameLabel, { exact: true }).fill('Flotte sortiert')
+    await dialog.getByRole('button', { name: deCommon.actions.save, exact: true }).click()
+    await expect(dialog).toBeHidden()
+
+    await new AutoCorePage(page, '').navigate('/customers')
+    const reopenedRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname === '/api/customers' &&
+        url.searchParams.get('pagination') === 'cursor' &&
+        url.searchParams.get('cf.fleet_no') === 'FL-1044' &&
+        url.searchParams.get('sortField') === 'company_name'
+      )
+    })
+    await openCustomerSavedView(page, 'Flotte sortiert')
+    await reopenedRequest
+    await expect(page).toHaveURL((url) =>
+      url.searchParams.get('cf.fleet_no') === 'FL-1044' &&
+      url.searchParams.get('sortField') === 'company_name',
+    )
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+    await testInfo.attach('custom-filter-sorted-desktop', { body: await page.screenshot(), contentType: 'image/png' })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expect(page.getByText('Anna Huber', { exact: true })).toBeVisible()
+    await expectNoPageScroll(page)
+    await testInfo.attach('custom-filter-sorted-375', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+})
+
+test.describe('Vehicle custom fields in list views (AUT-1097)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('acp:ui-language', 'de')
+      window.localStorage.setItem('e2e-custom-fields-enabled', 'true')
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), (route) => route.fulfill({
+      json: [{ id: 'def-veh', entity: 'VEHICLE', key: 'bay', label: 'Stellplatz', type: 'TEXT', options: null, archived: false }],
+    }))
+    await mockCursorList(page, {
+      path: '/api/vehicles',
+      rows: [{ ...createMockVehicleListItem({ make: 'Skoda', model: 'Octavia', year: 2022, plate: 'W-1097-AT' }), custom_fields: { bay: 'A1' } }],
+    })
+  })
+
+  test('keeps cursor-eligible sort headers enabled on vehicles while cf filter is active and applies sortField', async ({ page }, testInfo) => {
+    await mockSavedViews(page, [])
+    await new AutoCorePage(page, '').navigate('/vehicles?cf.bay=A1')
+    await expect(page.getByText('Skoda Octavia', { exact: true })).toBeVisible()
+
+    const yearSortButton = page.getByRole('button', { name: 'Baujahr', exact: true })
+    await expect(yearSortButton).toBeVisible()
+    // Relation sort on Kunde stays disabled while cf.* is active
+    await expect(page.getByRole('button', { name: 'Kunde', exact: true })).toHaveCount(0)
+
+    const sortedRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname === '/api/vehicles' &&
+        url.searchParams.get('pagination') === 'cursor' &&
+        url.searchParams.get('cf.bay') === 'A1' &&
+        url.searchParams.get('sortField') === 'year'
+      )
+    })
+    await yearSortButton.click()
+    await sortedRequest
+    await expect(page).toHaveURL((url) =>
+      url.searchParams.get('cf.bay') === 'A1' &&
+      url.searchParams.get('sortField') === 'year',
+    )
+    await testInfo.attach('vehicle-custom-filter-sorted-desktop', { body: await page.screenshot(), contentType: 'image/png' })
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expect(page.getByText('Skoda Octavia', { exact: true })).toBeVisible()
+    await expectNoPageScroll(page)
+    await testInfo.attach('vehicle-custom-filter-sorted-375', { body: await page.screenshot(), contentType: 'image/png' })
   })
 })
 
