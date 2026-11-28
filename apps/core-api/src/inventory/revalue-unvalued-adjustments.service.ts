@@ -17,6 +17,7 @@ import type {
   RevaluedAdjustmentDto,
 } from './dto/revalue-unvalued-adjustments.dto.js';
 import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
+import { InventoryValuationService } from './inventory-valuation.service.js';
 import { LedgerService } from './ledger.service.js';
 import {
   MANUAL_ADJUSTMENT_REFERENCE,
@@ -64,6 +65,7 @@ export class RevalueUnvaluedAdjustmentsService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
     private readonly mutations: InventoryItemMutationsService,
+    private readonly valuationService: InventoryValuationService,
   ) {}
 
   async run(dryRun: boolean): Promise<RevaluationReportDto> {
@@ -150,6 +152,12 @@ export class RevalueUnvaluedAdjustmentsService {
     siteIds: string[],
     batch: RevaluationCandidate[],
   ): Promise<BatchResult> {
+    // Lock the pools first: the AVG read below is then the average the rows are booked against.
+    await this.valuationService.lockForCostDecision(
+      tx,
+      tenantId,
+      batch.map((c) => ({ siteId: c.site_id, itemId: c.item_id })),
+    );
     const { planned, gaps } = await this.planBatch(tx, tenantId, batch);
     if (planned.length === 0) return { revalued: [], gaps };
 

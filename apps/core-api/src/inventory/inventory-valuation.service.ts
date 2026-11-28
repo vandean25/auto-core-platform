@@ -85,7 +85,7 @@ async function resolveBookingKeys(
   tx: Prisma.TransactionClient,
   tenantId: string,
   nonTransferBookings: ReadonlyArray<{
-    b: ValuationBookingInput;
+    b: Pick<ValuationBookingInput, 'siteId' | 'itemId'>;
     index: number;
   }>,
 ): Promise<{
@@ -242,6 +242,27 @@ export class InventoryValuationService {
    *
    * Never scans historical InventoryTransaction rows.
    */
+  /**
+   * Takes the shared valuation lock and the InventoryValuation row locks (missing rows created empty) for these
+   * site/article pairs, in the same order as prepareAndLockBatch, before the caller reads an average to book at.
+   * A concurrent booking then waits for this transaction instead of moving the pool between the read and the
+   * booking. Re-locking in prepareAndLockBatch later in the same transaction is a no-op.
+   */
+  async lockForCostDecision(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    bookings: ReadonlyArray<{ siteId: string; itemId: string }>,
+  ): Promise<void> {
+    if (bookings.length === 0) return;
+    await acquireValuationSharedLock(tx, tenantId);
+    const { sortedKeys } = await resolveBookingKeys(
+      tx,
+      tenantId,
+      bookings.map((b, index) => ({ b, index })),
+    );
+    await lockAndLoadValuations(tx, tenantId, sortedKeys);
+  }
+
   async prepareAndLockBatch(
     tx: Prisma.TransactionClient,
     tenantId: string,
