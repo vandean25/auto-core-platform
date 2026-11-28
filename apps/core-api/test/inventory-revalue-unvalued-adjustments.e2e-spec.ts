@@ -13,7 +13,9 @@ import {
 } from '@prisma/client';
 import { AuditService } from '../src/audit/audit.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { InventoryItemMutationsService } from '../src/inventory/inventory-item-mutations.service.js';
 import { InventoryValuationService } from '../src/inventory/inventory-valuation.service.js';
+import { LedgerService } from '../src/inventory/ledger.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -456,6 +458,89 @@ describe('Revalue legacy unvalued stock corrections (AUT-1050, e2e)', () => {
       app.get(InventoryValuationService).backfillTenant(f.tenant.tenantId),
     );
     expect(await pool()).toEqual({ valued: '3', average: '10' });
+  });
+
+  // Review e9763508: a receipt that commits between the cost lookup and the valuation lock leaves the valued -3 at the
+  // stale average 4 against a pool at 6, so the average moves to 6.4286. Locking the pool first makes the receipt wait.
+  it('books at the locked average when a receipt arrives while the batch picks its costs', async () => {
+    const f = await createFixture('aut1050-race');
+    const itemId = await createItem(f, 9.99);
+    await f.tenantPrisma.inventoryTransaction.create({
+      data: {
+        tenant_id: f.tenant.tenantId,
+        site_id: f.siteId,
+        item_id: itemId,
+        location_id: f.binId,
+        quantity: 10,
+        type: TransactionType.PURCHASE_RECEIPT,
+        cost_basis: 4,
+      },
+    });
+    await insertLegacyUnvaluedAdjustment(f, {
+      itemId,
+      siteId: f.siteId,
+      binId: f.binId,
+      quantity: -3,
+      onHandAfter: 7,
+    });
+    await runWithTenantContext(f.tenant.tenantId, () =>
+      app.get(InventoryValuationService).backfillTenant(f.tenant.tenantId),
+    );
+
+    const receipt = () =>
+      runWithTenantContext(
+        f.tenant.tenantId,
+        () =>
+          prisma.$transaction((tx) =>
+            app.get(LedgerService).recordTransactions(
+              [
+                {
+                  itemId,
+                  locationId: f.binId,
+                  quantity: 7,
+                  type: TransactionType.PURCHASE_RECEIPT,
+                  costBasis: 8,
+                },
+              ],
+              tx,
+              { authorizedSiteIds: [f.siteId] },
+            ),
+          ),
+        { activeSiteId: f.siteId },
+      );
+    const mutations = app.get(InventoryItemMutationsService);
+    const lookup = mutations.resolveAutomaticAdjustmentCost.bind(mutations);
+    let concurrentReceipt: Promise<void> | undefined;
+    jest
+      .spyOn(mutations, 'resolveAutomaticAdjustmentCost')
+      .mockImplementationOnce(async (...args) => {
+        const cost = await lookup(...args);
+        concurrentReceipt = receipt();
+        // Give the receipt time to commit unless the pool is locked.
+        await Promise.race([
+          concurrentReceipt,
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]);
+        return cost;
+      });
+
+    const res = await revalue(f.token, false).expect(200);
+    await concurrentReceipt;
+
+    expect(res.body.revalued).toEqual([
+      expect.objectContaining({
+        quantity: '-3',
+        unitCost: '4',
+        valueSource: 'AVG',
+      }),
+    ]);
+    expect(await onHand(f, itemId)).toBe('14');
+    const valuation = await f.tenantPrisma.inventoryValuation.findFirstOrThrow({
+      where: { tenant_id: f.tenant.tenantId, catalog_item_id: itemId },
+    });
+    // 7 @ 4 unchanged by the pair, then the receipt: 7 @ 4 + 7 @ 8 = 14 @ 6.
+    expect(valuation.valued_quantity.toString()).toBe('14');
+    expect(valuation.average_unit_cost?.toString()).toBe('6');
   });
 
   // Scenario 2: a rerun that books a second pair (or re-reverses a manually reversed row) fails here.
