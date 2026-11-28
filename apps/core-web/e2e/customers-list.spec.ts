@@ -260,8 +260,20 @@ test.describe('Customers list row navigation (AUT-220)', () => {
       const lines = await readDownloadedCsvLines(page, 'kunden.csv');
       expect(lines).toHaveLength(2002);
       expect(lines[2000]).toContain('Kunde Cap2000');
-      expect(lines[2001]).toBe('Export auf 2.000 Zeilen begrenzt – Filter eingrenzen');
-      await expect(page.getByText('Export auf 2.000 Zeilen begrenzt – Filter eingrenzen')).toBeVisible();
+      const capNotice = 'Export auf 2.000 Zeilen begrenzt – Filter eingrenzen';
+      expect(lines[2001]).toBe(capNotice);
+      const noticeToast = page.locator('[data-sonner-toast]').filter({ hasText: capNotice });
+      await expect(noticeToast).toBeVisible();
+      await expect(noticeToast).toHaveAttribute('data-mounted', 'true');
+      await expect(async () => {
+        const opacity = await noticeToast.evaluate((el) => Number(getComputedStyle(el).opacity));
+        const box = await noticeToast.boundingBox();
+        const viewport = page.viewportSize();
+        expect(opacity).toBe(1);
+        expect(box).toBeTruthy();
+        expect(viewport).toBeTruthy();
+        expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+      }).toPass();
 
       await testInfo.attach('customers-csv-export-capped-de-1280', {
         body: await page.screenshot(),

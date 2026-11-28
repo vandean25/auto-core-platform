@@ -1352,6 +1352,25 @@ describe('DataTable Export CSV (infinite / virtualized)', () => {
     expect(toast.warning).toHaveBeenCalledWith('Export auf 2.000 Zeilen begrenzt – Filter eingrenzen')
   })
 
+  it('WHEN exactly 2,000 rows match (totalCount.isCapped is true, hasNextPage is false) THEN Export CSV exports all 2,000 rows without a cap notice', async () => {
+    render(<InfiniteCsvHarness totalRows={2000} pageSize={200} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    const lines = (await downloadedCsv()).split('\r\n')
+    expect(lines).toHaveLength(2001)
+    expect(lines[0]).toBe('Name;Stufe')
+    expect(lines[2000]).toBe('Kunde 2000 (Aktiv);Standard')
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
   it('WHEN search reduces matches to 3 rows THEN Export CSV exports only those 3 rows', async () => {
     render(<InfiniteCsvHarness totalRows={21} pageSize={50} searchFilter="Kunde 2" />)
 

@@ -76,8 +76,7 @@ type InfinitePageFetchResult = {
 
 export function isInfiniteCsvCapped(infiniteView: DataTableInfiniteView, rowCount: number, hasMoreOverride?: boolean): boolean {
   if (rowCount < INFINITE_LIST_ROW_CAP) return false
-  const hasMore = hasMoreOverride ?? infiniteView.hasNextPage
-  return hasMore || infiniteView.totalCount?.isCapped === true || (infiniteView.totalCount?.count ?? 0) > INFINITE_LIST_ROW_CAP
+  return Boolean(hasMoreOverride ?? infiniteView.hasNextPage)
 }
 
 export async function fetchRemainingInfinitePages(
