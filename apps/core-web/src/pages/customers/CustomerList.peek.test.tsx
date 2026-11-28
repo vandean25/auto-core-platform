@@ -58,7 +58,7 @@ function UrlSearchProbe() {
 }
 
 /** A non-cursor sort keeps the paged offset list this test mocks (AUT-957). */
-const OFFSET_LIST = '/customers?page=2&sortField=company_name&sortDirection=asc'
+const OFFSET_LIST = '/customers?page=2&sortField=last_name&sortDirection=asc'
 
 function renderList(initialEntry = OFFSET_LIST) {
   const queryClient = new QueryClient({

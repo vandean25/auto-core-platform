@@ -76,7 +76,7 @@ test.describe('Vehicle list idles quietly on a phone (AUT-807)', () => {
 
   test('the next page is requested once per click on Next', async ({ page }) => {
     const requests = await mockVehicleList(page)
-    await new AutoCorePage(page, '').navigate('/vehicles?sortField=plate&sortDirection=asc')
+    await new AutoCorePage(page, '').navigate('/vehicles?sortField=customer&sortDirection=asc')
     await expect(page.locator('[data-table-row="true"]').first()).toBeVisible()
 
     await page.getByRole('button', { name: 'Weiter' }).click()
