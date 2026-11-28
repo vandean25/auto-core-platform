@@ -1464,6 +1464,7 @@ test.describe('AUT-1063: Kompakte Texte third leftover set (1280px and 375px)', 
       await expect(widgetsGrid.getByText(deCommon.dashboard.loadingWidget)).toHaveCount(0)
       await expect(widgetsGrid.getByText(deCommon.dashboard.sources.vehicles, { exact: true })).toHaveCount(0)
       await expect(page.locator('p.text-xs.text-muted-foreground', { hasText: /^Fahrzeuge$/ })).toHaveCount(0)
+      await widgetsGrid.scrollIntoViewIfNeeded()
       await testInfo.attach(`aut-1063-dashboard-de-${viewport.name}`, {
         body: await page.screenshot(),
         contentType: 'image/png',
