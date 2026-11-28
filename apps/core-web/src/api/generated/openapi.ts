@@ -263,6 +263,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inventory/revalue-unvalued-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revalue legacy unvalued stock corrections via Gegenbuchung (nachbewertet). QA only; production needs explicit approval. */
+        post: operations["InventoryRevaluationController_revalueUnvaluedAdjustments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/inventory/availability/{sku}": {
         parameters: {
             query?: never;
@@ -6416,6 +6433,42 @@ export interface components {
             error: string;
             code?: string;
         };
+        RevalueUnvaluedAdjustmentsDto: {
+            dryRun: boolean;
+        };
+        /** @enum {string} */
+        StockAdjustmentValueSource: "AVG" | "LAST_EK" | "MANUAL";
+        RevaluedAdjustmentDto: {
+            /** Format: uuid */
+            originalTransactionId: string;
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            locationId: string;
+            quantity: string;
+            unitCost: string;
+            valueSource: components["schemas"]["StockAdjustmentValueSource"];
+            /** Format: uuid */
+            reversalTransactionId: string | null;
+            /** Format: uuid */
+            revaluedTransactionId: string | null;
+        };
+        RevaluationGapDto: {
+            /** Format: uuid */
+            originalTransactionId: string;
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            locationId: string;
+        };
+        RevaluationReportDto: {
+            dryRun: boolean;
+            batchSize: number;
+            revalued: components["schemas"]["RevaluedAdjustmentDto"][];
+            gaps: components["schemas"]["RevaluationGapDto"][];
+            alreadyRevalued: string[];
+            alreadyReversed: string[];
+        };
         GuardedInventoryPricePatchDto: {
             retail_price: number;
             /** Format: int64 */
@@ -6461,8 +6514,6 @@ export interface components {
         TransactionType: "PURCHASE_RECEIPT" | "SALE_ISSUE" | "ADJUSTMENT" | "TRANSFER_IN" | "TRANSFER_OUT" | "INITIAL_BALANCE" | "WORKSHOP_CONSUMPTION";
         /** @enum {string} */
         StockAdjustmentReason: "INVENTORY_COUNT" | "BREAKAGE" | "SHRINKAGE" | "FOUND" | "BOOKING_ERROR" | "OTHER";
-        /** @enum {string} */
-        StockAdjustmentValueSource: "AVG" | "LAST_EK" | "MANUAL";
         InventoryTransactionItemDto: {
             sku: string;
             name: string;
@@ -14326,6 +14377,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GuardedPriceErrorDto"];
+                };
+            };
+        };
+    };
+    InventoryRevaluationController_revalueUnvaluedAdjustments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevalueUnvaluedAdjustmentsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevaluationReportDto"];
                 };
             };
         };

@@ -71,6 +71,13 @@ export const INVENTORY_OPERATIONS: OperationTable = {
   'InventoryController.reverseTransaction': op('stock.adjust', ADMINS, 'site', [
     'fiscal_lock',
   ]),
+  // AUT-1050: books Gegenbuchung + valued ADJUSTMENT pairs dated now; QA only until production is approved.
+  'InventoryRevaluationController.revalueUnvaluedAdjustments': op(
+    'stock.adjust',
+    ADMINS,
+    'site',
+    ['fiscal_lock'],
+  ),
   'InventoryController.updateItem': op('stock.item.update', ADMINS, 'site'),
   'InventoryPriceOperationsController.list': op(
     'stock.item.update',

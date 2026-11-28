@@ -201,4 +201,71 @@ describe('inventory-valuation.math', () => {
     expect(reversed.state.valuedQuantity.toFixed(3)).toBe('10.000');
     expect(reversed.state.averageUnitCost?.toFixed(4)).toBe('4.0000');
   });
+
+  // AUT-1050: unwinding an unvalued +1 that shrank or restarted the pool (valued qty 4 instead of 5 after the new row) fails here.
+  it('leaves the pool untouched for the outbound Gegenbuchung of an unvalued inbound correction', () => {
+    const initial: ValuationState = {
+      averageUnitCost: new Decimal('4.5000'),
+      valuedQuantity: new Decimal('4.000'),
+    };
+
+    const result = applyValuationStep(initial, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: -1,
+      costBasis: null,
+      isReversal: true,
+      revaluationGegenbuchung: true,
+    });
+
+    expect(result.state).toEqual(initial);
+    expect(result.stampedCostBasis).toBeNull();
+    expect(result.isUnvaluedGap).toBe(false);
+  });
+
+  // AUT-1050 review 99b11878: the unvalued -3 already left the pool; a Gegenbuchung that does not put it back makes the new valued row count it twice.
+  it.each([
+    { label: 'a filled pool', valued: '7.000', expected: '10.000' },
+    {
+      label: 'a pool the outbound drained to 0',
+      valued: '0.000',
+      expected: '3.000',
+    },
+  ])(
+    'puts back the quantity of an unvalued outbound at the current average for $label',
+    ({ valued, expected }) => {
+      const result = applyValuationStep(
+        {
+          averageUnitCost: new Decimal('4.0000'),
+          valuedQuantity: new Decimal(valued),
+        },
+        {
+          type: TransactionType.ADJUSTMENT,
+          quantity: 3,
+          costBasis: null,
+          isReversal: true,
+          revaluationGegenbuchung: true,
+        },
+      );
+
+      expect(result.state.valuedQuantity.toFixed(3)).toBe(expected);
+      expect(result.state.averageUnitCost?.toFixed(4)).toBe('4.0000');
+      expect(result.stampedCostBasis).toBeNull();
+      expect(result.isUnvaluedGap).toBe(false);
+    },
+  );
+
+  // AUT-1050: with no average the unvalued outbound removed nothing, so there is nothing to put back.
+  it('puts nothing back when the pool never had an average', () => {
+    const empty = emptyState();
+    const result = applyValuationStep(empty, {
+      type: TransactionType.ADJUSTMENT,
+      quantity: 3,
+      costBasis: null,
+      isReversal: true,
+      revaluationGegenbuchung: true,
+    });
+
+    expect(result.state).toEqual(empty);
+    expect(result.isUnvaluedGap).toBe(false);
+  });
 });

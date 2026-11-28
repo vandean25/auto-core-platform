@@ -7,6 +7,7 @@ import {
   isTransferTransactionType,
   type ValuationState,
 } from './inventory-valuation.math.js';
+import { isRevaluationGegenbuchung } from './revalue-unvalued-adjustments.plan.js';
 
 import Decimal = Prisma.Decimal;
 
@@ -19,6 +20,8 @@ export interface ValuationBookingInput {
   type: TransactionType;
   costBasis?: Decimal | number | string | null;
   isReversal?: boolean;
+  /** AUT-1050 Gegenbuchung of an unvalued correction (see inventory-valuation.math). */
+  revaluationGegenbuchung?: boolean;
 }
 
 export interface PreparedValuationBatch {
@@ -82,7 +85,7 @@ async function resolveBookingKeys(
   tx: Prisma.TransactionClient,
   tenantId: string,
   nonTransferBookings: ReadonlyArray<{
-    b: ValuationBookingInput;
+    b: Pick<ValuationBookingInput, 'siteId' | 'itemId'>;
     index: number;
   }>,
 ): Promise<{
@@ -239,6 +242,27 @@ export class InventoryValuationService {
    *
    * Never scans historical InventoryTransaction rows.
    */
+  /**
+   * Takes the shared valuation lock and the InventoryValuation row locks (missing rows created empty) for these
+   * site/article pairs, in the same order as prepareAndLockBatch, before the caller reads an average to book at.
+   * A concurrent booking then waits for this transaction instead of moving the pool between the read and the
+   * booking. Re-locking in prepareAndLockBatch later in the same transaction is a no-op.
+   */
+  async lockForCostDecision(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    bookings: ReadonlyArray<{ siteId: string; itemId: string }>,
+  ): Promise<void> {
+    if (bookings.length === 0) return;
+    await acquireValuationSharedLock(tx, tenantId);
+    const { sortedKeys } = await resolveBookingKeys(
+      tx,
+      tenantId,
+      bookings.map((b, index) => ({ b, index })),
+    );
+    await lockAndLoadValuations(tx, tenantId, sortedKeys);
+  }
+
   async prepareAndLockBatch(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -296,6 +320,7 @@ export class InventoryValuationService {
         quantity: b.quantity,
         costBasis: b.costBasis,
         isReversal: b.isReversal,
+        revaluationGegenbuchung: b.revaluationGegenbuchung,
       });
 
       stateByKey.set(key, step.state);
@@ -449,6 +474,7 @@ export class InventoryValuationService {
                 quantity: true,
                 type: true,
                 cost_basis: true,
+                note: true,
                 reversal_of_transaction_id: true,
                 createdAt: true,
               },
@@ -489,6 +515,7 @@ export class InventoryValuationService {
           quantity: row.quantity,
           costBasis: row.cost_basis,
           isReversal: row.reversal_of_transaction_id !== null,
+          revaluationGegenbuchung: isRevaluationGegenbuchung(row),
         });
 
         current.state = step.state;
