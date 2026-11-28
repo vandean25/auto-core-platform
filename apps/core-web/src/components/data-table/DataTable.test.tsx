@@ -1193,10 +1193,12 @@ function InfiniteCsvBody({
   totalRows,
   pageSize = 50,
   searchFilter,
+  failNextPage = false,
 }: {
   totalRows: number
   pageSize?: number
   searchFilter?: string
+  failNextPage?: boolean
 }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState(searchFilter ?? '')
@@ -1261,14 +1263,14 @@ function InfiniteCsvBody({
         hasNextPage: query.hasNextPage,
         isFetchingNextPage: query.isFetchingNextPage,
         isFetchNextPageError: query.isFetchNextPageError,
-        fetchNextPage: query.fetchNextPage,
+        fetchNextPage: failNextPage ? () => Promise.reject(new Error('network down')) : query.fetchNextPage,
         totalCount: { count: Math.min(matchingRows.length, 1000), isCapped: matchingRows.length > 1000 },
       }}
     />
   )
 }
 
-function InfiniteCsvHarness(props: { totalRows: number; pageSize?: number; searchFilter?: string }) {
+function InfiniteCsvHarness(props: { totalRows: number; pageSize?: number; searchFilter?: string; failNextPage?: boolean }) {
   const [client] = useState(() => createListClient())
   return (
     <QueryClientProvider client={client}>
@@ -1407,6 +1409,23 @@ describe('DataTable Export CSV (infinite / virtualized)', () => {
       'title',
       'Exportiert alle Treffer des aktuellen Filters (max. 2.000 Zeilen) mit den sichtbaren Spalten',
     )
+  })
+
+  it('WHEN fetchNextPage rejects during CSV export THEN shows error toast and returns button to Export CSV', async () => {
+    render(<InfiniteCsvHarness totalRows={120} pageSize={50} failNextPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(dt.exportCsvFailed)
+    })
+    const button = screen.getByRole('button', { name: dt.exportCsv })
+    expect(button).toBeEnabled()
+    expect(triggerBlobDownload).not.toHaveBeenCalled()
   })
 })
 

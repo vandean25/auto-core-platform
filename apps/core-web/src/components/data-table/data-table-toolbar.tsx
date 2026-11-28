@@ -131,18 +131,23 @@ async function fetchAndTriggerCsvExport<TData extends object>({
   const modelRows = table.getRowModel().rows
   const session = ++exportSessionRef.current
   setIsExporting(true)
-  const outcome = await fetchRemainingInfinitePages(
-    infiniteView,
-    modelRows.length,
-    () => exportSessionRef.current !== session,
-  )
-  if (exportSessionRef.current !== session) return
-  setIsExporting(false)
-  if (outcome.status === 'error') {
-    toast.error(failedMessage)
-    return
+  try {
+    const outcome = await fetchRemainingInfinitePages(
+      infiniteView,
+      modelRows.length,
+      () => exportSessionRef.current !== session,
+    )
+    if (exportSessionRef.current !== session) return
+    if (outcome.status === 'error') {
+      toast.error(failedMessage)
+      return
+    }
+    if (outcome.status === 'done') setExportRender({ capped: outcome.capped, minRows: outcome.minRows })
+  } catch {
+    if (exportSessionRef.current === session) toast.error(failedMessage)
+  } finally {
+    if (exportSessionRef.current === session) setIsExporting(false)
   }
-  if (outcome.status === 'done') setExportRender({ capped: outcome.capped, minRows: outcome.minRows })
 }
 
 function startCsvExport<TData extends object>({
@@ -170,7 +175,7 @@ function startCsvExport<TData extends object>({
 }) {
   const rowCount = table.getRowModel().rows.length
   if (canUseSyncDomCsvExport(infiniteView, enableMobileCsvExport, root, rowCount)) {
-    const csv = buildDataTableCsv(table, root, false)
+    const csv = buildDataTableCsv(table, root)
     if (csv) downloadCsv(csv, getDataTableCsvFileName(csvFileName, saveViewTitle))
     return
   }

@@ -1,6 +1,6 @@
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
-import { cellToText, serializeCsv } from '@/lib/csv'
+import { serializeCsv } from '@/lib/csv'
 import { INFINITE_LIST_ROW_CAP } from '@/lib/infinite-list-query'
 import { getDataTableColumnLabel } from './data-table-column-label'
 import type { DataTableInfiniteView } from './use-data-table-infinite'
@@ -55,14 +55,8 @@ export function buildDataTableCsvFromDom<TData extends object>(
 /**
  * Serialises the cells currently rendered in `root` (used for synchronous offset-page exports when all rows are in DOM).
  */
-export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null, mobile = false): string {
+export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null): string {
   const columns = getDataTableExportColumns(table)
-  if (mobile && root?.querySelector('[data-table-list]')) {
-    const body = table.getRowModel().rows.slice(0, INFINITE_LIST_ROW_CAP).map((row) =>
-      columns.map((column) => cellToText(row.getValue(column.id)).replace(/\s+/g, ' ').trim()),
-    )
-    return serializeCsv([columns.map(getDataTableColumnLabel), ...body])
-  }
   const renderedRows = root ? Array.from(root.querySelectorAll('tbody tr[data-table-row]')) : []
   return buildDataTableCsvFromDom(columns, renderedRows)
 }
@@ -88,7 +82,12 @@ export async function fetchRemainingInfinitePages(
   let loadedCount = initialCount
 
   while (hasMore && loadedCount < INFINITE_LIST_ROW_CAP) {
-    const result = (await infiniteView.fetchNextPage()) as InfinitePageFetchResult | undefined
+    let result: InfinitePageFetchResult | undefined
+    try {
+      result = (await infiniteView.fetchNextPage()) as InfinitePageFetchResult | undefined
+    } catch {
+      return isCancelled() ? { status: 'cancelled' } : { status: 'error' }
+    }
     if (isCancelled()) return { status: 'cancelled' }
     if (!result || result.isError || result.isFetchNextPageError) return { status: 'error' }
     loadedCount = result.data?.pages?.reduce((sum, page) => sum + (page.data?.length ?? 0), 0) ?? loadedCount
