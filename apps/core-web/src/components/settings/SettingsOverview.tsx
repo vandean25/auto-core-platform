@@ -114,12 +114,11 @@ export function SettingsOverview({ visibleTabs }: SettingsOverviewProps) {
                       <Link
                         key={item.id}
                         to={getSettingsSectionPath(item.id)}
-                        className="flex min-h-11 items-start gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex min-h-11 items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
-                        <Icon aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                        <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium text-foreground">{item.label}</div>
-                          <p className="truncate text-xs text-muted-foreground">{item.description}</p>
                         </div>
                       </Link>
                     )

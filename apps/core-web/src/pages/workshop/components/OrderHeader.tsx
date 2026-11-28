@@ -141,7 +141,9 @@ export function OrderTopBar({
   const customerName = getCustomerName(order, t('orderHeader.dealerStock'))
   const vehicleLabel = getVehicleLabel(order)
   const plate = order.vehicle.plate || t('orderHeader.noPlate')
-  const unassigned = t('orderHeader.unassigned')
+  const notSet = t('orderHeader.notSet')
+  const isPromisedSet = Boolean(promisedLabel && promisedLabel !== notSet)
+  const hasAnyMeta = isPromisedSet || Boolean(assignedTechName) || Boolean(bayName)
 
   return (
     <header>
@@ -157,11 +159,13 @@ export function OrderTopBar({
                 {customerName} · {vehicleLabel} · {plate}
               </p>
               <p className='min-w-0 break-words text-sm text-muted-foreground'>
-                {t('orderHeader.promisedMeta', {
-                  promised: promisedLabel,
-                  tech: assignedTechName ?? unassigned,
-                  bay: bayName ?? unassigned,
-                })}
+                {hasAnyMeta
+                  ? t('orderHeader.promisedMeta', {
+                      promised: isPromisedSet ? promisedLabel : '—',
+                      tech: assignedTechName ?? '—',
+                      bay: bayName ?? '—',
+                    })
+                  : t('orderHeader.noScheduleOrAssignment')}
               </p>
               <OrderTopBarLoanerBadge order={order} />
               <OrderTopBarCatalogBanners

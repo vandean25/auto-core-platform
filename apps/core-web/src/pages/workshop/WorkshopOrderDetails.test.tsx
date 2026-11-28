@@ -504,14 +504,16 @@ describe("WorkshopOrderDetails Characterization", () => {
       expect(within(header).getByText(/ABC-123/)).toBeInTheDocument();
     });
 
-    it("shows promised time as Not set and does not render Waiter or KPI labels", () => {
+    it("WHEN a work order has no value set THEN header shows a single compact empty state, not three Nicht gesetzt/Nicht zugewiesen labels", () => {
       renderComponent();
 
       const header = screen.getByRole("banner");
 
       expect(
-        within(header).getByText(/Zugesagter Termin: Nicht gesetzt/),
+        within(header).getByText("Noch nicht terminiert / zugewiesen"),
       ).toBeInTheDocument();
+      expect(within(header).queryByText(/Nicht gesetzt/)).not.toBeInTheDocument();
+      expect(within(header).queryByText(/Nicht zugewiesen/)).not.toBeInTheDocument();
       expect(screen.queryByText("Waiter")).not.toBeInTheDocument();
       expect(screen.queryByText("Total Parts")).not.toBeInTheDocument();
       expect(screen.queryByText("Labor Revenue")).not.toBeInTheDocument();

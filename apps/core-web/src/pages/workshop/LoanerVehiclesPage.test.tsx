@@ -261,4 +261,10 @@ describe('LoanerVehiclesPage', () => {
       })
     })
   })
+
+  it('WHEN LoanerVehiclesPage renders THEN no subtitle sits under the page title', () => {
+    renderPage()
+    expect(screen.queryByText('Flotte verwalten, Buchungen planen und Übergabe/Rückgabe dokumentieren.')).not.toBeInTheDocument()
+  })
 })
+

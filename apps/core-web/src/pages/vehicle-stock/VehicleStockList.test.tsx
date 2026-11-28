@@ -131,5 +131,12 @@ describe('VehicleStockList paging mode', () => {
     expect(screen.getByText('Reserviert')).toBeInTheDocument()
     expect(screen.getByText('2020')).toBeInTheDocument()
   })
+
+  // AUT-1063: Kompakte Texte — no subtitle under page title.
+  it('WHEN VehicleStockList renders THEN no subtitle sits under the page title', () => {
+    renderAt('/vehicle-stock')
+    expect(screen.queryByText(deVehicleStock.stockList.description)).not.toBeInTheDocument()
+  })
 })
+
 

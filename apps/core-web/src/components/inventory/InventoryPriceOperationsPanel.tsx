@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   fenceResultToStatus,
@@ -14,6 +14,7 @@ import {
 } from '@/api/inventory-price-operations'
 import type { InventoryItem } from '@/api/types'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatCurrency } from '@/lib/format'
 import { GuardedPriceStateBadge } from './GuardedPriceStateBadge'
 
@@ -36,6 +37,7 @@ function PriceOperationActions({
 }: OperationActionsProps) {
   const { t } = useTranslation('inventory')
   const isFinal = status !== 'PENDING' && status !== 'UNRESOLVED'
+  const markSeenLabel = t('bulk.adjustPrice.discovery.markSeen')
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -63,15 +65,21 @@ function PriceOperationActions({
         </Button>
       ) : null}
       {isFinal ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="min-h-11 md:min-h-8"
-          onClick={() => onMarkSeen(operation.key)}
-        >
-          {t('bulk.adjustPrice.discovery.markSeen')}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="min-h-11 min-w-11 md:min-h-8 md:min-w-8"
+              aria-label={markSeenLabel}
+              onClick={() => onMarkSeen(operation.key)}
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{markSeenLabel}</TooltipContent>
+        </Tooltip>
       ) : null}
     </div>
   )
@@ -105,7 +113,12 @@ function PriceOperationRow({
     <li className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-foreground">{operation.sku}</span>
+          <span
+            className="max-w-[14ch] truncate font-medium text-foreground sm:max-w-[18ch]"
+            title={operation.sku}
+          >
+            {operation.sku}
+          </span>
           <GuardedPriceStateBadge status={status} />
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">{transition}</p>
