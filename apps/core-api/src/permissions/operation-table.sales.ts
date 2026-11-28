@@ -70,6 +70,11 @@ export const SALES_OPERATIONS: OperationTable = {
     BACK_OFFICE_DEMO_ACCOUNTING,
     'site',
   ),
+  'SalesOrderController.cappedCount': op(
+    'sales.order.read',
+    BACK_OFFICE_DEMO_ACCOUNTING,
+    'site',
+  ),
   'SalesOrderController.findOne': op(
     'sales.order.read',
     BACK_OFFICE_DEMO_ACCOUNTING,

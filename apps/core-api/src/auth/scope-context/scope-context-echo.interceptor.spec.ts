@@ -10,6 +10,8 @@ describe('ScopeContext echo routes (AUT-937)', () => {
       '/api/inventory/capped-count',
       '/api/sales/invoices',
       '/api/sales/invoices/capped-count',
+      '/api/sales-orders',
+      '/api/sales-orders/capped-count',
       '/api/vehicles',
       '/api/vehicles/capped-count',
       '/api/vehicle-stock',

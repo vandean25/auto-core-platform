@@ -33,6 +33,7 @@ type CursorListTable =
   | 'customer'
   | 'externalIdMapping'
   | 'invoice'
+  | 'salesOrder'
   | 'vehicle'
   | 'workshopOrder';
 type CursorListReader = {

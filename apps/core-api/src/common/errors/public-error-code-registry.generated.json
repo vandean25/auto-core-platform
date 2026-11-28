@@ -1367,6 +1367,14 @@
       "public": true,
       "params": []
     },
+    "LIST_PARAMS_UNSUPPORTED": {
+      "public": true,
+      "params": []
+    },
+    "LIST_STATUS_INVALID": {
+      "public": true,
+      "params": []
+    },
     "LOANER_NOT_PERMITTED": {
       "public": true,
       "params": []

@@ -3474,6 +3474,7 @@ model SalesOrder {
   @@unique([tenant_id, order_number]) // tenant-scoped
   @@index([tenant_id])
   @@index([tenant_id, site_id])
+  @@index([tenant_id, site_id, createdAt, id])
   @@index([order_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "sales_orders_order_number_trgm_idx")
   @@map("sales_orders")
 }

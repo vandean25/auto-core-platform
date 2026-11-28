@@ -6,6 +6,7 @@ export {
   cappedCatalogItemListCount,
   cappedCustomerListCount,
   cappedInvoiceListCount,
+  cappedSalesOrderListCount,
   cappedVehicleListCount,
   cappedWorkshopOrderListCount,
 } from './capped-list-count.js';
@@ -14,7 +15,11 @@ export {
   listCursorSortUnsupportedException,
   listCursorStockFilterRequiredException,
 } from './list-cursor.codec.js';
-export { LIST_CURSOR_ENDPOINT } from './list-cursor.constants.js';
+export {
+  LIST_CURSOR_ENDPOINT,
+  LIST_PARAMS_UNSUPPORTED_CODE,
+  LIST_STATUS_INVALID_CODE,
+} from './list-cursor.constants.js';
 export {
   fetchKeysetListPage,
   type CursorSortConfig,

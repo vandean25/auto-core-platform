@@ -343,6 +343,8 @@
     "LIST_CURSOR_PARAM_FORBIDDEN": "Seitenparameter sind beim blockweisen Laden dieser Liste nicht erlaubt.",
     "LIST_CURSOR_SORT_UNSUPPORTED": "Diese Sortierung ist beim listenbasierten Paging nicht verfügbar.",
     "LIST_CURSOR_STOCK_FILTER_REQUIRED": "Für listenbasiertes Paging beim Fahrzeugbestand ist ein Bestandsstatus-Filter erforderlich (ohne Entwurfszeilen).",
+    "LIST_PARAMS_UNSUPPORTED": "Diese Filter- oder Sortierparameter werden beim blockweisen Laden dieser Liste nicht unterstützt.",
+    "LIST_STATUS_INVALID": "Der ausgewählte Statusfilter ist ungültig.",
     "LOANER_NOT_PERMITTED": "Ihre Rolle darf keinen Leihwagen reservieren.",
     "LOCALE_UNSUPPORTED": "Diese Sprache wird für Werkstattbefehle nicht unterstützt.",
     "MANUAL_EXPIRY_AMBIGUITY": "Am selben Tag mehrere manuelle Begutachtungen mit unterschiedlicher Plaketten-Gültigkeit.",
