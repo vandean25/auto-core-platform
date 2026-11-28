@@ -92,3 +92,24 @@ export async function cappedCustomerListCount(
   });
   return cappedCountFromRows(rows);
 }
+
+/**
+ * Bounded match count for the sales order list (ADR-0035 §5 / D8). Takes the transaction client so the
+ * count runs inside the scope-context snapshot (ADR-0038 §4).
+ */
+export async function cappedSalesOrderListCount(
+  db: {
+    salesOrder: Pick<Prisma.TransactionClient['salesOrder'], 'findMany'>;
+  },
+  scope: { tenantId: string; siteId: string },
+  where: Prisma.SalesOrderWhereInput,
+): Promise<CappedListCountResult> {
+  const rows = await db.salesOrder.findMany({
+    where: {
+      AND: [where, { tenant_id: scope.tenantId, site_id: scope.siteId }],
+    },
+    select: { id: true },
+    take: LIST_COUNT_PROBE_TAKE,
+  });
+  return cappedCountFromRows(rows);
+}

@@ -1854,6 +1854,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sales-orders/capped-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bounded match count for the sales order list (ADR-0035) */
+        get: operations["SalesOrderController_cappedCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sales-orders/{id}": {
         parameters: {
             query?: never;
@@ -8348,6 +8365,10 @@ export interface components {
         SalesOrderPaginatedResponseDto: {
             data: components["schemas"]["SalesOrderResponseDto"][];
             meta: components["schemas"]["PaginationMetaDto"];
+        };
+        SalesOrderCursorPageResponseDto: {
+            data: components["schemas"]["SalesOrderResponseDto"][];
+            meta: components["schemas"]["ListCursorPageMetaDto"];
         };
         UpdateSalesOrderDto: {
             /** Format: uuid */
@@ -17500,15 +17521,24 @@ export interface operations {
     SalesOrderController_findAll: {
         parameters: {
             query?: {
+                /** @description Opaque cursor from meta.nextCursor of the previous cursor page */
+                cursor?: string;
+                /** @description Cursor mode only. Default 25, maximum 100. */
+                limit?: number;
                 page?: number;
                 pageSize?: number;
+                /** @description Use `cursor` for keyset paging (pilot). Omit or `offset` keeps the existing page/limit contract. */
+                pagination?: "offset" | "cursor";
                 params?: string;
                 search?: string;
                 sortDirection?: "asc" | "desc";
                 sortField?: string;
                 status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
             };
-            header?: never;
+            header?: {
+                /** @description Required in cursor mode (ADR-0038). */
+                "X-ACP-Scope-Context"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -17519,7 +17549,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SalesOrderPaginatedResponseDto"];
+                    "application/json": components["schemas"]["SalesOrderPaginatedResponseDto"] | components["schemas"]["SalesOrderCursorPageResponseDto"];
                 };
             };
         };
@@ -17543,6 +17573,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SalesOrderResponseDto"];
+                };
+            };
+        };
+    };
+    SalesOrderController_cappedCount: {
+        parameters: {
+            query?: {
+                params?: string;
+                search?: string;
+                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
+            };
+            header: {
+                "X-ACP-Scope-Context": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CappedListCountResponseDto"];
                 };
             };
         };

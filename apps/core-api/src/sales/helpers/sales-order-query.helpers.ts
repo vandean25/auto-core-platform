@@ -13,7 +13,7 @@ export type PublicSalesOrder = Omit<SalesOrderWithRelations, 'vehicle'> & {
   > | null;
 };
 
-const SALES_ORDER_LIST_INCLUDE = {
+export const SALES_ORDER_LIST_INCLUDE = {
   customer: true,
   vehicle: true,
   items: true,

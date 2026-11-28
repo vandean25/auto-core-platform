@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SalesOrderStatus } from '@prisma/client';
+import { ListCursorPageMetaDto } from '../../../common/dto/list-cursor-response.dto.js';
 import { PaginationMetaDto } from '../../../common/dto/paginated-response.dto.js';
 import { CatalogItemResponseDto } from '../../../inventory/dto/inventory-response.dto.js';
 import { CustomerVehicleReferenceDto } from '../../dto/customer-vehicle-reference.dto.js';
@@ -78,4 +79,12 @@ export class SalesOrderPaginatedResponseDto {
 
   @ApiProperty({ type: PaginationMetaDto })
   meta!: PaginationMetaDto;
+}
+
+export class SalesOrderCursorPageResponseDto {
+  @ApiProperty({ type: [SalesOrderResponseDto] })
+  data!: SalesOrderResponseDto[];
+
+  @ApiProperty({ type: ListCursorPageMetaDto })
+  meta!: ListCursorPageMetaDto;
 }

@@ -90,6 +90,13 @@ describe('client-safe HTTP error codes', () => {
     expect(readWebPublicErrorCodes().has('LIST_CURSOR_PARAM_FORBIDDEN')).toBe(true);
   });
 
+  it('lists D5 Sales Orders cursor validation codes in allowlist and public registry', () => {
+    for (const code of ['LIST_PARAMS_UNSUPPORTED', 'LIST_STATUS_INVALID']) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+      expect(readWebPublicErrorCodes().has(code)).toBe(true);
+    }
+  });
+
   it('lists ADR-0038 scope context wire codes', () => {
     for (const code of ['CONTEXT_REQUIRED', 'CONTEXT_MISMATCH']) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
