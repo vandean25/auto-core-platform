@@ -5,6 +5,10 @@ import {
   Prisma,
   type Invoice,
 } from '@prisma/client';
+import {
+  computeInvoiceBalance,
+  type InvoiceBalanceInput,
+} from '../finance/receivables/invoice-balance.js';
 import { isInvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.validation.js';
 import type { InvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
 import { SETTLEMENT_ERROR_CODES } from './settlement.constants.js';
@@ -75,11 +79,29 @@ function settlementNotInSlice(message: string): UnprocessableEntityException {
   });
 }
 
-export function assertNoFinalizedCreditNotes(finalizedCount: number): void {
-  if (finalizedCount > 0) {
-    throw new UnprocessableEntityException({
-      code: SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
-      message: 'This invoice has finalized credit notes and cannot be settled.',
-    });
+/**
+ * Amount the cash desk collects: the shared outstanding value (same as bank
+ * reconciliation). Refuses when nothing is outstanding or when credit notes
+ * plus payments exceed the gross (no refund flow).
+ */
+export function resolveSettlementAmount(
+  invoice: InvoiceBalanceInput,
+): Prisma.Decimal {
+  const balance = computeInvoiceBalance(invoice);
+  if (balance.signedBalance.lt(0)) {
+    throw nothingOutstanding(
+      'Credit notes and payments exceed the invoice total; refunds are not part of settlement.',
+    );
   }
+  if (balance.outstanding.lte(0)) {
+    throw nothingOutstanding('Nothing is outstanding on this invoice.');
+  }
+  return balance.outstanding;
+}
+
+function nothingOutstanding(message: string): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
+    message,
+  });
 }

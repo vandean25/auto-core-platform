@@ -1803,7 +1803,7 @@
       "public": true,
       "params": []
     },
-    "SETTLEMENT_INVOICE_HAS_CREDIT_NOTES": {
+    "SETTLEMENT_NOTHING_OUTSTANDING": {
       "public": true,
       "params": []
     },

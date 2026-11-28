@@ -452,7 +452,7 @@
     "SENDER_NOT_CONFIGURED": "The sender address is not configured",
     "SESSION_NOT_FOUND": "This command has expired. Please enter it again.",
     "SETTLEMENT_AMOUNT_MISMATCH": "Settlement amount mismatch.",
-    "SETTLEMENT_INVOICE_HAS_CREDIT_NOTES": "This invoice has finalized credit notes and cannot be settled.",
+    "SETTLEMENT_NOTHING_OUTSTANDING": "Nothing is outstanding on this invoice.",
     "SETTLEMENT_NOT_IN_SLICE": "Settlement not in slice.",
     "SITE_MISMATCH": "The specified site is not the active site.",
     "SOURCE_CONFLICT": "Multiple catalogue versions overlap. Manual clarification required.",

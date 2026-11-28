@@ -44199,6 +44199,10 @@
             "type": "string",
             "example": "Europe/Vienna"
           },
+          "outstanding": {
+            "type": "string",
+            "description": "Amount still collectable: gross minus finalized credit notes minus settled payments (never negative). Set on GET only."
+          },
           "payment": {
             "nullable": true,
             "description": "The most recent individual payment. Its amount is the value of that payment.",

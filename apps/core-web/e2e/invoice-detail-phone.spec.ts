@@ -39,13 +39,14 @@ async function mockJson(page: Page, path: string, body: unknown) {
   )
 }
 
-async function openInvoice(page: Page) {
+async function openInvoice(page: Page, settlementExtra: { outstanding?: string } = {}) {
   await mockJson(page, `/api/sales/invoices/${INVOICE_ID}`, issuedInvoice)
   await mockJson(page, `/api/invoices/${INVOICE_ID}/settlement`, {
     invoiceId: INVOICE_ID,
     invoiceStatus: 'ISSUED',
     rksvMode: 'REQUIRED_EXTERNAL_KASSE',
     payment: null,
+    ...settlementExtra,
   })
   await mockJson(page, `/api/invoices/${INVOICE_ID}/credit-notes`, {
     originalInvoiceId: INVOICE_ID,
@@ -120,6 +121,44 @@ test.describe('Invoice detail header on a phone (AUT-777)', () => {
       expect(box.height, name).toBeGreaterThanOrEqual(44)
     }
     await expectNoPageScroll(page)
+  })
+})
+
+// AUT-1069: after a finalized partial credit note the settlement card shows what is still collectable.
+test.describe('Invoice detail settlement outstanding amount (AUT-1069)', () => {
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 375, height: 812 },
+  ]) {
+    test(`WHEN a partial credit note leaves 100,00 outstanding on a 120,00 invoice at ${viewport.width}px THEN the card shows Offen: € 100,00 and the settle button fits`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize(viewport)
+      await openInvoice(page, { outstanding: '100.00' })
+
+      await expect(page.getByText('Offen: € 100,00')).toBeVisible()
+      const record = page.getByRole('button', { name: deFinance.actions.recordSettlement })
+      await expect(record).toBeVisible()
+      const box = (await record.boundingBox())!
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+      if (viewport.width < 768) expect(box.height).toBeGreaterThanOrEqual(44)
+      await expectNoPageScroll(page)
+
+      await testInfo.attach(`settlement-outstanding-de-${viewport.width}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+    })
+  }
+
+  test('WHEN a full credit note leaves nothing outstanding THEN the settle button is gone and a short label is shown', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openInvoice(page, { outstanding: '0.00' })
+
+    await expect(page.getByText(deFinance.settlement.nothingOutstanding)).toBeVisible()
+    await expect(page.getByRole('button', { name: deFinance.actions.recordSettlement })).toHaveCount(0)
   })
 })
 

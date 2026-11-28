@@ -48,7 +48,7 @@ function SignedReceiptDetails({
 }
 
 type Props = {
-  totalGross: number
+  outstanding: number
   payment: SettlementPaymentSummary | null | undefined
   rksvMode?: string
   siteTimezone?: string
@@ -67,7 +67,7 @@ export function InvoiceSettlementPanel(props: Props) {
 }
 
 function InvoiceSettlementPanelLoaded({
-  totalGross,
+  outstanding,
   payment,
   rksvMode,
   siteTimezone = 'Europe/Vienna',
@@ -106,7 +106,9 @@ function InvoiceSettlementPanelLoaded({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          {t('settlement.fullSettlement', { amount: formatCurrency(totalGross) })}
+          {outstanding > 0
+            ? t('settlement.outstanding', { amount: formatCurrency(outstanding) })
+            : t('settlement.nothingOutstanding')}
         </p>
         {openReceipt ? (
           <p className="text-sm text-muted-foreground">{t('settlement.openReceiptHint')}</p>

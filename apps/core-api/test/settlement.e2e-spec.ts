@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import {
   CreditNoteStatus,
   InvoiceStatus,
+  Prisma,
   RksvMode,
   TenantMemberRole,
 } from '@prisma/client';
@@ -204,34 +205,62 @@ describe('Settlement credit-note block (e2e)', () => {
     return draftRes.body as { id: string };
   }
 
-  it('WHEN an invoice has a finalized partial credit note and settlement is requested THEN it fails with SETTLEMENT_INVOICE_HAS_CREDIT_NOTES and no fiskaly call is made', async () => {
+  async function finalizedCreditTotal(creditNoteId: string) {
+    const stored = await tenantPrisma.creditNote.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId, id: creditNoteId },
+    });
+    expect(stored.status).toBe(CreditNoteStatus.FINALIZED);
+    return stored.total_gross;
+  }
+
+  async function signedAmounts(invoiceId: string): Promise<string[]> {
+    const receipts = await tenantPrisma.fiscalReceipt.findMany({
+      where: { tenant_id: tenant.tenantId, payment: { invoice_id: invoiceId } },
+    });
+    return receipts.map(
+      (receipt) =>
+        (
+          receipt.request_body as {
+            schema: {
+              standard_v1: {
+                amounts_per_payment_type: Array<{ amount: string }>;
+              };
+            };
+          }
+        ).schema.standard_v1.amounts_per_payment_type[0].amount,
+    );
+  }
+
+  it('WHEN an invoice has a finalized partial credit note and is settled in cash THEN the outstanding amount is collected, the invoice is PAID and no signature for the gross amount is created', async () => {
     const invoice = await createIssuedWorkshopInvoice();
-    await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 1, true);
-    const idempotencyKey = randomUUID();
+    const creditNote = await createCreditNote(
+      invoice.id,
+      invoice.date,
+      invoice.items[0].id,
+      1,
+      true,
+    );
+    const credited = await finalizedCreditTotal(creditNote.id);
+    const outstanding = new Prisma.Decimal(invoice.total_gross)
+      .minus(credited)
+      .toFixed(2);
+    expect(Number(outstanding)).toBeGreaterThan(0);
+    expect(outstanding).not.toBe(Number(invoice.total_gross).toFixed(2));
 
-    const first = await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post(`/api/invoices/${invoice.id}/settlement`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ idempotencyKey, method: 'CASH' })
-      .expect(422);
+      .send({ idempotencyKey: randomUUID(), method: 'CASH' })
+      .expect(201);
 
-    expect(first.body.code).toBe(
-      SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
-    );
-
-    const repeated = await request(app.getHttpServer())
-      .post(`/api/invoices/${invoice.id}/settlement`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ idempotencyKey, method: 'CASH' })
-      .expect(422);
-
-    expect(repeated.body.code).toBe(
-      SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
-    );
-    expect(fiskalyProvider.contractServer.calls).toHaveLength(0);
+    expect(res.body.payment?.status).toBe('SETTLED');
+    expect(res.body.payment?.amount).toBe(outstanding);
+    expect(res.body.invoiceStatus).toBe('PAID');
+    expect(await signedAmounts(invoice.id)).toEqual([outstanding]);
+    expect(fiskalyProvider.contractServer.calls).toHaveLength(1);
   });
 
-  it('WHEN an invoice has a finalized full credit note and settlement is requested THEN it fails with the same code and no RKSV payment line is written', async () => {
+  it('WHEN a full credit note brings the outstanding amount to 0 THEN settlement is refused with SETTLEMENT_NOTHING_OUTSTANDING and nothing is written', async () => {
     const invoice = await createIssuedWorkshopInvoice();
     await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 2, true);
 
@@ -242,13 +271,106 @@ describe('Settlement credit-note block (e2e)', () => {
       .expect(422);
 
     expect(res.body.code).toBe(
-      SETTLEMENT_ERROR_CODES.SETTLEMENT_INVOICE_HAS_CREDIT_NOTES,
+      SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
     );
     const paymentCount = await tenantPrisma.payment.count({
       where: { tenant_id: tenant.tenantId, invoice_id: invoice.id },
     });
     expect(paymentCount).toBe(0);
     expect(fiskalyProvider.contractServer.calls).toHaveLength(0);
+  });
+
+  it('WHEN credited plus paid exceeds the gross amount THEN settlement is rejected (no refund flow), no payment row and no fiscal receipt exist', async () => {
+    const invoice = await createIssuedWorkshopInvoice();
+    const creditNote = await createCreditNote(
+      invoice.id,
+      invoice.date,
+      invoice.items[0].id,
+      2,
+      true,
+    );
+    await tenantPrisma.creditNote.update({
+      where: { id: creditNote.id },
+      data: {
+        total_gross: new Prisma.Decimal(invoice.total_gross).plus(10),
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/invoices/${invoice.id}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ idempotencyKey: randomUUID(), method: 'CASH' })
+      .expect(422);
+
+    expect(res.body.code).toBe(
+      SETTLEMENT_ERROR_CODES.SETTLEMENT_NOTHING_OUTSTANDING,
+    );
+    expect(
+      await tenantPrisma.payment.count({
+        where: { tenant_id: tenant.tenantId, invoice_id: invoice.id },
+      }),
+    ).toBe(0);
+    expect(await signedAmounts(invoice.id)).toEqual([]);
+    expect(fiskalyProvider.contractServer.calls).toHaveLength(0);
+  });
+
+  it('WHEN the same settlement request is repeated after a partial credit note THEN it is idempotent and returns the original payment', async () => {
+    const invoice = await createIssuedWorkshopInvoice();
+    await createCreditNote(invoice.id, invoice.date, invoice.items[0].id, 1, true);
+    const body = { idempotencyKey: randomUUID(), method: 'CASH' };
+
+    const first = await request(app.getHttpServer())
+      .post(`/api/invoices/${invoice.id}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
+      .expect(201);
+    const repeated = await request(app.getHttpServer())
+      .post(`/api/invoices/${invoice.id}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(repeated.body.payment.id).toBe(first.body.payment.id);
+    expect(repeated.body.payment.amount).toBe(first.body.payment.amount);
+    expect(
+      await tenantPrisma.payment.count({
+        where: { tenant_id: tenant.tenantId, invoice_id: invoice.id },
+      }),
+    ).toBe(1);
+    expect(fiskalyProvider.contractServer.calls).toHaveLength(1);
+  });
+
+  it('WHEN the settlement GET is read after a finalized partial credit note THEN it exposes the outstanding amount', async () => {
+    const invoice = await createIssuedWorkshopInvoice();
+    const creditNote = await createCreditNote(
+      invoice.id,
+      invoice.date,
+      invoice.items[0].id,
+      1,
+      true,
+    );
+    const credited = await finalizedCreditTotal(creditNote.id);
+
+    const res = await request(app.getHttpServer())
+      .get(`/api/invoices/${invoice.id}/settlement`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(res.body.outstanding).toBe(
+      new Prisma.Decimal(invoice.total_gross).minus(credited).toFixed(2),
+    );
+  });
+
+  it("WHEN another tenant tries to settle this tenant's invoice THEN it gets 404", async () => {
+    const invoice = await createIssuedWorkshopInvoice();
+    const otherTenant = await createTestTenant(prisma, 'aut1069b');
+    const otherToken = createTestAuthToken(authService, otherTenant);
+
+    await request(app.getHttpServer())
+      .post(`/api/invoices/${invoice.id}/settlement`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ idempotencyKey: randomUUID(), method: 'CASH' })
+      .expect(404);
   });
 
   it('WHEN an invoice has only a draft credit note THEN settlement succeeds as before', async () => {

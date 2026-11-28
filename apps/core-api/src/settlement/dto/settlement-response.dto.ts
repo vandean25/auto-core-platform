@@ -97,6 +97,12 @@ export class SettlementResponseDto {
   siteTimezone?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Amount still collectable: gross minus finalized credit notes minus settled payments (never negative). Set on GET only.',
+  })
+  outstanding?: string;
+
+  @ApiPropertyOptional({
     type: SettlementPaymentSummaryDto,
     nullable: true,
     description:

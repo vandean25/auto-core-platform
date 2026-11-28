@@ -13304,6 +13304,8 @@ export interface components {
             rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
             /** @example Europe/Vienna */
             siteTimezone?: string;
+            /** @description Amount still collectable: gross minus finalized credit notes minus settled payments (never negative). Set on GET only. */
+            outstanding?: string;
             /** @description The most recent individual payment. Its amount is the value of that payment. */
             payment?: components["schemas"]["SettlementPaymentSummaryDto"] | null;
             /** @description Bank allocation history. Sum SETTLED entries for the active bank payment total. */

@@ -1012,6 +1012,7 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
           invoiceId: 'inv-compact-2',
           invoiceStatus: 'ISSUED',
           rksvMode: 'REQUIRED_EXTERNAL_KASSE',
+          outstanding: '96.00',
           payment: null,
         }),
       ),
@@ -1158,7 +1159,9 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
         await page.goto('/sales/invoices/inv-compact-2')
         await page.waitForLoadState('networkidle')
         await expect(
-          page.getByText(language === 'de' ? 'Volle EUR-Abrechnung (€ 96,00)' : 'Full EUR settlement (€ 96,00)'),
+          page.getByText(
+            (language === 'de' ? deFinance : enFinance).settlement.outstanding.replace('{{amount}}', '€ 96,00'),
+          ),
         ).toBeVisible()
         await expect(
           page.getByText(language === 'de' ? /für die Werkstattrechnung/ : /for the workshop invoice/),

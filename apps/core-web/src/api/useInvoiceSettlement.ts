@@ -78,6 +78,8 @@ export type SettlementResponse = {
   invoiceStatus: string
   rksvMode?: 'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV'
   siteTimezone?: string
+  /** Gross minus finalized credit notes minus settled payments; set on GET only. */
+  outstanding?: string
   payment: SettlementPaymentSummary | null
 }
 
