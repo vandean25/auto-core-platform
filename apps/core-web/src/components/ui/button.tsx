@@ -21,10 +21,11 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
+        // 44px touch targets below sm by default; opt out on dense desktop-only surfaces with `max-sm:min-h-0` (and `max-sm:min-w-0` for `icon`).
+        default: "h-9 max-sm:min-h-11 px-4 py-2",
+        sm: "h-8 max-sm:min-h-11 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        icon: "h-9 w-9 max-sm:min-h-11 max-sm:min-w-11",
       },
     },
     defaultVariants: {
