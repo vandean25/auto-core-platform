@@ -683,6 +683,116 @@ describe('DashboardGateway', () => {
     expect(emittedPayload.tenantId).toBeUndefined();
   });
 
+  function createRoomRoutingHarness() {
+    const rooms = new Map<string, Set<Socket>>();
+    const emittedRooms: string[] = [];
+    const deliveries = new Map<
+      Socket,
+      Array<{ event: string; payload: unknown }>
+    >();
+
+    const registerSocket = (
+      id: string,
+      tenantId: string,
+      userId: string,
+    ): Socket => {
+      const client = createClient();
+      const events: Array<{ event: string; payload: unknown }> = [];
+      deliveries.set(client, events);
+      Object.assign(client, {
+        id,
+        data: { tenantId, userId },
+        join: jest.fn<(room: string) => Promise<void>>(async (room: string) => {
+          let members = rooms.get(room);
+          if (!members) {
+            members = new Set();
+            rooms.set(room, members);
+          }
+          members.add(client);
+        }),
+      });
+      return client;
+    };
+
+    const to = jest.fn<Server['to']>((room: string | string[]) => {
+      const targetRooms = Array.isArray(room) ? room : [room];
+      return asFake<ReturnType<Server['to']>>({
+        emit: (event: string, payload: unknown) => {
+          for (const r of targetRooms) {
+            emittedRooms.push(r);
+            for (const member of rooms.get(r) ?? []) {
+              deliveries.get(member)?.push({ event, payload });
+            }
+          }
+          return true;
+        },
+      });
+    });
+
+    gateway.server = asFake<Server>({ to });
+    return { registerSocket, deliveries, emittedRooms };
+  }
+
+  it('delivers site-scoped entity_updated only to sockets in that site room once', async () => {
+    const { registerSocket, deliveries, emittedRooms } =
+      createRoomRoutingHarness();
+    const socketSiteA = registerSocket('socket-a', 'tenant-a', 'user-a');
+    const socketSiteB = registerSocket('socket-b', 'tenant-a', 'user-b');
+
+    siteContext.resolveSiteId
+      .mockResolvedValueOnce('site-a')
+      .mockResolvedValueOnce('site-b');
+    await gateway.handleConnection(socketSiteA);
+    await gateway.handleConnection(socketSiteB);
+
+    const payload: DashboardEntityUpdatedPayload = {
+      type: 'PAYMENT',
+      action: 'UPDATED',
+      entityId: 'pay-1',
+      siteId: 'site-a',
+      status: 'CAPTURED',
+      timestamp: new Date().toISOString(),
+    };
+
+    gateway.emitEntityUpdated('tenant-a', payload);
+
+    expect(emittedRooms).toEqual(['site_site-a']);
+    expect(deliveries.get(socketSiteA)).toEqual([
+      { event: DASHBOARD_ENTITY_UPDATED_EVENT, payload },
+    ]);
+    expect(deliveries.get(socketSiteB)).toEqual([]);
+  });
+
+  it('delivers tenant-wide entity_updated to all tenant sockets once', async () => {
+    const { registerSocket, deliveries, emittedRooms } =
+      createRoomRoutingHarness();
+    const socketSiteA = registerSocket('socket-a', 'tenant-a', 'user-a');
+    const socketSiteB = registerSocket('socket-b', 'tenant-a', 'user-b');
+
+    siteContext.resolveSiteId
+      .mockResolvedValueOnce('site-a')
+      .mockResolvedValueOnce('site-b');
+    await gateway.handleConnection(socketSiteA);
+    await gateway.handleConnection(socketSiteB);
+
+    const payload: DashboardEntityUpdatedPayload = {
+      type: 'CUSTOMER',
+      action: 'UPDATED',
+      entityId: 'cust-1',
+      timestamp: new Date().toISOString(),
+    };
+
+    gateway.emitEntityUpdated('tenant-a', payload);
+
+    expect(emittedRooms).toEqual(['tenant_tenant-a']);
+    expect(deliveries.get(socketSiteA)).toEqual([
+      { event: DASHBOARD_ENTITY_UPDATED_EVENT, payload },
+    ]);
+    expect(deliveries.get(socketSiteB)).toEqual([
+      { event: DASHBOARD_ENTITY_UPDATED_EVENT, payload },
+    ]);
+  });
+
   it('emits claims refresh events only to the affected user room', () => {
     const emit = jest.fn<(event: string, payload: Record<string, unknown>) => boolean>();
     const to = jest
