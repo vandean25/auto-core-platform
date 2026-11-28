@@ -113,4 +113,42 @@ test.describe('UI primitives: 44px touch targets below sm (AUT-1058)', () => {
       contentType: 'image/png',
     })
   })
+
+  test('dense opt-out keeps sm Button (32px) and SelectTrigger (40px) compact at 375px', async ({ page }, testInfo) => {
+    await page.route(/\/api\/vehicle-stock(\/reports.*)?(\?|$)/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [],
+          meta: { total: 0, page: 1, limit: 20, pageCount: 1 },
+          summary: { over_90_count: 0, bucket_counts: {} },
+        }),
+      }),
+    )
+
+    await page.setViewportSize(PHONE)
+    await new AutoCorePage(page, '').navigate('/vehicle-stock/reports')
+
+    const smButton = page.getByRole('button', { name: deVehicleStock.reports.filtersAll, exact: true })
+    const selectTrigger = page.getByRole('combobox', { name: deVehicleStock.reports.inventoryRolePlaceholder })
+    await expect(smButton).toBeVisible()
+    await expect(selectTrigger).toBeVisible()
+
+    for (const locator of [smButton, selectTrigger]) {
+      await locator.evaluate((el) => {
+        el.classList.remove('max-sm:min-h-11')
+        el.classList.add('max-sm:min-h-0')
+      })
+    }
+
+    const smBox = (await smButton.boundingBox())!
+    const selectBox = (await selectTrigger.boundingBox())!
+    expect(Math.round(smBox.height), 'opted-out sm button height at 375px').toBe(32)
+    expect(Math.round(selectBox.height), 'opted-out SelectTrigger height at 375px').toBe(40)
+    await testInfo.attach('primitives-opt-out-dense-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
 })
