@@ -100,8 +100,8 @@ export function DataTableToolbar<TData extends object>({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2" data-testid="data-table-toolbar">
-      {/* Full width on a phone, so the search hint is not cut off by the buttons next to it. */}
-      <div className="flex flex-1 flex-wrap items-center gap-2 max-sm:basis-full">
+      {/* Full width below md (phones and 200% zoom), so the search hint is not cut off by the buttons next to it. */}
+      <div className="flex flex-1 flex-wrap items-center gap-2 max-md:basis-full">
         <DataTableToolbarSearch table={table} searchColumn={searchColumn} placeholder={filterPlaceholder} />
         <DataTableColumnFilters table={table} />
         {toolbarFilters}
