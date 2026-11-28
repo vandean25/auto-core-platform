@@ -19,7 +19,7 @@ export function DataTableToolbarSearch<TData extends object>({
         placeholder={placeholder}
         value={(table.getColumn(searchColumn)?.getFilterValue() as string) ?? ''}
         onChange={(event) => table.getColumn(searchColumn)?.setFilterValue(event.target.value)}
-        className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
+        className="h-11 md:h-8 md:w-[220px] lg:w-[250px]"
       />
     )
   }
@@ -29,7 +29,7 @@ export function DataTableToolbarSearch<TData extends object>({
       placeholder={placeholder}
       value={(table.getState().globalFilter as string) ?? ''}
       onChange={(event) => table.setGlobalFilter(event.target.value)}
-      className="h-11 md:h-8 md:w-[150px] lg:w-[250px]"
+      className="h-11 md:h-8 md:w-[220px] lg:w-[250px]"
     />
   )
 }

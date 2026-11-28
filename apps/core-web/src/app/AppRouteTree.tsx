@@ -9,6 +9,15 @@ import { LazyNamespaceLayout } from '@/features/i18n/LazyNamespaceLayout'
 import { WorkshopNamespaceLayout } from '@/features/workshop/WorkshopNamespaceLayout'
 import { CapabilityGate } from '@/components/CapabilityGate'
 import { LightDocumentRoute } from '@/components/theme/LightDocumentRoute'
+import { useAuthSession } from '@/api/auth-session'
+
+function BankReconciliationGate({ fallback, children }: { fallback: React.ReactNode; children: React.ReactNode }) {
+  const session = useAuthSession().data
+  const allowed =
+    session?.bankReconciliationEnabled === true &&
+    (session.activeRole === 'OWNER' || session.activeRole === 'ADMIN')
+  return allowed ? <>{children}</> : <>{fallback}</>
+}
 
 export function AppRoutes() {
   const { search, hash } = useLocation()
@@ -115,6 +124,16 @@ export function AppRoutes() {
                 <Route path={APP_ROUTE_PATHS.creditNotes} element={<Lazy.CreditNotesPage />} />
                 <Route path={APP_ROUTE_PATHS.creditNoteDetail} element={<Lazy.CreditNoteDetailPage />} />
                 <Route path={APP_ROUTE_PATHS.accountingExportReadiness} element={<Lazy.AccountingExportReadinessPage />} />
+                <Route
+                  path={APP_ROUTE_PATHS.bankReconciliation}
+                  element={
+                    <BankReconciliationGate fallback={<Lazy.NotFoundPage />}>
+                      <React.Suspense fallback={<PageLoader />}>
+                        <Lazy.BankReconciliationPage />
+                      </React.Suspense>
+                    </BankReconciliationGate>
+                  }
+                />
                 <Route path={APP_ROUTE_PATHS.purchaseInvoiceNew} element={<Lazy.PurchaseInvoiceCreatePage />} />
               </Route>
               <Route element={<LazyNamespaceLayout namespaces={['settings']} />}>

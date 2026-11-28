@@ -402,4 +402,222 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
     await testInfo.attach('aut-1066-invoice-list-empty-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
   });
+
+  test('AUT-1062: WHEN /sales/invoices?sortField=number&sortDirection=desc is opened with issued and draft rows THEN it stays in infinite mode without classic page buttons (desktop and 375px)', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const mixedRows = [
+      { ...invoiceRows[0], id: 'inv-2', invoice_number: 'RE-2026-0002', draft_number: 'RE-D-2' },
+      { ...invoiceRows[0], id: 'inv-1', invoice_number: 'RE-2026-0001', draft_number: 'RE-D-1' },
+      { ...invoiceRows[0], id: 'draft-115', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-115' },
+      { ...invoiceRows[0], id: 'draft-100', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-100' },
+      { ...invoiceRows[0], id: 'draft-99', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-99' },
+      { ...invoiceRows[0], id: 'draft-56', status: 'DRAFT', invoice_number: null, draft_number: 'RE-D-56' },
+    ];
+    const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: mixedRows, unpaged: 'array' });
+    await openList(page, '?sortField=number&sortDirection=desc');
+
+    await expect(page.getByText('RE-2026-0002')).toBeVisible();
+    await expect(page.getByText('RE-D-115')).toBeVisible();
+    await expect(pageButtons(page)).toHaveCount(0);
+    const first = requests.list.find((url) => url.searchParams.get('pagination') === 'cursor');
+    expect(first?.searchParams.get('sortField')).toBe('invoice_number');
+    expect(first?.searchParams.get('sortDirection')).toBe('desc');
+    expect(requests.list.every((url) => url.searchParams.get('pagination') === 'cursor')).toBe(true);
+    await testInfo.attach('aut-1062-invoice-list-number-desc-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.getByText('RE-D-115')).toBeVisible();
+    expect(await pageOverflow(page)).toBe(0);
+    await testInfo.attach('aut-1062-invoice-list-number-desc-de-375', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  const sameDayCluster = [
+    { ...invoiceRows[0], id: 'inv-0001', invoice_number: 'RE-2026-0001', date: '2026-03-01T10:00:00.000Z' },
+    { ...invoiceRows[0], id: 'inv-0012', invoice_number: 'RE-2026-0012', date: '2026-01-01T08:00:00.000Z' },
+    { ...invoiceRows[0], id: 'inv-0011', invoice_number: 'RE-2026-0011', date: '2026-01-01T14:00:00.000Z' },
+    { ...invoiceRows[0], id: 'inv-0010', invoice_number: 'RE-2026-0010', date: '2026-01-01T10:00:00.000Z' },
+  ];
+
+  test('AUT-967 scenario 1: WHEN the default invoice list opens with same-date issued invoices THEN they appear in invoice_number descending order', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: sameDayCluster, unpaged: 'array' });
+    await openList(page, '');
+
+    await expect(page.getByText('RE-2026-0012')).toBeVisible();
+    const first = requests.list.find((url) => url.searchParams.get('pagination') === 'cursor');
+    expect(first?.searchParams.get('sortField')).toBe('date');
+    expect(first?.searchParams.get('sortDirection')).toBe('desc');
+
+    const renderedNumbers = await page
+      .locator('tbody tr[data-table-row="true"]')
+      .evaluateAll((rows) => rows.map((row) => /RE-2026-\d{4}/.exec(row.textContent ?? '')?.[0] ?? null));
+    expect(renderedNumbers).toEqual(['RE-2026-0001', 'RE-2026-0012', 'RE-2026-0011', 'RE-2026-0010']);
+    await testInfo.attach('aut-967-invoice-list-same-date-desc-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('AUT-967 scenario 2: WHEN the invoice list is sorted by date ascending THEN same-date invoices appear in invoice_number ascending order', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const ascRows = [sameDayCluster[3], sameDayCluster[2], sameDayCluster[1], sameDayCluster[0]];
+    const requests = await mockCursorList(page, { path: '/api/sales/invoices', rows: ascRows, unpaged: 'array' });
+    await openList(page, '?sortField=date&sortDirection=asc');
+
+    await expect(page.getByText('RE-2026-0010')).toBeVisible();
+    const first = requests.list.find((url) => url.searchParams.get('pagination') === 'cursor');
+    expect(first?.searchParams.get('sortField')).toBe('date');
+    expect(first?.searchParams.get('sortDirection')).toBe('asc');
+
+    const renderedNumbers = await page
+      .locator('tbody tr[data-table-row="true"]')
+      .evaluateAll((rows) => rows.map((row) => /RE-2026-\d{4}/.exec(row.textContent ?? '')?.[0] ?? null));
+    expect(renderedNumbers).toEqual(['RE-2026-0010', 'RE-2026-0011', 'RE-2026-0012', 'RE-2026-0001']);
+    await testInfo.attach('aut-967-invoice-list-same-date-asc-de-1280', { body: await page.screenshot(), contentType: 'image/png' });
+  });
+
+  test('AUT-967 scenario 5: WHEN a new invoice is issued while the list is open THEN Liste aktualisieren appears in German without reshuffling', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const draftId = '600ad785-64af-43ce-9fbd-9ce37b2c0c41';
+    const draftRow = {
+      ...invoiceRows[0],
+      id: draftId,
+      status: 'DRAFT',
+      invoice_number: null,
+      draft_number: 'RE-D-1042',
+      sales_order_id: 'so-1',
+      items: [
+        {
+          id: 'item-1',
+          description: 'Bremsbeläge',
+          quantity: 1,
+          unit_price: '100.00',
+          tax_rate: '20.00',
+          total_net: '100.00',
+          total_tax: '20.00',
+          total_gross: '120.00',
+        },
+      ],
+    };
+    const issuedRow = { ...draftRow, status: 'FINALIZED', invoice_number: 'RE-2026-0012' };
+    let currentRows = [sameDayCluster[3], draftRow];
+
+    await mockCursorList(page, {
+      path: '/api/sales/invoices',
+      rows: currentRows,
+      unpaged: 'array',
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices/capped-count'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(e2eCappedCountBody(currentRows.length)),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales/invoices'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(e2eCursorPageBody(currentRows)),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${draftId}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentRows.find((row) => row.id === draftId) ?? draftRow),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales-orders/so-1'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'so-1', order_number: 'AU-2026-0001', status: 'COMPLETED', invoice_id: null }),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${draftId}/finalize`), async (route) => {
+      currentRows = [issuedRow, sameDayCluster[3]];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(issuedRow),
+      });
+    });
+
+    await openList(page, '');
+    await expect(page.getByText('RE-2026-0010')).toBeVisible();
+    await expect(page.getByText('RE-D-1042')).toBeVisible();
+
+    await page.getByText('RE-D-1042').click();
+    await expect(page).toHaveURL(new RegExp(`/sales/invoices/${draftId}/edit$`));
+
+    await page.getByRole('button', { name: DE_SALES.invoices.draft.finalize }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: DE_SALES.invoiceEditor.finalizeDialog.confirm }).click();
+    await expect(page).toHaveURL(new RegExp(`/sales/invoices/${draftId}$`));
+
+    await page.locator('a[href="/sales/invoices"]').first().click();
+    await expect(page).toHaveURL(/\/sales\/invoices$/);
+
+    const refreshButton = page.getByRole('button', { name: DE_COMMON.dataTable.refreshList });
+    await expect(refreshButton).toBeVisible();
+    await expect(page.getByText('RE-D-1042')).toBeVisible();
+    await expect(page.getByText('RE-2026-0012')).toHaveCount(0);
+    await testInfo.attach('aut-967-invoice-list-refresh-button-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await refreshButton.click();
+    await expect(page.getByText('RE-2026-0012')).toBeVisible();
+  });
+
+  // AUT-1065: WHEN the invoice list renders at 200% zoom (1280px viewport) THEN the search placeholder is readable and the total is visible without horizontal scroll.
+  test('WHEN the invoice list renders at 200% zoom (1280px viewport) THEN the search placeholder is readable and the total is visible without horizontal scroll', async ({ page }, testInfo) => {
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 5), unpaged: 'array' });
+    await page.setViewportSize({ width: 640, height: 800 });
+    await openList(page, '');
+
+    const searchInput = page.getByPlaceholder(DE_SALES.invoices.list.searchPlaceholder);
+    await expect(searchInput).toBeVisible();
+    const hiddenWidth = await searchInput.evaluate((node: HTMLInputElement) => {
+      const style = getComputedStyle(node);
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const textWidth = context.measureText(node.placeholder).width;
+      const room = node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return Math.max(0, Math.ceil(textWidth - room));
+    });
+    expect(hiddenWidth, 'pixels of invoice search placeholder cut off at 200% zoom').toBe(0);
+
+    const firstTotal = page.getByText(/€\s*120,00|120,00\s*€/).first();
+    await expect(firstTotal).toBeVisible();
+    const totalBox = (await firstTotal.boundingBox())!;
+    expect(totalBox.x).toBeGreaterThanOrEqual(0);
+    expect(totalBox.x + totalBox.width).toBeLessThanOrEqual(640);
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+
+    await testInfo.attach('invoice-list-zoom-200-de-640', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.getByRole('columnheader', { name: DE_SALES.invoices.list.columns.total })).toBeVisible();
+    await testInfo.attach('invoice-list-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });

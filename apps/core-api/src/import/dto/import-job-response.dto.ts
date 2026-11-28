@@ -33,6 +33,12 @@ export class ImportJobTotalsDto {
 
   @ApiPropertyOptional({ type: Number })
   flagged_jumps?: number;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'number' },
+  })
+  custom_field_counts?: Record<string, number>;
 }
 
 export class ImportJobResponseDto {

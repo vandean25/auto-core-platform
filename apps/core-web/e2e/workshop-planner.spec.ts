@@ -258,6 +258,85 @@ test.describe('Blueprint: Workshop Planner', () => {
       page.getByRole('button', { name: P.grid.bookSlot.replace('{{label}}', '07:30') }),
     ).toHaveCount(0)
   })
+
+  // AUT-1065: WHEN /workshop/planner renders at 390px THEN every bay row, including its chips, is fully visible.
+  test('WHEN /workshop/planner renders at 390px THEN every bay row, including its chips, is fully visible', async ({
+    page,
+  }, testInfo) => {
+    const bay1 = createMockBay({ id: 'bay-1065-1', name: 'Bay 1', isActive: true, sortOrder: 1 })
+    const bay2 = createMockBay({ id: 'bay-1065-2', name: 'Bay 2', isActive: true, sortOrder: 2 })
+    const plannerWithTwoBays = {
+      ...mockPlanner,
+      bays: [bay1, bay2],
+      bookings: [
+        {
+          orderId: 'order-1065-1',
+          orderNumber: 'WO-2026-1065',
+          status: 'SCHEDULED',
+          occupancyKind: 'BOOKING',
+          bayId: bay1.id,
+          mechanicId: 'mech-1',
+          mechanicName: 'Max Mustermann',
+          scheduledStartAt: '2026-08-21T07:00:00.000Z',
+          scheduledEndAt: '2026-08-21T09:00:00.000Z',
+          vehicle: { id: 'v-1', make: 'VW', model: 'Golf', plate: 'W-1065A' },
+          customer: { id: 'c-1', name: 'Kunde Eins' },
+        },
+        {
+          orderId: 'order-1065-2',
+          orderNumber: 'WO-2026-1066',
+          status: 'IN_PROGRESS',
+          occupancyKind: 'BOOKING',
+          bayId: bay2.id,
+          mechanicId: 'mech-2',
+          mechanicName: 'Anna Gruber',
+          scheduledStartAt: '2026-08-21T08:00:00.000Z',
+          scheduledEndAt: '2026-08-21T10:00:00.000Z',
+          vehicle: { id: 'v-2', make: 'Audi', model: 'A4', plate: 'W-1065B' },
+          customer: { id: 'c-2', name: 'Kunde Zwei' },
+        },
+      ],
+    }
+
+    await page.setViewportSize({ width: 390, height: 812 })
+    await setupPlannerRoutes(page, plannerWithTwoBays)
+    await new AutoCorePage(page, P.page.title).navigate('/workshop/planner?date=2026-08-21')
+
+    for (const orderId of ['order-1065-1', 'order-1065-2']) {
+      const chip = page.getByTestId(`planner-booking-${orderId}`)
+      await expect(chip).toBeVisible()
+      const geometry = await chip.evaluate((el) => {
+        const chipBox = el.getBoundingClientRect()
+        const gridContainer = el.closest('.overflow-x-auto')
+        const gridBox = gridContainer?.getBoundingClientRect()
+        return {
+          chipBottom: chipBox.bottom,
+          chipTop: chipBox.top,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+          gridBottom: gridBox ? gridBox.bottom : null,
+          gridTop: gridBox ? gridBox.top : null,
+        }
+      })
+      expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight + 1)
+      if (geometry.gridBottom !== null && geometry.gridTop !== null) {
+        expect(geometry.chipTop).toBeGreaterThanOrEqual(geometry.gridTop - 1)
+        expect(geometry.chipBottom).toBeLessThanOrEqual(geometry.gridBottom + 1)
+      }
+    }
+
+    await testInfo.attach('workshop-planner-de-390', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await expect(page.getByTestId('planner-booking-order-1065-2')).toBeVisible()
+    await testInfo.attach('workshop-planner-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
 })
 
 test.describe('AUT-1035: Workshop planner touch drag-and-drop', () => {

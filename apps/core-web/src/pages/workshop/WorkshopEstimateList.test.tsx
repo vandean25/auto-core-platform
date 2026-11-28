@@ -129,6 +129,7 @@ describe('WorkshopEstimateList', () => {
     fireEvent.click(screen.getByTestId('estimate-status-chip-APPROVED'))
     expect(vi.mocked(estimateApi.useWorkshopEstimateList)).toHaveBeenLastCalledWith({ status: 'APPROVED' })
 
+    fireEvent.click(screen.getByTestId('estimate-filters-toggle'))
     fireEvent.click(screen.getByRole('checkbox', { name: text.filters.showOlder }))
     expect(vi.mocked(estimateApi.useWorkshopEstimateList)).toHaveBeenLastCalledWith({ status: 'SUPERSEDED' })
     expect(screen.getByTestId('estimate-status-chip-ALL')).toBeDisabled()
@@ -184,5 +185,17 @@ describe('WorkshopEstimateList', () => {
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById('estimate-secondary-filters')).toBeInTheDocument()
+  })
+
+  it('WHEN /workshop/estimates opens THEN the secondary filter form is collapsed on all viewports', () => {
+    mockList([row({})])
+    renderList()
+
+    const toggle = screen.getByTestId('estimate-filters-toggle')
+    expect(toggle).not.toHaveClass('sm:hidden')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById('estimate-secondary-filters')).toBeNull()
   })
 })
+

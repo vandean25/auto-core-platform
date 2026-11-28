@@ -21,9 +21,23 @@ export const invoiceKeys = {
     cappedCount: (filters: InvoiceCursorFilters) => [...invoiceKeys.all, 'capped-count', filters] as const,
 }
 
-/** Sorts the invoice cursor API approves; customer, status and total keep the unpaged list (ADR-0035 §3). */
+const KNOWN_INVOICE_CURSOR_SORTS = new Set(['date', 'invoice_number', 'number'])
+const UNPAGED_INVOICE_SORTS = new Set(['customer', 'status', 'total_gross'])
+
+/**
+ * Known cursor sorts may fall back to the unpaged list via the ADR-0038 offset latch if the server rejects them.
+ * Unknown sort fields stay on the cursor list and surface the API 400 error.
+ */
+export function isKnownInvoiceCursorSort(sortField?: string): boolean {
+    return sortField === undefined || KNOWN_INVOICE_CURSOR_SORTS.has(sortField)
+}
+
+/**
+ * Sorts the invoice cursor API approves; customer, status and total keep the unpaged list (ADR-0035 §3).
+ * Unknown sort fields stay in cursor mode so the API rejects them instead of silently falling back.
+ */
 export function isInvoiceCursorSort(sortField?: string): boolean {
-    return sortField === undefined || sortField === 'invoice_number' || sortField === 'date'
+    return sortField === undefined || !UNPAGED_INVOICE_SORTS.has(sortField)
 }
 
 /** Infinite invoice list (cap 2,000 rows) with its capped count; idle while the unpaged list is in charge. */
@@ -35,10 +49,15 @@ function invoiceCursorEpisodeKey(params: InvoiceCursorParams) {
     })
 }
 
-export function useInvoiceCursorList(params: InvoiceCursorParams, enabled: boolean) {
+export function useInvoiceCursorList(
+    params: InvoiceCursorParams,
+    enabled: boolean,
+    options?: { allowOffsetLatch?: boolean },
+) {
     const filters = { search: params.search }
     return useCursorList<Invoice>({
         enabled,
+        allowOffsetLatch: options?.allowOffsetLatch,
         path: '/api/sales/invoices',
         countPath: '/api/sales/invoices/capped-count',
         semanticEpisodeKey: invoiceCursorEpisodeKey(params),

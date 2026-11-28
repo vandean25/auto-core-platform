@@ -26,6 +26,10 @@ import {
 } from './import-row-snapshot.util.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
+import {
+  mergeCustomFieldValuesForUpdate,
+  pickIncomingCustomFields,
+} from './import-custom-fields.util.js';
 import type { ImportJobOptions } from './import.types.js';
 import { toImportFirstRegistrationDate } from './vehicle-import-apply-fields.js';
 
@@ -84,6 +88,7 @@ async function createVehicle(
   const registrationDate = Object.hasOwn(payload, 'first_registration_date')
     ? toImportFirstRegistrationDate(payload.first_registration_date)
     : undefined;
+  const createCf = pickIncomingCustomFields(payload);
   const created = await tx.vehicle.create({
     data: withPlateNormalized({
       tenant_id: ctx.tenantId,
@@ -98,6 +103,7 @@ async function createVehicle(
       ...(registrationDate !== undefined
         ? { first_registration_date: registrationDate ?? null }
         : {}),
+      ...(createCf ? { custom_fields: createCf as Prisma.InputJsonValue } : {}),
     }),
   });
   const customerId = (payload.customer_id as string | null | undefined) ?? null;
@@ -135,7 +141,13 @@ async function createVehicle(
     created.id,
     AuditLogAction.CREATE,
     null,
-    pickVehicleImportAuditSnapshot({ ...created, customer_id: customerId }),
+    {
+      ...pickVehicleImportAuditSnapshot({
+        ...created,
+        customer_id: customerId,
+      }),
+      ...(createCf ? { custom_fields: created.custom_fields ?? createCf } : {}),
+    },
   );
 }
 
@@ -153,17 +165,23 @@ async function updateVehicle(
   if (!before) {
     throw new ApplyRowStaleError();
   }
+  const incomingCf = pickIncomingCustomFields(payload);
+  const options = (ctx.job.options_json as ImportJobOptions) ?? {};
   const beforeSnapshot = {
     ...pickVehicleImportAuditSnapshot(before),
     first_registration_date: before.first_registration_date
       ? before.first_registration_date.toISOString().slice(0, 10)
       : null,
+    ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
   };
-  const updateData = buildVehicleUpdateData(
-    before,
-    payload,
-    (ctx.job.options_json as ImportJobOptions) ?? {},
-  );
+  const updateData = buildVehicleUpdateData(before, payload, options);
+  if (incomingCf) {
+    updateData.custom_fields = mergeCustomFieldValuesForUpdate(
+      before.custom_fields,
+      incomingCf,
+      options.fill_empty_only === true,
+    ) as Prisma.InputJsonValue;
+  }
   const after = await tx.vehicle.update({
     where: { id: entityId },
     data: withPlateNormalized(updateData),
@@ -192,8 +210,14 @@ async function updateVehicle(
     'Vehicle',
     after.id,
     AuditLogAction.UPDATE,
-    pickVehicleImportAuditSnapshot(before),
-    pickVehicleImportAuditSnapshot(after),
+    {
+      ...pickVehicleImportAuditSnapshot(before),
+      ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
+    },
+    {
+      ...pickVehicleImportAuditSnapshot(after),
+      ...(incomingCf ? { custom_fields: after.custom_fields } : {}),
+    },
   );
 }
 

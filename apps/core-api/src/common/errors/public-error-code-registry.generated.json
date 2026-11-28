@@ -435,6 +435,10 @@
       "public": false,
       "params": []
     },
+    "CUSTOM_FIELD_PURPOSE_REQUIRED": {
+      "public": false,
+      "params": []
+    },
     "CUSTOM_FIELD_SELECT_OPTIONS_REQUIRED": {
       "public": false,
       "params": []
@@ -1169,6 +1173,10 @@
     },
     "INVOICE_NOT_DRAFT": {
       "public": false,
+      "params": []
+    },
+    "INVOICE_PAYMENT_TERMS_MISSING": {
+      "public": true,
       "params": []
     },
     "INVOICE_SOURCE_OWNERSHIP_CHANGED": {

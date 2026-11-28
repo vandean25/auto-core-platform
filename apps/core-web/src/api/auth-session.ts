@@ -64,11 +64,14 @@ function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
   const activeSiteId = siteOverride ? siteOverride : e2eAuthSession.activeSiteId
   const customFieldsEnabled =
     window.localStorage.getItem('e2e-custom-fields-enabled') === 'true'
+  const bankReconciliationEnabled =
+    window.localStorage.getItem('e2e-bank-reconciliation-enabled') === 'true'
 
   return {
     ...e2eAuthSession,
     activeRole,
     activeSiteId,
+    bankReconciliationEnabled,
     customFieldsEnabled,
   }
 }

@@ -256,6 +256,8 @@ export const CANONICAL_EN_MESSAGES = {
   BRAND_REQUESTER_UNAVAILABLE:
     'The person who requested the extraction is no longer available.',
   SETTLEMENT_NOTHING_OUTSTANDING: 'Nothing is outstanding on this invoice.',
+  INVOICE_PAYMENT_TERMS_MISSING:
+    'No payment term is set for the customer or the business. Please add a payment term.',
   ACP_RKSV_UNAVAILABLE:
     'ACP RKSV (fiskaly) is not yet available in this environment.',
 }

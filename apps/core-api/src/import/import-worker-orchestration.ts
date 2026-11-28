@@ -52,6 +52,10 @@ import {
 } from './import-csv-stream.util.js';
 import { mergeTechnicalRetryBatch } from './import-technical-retry.js';
 import { deleteImportJobUpload } from './import-upload-delete.util.js';
+import {
+  accumulateRowsCustomFieldCounts,
+  initCustomFieldCounts,
+} from './import-totals.util.js';
 
 export type ImportWorkerOrchestrationDeps = {
   logger: Logger;
@@ -418,6 +422,61 @@ export class ImportWorkerOrchestration {
     );
   }
 
+  private async collectBackgroundDryRunFinalTotals(
+    tenantId: string,
+    jobId: string,
+    handler: ImportTypeHandler,
+    mapping: Record<string, string>,
+    initialTotals: ImportJobTotals,
+  ): Promise<ImportJobTotals> {
+    const { jobStore } = this.deps;
+    const customFieldCounts = initCustomFieldCounts(mapping);
+    const hasCustomFields = Object.keys(customFieldCounts).length > 0;
+    if (!handler.finishCreate && !hasCustomFields) {
+      return initialTotals;
+    }
+    let finalTotals = initialTotals;
+    const pageSize = readImportWorkerBatchSize();
+    let skip = 0;
+    while (true) {
+      const [batch] = await jobStore.findRowsPage(
+        { tenant_id: tenantId, import_job_id: jobId },
+        skip,
+        pageSize,
+      );
+      if (batch.length === 0) {
+        break;
+      }
+      const dryRunRows = batch.map((row) => ({
+        row_no: row.row_no,
+        external_id: row.external_id,
+        action: row.action,
+        entity_id: row.entity_id,
+        errors: (row.errors_json as never[]) ?? [],
+        warnings: (row.warnings_json as never[]) ?? [],
+        normalized: row.normalized_json as Record<string, unknown> | null,
+      }));
+      if (hasCustomFields) {
+        accumulateRowsCustomFieldCounts(dryRunRows, customFieldCounts);
+      }
+      if (handler.finishCreate) {
+        finalTotals = await handler.finishCreate({
+          tenantId,
+          jobId,
+          rows: dryRunRows,
+          totals: finalTotals,
+        });
+      }
+      skip += batch.length;
+      if (batch.length < pageSize) {
+        break;
+      }
+    }
+    return hasCustomFields
+      ? { ...finalTotals, custom_field_counts: customFieldCounts }
+      : finalTotals;
+  }
+
   async completeBackgroundDryRun(
     tenantId: string,
     jobId: string,
@@ -430,40 +489,14 @@ export class ImportWorkerOrchestration {
     if (!job) {
       return;
     }
-    let finalTotals = totalsOverride ?? (job.totals_json as ImportJobTotals);
-    if (handler.finishCreate) {
-      const pageSize = readImportWorkerBatchSize();
-      let skip = 0;
-      while (true) {
-        const [batch] = await jobStore.findRowsPage(
-          { tenant_id: tenantId, import_job_id: jobId },
-          skip,
-          pageSize,
-        );
-        if (batch.length === 0) {
-          break;
-        }
-        const dryRunRows = batch.map((row) => ({
-          row_no: row.row_no,
-          external_id: row.external_id,
-          action: row.action,
-          entity_id: row.entity_id,
-          errors: (row.errors_json as never[]) ?? [],
-          warnings: (row.warnings_json as never[]) ?? [],
-          normalized: row.normalized_json as Record<string, unknown> | null,
-        }));
-        finalTotals = await handler.finishCreate({
-          tenantId,
-          jobId,
-          rows: dryRunRows,
-          totals: finalTotals,
-        });
-        skip += batch.length;
-        if (batch.length < pageSize) {
-          break;
-        }
-      }
-    }
+    const mapping = (job.mapping_json ?? {}) as Record<string, string>;
+    const finalTotals = await this.collectBackgroundDryRunFinalTotals(
+      tenantId,
+      jobId,
+      handler,
+      mapping,
+      totalsOverride ?? (job.totals_json as ImportJobTotals),
+    );
     const optionsForPersist = { ...options };
     delete (optionsForPersist as { worker?: unknown }).worker;
     const finished = await jobStore.finishDryRunIfStillApplying(

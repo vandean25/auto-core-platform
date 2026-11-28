@@ -99,6 +99,7 @@ describe('buildInvoiceSnapshotV2', () => {
         tenant_id: 'tenant-1',
         invoice_number: 'RE-2026-0001',
         draft_number: 'RE-D-1',
+    draft_number_seq: 1,
         customer_id: customer.id,
         vehicle_id: null,
         sales_order_id: 'so-1',
@@ -109,6 +110,7 @@ describe('buildInvoiceSnapshotV2', () => {
         tax_mode: InvoiceTaxMode.STANDARD,
         status: InvoiceStatus.FINALIZED,
         date: new Date('2026-09-20T10:00:00.000Z'),
+        date_day: new Date('2026-09-20T00:00:00.000Z'),
         due_date: new Date('2026-10-04T10:00:00.000Z'),
         supply_date_from: new Date('2026-09-20T00:00:00.000Z'),
         supply_date_to: new Date('2026-09-20T00:00:00.000Z'),
@@ -481,6 +483,43 @@ describe('buildInvoiceSnapshotV2', () => {
       expect(snapshot.supply_date_to).toBe(expectedDay);
     },
   );
+
+  it('prefers customer payment_terms_days over seller payment_terms_days', () => {
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: buildInvoice({
+        customer: {
+          ...buildInvoice().customer,
+          payment_terms_days: 30,
+        },
+      }),
+      seller,
+      siteId: 'site-1',
+      legalEntityId: seller.id,
+      lineAllocations: [buildLineAllocation()],
+    });
+
+    expect(snapshot.payment_terms.days).toBe(30);
+  });
+
+  it('throws 422 INVOICE_PAYMENT_TERMS_MISSING when neither customer nor seller has payment terms', () => {
+    expect(() =>
+      buildInvoiceSnapshotV2({
+        invoice: buildInvoice({
+          customer: {
+            ...buildInvoice().customer,
+            payment_terms_days: null,
+          },
+        }),
+        seller: {
+          ...seller,
+          payment_terms_days: null as unknown as number,
+        },
+        siteId: 'site-1',
+        legalEntityId: seller.id,
+        lineAllocations: [buildLineAllocation()],
+      }),
+    ).toThrow('Payment terms days must be configured');
+  });
 });
 
 describe('isInvoiceSnapshotV2 branding validation', () => {
@@ -604,6 +643,7 @@ function buildInvoice(overrides: Partial<InvoiceInput> = {}): InvoiceInput {
     tenant_id: 'tenant-1',
     invoice_number: 'RE-2026-0001',
     draft_number: 'RE-D-1',
+    draft_number_seq: 1,
     customer_id: 'cust-1',
     vehicle_id: null,
     sales_order_id: 'so-1',
@@ -614,6 +654,7 @@ function buildInvoice(overrides: Partial<InvoiceInput> = {}): InvoiceInput {
     tax_mode: InvoiceTaxMode.STANDARD,
     status: InvoiceStatus.FINALIZED,
     date: new Date('2026-09-20T10:00:00.000Z'),
+    date_day: new Date('2026-09-20T00:00:00.000Z'),
     due_date: new Date('2026-10-04T10:00:00.000Z'),
     supply_date_from: new Date('2026-09-20T00:00:00.000Z'),
     supply_date_to: new Date('2026-09-20T00:00:00.000Z'),

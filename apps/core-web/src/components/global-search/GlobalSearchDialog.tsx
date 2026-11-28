@@ -53,7 +53,12 @@ function getSessionSearchMeta(session: ReturnType<typeof useAuthSession>['data']
   if (!session) return { recentKey: null, roleInfo: null, activeSiteId: null }
   return {
     recentKey: recentItemsKey(session.userId, session.activeTenant.id),
-    roleInfo: { platformRole: session.platformRole ?? null, activeRole: session.activeRole, capabilities: selectEffectiveCapabilities(session) },
+    roleInfo: {
+      platformRole: session.platformRole ?? null,
+      activeRole: session.activeRole,
+      capabilities: selectEffectiveCapabilities(session),
+      bankReconciliationEnabled: Boolean(session.bankReconciliationEnabled),
+    },
     activeSiteId: session.activeSiteId ?? null,
   }
 }

@@ -27,6 +27,7 @@ import deCommon from '../../../locales/de/common.json' with { type: 'json' }
 import enCommon from '../../../locales/en/common.json' with { type: 'json' }
 import deNav from '../../../locales/de/nav.json' with { type: 'json' }
 import enNav from '../../../locales/en/nav.json' with { type: 'json' }
+import deReports from '../../../locales/de/reports.json' with { type: 'json' }
 
 const json = (body: unknown) => ({
   status: 200,
@@ -1173,6 +1174,360 @@ test.describe('AUT-1036: Kompakte Texte follow-up (leftover subtitles and helper
     })
   }
 })
+
+test.describe('AUT-1063: Kompakte Texte third leftover set (1280px and 375px)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'acp:dashboard-widgets:e2e-test-user',
+        JSON.stringify([
+          {
+            id: 'veh-list',
+            name: 'Vehicles List',
+            sourceKey: 'vehicles',
+            sourceLabel: 'Vehicles',
+            href: '/vehicles',
+            displayType: 'list',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            id: 'veh-total',
+            name: 'Vehicles Total',
+            sourceKey: 'vehicles',
+            sourceLabel: 'Vehicles',
+            href: '/vehicles',
+            displayType: 'metric',
+            metricCalculation: 'count',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+      )
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/auth/session'), (route) =>
+      route.fulfill(
+        json({
+          userId: 'user-1',
+          email: 'admin@example.com',
+          activeTenant: { id: 'tenant-1', name: 'Test Workshop', slug: 'test-workshop' },
+          activeRole: 'ADMIN',
+          activeSiteId: 'site-1',
+          memberships: [],
+          locale: 'de',
+          effectiveLocale: 'de',
+          defaultLocale: 'de',
+          formatLocale: 'de-AT',
+          effectiveCapabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/me/sites'), (route) =>
+      route.fulfill(json([{ id: 'site-1', name: 'Wien' }])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/resources'), (route) =>
+      route.fulfill(json({ mechanics: [], bays: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/loaners'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'loaner-1',
+              siteId: 'site-1',
+              vehicleId: 'veh-1',
+              displayName: 'Golf Ersatz',
+              status: 'AVAILABLE',
+              dailyRateCents: null,
+              insuranceNote: null,
+              active: true,
+              createdAt: '2026-10-01T10:00:00.000Z',
+              updatedAt: '2026-10-01T10:00:00.000Z',
+              vehicle: { id: 'veh-1', make: 'VW', model: 'Golf', year: 2021, plate: 'W-LOAN 1', vin: null },
+            },
+          ],
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/loaner-bookings'), (route) =>
+      route.fulfill(json({ data: [] })),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/reports/workshop-kpis'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              key: 'm1',
+              period: '2026-10',
+              mechanic_id: 'm1',
+              mechanic_name: 'Müller',
+              available_hours: '10.00',
+              clocked_hours: '7.50',
+              sold_hours: '6.00',
+              labor_net_revenue: '100.00',
+              parts_net_revenue: '25.50',
+              utilisation_percent: '75.00',
+              productivity_percent: '80.00',
+              closed_orders: 2,
+              average_net_revenue_per_order: '125.50',
+              open_labor_entry_count: 0,
+            },
+          ],
+          totals: {
+            key: 'total',
+            period: '2026-10',
+            mechanic_id: null,
+            mechanic_name: null,
+            available_hours: '10.00',
+            clocked_hours: '7.50',
+            sold_hours: '6.00',
+            labor_net_revenue: '100.00',
+            parts_net_revenue: '25.50',
+            utilisation_percent: '75.00',
+            productivity_percent: '80.00',
+            closed_orders: 2,
+            average_net_revenue_per_order: '125.50',
+            open_labor_entry_count: 0,
+          },
+          meta: {
+            from: '2026-10-01',
+            to: '2026-10-31',
+            timezone: 'Europe/Vienna',
+            groupBy: 'mechanic',
+            unassigned_mechanic_count: 0,
+          },
+          parts_turnover: {
+            issued_cost: '40.00',
+            average_stock_value: '200.00',
+            turnover: '0.20',
+            unvalued_stock_item_count: 0,
+            slow_movers: [],
+          },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'vs-1',
+              make: 'Audi',
+              model: 'A4',
+              year: 2021,
+              vin: 'WAUZZZ8K9BA000001',
+              plate: 'W-100AA',
+              color: 'Blau',
+              stock_status: 'RESERVED',
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 10, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), (route) =>
+      route.fulfill(
+        json({
+          data: [{ id: 'v1', make: 'VW', model: 'Golf', year: 2021, plate: 'W-1', vin: 'WVWZZZ1KZBW000001' }],
+          meta: { total: 1, page: 1, limit: 50, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/locations'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/saved-views'), (route) =>
+      route.fulfill(json([])),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory/price-operations'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              key: 'op-1',
+              itemId: 'item-1',
+              sku: 'VERY-LONG-SUPPLIER-SKU-0001',
+              state: 'APPLIED',
+              kind: 'RETAIL_PRICE',
+              expectedRevision: 1,
+              retail_price: '12.00',
+              basis_retail_price: '10.00',
+              acceptedAt: '2026-10-01T10:00:00.000Z',
+              finalAt: '2026-10-01T10:00:05.000Z',
+              errorCode: null,
+            },
+          ],
+          meta: { next_cursor: null },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/inventory'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              id: 'item-1',
+              sku: 'VERY-LONG-SUPPLIER-SKU-0001',
+              name: 'Ölfilter',
+              brand: 'Bosch',
+              quantity: '5',
+              retail_price: '12.00',
+              cost_price: '6.00',
+              status: 'ACTIVE',
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 50, pageCount: 1 },
+        }),
+      ),
+    )
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
+      route.fulfill(
+        json({
+          data: [
+            {
+              version_id: 'ver-1',
+              estimate_number: 'KV-2026-0001',
+              version: 1,
+              status: 'SENT',
+              order_id: 'wo-1',
+              order_number: 'WO-2026-0001',
+              customer_id: 'cust-1',
+              customer_name: 'Muster GmbH',
+              vehicle_plate: 'W-123AB',
+              sent_at: '2026-10-01T08:00:00.000Z',
+              valid_until: '2026-10-15T08:00:00.000Z',
+              decided_at: null,
+              total_gross: '120.00',
+            },
+          ],
+          meta: { page_size: 25, next_cursor: null },
+        }),
+      ),
+    )
+  })
+
+  for (const viewport of [
+    { name: '1280', width: 1280, height: 800 },
+    { name: '375', width: 375, height: 812 },
+  ] as const) {
+    test(`WHEN loaner vehicles, KPIs, vehicle stock, and settings open at ${viewport.name}px THEN subtitles and card descriptions are absent`, async ({
+      page,
+    }, testInfo) => {
+      test.setTimeout(60_000)
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+
+      await page.goto('/workshop/loaner-vehicles')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: deWorkshop.loaner.title })).toBeVisible()
+      await expect(page.getByText(deWorkshop.loaner.description)).toHaveCount(0)
+      await testInfo.attach(`aut-1063-loaner-vehicles-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.goto('/workshop/reports/kpis')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: deReports.workshopKpi.pageTitle })).toBeVisible()
+      await expect(page.getByText(deReports.workshopKpi.pageDescription)).toHaveCount(0)
+      await expect(page.getByText('Zeitzone: Europe/Vienna · 0 ohne Standort')).toBeVisible()
+      await testInfo.attach(`aut-1063-workshop-kpis-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.goto('/vehicle-stock')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: deVehicleStock.stockList.title })).toBeVisible()
+      await expect(page.getByText(deVehicleStock.stockList.description)).toHaveCount(0)
+      await testInfo.attach(`aut-1063-vehicle-stock-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.goto('/settings')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: deSettings.page.title })).toBeVisible()
+      await expect(page.getByText(deSettings.bays.description)).toHaveCount(0)
+      await testInfo.attach(`aut-1063-settings-overview-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+    })
+
+    test(`WHEN dashboard, inventory price changes, and estimates open at ${viewport.name}px THEN repeated subtitles/actions are removed and filters collapse`, async ({
+      page,
+    }, testInfo) => {
+      test.setTimeout(60_000)
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+
+      await page.goto('/dashboard')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('heading', { level: 1, name: deCommon.dashboard.title })).toBeVisible()
+      const widgetsGrid = page.locator('.dashboard-widgets-grid')
+      await expect(widgetsGrid.getByText('Fahrzeuge Liste')).toBeVisible()
+      await expect(widgetsGrid.getByText('Fahrzeuge Gesamt')).toBeVisible()
+      await expect(widgetsGrid.getByText(deCommon.dashboard.loadingWidget)).toHaveCount(0)
+      await expect(widgetsGrid.getByText(deCommon.dashboard.sources.vehicles, { exact: true })).toHaveCount(0)
+      await expect(page.locator('p.text-xs.text-muted-foreground', { hasText: /^Fahrzeuge$/ })).toHaveCount(0)
+      await widgetsGrid.scrollIntoViewIfNeeded()
+      await testInfo.attach(`aut-1063-dashboard-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.goto('/inventory')
+      await page.waitForLoadState('networkidle')
+      const pricePanel = page.getByRole('region', { name: deInventory.bulk.adjustPrice.discovery.panelHeading })
+      await expect(pricePanel).toBeVisible()
+      const markSeenBtn = pricePanel.getByRole('button', { name: deInventory.bulk.adjustPrice.discovery.markSeen })
+      await expect(markSeenBtn).toBeVisible()
+      await expect(markSeenBtn).toHaveText('')
+      await expect(pricePanel.getByText(deInventory.bulk.adjustPrice.states.applied)).toHaveClass(/border-success\/30/)
+      await testInfo.attach(`aut-1063-inventory-price-changes-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.goto('/workshop/estimates')
+      await page.waitForLoadState('networkidle')
+      const filterToggle = page.getByTestId('estimate-filters-toggle')
+      await expect(filterToggle).toBeVisible()
+      await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
+      await expect(page.locator('#estimate-secondary-filters')).toBeHidden()
+      await testInfo.attach(`aut-1063-estimates-list-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+
+      await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/wo-empty'), (route) =>
+        route.fulfill(
+          json({
+            id: 'wo-empty',
+            order_number: 'WO-2026-0099',
+            status: 'SCHEDULED',
+            promised_time: null,
+            assigned_mechanic_id: null,
+            bay_id: null,
+            odometer: null,
+            fuel_level: null,
+            customer: { id: 'cust-1', type: 'PRIVATE', first_name: 'Max', last_name: 'Mustermann', company_name: null, email: null, phone: null },
+            vehicle: { id: 'v1', make: 'VW', model: 'Golf', year: 2021, plate: 'W-1', vin: null },
+            tasks: [],
+          }),
+        ),
+      )
+      await page.goto('/workshop/orders/wo-empty')
+      await page.waitForLoadState('networkidle')
+      const woHeader = page.locator('header').filter({ hasText: 'WO-2026-0099' })
+      await expect(woHeader.getByText(deWorkshop.orderHeader.noScheduleOrAssignment)).toBeVisible()
+      await expect(woHeader.getByText(/Nicht gesetzt/)).toHaveCount(0)
+      await expect(woHeader.getByText(/Nicht zugewiesen/)).toHaveCount(0)
+      await testInfo.attach(`aut-1063-work-order-header-de-${viewport.name}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+    })
+  }
+})
+
 
 
 

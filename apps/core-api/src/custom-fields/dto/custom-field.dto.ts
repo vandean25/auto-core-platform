@@ -78,9 +78,9 @@ export class CreateCustomFieldDefinitionDto {
   options?: string[];
 
   @ApiProperty({ maxLength: MAX_CUSTOM_FIELD_PURPOSE_LENGTH })
+  @IsOptional()
   @Transform(({ value }) => trimString(value))
   @IsString()
-  @IsNotEmpty()
   @MaxLength(MAX_CUSTOM_FIELD_PURPOSE_LENGTH)
   purpose!: string;
 

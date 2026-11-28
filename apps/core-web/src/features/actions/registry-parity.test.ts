@@ -355,6 +355,7 @@ const SHORTCUT_HANDLER_SITES: Readonly<Record<string, 'row' | 'global'>> = {
   'features/shortcuts/use-registry-row-shortcuts.ts': 'row',
   'features/shortcuts/GlobalShortcutLayer.tsx': 'global',
   'features/shortcuts/use-g-sequence-navigation.ts': 'global',
+  'pages/finance/useBankReconciliationReview.ts': 'row',
 }
 
 const HANDLER_CALL_PATTERN = /\buseShortcutHandler\(\s*(['"])(row|global)\1/g

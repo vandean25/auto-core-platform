@@ -52,7 +52,7 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
         aria-expanded={filtersOpen}
         aria-controls="estimate-secondary-filters"
         data-testid="estimate-filters-toggle"
-        className="min-h-11 w-full justify-between sm:hidden"
+        className="min-h-11 w-full justify-between sm:w-auto sm:gap-2"
         onClick={() => setFiltersOpen((open) => !open)}
       >
         <span className="flex items-center gap-2">
@@ -63,45 +63,47 @@ export function WorkshopEstimateListFilters({ view, onChange }: WorkshopEstimate
         </span>
         <ChevronDown className={cn('h-4 w-4 transition-transform', filtersOpen && 'rotate-180')} />
       </Button>
-      <div
-        id="estimate-secondary-filters"
-        className={cn('grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end', !filtersOpen && 'max-sm:hidden')}
-      >
-        <div className="col-span-2 flex min-w-0 flex-col gap-1">
-          <Label>{t('estimateList.filters.customer')}</Label>
-          <EstimateCustomerPicker
-            customerId={view.customerId}
-            customerName={view.customerName}
-            onChange={(customer) => onChange({ customerId: customer?.id ?? '', customerName: customer?.name ?? '' })}
-          />
+      {filtersOpen ? (
+        <div
+          id="estimate-secondary-filters"
+          className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end"
+        >
+          <div className="col-span-2 flex min-w-0 flex-col gap-1">
+            <Label>{t('estimateList.filters.customer')}</Label>
+            <EstimateCustomerPicker
+              customerId={view.customerId}
+              customerName={view.customerName}
+              onChange={(customer) => onChange({ customerId: customer?.id ?? '', customerName: customer?.name ?? '' })}
+            />
+          </div>
+          <div className="col-span-2 flex w-full flex-col gap-1 sm:col-span-1 sm:min-w-[10.5rem]">
+            <Label htmlFor="estimate-sent-from">{t('estimateList.filters.sentFrom')}</Label>
+            <DateField
+              id="estimate-sent-from"
+              value={view.sentFrom}
+              onChange={(sentFrom) => onChange({ sentFrom })}
+              data-testid="estimate-sent-from"
+            />
+          </div>
+          <div className="col-span-2 flex w-full flex-col gap-1 sm:col-span-1 sm:min-w-[10.5rem]">
+            <Label htmlFor="estimate-sent-to">{t('estimateList.filters.sentTo')}</Label>
+            <DateField
+              id="estimate-sent-to"
+              value={view.sentTo}
+              onChange={(sentTo) => onChange({ sentTo })}
+              data-testid="estimate-sent-to"
+            />
+          </div>
+          <div className="col-span-2 flex min-h-11 items-center gap-2 sm:min-h-9">
+            <Checkbox
+              id="estimate-show-older"
+              checked={view.showOlder}
+              onCheckedChange={(checked) => onChange({ showOlder: checked === true })}
+            />
+            <Label htmlFor="estimate-show-older">{t('estimateList.filters.showOlder')}</Label>
+          </div>
         </div>
-        <div className="col-span-2 flex w-full flex-col gap-1 sm:col-span-1 sm:min-w-[10.5rem]">
-          <Label htmlFor="estimate-sent-from">{t('estimateList.filters.sentFrom')}</Label>
-          <DateField
-            id="estimate-sent-from"
-            value={view.sentFrom}
-            onChange={(sentFrom) => onChange({ sentFrom })}
-            data-testid="estimate-sent-from"
-          />
-        </div>
-        <div className="col-span-2 flex w-full flex-col gap-1 sm:col-span-1 sm:min-w-[10.5rem]">
-          <Label htmlFor="estimate-sent-to">{t('estimateList.filters.sentTo')}</Label>
-          <DateField
-            id="estimate-sent-to"
-            value={view.sentTo}
-            onChange={(sentTo) => onChange({ sentTo })}
-            data-testid="estimate-sent-to"
-          />
-        </div>
-        <div className="col-span-2 flex min-h-11 items-center gap-2 sm:min-h-9">
-          <Checkbox
-            id="estimate-show-older"
-            checked={view.showOlder}
-            onCheckedChange={(checked) => onChange({ showOlder: checked === true })}
-          />
-          <Label htmlFor="estimate-show-older">{t('estimateList.filters.showOlder')}</Label>
-        </div>
-      </div>
+      ) : null}
       {hasInvalidSentRange(view) ? (
         <p className="text-sm text-warning" role="status">
           {t('estimateList.filters.rangeHint')}

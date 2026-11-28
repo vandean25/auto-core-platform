@@ -137,6 +137,107 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
         },
       });
     });
+
+    it('includes custom_fields in writeEntityAudit on CREATE and UPDATE', async () => {
+      const existingCustomer = {
+        id: 'cust-123',
+        tenant_id: 'tenant-1',
+        type: 'PRIVATE',
+        company_name: null,
+        first_name: 'Max',
+        last_name: 'Muster',
+        email: 'max@example.com',
+        phone: null,
+        vat_id: null,
+        address_street: null,
+        address_zip: null,
+        address_city: null,
+        address_country: 'AT',
+        contact_email_ok: true,
+        custom_fields: { tier: 'Silver' },
+      };
+
+      const tx = {
+        customer: {
+          create: jest.fn().mockResolvedValue({
+            ...existingCustomer,
+            custom_fields: { tier: 'Gold' },
+          }),
+          findFirst: jest.fn().mockResolvedValue(existingCustomer),
+          update: jest.fn().mockResolvedValue({
+            ...existingCustomer,
+            custom_fields: { tier: 'Platinum' },
+          }),
+        },
+        externalIdMapping: {
+          create: jest.fn().mockResolvedValue({ id: 'map-1' }),
+          upsert: jest.fn().mockResolvedValue({ id: 'map-1' }),
+        },
+        importJobRow: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      } as any;
+
+      const ctx: CustomerApplyContext = {
+        tenantId: 'tenant-1',
+        job: baseJob,
+        actorUserId: 'user-1',
+        audit: dummyAudit,
+      };
+
+      await applyCustomerImportRow(tx, ctx, {
+        row_no: 1,
+        action: ImportRowAction.CREATE,
+        entity_id: null,
+        external_id: 'EXT-1',
+        normalized_json: {
+          type: 'PRIVATE',
+          first_name: 'Max',
+          last_name: 'Muster',
+          custom_fields: { tier: 'Gold' },
+        },
+      });
+
+      expect(dummyAudit.writeEntityAudit).toHaveBeenCalledWith(
+        tx,
+        'tenant-1',
+        'user-1',
+        'job-1',
+        'Customer',
+        'cust-123',
+        'CREATE',
+        null,
+        expect.objectContaining({
+          custom_fields: { tier: 'Gold' },
+        }),
+      );
+
+      await applyCustomerImportRow(tx, ctx, {
+        row_no: 2,
+        action: ImportRowAction.UPDATE,
+        entity_id: 'cust-123',
+        external_id: 'EXT-1',
+        normalized_json: {
+          custom_fields: { tier: 'Platinum' },
+        },
+      });
+
+      expect(dummyAudit.writeEntityAudit).toHaveBeenCalledWith(
+        tx,
+        'tenant-1',
+        'user-1',
+        'job-1',
+        'Customer',
+        'cust-123',
+        'UPDATE',
+        expect.objectContaining({
+          custom_fields: { tier: 'Silver' },
+        }),
+        expect.objectContaining({
+          custom_fields: { tier: 'Platinum' },
+        }),
+      );
+    });
   });
 
   describe('Vehicle apply', () => {
@@ -220,6 +321,105 @@ describe('Import Apply Snapshot & Entity Tracking (AUT-813)', () => {
           }),
         },
       });
+    });
+
+    it('includes custom_fields in writeEntityAudit on CREATE and UPDATE', async () => {
+      const existingVehicle = {
+        id: 'veh-123',
+        tenant_id: 'tenant-1',
+        make: 'VW',
+        model: 'Golf',
+        year: 2020,
+        vin: 'WVWZZZ123',
+        plate: 'W-123AB',
+        mileage: 50000,
+        color: 'blue',
+        key_number: null,
+        customer_id: null,
+        first_registration_date: null,
+        custom_fields: { fleet_code: 'OLD-1' },
+      };
+
+      const tx = {
+        vehicle: {
+          create: jest.fn().mockResolvedValue({
+            ...existingVehicle,
+            custom_fields: { fleet_code: 'NEW-1' },
+          }),
+          findFirst: jest.fn().mockResolvedValue(existingVehicle),
+          update: jest.fn().mockResolvedValue({
+            ...existingVehicle,
+            custom_fields: { fleet_code: 'UPD-1' },
+          }),
+        },
+        externalIdMapping: {
+          create: jest.fn().mockResolvedValue({ id: 'map-1' }),
+          upsert: jest.fn().mockResolvedValue({ id: 'map-1' }),
+        },
+        importJobRow: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      } as any;
+
+      const ctx: VehicleApplyContext = {
+        tenantId: 'tenant-1',
+        job: baseJob,
+        actorUserId: 'user-1',
+        audit: dummyAudit,
+      };
+
+      await applyVehicleImportRow(tx, ctx, {
+        row_no: 1,
+        action: ImportRowAction.CREATE,
+        entity_id: null,
+        external_id: 'V-EXT-1',
+        normalized_json: {
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          custom_fields: { fleet_code: 'NEW-1' },
+        },
+      });
+
+      expect(dummyAudit.writeEntityAudit).toHaveBeenCalledWith(
+        tx,
+        'tenant-1',
+        'user-1',
+        'job-1',
+        'Vehicle',
+        'veh-123',
+        'CREATE',
+        null,
+        expect.objectContaining({
+          custom_fields: { fleet_code: 'NEW-1' },
+        }),
+      );
+
+      await applyVehicleImportRow(tx, ctx, {
+        row_no: 2,
+        action: ImportRowAction.UPDATE,
+        entity_id: 'veh-123',
+        external_id: 'V-EXT-1',
+        normalized_json: {
+          custom_fields: { fleet_code: 'UPD-1' },
+        },
+      });
+
+      expect(dummyAudit.writeEntityAudit).toHaveBeenCalledWith(
+        tx,
+        'tenant-1',
+        'user-1',
+        'job-1',
+        'Vehicle',
+        'veh-123',
+        'UPDATE',
+        expect.objectContaining({
+          custom_fields: { fleet_code: 'OLD-1' },
+        }),
+        expect.objectContaining({
+          custom_fields: { fleet_code: 'UPD-1' },
+        }),
+      );
     });
   });
 

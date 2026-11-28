@@ -11,4 +11,5 @@ export type NormalizedVehicleRow = {
   owner_external_id_provided: boolean;
   key_number: string | null;
   first_registration_date: string | null;
+  custom_fields?: Record<string, unknown>;
 };

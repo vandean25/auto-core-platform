@@ -315,6 +315,11 @@ jobs:
       - name: Verify tenant restore manifest
         run: npm run tenant-restore:verify
 
+      - name: Verify Cloud Build boot-required env keys
+        run: |
+          npm run cloudbuild-env:check
+          npm run cloudbuild-env:check:test
+
       - name: Lint Prisma tenant isolation invariants
         run: npm run lint:prisma-tenant --workspace=core-api
 

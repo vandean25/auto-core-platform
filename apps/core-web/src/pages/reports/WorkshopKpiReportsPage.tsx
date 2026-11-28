@@ -138,7 +138,6 @@ export default function WorkshopKpiReportsPage() {
       <PageHeader
         className="mb-0"
         title={t('workshopKpi.pageTitle')}
-        description={t('workshopKpi.pageDescription')}
         actions={
           <Button onClick={exportCsv} disabled={!report.data}>
             <Download className="mr-2 h-4 w-4" />

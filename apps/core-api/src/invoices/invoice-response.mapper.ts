@@ -3,6 +3,8 @@ import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 
 type InvoiceResponseWithPrivateFields = {
   snapshot: unknown;
+  draft_number_seq?: unknown;
+  date_day?: unknown;
   tax_mode?: import('@prisma/client').InvoiceTaxMode | null;
   legal_entity?: { country_iso: string } | null;
   pdf_archive_bucket?: unknown;
@@ -15,6 +17,8 @@ type InvoiceResponseWithPrivateFields = {
 
 type PrivateInvoiceResponseField =
   | 'snapshot'
+  | 'draft_number_seq'
+  | 'date_day'
   | 'legal_entity'
   | 'pdf_archive_bucket'
   | 'pdf_archive_key'
@@ -31,6 +35,8 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
 } {
   const {
     snapshot: _snapshot,
+    draft_number_seq: _draftNumberSeq,
+    date_day: _dateDay,
     legal_entity: _legalEntity,
     pdf_archive_bucket: _pdfArchiveBucket,
     pdf_archive_key: _pdfArchiveKey,
@@ -42,6 +48,8 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
   } = invoice;
   void [
     _snapshot,
+    _draftNumberSeq,
+    _dateDay,
     _legalEntity,
     _pdfArchiveBucket,
     _pdfArchiveKey,

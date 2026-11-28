@@ -26,18 +26,34 @@ type DataImportDryRunRowProps = {
   onToggleRowAcceptance: (rowNo: number, accepted: boolean) => void
 }
 
+type DryRunIssue = {
+  code?: string
+  message?: string
+  field?: string
+}
+
+function formatCustomFieldErrorMessage(issue: DryRunIssue, catalogMessage: string): string {
+  const fieldName =
+    typeof issue.field === 'string' && issue.field.length > 0
+      ? issue.field.replace(/^custom_fields\./, '')
+      : null
+  return fieldName ? `${catalogMessage} (${fieldName})` : catalogMessage
+}
+
 function DataImportDryRunRow(props: DataImportDryRunRowProps) {
-  const { t } = useTranslation(['settings', 'common'])
+  const { t } = useTranslation(['settings', 'common', 'errors'])
   const row = props.row
   const isPriceJump = isRowPriceJump(row)
-  const warnings = (row.warnings ?? []) as Array<{
-    code?: string
-    message?: string
-  }>
+  const errors = (row.errors ?? []) as DryRunIssue[]
+  const warnings = (row.warnings ?? []) as DryRunIssue[]
   const issues = [
-    ...(row.errors ?? []).map((issue) =>
-      t('dataImport.dryRun.issueError', { message: issue.message }),
-    ),
+    ...errors.map((issue) => {
+      const message =
+        issue.code === 'CUSTOM_FIELD_VALUE_INVALID'
+          ? formatCustomFieldErrorMessage(issue, t('errors:codes.CUSTOM_FIELD_VALUE_INVALID'))
+          : issue.message
+      return t('dataImport.dryRun.issueError', { message })
+    }),
     ...warnings.map((issue) => t('dataImport.dryRun.issueWarning', { message: issue.message })),
   ]
 

@@ -134,7 +134,7 @@ test.describe('Estimates list on a phone (AUT-795)', () => {
     })
   }
 
-  test('Scenario 6: EN copy fits at 375px and desktop shows full filter bar', async ({ page }) => {
+  test('Scenario 6: EN copy fits at 375px and desktop expands filter bar on click', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('acp:ui-language', 'en'))
     await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/estimates'), (route) =>
       route.fulfill(json({ data: [estimate(1)], meta: { page_size: 25, next_cursor: null } })),
@@ -147,7 +147,10 @@ test.describe('Estimates list on a phone (AUT-795)', () => {
     await expectNoPageScroll(page)
 
     await page.setViewportSize({ width: 1440, height: 900 })
-    await expect(page.getByTestId('estimate-filters-toggle')).toBeHidden()
+    const toggle = page.getByTestId('estimate-filters-toggle')
+    await expect(toggle).toBeVisible()
+    await expect(page.getByTestId('estimate-sent-from')).toBeHidden()
+    await toggle.click()
     await expect(page.getByTestId('estimate-sent-from')).toBeVisible()
     await expect(page.getByTestId('estimate-sent-to')).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Show older versions' })).toBeVisible()

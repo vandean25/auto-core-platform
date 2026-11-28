@@ -108,7 +108,10 @@ export class RowByRowApplyRunner {
     const totals =
       options?.stopAfterBatch && storedTotals
         ? createResumedApplyTotals(rows.length, storedTotals)
-        : createApplyTotals(Math.max(rows.length, storedTotals?.rows ?? 0));
+        : createApplyTotals(
+            Math.max(rows.length, storedTotals?.rows ?? 0),
+            storedTotals?.custom_field_counts,
+          );
     const plan = planImportApplyBatch(rows, options);
     const guardedWrite = Boolean(options?.stopAfterBatch);
 
@@ -465,13 +468,16 @@ export class RowByRowApplyRunner {
       }
       const { expectedRows, flaggedJumps } =
         await readImportJobExpectedRowCount(tx, job.tenant_id, jobId);
-      const persistedTotals = await tallyImportApplyTotalsFromRows(
+      const tallied = await tallyImportApplyTotalsFromRows(
         tx,
         job.tenant_id,
         jobId,
         expectedRows || totals.rows,
         flaggedJumps,
       );
+      const persistedTotals: ImportJobTotals = totals.custom_field_counts
+        ? { ...tallied, custom_field_counts: totals.custom_field_counts }
+        : tallied;
       const appliedAt = new Date();
       const data = {
         status: ImportJobStatus.APPLIED,

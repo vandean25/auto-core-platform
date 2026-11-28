@@ -22478,7 +22478,8 @@
           },
           "payment_terms_days": {
             "type": "number",
-            "nullable": true
+            "minimum": 0,
+            "maximum": 365
           },
           "payment_terms_text": {
             "type": "string",
@@ -22503,6 +22504,7 @@
           "name",
           "country_iso",
           "is_active",
+          "payment_terms_days",
           "seller_readiness",
           "rksv_mode"
         ]
@@ -41750,6 +41752,12 @@
           },
           "flagged_jumps": {
             "type": "number"
+          },
+          "custom_field_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
           }
         },
         "required": [

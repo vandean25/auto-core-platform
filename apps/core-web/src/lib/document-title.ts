@@ -72,6 +72,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, RouteTitleKey> = {
   [APP_ROUTE_PATHS.creditNotes]: 'modules.creditNotes',
   [APP_ROUTE_PATHS.creditNoteDetail]: 'modules.creditNotes',
   [APP_ROUTE_PATHS.accountingExportReadiness]: 'modules.accountingExportReadiness',
+  [APP_ROUTE_PATHS.bankReconciliation]: 'modules.bankReconciliation',
   [APP_ROUTE_PATHS.purchaseInvoiceNew]: 'routeTitles.purchaseInvoiceNew',
   [APP_ROUTE_PATHS.settings]: 'modules.settings',
   [APP_ROUTE_PATHS.settingsSection]: 'modules.settings',

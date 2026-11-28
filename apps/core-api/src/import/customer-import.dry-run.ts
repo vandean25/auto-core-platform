@@ -1,10 +1,15 @@
-import { ImportRowAction } from '@prisma/client';
+import {
+  CustomFieldEntity,
+  ImportEntityType,
+  ImportRowAction,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import {
   customerNameKey,
   normalizeCustomerRow,
   planCustomerDryRunRow,
+  type CustomFieldsDryRunContext,
   type CustomerMatchContext,
 } from './customer-import.logic.js';
 import { pickCustomerAuditSnapshot } from './import-audit.util.js';
@@ -12,11 +17,14 @@ import { normalizeMatchEmail } from '../customer/customer-match.util.js';
 import { planParsedCsvRowsWithBudget } from './import-dry-run-plan-budget.js';
 import type { ImportDryRunInput } from './import-type-handler.js';
 import type { DryRunRowResult } from './import.types.js';
-import { ImportEntityType } from '@prisma/client';
 import {
   guardDryRunGroupCap,
   oversizedRowNosFromParsedCsv,
 } from './import-dry-run-group-limit.js';
+import {
+  extractCustomFieldMappings,
+  loadValidatedImportCustomFieldDefs,
+} from './import-custom-fields.util.js';
 
 type CustomerRecord = {
   id: string;
@@ -39,6 +47,7 @@ async function loadCustomerMatchContext(
   prisma: PrismaService,
   tenantId: string,
   sourceSystem: string,
+  includeCustomFields: boolean,
 ): Promise<CustomerMatchContext> {
   const mappings = await prisma.externalIdMapping.findMany({
     where: {
@@ -63,6 +72,9 @@ async function loadCustomerMatchContext(
 
   for (const customer of customers) {
     const snapshot = pickCustomerAuditSnapshot(customer);
+    if (includeCustomFields) {
+      snapshot.custom_fields = customer.custom_fields;
+    }
     customerById.set(customer.id, snapshot);
     const emailKey = normalizeMatchEmail(customer.email);
     if (emailKey) {
@@ -89,8 +101,14 @@ function planCustomerCsvRow(
   record: Record<string, string>,
   input: ImportDryRunInput,
   context: CustomerMatchContext,
+  customFieldsContext?: CustomFieldsDryRunContext,
 ): DryRunRowResult {
-  const normalized = normalizeCustomerRow(record, input.mapping, input.options);
+  const normalized = normalizeCustomerRow(
+    record,
+    input.mapping,
+    input.options,
+    customFieldsContext,
+  );
   if (!normalized.row) {
     return {
       row_no: rowNo,
@@ -122,10 +140,22 @@ export async function planCustomerDryRun(
   input: ImportDryRunInput,
   parsed: ParsedCsv,
 ): Promise<DryRunRowResult[]> {
+  const mappedFields = extractCustomFieldMappings(input.mapping);
+  const defsByKey = await loadValidatedImportCustomFieldDefs(
+    prisma,
+    input.tenantId,
+    CustomFieldEntity.CUSTOMER,
+    mappedFields,
+  );
+  const customFieldsContext: CustomFieldsDryRunContext = {
+    mappedFields,
+    defsByKey,
+  };
   const context = await loadCustomerMatchContext(
     prisma,
     input.tenantId,
     input.sourceSystem,
+    mappedFields.length > 0,
   );
   const oversized = oversizedRowNosFromParsedCsv(
     parsed,
@@ -141,7 +171,14 @@ export async function planCustomerDryRun(
         oversized,
         rowNo,
         record[input.mapping.external_id ?? ''] ?? null,
-        () => planCustomerCsvRow(rowNo, record, input, context),
+        () =>
+          planCustomerCsvRow(
+            rowNo,
+            record,
+            input,
+            context,
+            customFieldsContext,
+          ),
       ),
   );
 }

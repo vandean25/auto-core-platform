@@ -130,4 +130,84 @@ test.describe('Vehicle detail on a phone (AUT-792)', () => {
     }
     await expectNoPageScroll(page)
   })
+
+  // AUT-1065: WHEN the vehicle work-order tab renders at 375px THEN every status badge shows its full label.
+  test('WHEN the vehicle work-order tab renders at 375px THEN every status badge shows its full label', async ({ page }, testInfo) => {
+    const vehicleWithOrders = {
+      ...vehicle,
+      workshop_orders: [
+        {
+          id: 'wo-1065-1',
+          order_number: 'WO-2026-1065',
+          status: 'IN_PROGRESS',
+          createdAt: '2026-08-10T10:00:00.000Z',
+          tasks: [{ line_items: [{ quantity: 2, unit_price: 75 }] }],
+        },
+        {
+          id: 'wo-1065-2',
+          order_number: 'WO-2026-1066',
+          status: 'COMPLETED',
+          createdAt: '2026-08-09T10:00:00.000Z',
+          tasks: [{ line_items: [{ quantity: 1, unit_price: 240 }] }],
+        },
+      ],
+    }
+
+    await mockJson(page, `/api/vehicles/${vehicle.id}`, vehicleWithOrders)
+    await mockJson(page, `/api/vehicles/${vehicle.id}/parties`, { data: [], suggested_bill_to: null })
+    await mockJson(page, `/api/vehicles/${vehicle.id}/inspection-records`, [])
+    await mockJson(page, `/api/vehicles/${vehicle.id}/pickerl-open-order`, null)
+    await mockJson(page, '/api/inspection-source-connections', { data: [{ id: 'conn-1' }] })
+
+    await page.setViewportSize({ width: 375, height: 844 })
+    await page.goto(`/vehicles/${vehicle.id}`)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+    await page.getByRole('tab', { name: deVehicles.detail.tabs.serviceOrders }).click()
+
+    const panel = page.getByRole('tabpanel')
+    for (const label of ['In Bearbeitung', 'Abgeschlossen']) {
+      const badge = panel.getByText(label, { exact: true })
+      await expect(badge).toBeVisible()
+      const metrics = await badge.evaluate((el) => {
+        const box = el.getBoundingClientRect()
+        const scrollParent = el.closest('[role="region"]')
+        const parentBox = scrollParent?.getBoundingClientRect()
+        return {
+          right: box.right,
+          left: box.left,
+          scrollWidth: el.scrollWidth,
+          clientWidth: el.clientWidth,
+          parentRight: parentBox ? parentBox.right : null,
+          text: el.textContent?.trim() ?? '',
+        }
+      })
+      expect(metrics.text).toBe(label)
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1)
+      expect(metrics.right).toBeLessThanOrEqual(375)
+      if (metrics.parentRight !== null) {
+        expect(metrics.right).toBeLessThanOrEqual(metrics.parentRight + 1)
+      }
+    }
+
+    await expectNoPageScroll(page)
+    await testInfo.attach('vehicle-work-orders-de-375', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    const serviceOrderHeader = panel.getByRole('columnheader', { name: deVehicles.detail.tables.serviceOrderNumber })
+    await expect(serviceOrderHeader).toBeVisible()
+    await serviceOrderHeader.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await expect(serviceOrderHeader).toBeInViewport()
+    await expect(panel.getByText('WO-2026-1065')).toBeInViewport()
+    await expect(panel.getByText('WO-2026-1066')).toBeInViewport()
+    await expect(panel.getByText('In Bearbeitung', { exact: true })).toBeInViewport()
+    await expect(panel.getByText('Abgeschlossen', { exact: true })).toBeInViewport()
+    await testInfo.attach('vehicle-work-orders-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
 })

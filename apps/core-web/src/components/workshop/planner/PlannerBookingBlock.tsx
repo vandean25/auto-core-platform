@@ -43,7 +43,7 @@ export function PlannerBookingBlock({
       style={{ ...style, ...dragStyle }}
       data-testid={`planner-booking-${booking.orderId}`}
       aria-busy={isMoving || undefined}
-      className={`absolute top-1 bottom-1 rounded-md border px-2 py-1 text-xs shadow-sm overflow-hidden text-left ${
+      className={`pointer-events-auto absolute top-1 bottom-1 rounded-md border px-2 py-1 text-xs shadow-sm overflow-hidden text-left ${
         isDragging ? 'opacity-60 z-20 touch-none' : transform ? 'z-10 touch-none' : 'z-10'
       } ${
         booking.occupancyKind === 'UNSCHEDULED_ON_FLOOR'

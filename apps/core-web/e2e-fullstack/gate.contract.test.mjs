@@ -12,6 +12,7 @@ const buildWorkflowPath = resolve(repoRoot, '.github/workflows/build.yaml')
 const playwrightConfigPath = resolve(repoRoot, 'apps/core-web/playwright.fullstack.config.ts')
 
 const REQUIRED_FLOW_FILES = [
+  'bank-reconciliation.flow.spec.ts',
   'sales-invoice-and-credit-note.flow.spec.ts',
   'margin-scheme-vehicle-sale.flow.spec.ts',
   'workshop-command.flow.spec.ts',

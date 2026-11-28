@@ -457,5 +457,63 @@
       "title": "Offene Wareneingänge importieren",
       "addSelected": "Auswahl zur Rechnung hinzufügen"
     }
+  },
+  "bankReconciliation": {
+    "title": "Bankabgleich",
+    "uploadStatement": "Kontoauszug hochladen",
+    "uploading": "Wird hochgeladen…",
+    "uploadSuccess": "{{imported}} Umsätze importiert ({{duplicates}} Duplikate übersprungen).",
+    "uploadFailed": "Kontoauszug konnte nicht hochgeladen werden.",
+    "loadFailed": "Bankumsätze konnten nicht geladen werden.",
+    "suggestionsLoadFailed": "Vorschläge konnten nicht geladen werden.",
+    "emptyTitle": "Keine offenen Bankumsätze",
+    "emptyDescription": "Laden Sie einen Kontoauszug hoch, um Umsätze zuzuordnen.",
+    "loadMore": "Weitere Umsätze laden",
+    "unknownRemitter": "Unbekannter Auftraggeber",
+    "ibanMask": "IBAN •••• {{last4}}",
+    "referenceLabel": "Verwendungszweck",
+    "bookingDateLabel": "Buchungstag",
+    "suggestionsHeading": "Vorschläge",
+    "noSuggestions": "Kein passender Rechnungsvorschlag gefunden.",
+    "outstandingLabel": "Offen: {{amount}}",
+    "suggestedLabel": "Vorschlag: {{amount}}",
+    "topSuggestionBadge": "Bester Treffer",
+    "alternativeBadge": "Alternative {{index}}",
+    "reasons": {
+      "AMOUNT_EXACT": "Betrag exakt: {{value}}",
+      "INVOICE_NO_IN_REFERENCE": "Rechnungsnr.: {{value}}",
+      "IBAN_SEEN_BEFORE": "Bekannte IBAN: •••• {{value}}",
+      "NAME_SIMILAR": "Name ähnlich: {{value}}"
+    },
+    "actions": {
+      "confirm": "Bestätigen",
+      "confirming": "Wird bestätigt…",
+      "ignore": "Ignorieren",
+      "ignoring": "Wird ignoriert…",
+      "undo": "Rückgängig",
+      "undoing": "Wird rückgängig gemacht…"
+    },
+    "cmdk": {
+      "heading": "Bankabgleich"
+    },
+    "toast": {
+      "confirmed": "Rechnung {{invoiceNumber}} zugeordnet.",
+      "confirmFailed": "Zuordnung konnte nicht bestätigt werden.",
+      "ignored": "Umsatz ignoriert.",
+      "ignoreFailed": "Umsatz konnte nicht ignoriert werden.",
+      "undone": "Zuordnung rückgängig gemacht.",
+      "undoFailed": "Aktion konnte nicht rückgängig gemacht werden."
+    },
+    "ignoreDefaultReason": "Manuell ignoriert",
+    "shortcuts": {
+      "navigate": "↑/↓ Umsatz wählen",
+      "select": "1–3 Vorschlag",
+      "confirm": "Enter Bestätigen",
+      "ignore": "I Ignorieren"
+    },
+    "aria": {
+      "transactionsList": "Offene Bankumsätze",
+      "uploadInput": "Kontoauszug-Datei auswählen"
+    }
   }
 }

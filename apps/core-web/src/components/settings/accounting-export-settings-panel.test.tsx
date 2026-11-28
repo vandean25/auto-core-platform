@@ -31,7 +31,7 @@ const mockEntity = {
   registration_number: null,
   registration_court: null,
   representatives: null,
-  payment_terms_days: null,
+  payment_terms_days: 14,
   payment_terms_text: null,
   seller_readiness: { is_ready: true, missing_fields: [] },
 }

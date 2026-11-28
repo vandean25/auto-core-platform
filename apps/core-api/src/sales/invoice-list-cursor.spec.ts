@@ -10,6 +10,8 @@ describe('invoice list cursor helpers', () => {
     [undefined, undefined, 'date', 'desc'],
     ['date', undefined, 'date', 'asc'],
     ['invoice_number', 'desc', 'invoice_number', 'desc'],
+    ['number', undefined, 'invoice_number', 'asc'],
+    ['number', 'desc', 'invoice_number', 'desc'],
   ])(
     'WHEN sort is (%s, %s) THEN the cursor sort is %s %s (newest first without a sort)',
     (sortField, sortDirection, field, direction) => {
@@ -26,8 +28,16 @@ describe('invoice list cursor helpers', () => {
     expect(resolveInvoiceCursorSort('invoice_number').config.nullable).toBe(
       true,
     );
-    expect(resolveInvoiceCursorSort('invoice_number').config.secondary).toBeUndefined();
+    expect(resolveInvoiceCursorSort('invoice_number').config).toMatchObject({
+      nullable: true,
+      secondary: {
+        prismaField: 'draft_number_seq',
+        valueKind: 'int',
+        nullable: true,
+      },
+    });
     expect(resolveInvoiceCursorSort('date').config).toMatchObject({
+      prismaField: 'date_day',
       nullable: false,
       secondary: {
         prismaField: 'invoice_number',

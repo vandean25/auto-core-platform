@@ -55,7 +55,17 @@ export function changeImportMapping(
   fieldKey: string,
   csvColumn: string,
 ) {
-  wizard.setMapping((prev) => ({ ...prev, [fieldKey]: csvColumn }))
+  wizard.setMapping((prev) => {
+    const next: Record<string, string> = { ...prev, [fieldKey]: csvColumn }
+    if (!fieldKey.startsWith('custom_fields.') && csvColumn) {
+      for (const [key, mappedColumn] of Object.entries(next)) {
+        if (key.startsWith('custom_fields.') && mappedColumn === csvColumn) {
+          next[key] = ''
+        }
+      }
+    }
+    return next
+  })
   wizard.resetDryRun()
 }
 

@@ -1395,6 +1395,7 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       overrides: Partial<{
         id: string;
         invoice_number: string | null;
+        draft_number: string;
         status: InvoiceStatus;
         date: Date;
         customer_id: string;
@@ -1472,25 +1473,119 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
       },
     );
 
+    // AUT-1062 scenarios 1 & 2: drafts ordered by numeric part of draft_number, issued first in both directions, stable across pages.
+    it.each([
+      [
+        'desc',
+        ['RE-2026-0002', 'RE-2026-0001'],
+        ['RE-D-115', 'RE-D-100', 'RE-D-99', 'RE-D-56'],
+      ],
+      [
+        'asc',
+        ['RE-2026-0001', 'RE-2026-0002'],
+        ['RE-D-56', 'RE-D-99', 'RE-D-100', 'RE-D-115'],
+      ],
+    ])(
+      'AUT-1062: WHEN issued invoices and drafts RE-D-56, 99, 100, 115 are sorted by number %s THEN issued come first and drafts follow numeric order across pages',
+      async (direction, expectedIssued, expectedDrafts) => {
+        // IDs intentionally scramble both numeric and lexicographic draft order so an id-only tiebreak fails.
+        await prisma.invoice.createMany({
+          data: [
+            invoiceRow({
+              id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1',
+              invoice_number: 'RE-2026-0001',
+              draft_number: 'RE-D-1',
+            }),
+            invoiceRow({
+              id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2',
+              invoice_number: 'RE-2026-0002',
+              draft_number: 'RE-D-2',
+            }),
+            invoiceRow({
+              id: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd3',
+              invoice_number: null,
+              status: InvoiceStatus.DRAFT,
+              draft_number: 'RE-D-56',
+            }),
+            invoiceRow({
+              id: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd1',
+              invoice_number: null,
+              status: InvoiceStatus.DRAFT,
+              draft_number: 'RE-D-99',
+            }),
+            invoiceRow({
+              id: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd4',
+              invoice_number: null,
+              status: InvoiceStatus.DRAFT,
+              draft_number: 'RE-D-100',
+            }),
+            invoiceRow({
+              id: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd2',
+              invoice_number: null,
+              status: InvoiceStatus.DRAFT,
+              draft_number: 'RE-D-115',
+            }),
+          ],
+        });
+
+        const rows = (await pageThrough({
+          sortField: 'invoice_number',
+          sortDirection: direction,
+          limit: '2',
+        })) as { id: string; invoice_number: string | null; draft_number?: string }[];
+
+        expect(
+          rows.map((row) => row.invoice_number ?? row.draft_number),
+        ).toEqual([...expectedIssued, ...expectedDrafts]);
+        expect(new Set(rows.map((row) => row.id)).size).toBe(6);
+      },
+    );
+
+    // AUT-1062 scenario 3: sortField=number maps to invoice_number and pages deterministically.
+    it('AUT-1062: WHEN sortField=number is requested THEN the API sorts by invoice number and numeric draft_number across pages', async () => {
+      await prisma.invoice.createMany({
+        data: [
+          invoiceRow({ invoice_number: 'RE-2026-0001', draft_number: 'RE-D-1' }),
+          invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT, draft_number: 'RE-D-56' }),
+          invoiceRow({ invoice_number: null, status: InvoiceStatus.DRAFT, draft_number: 'RE-D-100' }),
+        ],
+      });
+
+      const rows = (await pageThrough({
+        sortField: 'number',
+        sortDirection: 'desc',
+        limit: '2',
+      })) as { id: string; invoice_number: string | null; draft_number?: string }[];
+
+      expect(rows.map((row) => row.invoice_number ?? row.draft_number)).toEqual([
+        'RE-2026-0001',
+        'RE-D-100',
+        'RE-D-56',
+      ]);
+    });
+
     // Ids run opposite to invoice_number so a leftover id tiebreak cannot pass.
     // The later day has the lowest number so a number-only sort cannot pass either.
+    // Same-day rows have different times so a raw DateTime sort fails instead of tying on calendar day.
     const laterDay = new Date('2026-03-01T10:00:00.000Z');
-    const sameDay = new Date('2026-01-01T10:00:00.000Z');
+    const sameDayMorning = new Date('2026-01-01T08:00:00.000Z');
+    const sameDayMidday = new Date('2026-01-01T10:00:00.000Z');
+    const sameDayAfternoon = new Date('2026-01-01T14:00:00.000Z');
     const issuedCluster = () => [
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
         invoice_number: 'RE-2026-0010',
-        date: sameDay,
+        date: sameDayMidday,
       }),
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff2',
         invoice_number: 'RE-2026-0011',
-        date: sameDay,
+        date: sameDayAfternoon,
       }),
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
         invoice_number: 'RE-2026-0012',
-        date: sameDay,
+        date: sameDayMorning,
       }),
       invoiceRow({
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
@@ -1540,24 +1635,24 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           invoiceRow({
             id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
             invoice_number: 'RE-2026-0010',
-            date: sameDay,
+            date: sameDayAfternoon,
           }),
           invoiceRow({
             id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
             invoice_number: 'RE-2026-0012',
-            date: sameDay,
+            date: sameDayMorning,
           }),
           invoiceRow({
             id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
             invoice_number: null,
             status: InvoiceStatus.DRAFT,
-            date: sameDay,
+            date: sameDayAfternoon,
           }),
           invoiceRow({
             id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
             invoice_number: null,
             status: InvoiceStatus.DRAFT,
-            date: sameDay,
+            date: sameDayMorning,
           }),
           invoiceRow({
             id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',

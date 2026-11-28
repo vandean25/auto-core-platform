@@ -105,6 +105,7 @@ export async function finalizeBackgroundDryRunReconcile(
   leaseToken: string,
   expectedRows: number,
   options: ImportJobOptionsWithWorker,
+  mapping?: Record<string, string>,
 ): Promise<{ totals: ImportJobTotals } | null> {
   const { tallyImportDryRunTotalsFromRows } =
     await import('./import-dry-run-reconcile.totals.js');
@@ -119,6 +120,7 @@ export async function finalizeBackgroundDryRunReconcile(
       tenantId,
       jobId,
       expectedRows,
+      mapping,
     );
     const optionsForPersist = { ...options };
     delete (optionsForPersist as { worker?: unknown }).worker;
@@ -152,6 +154,7 @@ export async function persistDryRunReconcileChunk(
   finalize?: {
     expectedRows: number;
     optionsForPersist: ImportJobOptions;
+    mapping?: Record<string, string>;
   },
 ) {
   const tenantUserForTransactions = TenantContextStorage.getUser();
@@ -187,6 +190,7 @@ export async function persistDryRunReconcileChunk(
               tenantId,
               jobId,
               finalize.expectedRows,
+              finalize.mapping,
             );
             const finished = await tx.importJob.update({
               where: { tenant_id: tenantId, id: jobId },

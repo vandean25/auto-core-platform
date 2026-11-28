@@ -644,9 +644,27 @@ describe('Legacy CSV import (e2e)', () => {
       last_name: 'Nachname',
     };
 
+    let prevUploadStorage: string | undefined;
+    let prevSyncMaxBytes: string | undefined;
+
     beforeAll(() => {
+      prevUploadStorage = process.env.IMPORT_UPLOAD_STORAGE;
+      prevSyncMaxBytes = process.env.IMPORT_SYNC_MAX_FILE_BYTES;
       process.env.IMPORT_UPLOAD_STORAGE = 'local';
       process.env.IMPORT_SYNC_MAX_FILE_BYTES = '1';
+    });
+
+    afterAll(() => {
+      if (prevUploadStorage === undefined) {
+        delete process.env.IMPORT_UPLOAD_STORAGE;
+      } else {
+        process.env.IMPORT_UPLOAD_STORAGE = prevUploadStorage;
+      }
+      if (prevSyncMaxBytes === undefined) {
+        delete process.env.IMPORT_SYNC_MAX_FILE_BYTES;
+      } else {
+        process.env.IMPORT_SYNC_MAX_FILE_BYTES = prevSyncMaxBytes;
+      }
     });
 
     it('queues a background dry-run for files above the sync byte threshold', async () => {
@@ -706,5 +724,318 @@ describe('Legacy CSV import (e2e)', () => {
       .set('Authorization', authHeaderA)
       .send(payload)
       .expect(409);
+  });
+
+  describe('Custom fields import mapping (AUT-1045)', () => {
+    beforeEach(async () => {
+      await prisma.tenant.update({
+        where: { id: tenantA.tenantId },
+        data: { custom_fields_enabled: true },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.tenant.update({
+        where: { id: tenantA.tenantId },
+        data: { custom_fields_enabled: false },
+      });
+    });
+
+    it('Scenario 1: WHEN an ADMIN maps an unmapped column to a new TEXT custom field THEN imported customers have that value', async () => {
+      const defRes = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Altsystem Klasse',
+          type: 'TEXT',
+          purpose: 'Migration aus Altsystem',
+        })
+        .expect(201);
+
+      const fieldKey = defRes.body.key as string;
+      const csv = serializeCsv(
+        ['Kunden-Nr', 'Typ', 'Vorname', 'Nachname', 'E-Mail', 'Altsystem_Klasse'],
+        [
+          ['CF-CUST-1', 'PRIVATE', 'Max', 'Muster', 'cf1@example.com', 'Gold'],
+          ['CF-CUST-2', 'PRIVATE', 'Eva', 'Test', 'cf2@example.com', ''],
+        ],
+        ';',
+      );
+
+      const dryRunRes = await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', authHeaderA)
+        .field('entityType', 'CUSTOMER')
+        .field('sourceSystem', 'incadea')
+        .field(
+          'mapping',
+          JSON.stringify({
+            external_id: 'Kunden-Nr',
+            type: 'Typ',
+            first_name: 'Vorname',
+            last_name: 'Nachname',
+            email: 'E-Mail',
+            [`custom_fields.${fieldKey}`]: 'Altsystem_Klasse',
+          }),
+        )
+        .attach('file', Buffer.from(csv, 'utf8'), 'customers-cf.csv')
+        .expect(201);
+
+      expect(dryRunRes.body.totals.create).toBe(2);
+      expect(dryRunRes.body.totals.custom_field_counts).toEqual({
+        [fieldKey]: 1,
+      });
+
+      const applyRes = await request(app.getHttpServer())
+        .post(`/imports/${dryRunRes.body.id}/apply`)
+        .set('Authorization', authHeaderA)
+        .send({ errorThreshold: 0 })
+        .expect(202);
+
+      expect(applyRes.body.status).toBe('APPLIED');
+      expect(applyRes.body.totals.custom_field_counts).toEqual({
+        [fieldKey]: 1,
+      });
+
+      const cust1 = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'cf1@example.com' },
+        }),
+      );
+      expect(cust1?.custom_fields).toEqual({ [fieldKey]: 'Gold' });
+
+      const cust2 = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'cf2@example.com' },
+        }),
+      );
+      expect(cust2?.custom_fields).toEqual({});
+    });
+
+    it('Scenario 2: WHEN a value fails type validation THEN that row is reported and not written', async () => {
+      const defRes = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'VEHICLE',
+          label: 'Altsystem Score',
+          type: 'NUMBER',
+          purpose: 'Migration Fahrzeugbewertung',
+        })
+        .expect(201);
+
+      const fieldKey = defRes.body.key as string;
+      const csv = serializeCsv(
+        ['Fahrzeug-Nr', 'FIN', 'Kennzeichen', 'Marke', 'Modell', 'Baujahr', 'Score'],
+        [
+          ['CF-VEH-1', 'WVWZZZ1JZXW000101', 'W-CF1', 'VW', 'Golf', '2020', '42,5'],
+          ['CF-VEH-2', 'WVWZZZ1JZXW000102', 'W-CF2', 'VW', 'Polo', '2021', 'keine-zahl'],
+        ],
+        ';',
+      );
+
+      const dryRunRes = await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', authHeaderA)
+        .field('entityType', 'VEHICLE')
+        .field('sourceSystem', 'incadea')
+        .field(
+          'mapping',
+          JSON.stringify({
+            external_id: 'Fahrzeug-Nr',
+            vin: 'FIN',
+            plate: 'Kennzeichen',
+            make: 'Marke',
+            model: 'Modell',
+            year: 'Baujahr',
+            [`custom_fields.${fieldKey}`]: 'Score',
+          }),
+        )
+        .attach('file', Buffer.from(csv, 'utf8'), 'vehicles-cf.csv')
+        .expect(201);
+
+      expect(dryRunRes.body.totals.create).toBe(1);
+      expect(dryRunRes.body.totals.error).toBe(1);
+      expect(dryRunRes.body.totals.custom_field_counts).toEqual({
+        [fieldKey]: 1,
+      });
+
+      const rowsRes = await request(app.getHttpServer())
+        .get(`/imports/${dryRunRes.body.id}/rows?hasErrors=true`)
+        .set('Authorization', authHeaderA)
+        .expect(200);
+
+      expect(rowsRes.body.data).toHaveLength(1);
+      expect(rowsRes.body.data[0].row_no).toBe(2);
+      expect(rowsRes.body.data[0].errors[0].code).toBe('CUSTOM_FIELD_VALUE_INVALID');
+
+      await request(app.getHttpServer())
+        .post(`/imports/${dryRunRes.body.id}/apply`)
+        .set('Authorization', authHeaderA)
+        .send({ errorThreshold: 1 })
+        .expect(202);
+
+      const writtenVeh = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.vehicle.findFirst({
+          where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000101' },
+        }),
+      );
+      expect(writtenVeh?.custom_fields).toEqual({ [fieldKey]: 42.5 });
+
+      const skippedVeh = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.vehicle.findFirst({
+          where: { tenant_id: tenantA.tenantId, vin: 'WVWZZZ1JZXW000102' },
+        }),
+      );
+      expect(skippedVeh).toBeNull();
+    });
+
+    it('Scenario 3: WHEN the column name matches the Art 9 keyword list THEN creating the field needs confirmation, or is blocked', async () => {
+      const blockedRes = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Gesundheitszustand',
+          type: 'TEXT',
+          purpose: 'Migration',
+        })
+        .expect(422);
+      expect(blockedRes.body.code).toBe('CUSTOM_FIELD_ART9_BLOCKED');
+
+      const warnRes = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Allergie Kaffee',
+          type: 'TEXT',
+          purpose: 'Kundenservice',
+        })
+        .expect(422);
+      expect(warnRes.body.code).toBe('CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED');
+
+      await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Allergie Kaffee',
+          type: 'TEXT',
+          purpose: 'Kundenservice',
+          confirmNoArt9: true,
+        })
+        .expect(201);
+    });
+
+    it('Scenario 4: WHEN the custom_fields flag is OFF THEN custom field creation and import mapping are rejected', async () => {
+      const defRes = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Flag Test',
+          type: 'TEXT',
+          purpose: 'Test',
+        })
+        .expect(201);
+
+      await prisma.tenant.update({
+        where: { id: tenantA.tenantId },
+        data: { custom_fields_enabled: false },
+      });
+
+      await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Flag Test 2',
+          type: 'TEXT',
+          purpose: 'Test',
+        })
+        .expect(403);
+
+      const csv = serializeCsv(
+        ['Kunden-Nr', 'Typ', 'Vorname', 'Nachname', 'FlagCol'],
+        [['CF-OFF-1', 'PRIVATE', 'Max', 'Off', 'Wert']],
+        ';',
+      );
+
+      await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', authHeaderA)
+        .field('entityType', 'CUSTOMER')
+        .field('sourceSystem', 'incadea')
+        .field(
+          'mapping',
+          JSON.stringify({
+            external_id: 'Kunden-Nr',
+            type: 'Typ',
+            first_name: 'Vorname',
+            last_name: 'Nachname',
+            [`custom_fields.${defRes.body.key}`]: 'FlagCol',
+          }),
+        )
+        .attach('file', Buffer.from(csv, 'utf8'), 'customers-flag-off.csv')
+        .expect(403);
+    });
+
+    it('Anti-criterion 1: inline create with an empty purpose returns 422', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/custom-fields/definitions')
+        .set('Authorization', authHeaderA)
+        .send({
+          entity: 'CUSTOMER',
+          label: 'Ohne Zweck',
+          type: 'TEXT',
+          purpose: '',
+        })
+        .expect(422);
+
+      expect(res.body.code).toBe('CUSTOM_FIELD_PURPOSE_REQUIRED');
+    });
+
+    it('Anti-criterion 2: import with an unmapped column and no mapping sets no custom_fields value', async () => {
+      const csv = serializeCsv(
+        ['Kunden-Nr', 'Typ', 'Vorname', 'Nachname', 'E-Mail', 'Unbekannte_Spalte'],
+        [['CF-UNMAP-1', 'PRIVATE', 'Lena', 'Unmapped', 'unmapped@example.com', 'SecretLegacyValue']],
+        ';',
+      );
+
+      const dryRunRes = await request(app.getHttpServer())
+        .post('/imports')
+        .set('Authorization', authHeaderA)
+        .field('entityType', 'CUSTOMER')
+        .field('sourceSystem', 'incadea')
+        .field(
+          'mapping',
+          JSON.stringify({
+            external_id: 'Kunden-Nr',
+            type: 'Typ',
+            first_name: 'Vorname',
+            last_name: 'Nachname',
+            email: 'E-Mail',
+          }),
+        )
+        .attach('file', Buffer.from(csv, 'utf8'), 'customers-unmapped.csv')
+        .expect(201);
+
+      expect(dryRunRes.body.totals.custom_field_counts).toBeUndefined();
+
+      await request(app.getHttpServer())
+        .post(`/imports/${dryRunRes.body.id}/apply`)
+        .set('Authorization', authHeaderA)
+        .send({ errorThreshold: 0 })
+        .expect(202);
+
+      const customer = await runWithTenantContext(tenantA.tenantId, () =>
+        prisma.customer.findFirst({
+          where: { tenant_id: tenantA.tenantId, email: 'unmapped@example.com' },
+        }),
+      );
+      expect(customer?.custom_fields).toEqual({});
+    });
   });
 });

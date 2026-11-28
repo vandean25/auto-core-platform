@@ -102,4 +102,12 @@ describe('SettingsOverview (AUT-1051)', () => {
     fireEvent.click(screen.getAllByRole('button', { name: deSettings.overview.clearSearch })[0])
     expect(screen.getAllByRole('link')).toHaveLength(18)
   })
+
+  it('WHEN SettingsOverview renders THEN settings cards show only their title without description', () => {
+    renderOverview(true)
+
+    expect(screen.queryByText(deSettings.bays.description)).not.toBeInTheDocument()
+    expect(screen.queryByText(deSettings.brands.description)).not.toBeInTheDocument()
+  })
 })
+

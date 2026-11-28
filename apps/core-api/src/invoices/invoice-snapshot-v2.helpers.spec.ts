@@ -1,3 +1,4 @@
+import { UnprocessableEntityException } from '@nestjs/common';
 import {
   collectCustomerMissingFields,
   isMissingBrandingConfig,
@@ -11,6 +12,7 @@ import {
   assertAtHighValueBusinessRecipientUid,
   AT_RECIPIENT_UID_REQUIRED_CODE,
   computeInvoiceDates,
+  resolveInvoicePaymentTermsDays,
 } from './invoice-snapshot-v2.helpers.js';
 import { CustomerType, DiscountType, InvoiceTaxMode, Prisma } from '@prisma/client';
 import { INVOICE_BRANDED_TEMPLATE_VERSION } from './invoice-snapshot-v2.js';
@@ -633,6 +635,103 @@ describe('invoice-snapshot-v2.helpers', () => {
       expect(supplyFrom.toISOString()).toBe('2027-01-01T12:00:00.000Z');
       expect(supplyTo.toISOString()).toBe('2027-01-01T12:00:00.000Z');
       expect(dueDate.toISOString()).toBe('2027-01-15T12:00:00.000Z');
+    });
+
+    it('due date is invoice Vienna day + 14 when the customer has no terms and the legal entity has 14', () => {
+      const invoiceDate = new Date('2026-09-01T10:00:00.000Z');
+      const paymentDays = resolveInvoicePaymentTermsDays(
+        { payment_terms_days: null },
+        { payment_terms_days: 14 },
+      );
+      const { dueDate } = computeInvoiceDates(
+        { date: invoiceDate, supply_date_from: null, supply_date_to: null },
+        paymentDays,
+        'Europe/Vienna',
+      );
+      expect(dueDate.toISOString()).toBe('2026-09-15T12:00:00.000Z');
+    });
+
+    it('allows explicit 0 paymentDays so dueDate equals the invoice Vienna calendar day', () => {
+      const { dueDate } = computeInvoiceDates(
+        {
+          date: new Date('2026-09-20T10:00:00.000Z'),
+          supply_date_from: null,
+          supply_date_to: null,
+        },
+        0,
+        'Europe/Vienna',
+      );
+      expect(dueDate.toISOString()).toBe('2026-09-20T12:00:00.000Z');
+    });
+
+    it.each([null, undefined, -1])(
+      'throws 422 INVOICE_PAYMENT_TERMS_MISSING instead of falling back to 0 when paymentDays is %s',
+      (invalidDays) => {
+        expect(() =>
+          computeInvoiceDates(
+            {
+              date: new Date('2026-09-20T10:00:00.000Z'),
+              supply_date_from: null,
+              supply_date_to: null,
+            },
+            invalidDays as number,
+            'Europe/Vienna',
+          ),
+        ).toThrow('Payment terms days must be configured');
+      },
+    );
+  });
+
+  describe('resolveInvoicePaymentTermsDays', () => {
+    it.each([
+      {
+        label: 'legal entity 14 when customer has none',
+        customerDays: null,
+        sellerDays: 14,
+        expected: 14,
+      },
+      {
+        label: 'customer 30 overriding legal entity 14',
+        customerDays: 30,
+        sellerDays: 14,
+        expected: 30,
+      },
+      {
+        label: 'explicit 0 on customer overriding legal entity 14',
+        customerDays: 0,
+        sellerDays: 14,
+        expected: 0,
+      },
+      {
+        label: 'explicit 0 on legal entity when customer has none',
+        customerDays: null,
+        sellerDays: 0,
+        expected: 0,
+      },
+    ])('resolves $label', ({ customerDays, sellerDays, expected }) => {
+      expect(
+        resolveInvoicePaymentTermsDays(
+          { payment_terms_days: customerDays },
+          { payment_terms_days: sellerDays },
+        ),
+      ).toBe(expected);
+    });
+
+    it('throws 422 INVOICE_PAYMENT_TERMS_MISSING when neither customer nor legal entity has payment terms', () => {
+      let caught: unknown;
+      try {
+        resolveInvoicePaymentTermsDays(
+          { payment_terms_days: null },
+          { payment_terms_days: null },
+        );
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(UnprocessableEntityException);
+      expect((caught as UnprocessableEntityException).getResponse()).toMatchObject({
+        code: 'INVOICE_PAYMENT_TERMS_MISSING',
+      });
     });
   });
 });

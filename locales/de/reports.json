@@ -18,7 +18,7 @@
     "laborPerformance": {
       "title": "Arbeitsleistung",
       "empty": "Keine Daten für den ausgewählten Zeitraum.",
-      "metaFooter": "Zeitzone: {{- timezone}}. {{count}} Mechaniker ohne gültige Standortzuordnung.",
+      "metaFooter": "Zeitzone: {{- timezone}} · {{count}} ohne Standort",
       "columns": {
         "mechanic": "Mechaniker",
         "period": "Zeitraum",

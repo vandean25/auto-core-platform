@@ -1,5 +1,9 @@
 import { normalizePlate } from '../vehicle/vehicle-plate.util.js';
-import { ImportEntityType, ImportRowAction } from '@prisma/client';
+import {
+  CustomFieldEntity,
+  ImportEntityType,
+  ImportRowAction,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { ParsedCsv } from './csv-parse.util.js';
 import { pickVehicleImportAuditSnapshot } from './vehicle-import-audit.snapshot.js';
@@ -15,11 +19,17 @@ import {
   planVehicleDryRunRow,
   type VehicleMatchContext,
 } from './vehicle-import-plan.row.js';
+import type { CustomFieldsDryRunContext } from './customer-import.logic.js';
+import {
+  extractCustomFieldMappings,
+  loadValidatedImportCustomFieldDefs,
+} from './import-custom-fields.util.js';
 
 async function loadVehicleMatchContext(
   prisma: PrismaService,
   tenantId: string,
   sourceSystem: string,
+  includeCustomFields: boolean,
 ): Promise<VehicleMatchContext> {
   const mappings = await prisma.externalIdMapping.findMany({
     where: { tenant_id: tenantId, source_system: sourceSystem },
@@ -38,7 +48,11 @@ async function loadVehicleMatchContext(
   const vehicleByPlate = new Map<string, string>();
   const vehicleById = new Map<string, Record<string, unknown>>();
   for (const vehicle of vehicles) {
-    vehicleById.set(vehicle.id, pickVehicleImportAuditSnapshot(vehicle));
+    const snapshot = pickVehicleImportAuditSnapshot(vehicle);
+    if (includeCustomFields) {
+      snapshot.custom_fields = vehicle.custom_fields;
+    }
+    vehicleById.set(vehicle.id, snapshot);
     if (vehicle.vin) {
       vehicleByVin.set(vehicle.vin.toUpperCase(), vehicle.id);
     }
@@ -68,8 +82,14 @@ function planVehicleCsvRow(
   record: Record<string, string>,
   input: ImportDryRunInput,
   context: VehicleMatchContext,
+  customFieldsContext?: CustomFieldsDryRunContext,
 ): DryRunRowResult {
-  const normalized = normalizeVehicleRow(record, input.mapping, input.options);
+  const normalized = normalizeVehicleRow(
+    record,
+    input.mapping,
+    input.options,
+    customFieldsContext,
+  );
   if (!normalized.row) {
     return {
       row_no: rowNo,
@@ -96,10 +116,22 @@ export async function planVehicleDryRun(
   input: ImportDryRunInput,
   parsed: ParsedCsv,
 ): Promise<DryRunRowResult[]> {
+  const mappedFields = extractCustomFieldMappings(input.mapping);
+  const defsByKey = await loadValidatedImportCustomFieldDefs(
+    prisma,
+    input.tenantId,
+    CustomFieldEntity.VEHICLE,
+    mappedFields,
+  );
+  const customFieldsContext: CustomFieldsDryRunContext = {
+    mappedFields,
+    defsByKey,
+  };
   const context = await loadVehicleMatchContext(
     prisma,
     input.tenantId,
     input.sourceSystem,
+    mappedFields.length > 0,
   );
   const oversized = oversizedRowNosFromParsedCsv(
     parsed,
@@ -115,7 +147,8 @@ export async function planVehicleDryRun(
         oversized,
         rowNo,
         record[input.mapping.external_id ?? ''] ?? null,
-        () => planVehicleCsvRow(rowNo, record, input, context),
+        () =>
+          planVehicleCsvRow(rowNo, record, input, context, customFieldsContext),
       ),
   );
 }

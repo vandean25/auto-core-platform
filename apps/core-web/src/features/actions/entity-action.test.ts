@@ -29,6 +29,7 @@ import { createTyreSetTyreMeasurementAction } from './tyre-set-row-actions'
 import { createWorkshopCommandActions } from './workshop-command-actions'
 import { createCreditNotePrintAction } from './credit-note-row-actions'
 import { createSavedViewActions } from './saved-view-actions'
+import { createBankReconciliationActions } from './bank-reconciliation-actions'
 
 type RecordItem = { id: string; status: string }
 type Context = { navigate: (path: string) => void }
@@ -104,6 +105,7 @@ describe('entity action registry helpers', () => {
       ...createInventoryBulkActions(passthroughT as TFunction<'inventory'>),
       ...createInventoryLedgerActions(passthroughT as TFunction<'inventory'>),
       ...createSalesOrderRowActions(passthroughT as TFunction<'sales'>),
+      ...createBankReconciliationActions(passthroughT as TFunction<'finance'>),
     ]
 
     expect(allRegistered.map((action) => action.id)).toEqual([...REGISTERED_ENTITY_ACTION_IDS])

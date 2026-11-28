@@ -457,5 +457,63 @@
       "title": "Import unbilled receipts",
       "addSelected": "Add selected to bill"
     }
+  },
+  "bankReconciliation": {
+    "title": "Bank reconciliation",
+    "uploadStatement": "Upload statement",
+    "uploading": "Uploading…",
+    "uploadSuccess": "{{imported}} transactions imported ({{duplicates}} duplicates skipped).",
+    "uploadFailed": "Failed to upload bank statement.",
+    "loadFailed": "Failed to load bank transactions.",
+    "suggestionsLoadFailed": "Failed to load suggestions.",
+    "emptyTitle": "No open bank transactions",
+    "emptyDescription": "Upload a bank statement to start matching transactions.",
+    "loadMore": "Load more transactions",
+    "unknownRemitter": "Unknown remitter",
+    "ibanMask": "IBAN •••• {{last4}}",
+    "referenceLabel": "Reference",
+    "bookingDateLabel": "Booking date",
+    "suggestionsHeading": "Suggestions",
+    "noSuggestions": "No matching invoice suggestion found.",
+    "outstandingLabel": "Open: {{amount}}",
+    "suggestedLabel": "Suggested: {{amount}}",
+    "topSuggestionBadge": "Top match",
+    "alternativeBadge": "Alternative {{index}}",
+    "reasons": {
+      "AMOUNT_EXACT": "Exact amount: {{value}}",
+      "INVOICE_NO_IN_REFERENCE": "Invoice #: {{value}}",
+      "IBAN_SEEN_BEFORE": "Known IBAN: •••• {{value}}",
+      "NAME_SIMILAR": "Similar name: {{value}}"
+    },
+    "actions": {
+      "confirm": "Confirm",
+      "confirming": "Confirming…",
+      "ignore": "Ignore",
+      "ignoring": "Ignoring…",
+      "undo": "Undo",
+      "undoing": "Undoing…"
+    },
+    "cmdk": {
+      "heading": "Bank reconciliation"
+    },
+    "toast": {
+      "confirmed": "Matched invoice {{invoiceNumber}}.",
+      "confirmFailed": "Failed to confirm match.",
+      "ignored": "Transaction ignored.",
+      "ignoreFailed": "Failed to ignore transaction.",
+      "undone": "Match undone.",
+      "undoFailed": "Failed to undo action."
+    },
+    "ignoreDefaultReason": "Manually ignored",
+    "shortcuts": {
+      "navigate": "↑/↓ Select transaction",
+      "select": "1–3 Pick suggestion",
+      "confirm": "Enter Confirm",
+      "ignore": "I Ignore"
+    },
+    "aria": {
+      "transactionsList": "Open bank transactions",
+      "uploadInput": "Choose bank statement file"
+    }
   }
 }

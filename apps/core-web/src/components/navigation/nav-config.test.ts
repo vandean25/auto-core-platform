@@ -153,17 +153,51 @@ describe('nav config: no route lost', () => {
     expect(ALL_ITEMS.map((item) => item.to)).toContain(route)
   })
 
-  it('adds the stock reports and estimates entries and keeps one entry per route', () => {
+  it('adds the stock reports, estimates and bank reconciliation entries and keeps one entry per route', () => {
     const routes = ALL_ITEMS.map((item) => item.to)
 
     expect(routes).toContain('/vehicle-stock/reports')
     expect(routes).toContain('/workshop/estimates')
+    expect(routes).toContain('/finance/bank-reconciliation')
     expect(new Set(routes).size).toBe(routes.length)
-    expect(routes).toHaveLength(FORMER_SIDEBAR_ROUTES.length + 2)
+    expect(routes).toHaveLength(FORMER_SIDEBAR_ROUTES.length + 3)
   })
 })
 
 describe('nav config: visibility per role (ticket table)', () => {
+  it.each([false, undefined])('hides /finance/bank-reconciliation when bankReconciliationEnabled is %s', (enabled) => {
+    const context: NavAccessContext = {
+      activeRole: 'OWNER',
+      platformRole: null,
+      capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+      bankReconciliationEnabled: enabled,
+    }
+
+    expect(visibleRoutes(context)).not.toContain('/finance/bank-reconciliation')
+  })
+
+  it.each(['OWNER', 'ADMIN'] as const)('shows /finance/bank-reconciliation for %s when flag is true', (role) => {
+    const context: NavAccessContext = {
+      activeRole: role,
+      platformRole: null,
+      capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+      bankReconciliationEnabled: true,
+    }
+
+    expect(visibleRoutes(context)).toContain('/finance/bank-reconciliation')
+  })
+
+  it.each(['SALES', 'TECH'] as const)('hides /finance/bank-reconciliation for %s even when flag is true', (role) => {
+    const context: NavAccessContext = {
+      activeRole: role,
+      platformRole: null,
+      capabilities: { nova: true, pickerl57a: true, kaufvertragAt: true, willhabenExport: true },
+      bankReconciliationEnabled: true,
+    }
+
+    expect(visibleRoutes(context)).not.toContain('/finance/bank-reconciliation')
+  })
+
   it.each([false, null])('hides the Pickerl entry when capability is %s', (enabled) => {
     const context = {
       activeRole: 'OWNER' as const,

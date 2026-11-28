@@ -250,5 +250,33 @@ describe('Legal entity seller identity (e2e)', () => {
     expect(response.body.rksv_mode).toBe(RksvMode.REQUIRED_ACP_RKSV);
     expect(response.body.address_street).toBe('Ringstraße 10');
   });
+
+  it('rejects PATCH /legal-entities/:id without payment terms (null) with 400', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({ paymentTermsDays: null })
+      .expect(400);
+  });
+
+  it('allows explicit 0 paymentTermsDays (due on receipt) via PATCH /legal-entities/:id', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}`)
+      .set('Authorization', authHeader(tenantA))
+      .send({ paymentTermsDays: 0 })
+      .expect(200);
+
+    expect(response.body.payment_terms_days).toBe(0);
+  });
 });
 
