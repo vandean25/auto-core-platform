@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClientProvider, useInfiniteQuery } from '@tanstack/react-query'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
+import { createListClient, mockListLayout, settleVirtualizerTimers } from './data-table-infinite-test-utils'
+import { infiniteListQueryOptions } from '@/lib/infinite-list-query'
 import { resetIntentPrefetchScheduler } from '@/lib/intent-prefetch'
 import { triggerBlobDownload } from '@/lib/download'
 import deCommon from '../../../../../locales/de/common.json'
@@ -13,6 +17,7 @@ const dt = deCommon.dataTable
 const columnOptionsLabel = (title: string) => dt.columnOptions.replace('{{title}}', title)
 
 vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { warning: vi.fn(), error: vi.fn(), success: vi.fn() } }))
 
 afterEach(() => {
   cleanup()
@@ -1177,3 +1182,250 @@ function OrderTable({ columns, rows }: { columns: ColumnDef<OrderRow>[]; rows: O
     />
   )
 }
+
+type InfiniteCsvRow = {
+  id: string
+  name: string
+  custom_fields?: Record<string, unknown>
+}
+
+function InfiniteCsvBody({
+  totalRows,
+  pageSize = 50,
+  searchFilter,
+  failNextPage = false,
+}: {
+  totalRows: number
+  pageSize?: number
+  searchFilter?: string
+  failNextPage?: boolean
+}) {
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState(searchFilter ?? '')
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
+
+  const allRows: InfiniteCsvRow[] = Array.from({ length: totalRows }, (_, index) => ({
+    id: `row-${index + 1}`,
+    name: `Kunde ${index + 1}`,
+    custom_fields: { tier: index % 2 === 0 ? 'VIP' : 'Standard' },
+  }))
+  const matchingRows = globalFilter
+    ? allRows.filter((row) => row.name.includes(globalFilter))
+    : allRows
+
+  const queryKey = ['infinite-csv-test', { globalFilter }] as const
+  const query = useInfiniteQuery({
+    ...infiniteListQueryOptions(),
+    queryKey,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const start = pageParam * pageSize
+      const slice = matchingRows.slice(start, start + pageSize)
+      const next = start + pageSize < matchingRows.length ? pageParam + 1 : null
+      return { data: slice, meta: { nextCursor: next, hasNextPage: next !== null } }
+    },
+    getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
+  })
+
+  const data = query.data?.pages.flatMap((page) => page.data) ?? []
+  const columns: ColumnDef<InfiniteCsvRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Name',
+      cell: ({ row }) => <span>{row.original.name} (Aktiv)</span>,
+    },
+    {
+      id: 'cf.tier',
+      header: 'Stufe',
+      accessorFn: (row) => String(row.custom_fields?.tier ?? ''),
+    },
+  ]
+
+  return (
+    <DataTable
+      columns={columns}
+      data={data}
+      csvFileName="kunden.csv"
+      isLoading={query.isLoading}
+      isFetching={query.isFetching}
+      hasUsableData={data.length > 0}
+      columnFilters={columnFilters}
+      setColumnFilters={setColumnFilters}
+      globalFilter={globalFilter}
+      setGlobalFilter={setGlobalFilter}
+      sorting={sorting}
+      setSorting={setSorting}
+      pagination={pagination}
+      setPagination={setPagination}
+      infinite={{
+        queryKey,
+        hasNextPage: query.hasNextPage,
+        isFetchingNextPage: query.isFetchingNextPage,
+        isFetchNextPageError: query.isFetchNextPageError,
+        fetchNextPage: failNextPage ? () => Promise.reject(new Error('network down')) : query.fetchNextPage,
+        totalCount: { count: Math.min(matchingRows.length, 1000), isCapped: matchingRows.length > 1000 },
+      }}
+    />
+  )
+}
+
+function InfiniteCsvHarness(props: { totalRows: number; pageSize?: number; searchFilter?: string; failNextPage?: boolean }) {
+  const [client] = useState(() => createListClient())
+  return (
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <InfiniteCsvBody {...props} />
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+
+describe('DataTable Export CSV (infinite / virtualized)', () => {
+  let restoreLayout: (() => void) | undefined
+
+  beforeEach(() => {
+    restoreLayout = mockListLayout()
+  })
+
+  afterEach(() => {
+    restoreLayout?.()
+    restoreLayout = undefined
+  })
+
+  afterAll(() => settleVirtualizerTimers())
+
+  it('WHEN a virtualized infinite list has 84 loaded rows THEN CSV exports all 84 formatted rows and custom field columns, not only the ~24 DOM rows', async () => {
+    render(<InfiniteCsvHarness totalRows={84} pageSize={84} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+    // Virtualizer only renders a subset of the 84 rows in the DOM.
+    expect(document.querySelectorAll('tbody tr[data-table-row]').length).toBeLessThan(84)
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    const lines = (await downloadedCsv()).split('\r\n')
+    expect(lines).toHaveLength(85)
+    expect(lines[0]).toBe('Name;Stufe')
+    expect(lines[1]).toBe('Kunde 1 (Aktiv);VIP')
+    expect(lines[84]).toBe('Kunde 84 (Aktiv);Standard')
+    expect(triggerBlobDownload).toHaveBeenLastCalledWith(expect.any(Blob), 'kunden.csv')
+  })
+
+  it('WHEN an infinite list has not scrolled to the end THEN Export CSV fetches remaining pages and exports all 120 matching rows', async () => {
+    render(<InfiniteCsvHarness totalRows={120} pageSize={50} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    const lines = (await downloadedCsv()).split('\r\n')
+    expect(lines).toHaveLength(121)
+    expect(lines[120]).toBe('Kunde 120 (Aktiv);Standard')
+  })
+
+  it('WHEN more than 2,000 rows match THEN Export CSV caps at 2,000 data rows and shows the cap notice', async () => {
+    render(<InfiniteCsvHarness totalRows={2050} pageSize={200} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    const lines = (await downloadedCsv()).split('\r\n')
+    expect(lines).toHaveLength(2002)
+    expect(lines[0]).toBe('Name;Stufe')
+    expect(lines[2000]).toBe('Kunde 2000 (Aktiv);Standard')
+    expect(lines[2001]).toBe('Export auf 2.000 Zeilen begrenzt – Filter eingrenzen')
+    expect(toast.warning).toHaveBeenCalledWith('Export auf 2.000 Zeilen begrenzt – Filter eingrenzen')
+  })
+
+  it('WHEN exactly 2,000 rows match (totalCount.isCapped is true, hasNextPage is false) THEN Export CSV exports all 2,000 rows without a cap notice', async () => {
+    render(<InfiniteCsvHarness totalRows={2000} pageSize={200} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    const lines = (await downloadedCsv()).split('\r\n')
+    expect(lines).toHaveLength(2001)
+    expect(lines[0]).toBe('Name;Stufe')
+    expect(lines[2000]).toBe('Kunde 2000 (Aktiv);Standard')
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it('WHEN search reduces matches to 3 rows THEN Export CSV exports only those 3 rows', async () => {
+    render(<InfiniteCsvHarness totalRows={21} pageSize={50} searchFilter="Kunde 2" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 2 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(triggerBlobDownload).toHaveBeenCalledTimes(1)
+    })
+    expect((await downloadedCsv()).split('\r\n')).toEqual([
+      'Name;Stufe',
+      'Kunde 2 (Aktiv);Standard',
+      'Kunde 20 (Aktiv);Standard',
+      'Kunde 21 (Aktiv);VIP',
+    ])
+  })
+
+  it('documents the page-vs-all export rule in the toolbar tooltip', async () => {
+    const { unmount } = render(<PagedPartHarness rowCount={1} />)
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toHaveAttribute(
+      'title',
+      'Exportiert die sichtbaren Spalten der aktuellen Seite',
+    )
+    unmount()
+
+    render(<InfiniteCsvHarness totalRows={5} pageSize={50} />)
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: dt.exportCsv })).toHaveAttribute(
+      'title',
+      'Exportiert alle Treffer des aktuellen Filters (max. 2.000 Zeilen) mit den sichtbaren Spalten',
+    )
+  })
+
+  it('WHEN fetchNextPage rejects during CSV export THEN shows error toast and returns button to Export CSV', async () => {
+    render(<InfiniteCsvHarness totalRows={120} pageSize={50} failNextPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kunde 1 (Aktiv)')).toBeInTheDocument()
+    })
+
+    clickExportCsv()
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(dt.exportCsvFailed)
+    })
+    const button = screen.getByRole('button', { name: dt.exportCsv })
+    expect(button).toBeEnabled()
+    expect(triggerBlobDownload).not.toHaveBeenCalled()
+  })
+})
+

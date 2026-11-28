@@ -54,6 +54,7 @@ export function DataTableSurface<TData extends object>({
           toolbarFilters={toolbarFilters}
           getRoot={() => rootRef.current}
           isLoading={presentation.showFirstLoadSkeleton}
+          infiniteView={mainProps.infiniteView}
           refreshIndicator={<DataTableRefreshIndicator visible={presentation.showRefreshIndicator} />}
         />
       </DataTableDensityContext.Provider>

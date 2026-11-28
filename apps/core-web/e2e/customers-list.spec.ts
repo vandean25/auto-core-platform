@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
@@ -195,6 +196,150 @@ test.describe('Customers list row navigation (AUT-220)', () => {
       }).toPass();
       await expect(page.getByText('Kunde Block1059')).toBeAttached();
       await testInfo.attach('customers-infinite-next-block-375', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
+  });
+
+  test.describe('Infinite CSV export (AUT-1090)', () => {
+    async function readDownloadedCsvLines(page: import('@playwright/test').Page, expectedFilename: string) {
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByRole('button', { name: DE_COMMON.dataTable.exportCsv }).click();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toBe(expectedFilename);
+      const filePath = await download.path();
+      expect(filePath).toBeTruthy();
+      const content = readFileSync(filePath!, 'utf8').replace(/^\uFEFF/, '');
+      return content.split('\r\n');
+    }
+
+    test('WHEN the customer list has loaded 84 matching rows and the user exports CSV THEN kunden.csv has 84 data rows (plus header)', async ({ page }, testInfo) => {
+      const rows = Array.from({ length: 84 }, (_, index) =>
+        createMockCustomer({
+          id: `cust-csv-${index + 1}`,
+          first_name: 'Kunde',
+          last_name: `Nr${String(index + 1).padStart(3, '0')}`,
+          email: `kunde-${index + 1}@example.at`,
+        }),
+      );
+      await mockCursorList(page, { path: '/api/customers', rows });
+
+      await new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer).navigate('/customers');
+      await expect(page.getByTestId('data-table-count')).toHaveText('84 Treffer');
+
+      await page.getByRole('button', { name: DE_COMMON.dataTable.infinite.loadMore }).click();
+      await expect(page.getByTestId('data-table-announcement')).toHaveText('Ende der Liste, 84 Zeilen geladen.');
+      expect(await page.locator('tbody tr[data-table-row]').count()).toBeLessThan(84);
+
+      const lines = await readDownloadedCsvLines(page, 'kunden.csv');
+      expect(lines).toHaveLength(85);
+      expect(lines[1]).toContain('Kunde Nr001');
+      expect(lines[84]).toContain('Kunde Nr084');
+
+      await testInfo.attach('customers-csv-export-84-de-1280', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
+
+    test('WHEN more than 2,000 matching rows exist THEN CSV export caps at 2,000 rows and shows the cap notice', async ({ page }, testInfo) => {
+      const rows = Array.from({ length: 2050 }, (_, index) =>
+        createMockCustomer({
+          id: `cust-cap-${index + 1}`,
+          first_name: 'Kunde',
+          last_name: `Cap${String(index + 1).padStart(4, '0')}`,
+          email: `cap-${index + 1}@example.at`,
+        }),
+      );
+      await mockCursorList(page, { path: '/api/customers', rows, maxLimit: 250 });
+
+      await new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer).navigate('/customers');
+      await expect(page.getByTestId('data-table-count')).toHaveText('1.000+ Treffer');
+
+      const lines = await readDownloadedCsvLines(page, 'kunden.csv');
+      expect(lines).toHaveLength(2002);
+      expect(lines[2000]).toContain('Kunde Cap2000');
+      const capNotice = 'Export auf 2.000 Zeilen begrenzt – Filter eingrenzen';
+      expect(lines[2001]).toBe(capNotice);
+      const noticeToast = page.locator('[data-sonner-toast]').filter({ hasText: capNotice });
+      await expect(noticeToast).toBeVisible();
+      await expect(noticeToast).toHaveAttribute('data-mounted', 'true');
+      await expect(async () => {
+        const opacity = await noticeToast.evaluate((el) => Number(getComputedStyle(el).opacity));
+        const box = await noticeToast.boundingBox();
+        const viewport = page.viewportSize();
+        expect(opacity).toBe(1);
+        expect(box).toBeTruthy();
+        expect(viewport).toBeTruthy();
+        expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+      }).toPass();
+
+      await testInfo.attach('customers-csv-export-capped-de-1280', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    });
+
+    test('at 375px: WHEN a custom field column is visible THEN CSV export includes all 60 rows and the custom field column', async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.addInitScript(() => {
+        window.localStorage.setItem('e2e-custom-fields-enabled', 'true');
+      });
+      await page.route(AutoCorePage.apiRouteMatcher('/api/custom-fields/definitions'), async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: 'def-1',
+              entity: 'CUSTOMER',
+              key: 'flottennummer',
+              label: 'Flottennummer',
+              type: 'TEXT',
+              options: null,
+              purpose: 'Flottenabrechnung',
+              personal_data: true,
+              retention_class: 'PARENT_OBJECT',
+              archived: false,
+              sort_order: 0,
+              createdAt: '2026-11-24T00:00:00.000Z',
+              updatedAt: '2026-11-24T00:00:00.000Z',
+            },
+          ]),
+        });
+      });
+
+      const rows = Array.from({ length: 60 }, (_, index) => ({
+        ...createMockCustomer({
+          id: `cust-cf-${index + 1}`,
+          first_name: 'Flotte',
+          last_name: `Kunde${String(index + 1).padStart(2, '0')}`,
+          email: `flotte-${index + 1}@example.at`,
+        }),
+        custom_fields: { flottennummer: `FL-${index + 1}` },
+      }));
+      await mockCursorList(page, { path: '/api/customers', rows });
+
+      await new AutoCorePage(page, DE_CUSTOMERS.list.addCustomer).navigate('/customers');
+      await expect(page.getByTestId('data-table-count')).toHaveText('60 Treffer');
+
+      // Show the custom field column (defaultHidden: true) via the column picker.
+      await page.getByRole('button', { name: DE_COMMON.dataTable.columns }).click();
+      await page.getByRole('menuitemcheckbox', { name: 'Flottennummer' }).click();
+      await page.keyboard.press('Escape');
+
+      const exportButton = page.getByRole('button', { name: DE_COMMON.dataTable.exportCsv });
+      await expect(exportButton).toBeVisible();
+      expect((await exportButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      const lines = await readDownloadedCsvLines(page, 'kunden.csv');
+      expect(lines).toHaveLength(61);
+      expect(lines[0]).toContain('Flottennummer');
+      expect(lines[1]).toContain('FL-1');
+      expect(lines[60]).toContain('FL-60');
+
+      await testInfo.attach('customers-csv-export-custom-field-de-375', {
         body: await page.screenshot(),
         contentType: 'image/png',
       });

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
@@ -327,6 +328,52 @@ test.describe('Blueprint: Vehicles Module', () => {
         body: await page.screenshot(),
         contentType: 'image/png',
       });
+    });
+  });
+
+  test('WHEN the vehicle list has loaded 322 matching rows and the user exports CSV THEN fahrzeuge.csv has 322 data rows (plus header)', async ({ page }, testInfo) => {
+    const vehicles = Array.from({ length: 322 }, (_, index) =>
+      createMockVehicleListItem({
+        id: `vehicle-csv-${index + 1}`,
+        make: 'Skoda',
+        model: `Octavia-${String(index + 1).padStart(3, '0')}`,
+        plate: `W-${String(index + 1).padStart(3, '0')}`,
+      }),
+    );
+    await mockCursorList(page, { path: '/api/vehicles', rows: vehicles, maxLimit: 100 });
+
+    await new AutoCorePage(page, DE_VEHICLES.list.addVehicle).navigate('/vehicles');
+    await expect(page.getByTestId('data-table-count')).toHaveText('322 Treffer');
+
+    // Load all 322 rows into the infinite table, then verify virtualizer only renders a window.
+    const loadMore = page.getByRole('button', { name: DE_COMMON.dataTable.infinite.loadMore });
+    const announcement = page.getByTestId('data-table-announcement');
+    while ((await announcement.textContent()) !== 'Ende der Liste, 322 Zeilen geladen.') {
+      await expect(loadMore).toBeEnabled();
+      const nextPage = page.waitForResponse(
+        (response) => response.url().includes('/api/vehicles') && response.url().includes('pagination=cursor'),
+      );
+      await loadMore.click();
+      await nextPage;
+      await expect(announcement).not.toHaveText(DE_COMMON.dataTable.infinite.loadingMore);
+    }
+    await expect(announcement).toHaveText('Ende der Liste, 322 Zeilen geladen.');
+    expect(await page.locator('tbody tr[data-table-row]').count()).toBeLessThan(322);
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: DE_COMMON.dataTable.exportCsv }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('fahrzeuge.csv');
+    const filePath = await download.path();
+    expect(filePath).toBeTruthy();
+    const lines = readFileSync(filePath!, 'utf8').replace(/^\uFEFF/, '').split('\r\n');
+    expect(lines).toHaveLength(323);
+    expect(lines[1]).toContain('Octavia-001');
+    expect(lines[322]).toContain('Octavia-322');
+
+    await testInfo.attach('vehicles-csv-export-322-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
     });
   });
 });
