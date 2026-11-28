@@ -1,7 +1,9 @@
 import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
 import { cellToText, serializeCsv } from '@/lib/csv'
+import { INFINITE_LIST_ROW_CAP } from '@/lib/infinite-list-query'
 import { getDataTableColumnLabel } from './data-table-column-label'
+import type { DataTableInfiniteView } from './use-data-table-infinite'
 
 // Text-like form fields show their value as a property rather than as text, and that value is what a reader sees.
 const TEXT_INPUT_TYPES = new Set(['date', 'datetime-local', 'email', 'month', 'number', 'search', 'tel', 'text', 'time', 'url', 'week'])
@@ -25,20 +27,14 @@ function readDisplayedText(node: Node): string {
 }
 
 /**
- * Serialises the cells the table is rendering right now, as the user reads them: formatted amounts,
- * names and labels, not the raw record values. Server-paged lists therefore export the loaded page.
+ * Serialises rendered table rows as the user reads them: formatted amounts, names and labels,
+ * not the raw record values.
  */
-export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null, mobile = false): string {
-  const columns = getDataTableExportColumns(table)
-  if (mobile && root?.querySelector('[data-table-list]')) {
-    const rowsById = table.getRowModel().rowsById
-    const body = Array.from(root.querySelectorAll('li[data-table-row][data-row-id]')).map((element) => {
-      const row = rowsById[element.getAttribute('data-row-id') ?? '']
-      return columns.map((column) => cellToText(row?.getValue(column.id)).replace(/\s+/g, ' ').trim())
-    })
-    return serializeCsv([columns.map(getDataTableColumnLabel), ...body])
-  }
-  const renderedRows = root ? Array.from(root.querySelectorAll('tbody tr[data-table-row]')) : []
+export function buildDataTableCsvFromDom<TData extends object>(
+  columns: ReturnType<typeof getDataTableExportColumns<TData>>,
+  renderedRows: Element[],
+  footerNotice?: string,
+): string {
   const cellTexts = renderedRows.map((row) => {
     const cells = Array.from(row.children)
     return columns.map((column) => {
@@ -51,8 +47,60 @@ export function buildDataTableCsv<TData extends object>(table: Table<TData>, roo
   if (!keep.some(Boolean)) return ''
   const header = columns.filter((_, index) => keep[index]).map((column) => getDataTableColumnLabel(column))
   const body = cellTexts.map((texts) => texts.filter((_, index) => keep[index]))
+  if (footerNotice) body.push([footerNotice])
 
   return serializeCsv([header, ...body])
+}
+
+/**
+ * Serialises the cells currently rendered in `root` (used for synchronous offset-page exports when all rows are in DOM).
+ */
+export function buildDataTableCsv<TData extends object>(table: Table<TData>, root: Element | null, mobile = false): string {
+  const columns = getDataTableExportColumns(table)
+  if (mobile && root?.querySelector('[data-table-list]')) {
+    const body = table.getRowModel().rows.slice(0, INFINITE_LIST_ROW_CAP).map((row) =>
+      columns.map((column) => cellToText(row.getValue(column.id)).replace(/\s+/g, ' ').trim()),
+    )
+    return serializeCsv([columns.map(getDataTableColumnLabel), ...body])
+  }
+  const renderedRows = root ? Array.from(root.querySelectorAll('tbody tr[data-table-row]')) : []
+  return buildDataTableCsvFromDom(columns, renderedRows)
+}
+
+type InfinitePageFetchResult = {
+  data?: { pages?: Array<{ data?: unknown[] }> }
+  hasNextPage?: boolean
+  isError?: boolean
+  isFetchNextPageError?: boolean
+}
+
+export function isInfiniteCsvCapped(infiniteView: DataTableInfiniteView, rowCount: number, hasMoreOverride?: boolean): boolean {
+  if (rowCount < INFINITE_LIST_ROW_CAP) return false
+  const hasMore = hasMoreOverride ?? infiniteView.hasNextPage
+  return hasMore || infiniteView.totalCount?.isCapped === true || (infiniteView.totalCount?.count ?? 0) > INFINITE_LIST_ROW_CAP
+}
+
+export async function fetchRemainingInfinitePages(
+  infiniteView: DataTableInfiniteView,
+  initialCount: number,
+  isCancelled: () => boolean,
+): Promise<{ status: 'done'; capped: boolean; minRows: number } | { status: 'error' | 'cancelled' }> {
+  let hasMore = infiniteView.hasNextPage
+  let loadedCount = initialCount
+
+  while (hasMore && loadedCount < INFINITE_LIST_ROW_CAP) {
+    const result = (await infiniteView.fetchNextPage()) as InfinitePageFetchResult | undefined
+    if (isCancelled()) return { status: 'cancelled' }
+    if (!result || result.isError || result.isFetchNextPageError) return { status: 'error' }
+    loadedCount = result.data?.pages?.reduce((sum, page) => sum + (page.data?.length ?? 0), 0) ?? loadedCount
+    hasMore = Boolean(result.hasNextPage)
+  }
+
+  return {
+    status: 'done',
+    capped: isInfiniteCsvCapped(infiniteView, loadedCount, hasMore),
+    minRows: Math.min(loadedCount, INFINITE_LIST_ROW_CAP),
+  }
 }
 
 /**
