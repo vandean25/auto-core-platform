@@ -3545,6 +3545,7 @@ model Invoice {
 
   status   InvoiceStatus @default(DRAFT)
   date     DateTime      @default(now())
+  date_day DateTime      @default(dbgenerated("(now() AT TIME ZONE 'Europe/Vienna')::date")) @db.Date
   due_date DateTime
 
   supply_date_from DateTime? @db.Date
@@ -3593,6 +3594,7 @@ model Invoice {
   @@index([tenant_id, invoice_number, id])
   @@index([tenant_id, invoice_number, draft_number_seq, id])
   @@index([tenant_id, date, invoice_number, id])
+  @@index([tenant_id, date_day, invoice_number, id])
   @@index([invoice_number(ops: raw("gin_trgm_ops"))], type: Gin, map: "invoices_invoice_number_trgm_idx")
   @@map("invoices")
 }

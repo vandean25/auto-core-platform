@@ -35,7 +35,7 @@ const INVOICE_CURSOR_SORTS: Record<InvoiceCursorSortField, CursorSortConfig> = {
     },
   },
   date: {
-    prismaField: 'date',
+    prismaField: 'date_day',
     valueKind: 'date',
     nullable: false,
     secondary: {

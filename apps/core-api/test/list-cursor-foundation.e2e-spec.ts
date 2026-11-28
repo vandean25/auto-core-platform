@@ -1566,23 +1566,26 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
 
     // Ids run opposite to invoice_number so a leftover id tiebreak cannot pass.
     // The later day has the lowest number so a number-only sort cannot pass either.
+    // Same-day rows have different times so a raw DateTime sort fails instead of tying on calendar day.
     const laterDay = new Date('2026-03-01T10:00:00.000Z');
-    const sameDay = new Date('2026-01-01T10:00:00.000Z');
+    const sameDayMorning = new Date('2026-01-01T08:00:00.000Z');
+    const sameDayMidday = new Date('2026-01-01T10:00:00.000Z');
+    const sameDayAfternoon = new Date('2026-01-01T14:00:00.000Z');
     const issuedCluster = () => [
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
         invoice_number: 'RE-2026-0010',
-        date: sameDay,
+        date: sameDayMidday,
       }),
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff2',
         invoice_number: 'RE-2026-0011',
-        date: sameDay,
+        date: sameDayAfternoon,
       }),
       invoiceRow({
         id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
         invoice_number: 'RE-2026-0012',
-        date: sameDay,
+        date: sameDayMorning,
       }),
       invoiceRow({
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
@@ -1632,24 +1635,24 @@ describe('List cursor foundation (AUT-888 e2e)', () => {
           invoiceRow({
             id: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
             invoice_number: 'RE-2026-0010',
-            date: sameDay,
+            date: sameDayAfternoon,
           }),
           invoiceRow({
             id: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
             invoice_number: 'RE-2026-0012',
-            date: sameDay,
+            date: sameDayMorning,
           }),
           invoiceRow({
             id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
             invoice_number: null,
             status: InvoiceStatus.DRAFT,
-            date: sameDay,
+            date: sameDayAfternoon,
           }),
           invoiceRow({
             id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
             invoice_number: null,
             status: InvoiceStatus.DRAFT,
-            date: sameDay,
+            date: sameDayMorning,
           }),
           invoiceRow({
             id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',
