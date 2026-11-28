@@ -27,7 +27,7 @@ function countAction(totals: ImportJobTotals, action: ImportRowAction): void {
   else if (action === ImportRowAction.ERROR) totals.error += 1;
 }
 
-function initCustomFieldCounts(
+export function initCustomFieldCounts(
   mapping?: Record<string, string>,
 ): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -58,6 +58,15 @@ function accumulateRowCustomFieldCounts(
     if (val !== null && val !== undefined && val !== '') {
       counts[key] = (counts[key] ?? 0) + 1;
     }
+  }
+}
+
+export function accumulateRowsCustomFieldCounts(
+  rows: DryRunTotalsRow[],
+  counts: Record<string, number>,
+): void {
+  for (const row of rows) {
+    accumulateRowCustomFieldCounts(row, counts);
   }
 }
 

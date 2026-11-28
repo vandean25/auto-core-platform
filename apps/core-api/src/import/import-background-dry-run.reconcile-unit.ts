@@ -106,6 +106,7 @@ export async function replanAndPersistReconcileUnit(params: {
       ? {
           expectedRows: params.job.totals.rows,
           optionsForPersist: stripWorker(params.options),
+          mapping: params.job.mapping_json,
         }
       : undefined,
   );

@@ -4,7 +4,7 @@ import {
   setupImportCollaborators,
   setupImportHarness,
 } from './import.service.spec.support.js';
-import { ImportJobStatus } from '@prisma/client';
+import { ImportJobStatus, ImportRowAction } from '@prisma/client';
 import {
   IMPORT_WORKER_POISON_ATTEMPTS_WITHOUT_PROGRESS,
 } from './import-worker-handoff.constants.js';
@@ -283,6 +283,130 @@ describe('Import worker import.job.failed logging', () => {
 
     expect(errorLog).toHaveBeenCalledWith(
       'import.job.failed jobId=job-poison-log phase=dry_run attempt=5 reason=poison_cap',
+    );
+  });
+});
+
+describe('Import worker background dry-run custom_field_counts', () => {
+  const h = setupImportHarness();
+  const c = setupImportCollaborators(h);
+  const worker = {
+    phase: 'dry_run' as const,
+    lease_token: 'lease-cf',
+    lease_until: new Date(0).toISOString(),
+    processed_rows: 4,
+    started_at: new Date().toISOString(),
+  };
+
+  it('records custom_field_counts from final row actions and normalized custom_fields when finishCreate is absent', async () => {
+    jest.spyOn(c.jobStore, 'findJob').mockResolvedValue({
+      id: 'job-cf-1',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING,
+      mapping_json: {
+        external_id: 'ID',
+        'custom_fields.tier': 'Tier',
+        'custom_fields.unused_note': 'UnusedNote',
+      },
+      totals_json: { rows: 4, create: 1, update: 1, skip: 1, error: 1 },
+      options_json: { worker },
+    } as never);
+    jest.spyOn(c.jobStore, 'findRowsPage').mockResolvedValue([
+      [
+        {
+          row_no: 1,
+          external_id: 'C-1',
+          action: ImportRowAction.CREATE,
+          entity_id: null,
+          errors_json: [],
+          warnings_json: [],
+          normalized_json: { custom_fields: { tier: 'Gold', unused_note: '' } },
+        },
+        {
+          row_no: 2,
+          external_id: 'C-2',
+          action: ImportRowAction.UPDATE,
+          entity_id: 'cust-2',
+          errors_json: [],
+          warnings_json: [],
+          normalized_json: { custom_fields: { tier: 'Silver' } },
+        },
+        {
+          row_no: 3,
+          external_id: 'C-3',
+          action: ImportRowAction.SKIP,
+          entity_id: 'cust-3',
+          errors_json: [],
+          warnings_json: [],
+          normalized_json: { custom_fields: { tier: 'IgnoredSkip' } },
+        },
+        {
+          row_no: 4,
+          external_id: 'C-4',
+          action: ImportRowAction.ERROR,
+          entity_id: null,
+          errors_json: [{ code: 'CUSTOM_FIELD_VALUE_INVALID' }],
+          warnings_json: [],
+          normalized_json: { custom_fields: { tier: 'IgnoredError' } },
+        },
+      ],
+      4,
+    ] as never);
+    const finishSpy = jest
+      .spyOn(c.jobStore, 'finishDryRunIfStillApplying')
+      .mockResolvedValue({ count: 1 });
+
+    await c.orchestration.completeBackgroundDryRun(
+      'tenant-1',
+      'job-cf-1',
+      {} as never,
+      { worker },
+    );
+
+    expect(finishSpy).toHaveBeenCalledWith(
+      'tenant-1',
+      'job-cf-1',
+      expect.objectContaining({
+        totals_json: {
+          rows: 4,
+          create: 1,
+          update: 1,
+          skip: 1,
+          error: 1,
+          custom_field_counts: { tier: 2, unused_note: 0 },
+        },
+      }),
+    );
+  });
+
+  it('omits custom_field_counts and skips row scan when mapping has no custom_fields', async () => {
+    jest.spyOn(c.jobStore, 'findJob').mockResolvedValue({
+      id: 'job-cf-2',
+      tenant_id: 'tenant-1',
+      status: ImportJobStatus.APPLYING,
+      mapping_json: { external_id: 'ID', first_name: 'First' },
+      totals_json: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+      options_json: { worker },
+    } as never);
+    const findRowsSpy = jest.spyOn(c.jobStore, 'findRowsPage');
+    const finishSpy = jest
+      .spyOn(c.jobStore, 'finishDryRunIfStillApplying')
+      .mockResolvedValue({ count: 1 });
+
+    await c.orchestration.completeBackgroundDryRun(
+      'tenant-1',
+      'job-cf-2',
+      {} as never,
+      { worker },
+    );
+
+    expect(findRowsSpy).not.toHaveBeenCalled();
+    expect(finishSpy).toHaveBeenCalledWith(
+      'tenant-1',
+      'job-cf-2',
+      expect.objectContaining({
+        totals_json: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+      }),
     );
   });
 });
