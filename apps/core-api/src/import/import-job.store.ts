@@ -238,6 +238,7 @@ export class ImportJobStore {
     leaseToken: string,
     expectedRows: number,
     options: ImportJobOptionsWithWorker,
+    mapping?: Record<string, string>,
   ): Promise<{ totals: ImportJobTotals } | null> {
     return finalizeBackgroundDryRunReconcileTx(
       this.prisma,
@@ -246,6 +247,7 @@ export class ImportJobStore {
       leaseToken,
       expectedRows,
       options,
+      mapping,
     );
   }
 
@@ -259,6 +261,7 @@ export class ImportJobStore {
     finalize?: {
       expectedRows: number;
       optionsForPersist: ImportJobOptions;
+      mapping?: Record<string, string>;
     },
   ) {
     return persistDryRunReconcileChunkTx(

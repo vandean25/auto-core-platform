@@ -34,6 +34,9 @@ export function vehicleComparableForUpdate(
       color: normalized.color,
       key_number: normalized.key_number,
       first_registration_date: normalized.first_registration_date,
+      ...(normalized.custom_fields
+        ? { custom_fields: normalized.custom_fields }
+        : {}),
       ...(ownerProvided ? { customer_id: normalized.customer_id } : {}),
     }).filter(([, value]) => value !== null && value !== ''),
   );
@@ -55,6 +58,7 @@ function buildVehiclePayload(
     first_registration_date: row.first_registration_date,
     customer_id: customerId,
     owner_external_id_provided: row.owner_external_id_provided,
+    ...(row.custom_fields ? { custom_fields: row.custom_fields } : {}),
   };
 }
 

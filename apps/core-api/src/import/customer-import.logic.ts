@@ -12,6 +12,17 @@ import type {
 } from './import.types.js';
 import { ImportRowAction } from '@prisma/client';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import type { CustomFieldDefinitionLike } from '../custom-fields/custom-fields.validation.js';
+import {
+  areCustomFieldsEqual,
+  extractDryRunCustomFields,
+  type MappedCustomField,
+} from './import-custom-fields.util.js';
+
+export type CustomFieldsDryRunContext = {
+  mappedFields: readonly MappedCustomField[];
+  defsByKey: ReadonlyMap<string, CustomFieldDefinitionLike>;
+};
 
 const CONSENT_COLUMN_KEYS = new Set([
   'consent',
@@ -129,6 +140,7 @@ export function normalizeCustomerRow(
   record: Record<string, string>,
   mapping: Record<string, string>,
   options: ImportJobOptions,
+  customFieldsContext?: CustomFieldsDryRunContext,
 ): {
   row: NormalizedCustomerRow | null;
   issues: ImportRowIssue[];
@@ -185,6 +197,12 @@ export function normalizeCustomerRow(
   issues.push(...vatResult.issues);
   warnings.push(...vatResult.warnings);
 
+  const customFields = extractDryRunCustomFields(
+    record,
+    customFieldsContext,
+    issues,
+  );
+
   const row: NormalizedCustomerRow = {
     external_id: externalId,
     type,
@@ -198,6 +216,7 @@ export function normalizeCustomerRow(
     address_zip: cellValue(record, mapping, 'address_zip') || null,
     address_city: cellValue(record, mapping, 'address_city') || null,
     address_country: country || null,
+    custom_fields: customFields,
   };
 
   if (issues.length > 0) {
@@ -230,6 +249,7 @@ function buildCustomerPayload(row: NormalizedCustomerRow) {
     address_zip: row.address_zip,
     address_city: row.address_city,
     address_country: row.address_country,
+    ...(row.custom_fields ? { custom_fields: row.custom_fields } : {}),
   };
 }
 
@@ -240,6 +260,12 @@ export function recordsEqual(
 ): boolean {
   for (const [key, value] of Object.entries(desired)) {
     const current = existing[key];
+    if (key === 'custom_fields') {
+      if (!areCustomFieldsEqual(current, value, fillEmptyOnly)) {
+        return false;
+      }
+      continue;
+    }
     if (fillEmptyOnly) {
       if (
         isEmpty(formatComparable(current)) &&

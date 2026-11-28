@@ -41752,6 +41752,12 @@
           },
           "flagged_jumps": {
             "type": "number"
+          },
+          "custom_field_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
           }
         },
         "required": [

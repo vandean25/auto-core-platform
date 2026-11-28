@@ -111,6 +111,7 @@
     "CUSTOM_FIELD_KEY_CONFLICT": "Custom field key conflict.",
     "CUSTOM_FIELD_LIMIT_EXCEEDED": "Custom field limit exceeded.",
     "CUSTOM_FIELD_NOT_FOUND": "Custom field not found.",
+    "CUSTOM_FIELD_PURPOSE_REQUIRED": "Custom field purpose required.",
     "CUSTOM_FIELD_SELECT_OPTIONS_REQUIRED": "Custom field select options required.",
     "CUSTOM_FIELD_UNKNOWN_OR_ARCHIVED": "Custom field unknown or archived.",
     "CUSTOM_FIELD_VALUE_INVALID": "Custom field value invalid.",

@@ -6,6 +6,7 @@ import type { ImportJob } from '@/api/imports'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatNumber } from '@/lib/format'
 
+import { DataImportCustomFieldCounts } from './data-import-dry-run-step-panels'
 import { translateImportJobFailure } from './import-job-failure'
 
 export type DataImportResultStepProps = {
@@ -41,15 +42,18 @@ export function DataImportResultStep(props: DataImportResultStepProps) {
           </AlertDescription>
         </Alert>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          {t('dataImport.result.summary', {
-            status: props.job.status,
-            created: formatNumber(props.job.totals.create),
-            updated: formatNumber(props.job.totals.update),
-            skipped: formatNumber(props.job.totals.skip),
-            errors: formatNumber(props.job.totals.error),
-          })}
-        </p>
+        <>
+          <p className="text-sm text-muted-foreground">
+            {t('dataImport.result.summary', {
+              status: props.job.status,
+              created: formatNumber(props.job.totals.create),
+              updated: formatNumber(props.job.totals.update),
+              skipped: formatNumber(props.job.totals.skip),
+              errors: formatNumber(props.job.totals.error),
+            })}
+          </p>
+          <DataImportCustomFieldCounts job={props.job} />
+        </>
       )}
       <Link to={props.auditLogHref} className="text-sm text-primary underline underline-offset-4">
         {t('dataImport.result.auditLink')}

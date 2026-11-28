@@ -7,6 +7,8 @@ import {
 } from './vin.validation.js';
 import { readMappedFirstRegistrationDate } from './import-first-registration-date.util.js';
 import { normalizePlate } from '../vehicle/vehicle-plate.util.js';
+import type { CustomFieldsDryRunContext } from './customer-import.logic.js';
+import { extractDryRunCustomFields } from './import-custom-fields.util.js';
 
 function cellValue(
   record: Record<string, string>,
@@ -40,6 +42,7 @@ export function normalizeVehicleRow(
   record: Record<string, string>,
   mapping: Record<string, string>,
   options: ImportJobOptions,
+  customFieldsContext?: CustomFieldsDryRunContext,
 ): {
   row: NormalizedVehicleRow | null;
   issues: ImportRowIssue[];
@@ -122,6 +125,12 @@ export function normalizeVehicleRow(
     warnings,
   );
 
+  const customFields = extractDryRunCustomFields(
+    record,
+    customFieldsContext,
+    issues,
+  );
+
   if (issues.length > 0) {
     return { row: null, issues, warnings };
   }
@@ -140,6 +149,7 @@ export function normalizeVehicleRow(
       owner_external_id_provided: ownerExternalIdRaw.length > 0,
       key_number: cellValue(record, mapping, 'key_number') || null,
       first_registration_date: firstRegistrationDate,
+      ...(customFields ? { custom_fields: customFields } : {}),
     },
     issues,
     warnings,

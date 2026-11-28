@@ -19,6 +19,10 @@ import {
   recordImportRowEntityId,
 } from './import-row-snapshot.util.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
+import {
+  mergeCustomFieldValuesForUpdate,
+  pickIncomingCustomFields,
+} from './import-custom-fields.util.js';
 import type { ImportJobOptions } from './import.types.js';
 
 export type CustomerApplyContext = {
@@ -78,6 +82,7 @@ async function createCustomer(
   externalId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
+  const createCf = pickIncomingCustomFields(payload);
   const created = await tx.customer.create({
     data: withPhoneDigits({
       tenant_id: ctx.tenantId,
@@ -92,6 +97,7 @@ async function createCustomer(
       address_zip: payload.address_zip as string | null,
       address_city: payload.address_city as string | null,
       address_country: (payload.address_country as string | null) ?? 'AT',
+      ...(createCf ? { custom_fields: createCf as Prisma.InputJsonValue } : {}),
     }),
   });
   await createExternalMapping(
@@ -119,7 +125,10 @@ async function createCustomer(
     created.id,
     AuditLogAction.CREATE,
     null,
-    pickCustomerAuditSnapshot(created),
+    {
+      ...pickCustomerAuditSnapshot(created),
+      ...(createCf ? { custom_fields: created.custom_fields ?? createCf } : {}),
+    },
   );
 }
 
@@ -137,15 +146,21 @@ async function updateCustomer(
   if (!before) {
     throw new Error('Customer not found');
   }
+  const incomingCf = pickIncomingCustomFields(payload);
+  const options = (ctx.job.options_json as ImportJobOptions) ?? {};
   const beforeSnapshot = {
     ...pickCustomerAuditSnapshot(before),
     contact_email_ok: before.contact_email_ok,
+    ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
   };
-  const updateData = buildCustomerUpdateData(
-    before,
-    payload,
-    (ctx.job.options_json as ImportJobOptions) ?? {},
-  );
+  const updateData = buildCustomerUpdateData(before, payload, options);
+  if (incomingCf) {
+    updateData.custom_fields = mergeCustomFieldValuesForUpdate(
+      before.custom_fields,
+      incomingCf,
+      options.fill_empty_only === true,
+    ) as Prisma.InputJsonValue;
+  }
   const after = await tx.customer.update({
     where: { id: entityId },
     data: updateData,
@@ -174,8 +189,14 @@ async function updateCustomer(
     'Customer',
     after.id,
     AuditLogAction.UPDATE,
-    pickCustomerAuditSnapshot(before),
-    pickCustomerAuditSnapshot(after),
+    {
+      ...pickCustomerAuditSnapshot(before),
+      ...(incomingCf ? { custom_fields: before.custom_fields } : {}),
+    },
+    {
+      ...pickCustomerAuditSnapshot(after),
+      ...(incomingCf ? { custom_fields: after.custom_fields } : {}),
+    },
   );
 }
 

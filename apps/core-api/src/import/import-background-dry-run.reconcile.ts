@@ -23,6 +23,7 @@ export async function finalizeBackgroundDryRunReconcileIfComplete(params: {
   options: ImportJobOptionsWithWorker;
   leaseToken: string;
   expectedRows: number;
+  mapping?: Record<string, string>;
   completeDryRun: (totals: ImportJobTotals) => Promise<void>;
 }): Promise<boolean> {
   const worker = params.options.worker;
@@ -37,6 +38,7 @@ export async function finalizeBackgroundDryRunReconcileIfComplete(params: {
     params.leaseToken,
     params.expectedRows,
     params.options,
+    params.mapping,
   );
   if (!finalized) {
     return false;
@@ -132,6 +134,7 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   }
 
   const totals = params.job.totals_json as ImportJobTotals;
+  const mapping = params.job.mapping_json as Record<string, string>;
   if (
     await finalizeBackgroundDryRunReconcileIfComplete({
       jobStore: params.jobStore,
@@ -140,6 +143,7 @@ export async function runBackgroundDryRunReconcileChunk(params: {
       options: params.options,
       leaseToken,
       expectedRows: totals.rows,
+      mapping,
       completeDryRun: params.completeDryRun,
     })
   ) {
@@ -155,7 +159,6 @@ export async function runBackgroundDryRunReconcileChunk(params: {
   const chunkDeadlineMs = importWorkerChunkDeadlineMs(readNow());
   const startUnitIndex = unitIndex;
 
-  const mapping = params.job.mapping_json as Record<string, string>;
   const loopOutcome = await runReconcileUnitsWithinChunkBudget({
     jobStore: params.jobStore,
     prisma: params.prisma,

@@ -114,6 +114,9 @@ export async function lockForBackgroundApply(
         update: 0,
         skip: 0,
         error: 0,
+        ...(dryRunTotals.custom_field_counts
+          ? { custom_field_counts: dryRunTotals.custom_field_counts }
+          : {}),
       };
   const leaseToken = randomUUID();
   const optionsWithoutRetry = { ...options };

@@ -146,13 +146,19 @@ export async function commitBackgroundApplySpanInTransaction(
             params.tenantId,
             params.jobId,
           );
-        return tallyImportApplyTotalsFromRows(
+        const tallied = await tallyImportApplyTotalsFromRows(
           tx,
           params.tenantId,
           params.jobId,
           expectedRows,
           flaggedJumps,
         );
+        return storedTotals.custom_field_counts
+          ? {
+              ...tallied,
+              custom_field_counts: storedTotals.custom_field_counts,
+            }
+          : tallied;
       })()
     : totals;
   const retryProgressed =

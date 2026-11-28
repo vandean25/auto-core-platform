@@ -1140,7 +1140,22 @@
       "previewTitle": "Vorschau (erste 20 Zeilen)",
       "uploadProgress": "CSV wird hochgeladen… {{percent}} %",
       "back": "Zurück",
-      "runDryRun": "Probelauf starten"
+      "runDryRun": "Probelauf starten",
+      "customFields": {
+        "title": "Nicht zugeordnete Spalten → Eigenes Feld",
+        "columnHeader": "CSV-Spalte",
+        "targetHeader": "→ Eigenes Feld",
+        "ignore": "Nicht importieren",
+        "createNew": "+ Neues eigenes Feld erstellen…",
+        "createTitle": "Neues eigenes Feld für Spalte „{{column}}“",
+        "label": "Bezeichnung",
+        "type": "Typ",
+        "options": "Optionen (eine pro Zeile)",
+        "purpose": "Zweck (Pflichtfeld)",
+        "purposeRequiredError": "Bitte geben Sie einen Zweck für das eigene Feld an.",
+        "art9Confirm": "Ich bestätige ausdrücklich, dass über dieses Feld keine besonderen Kategorien personenbezogener Daten (Art. 9 DSGVO) gespeichert werden.",
+        "createAction": "Feld erstellen und zuordnen"
+      }
     },
     "background": {
       "title": "Import wird im Hintergrund verarbeitet",
@@ -1162,6 +1177,10 @@
         "update": "Aktualisiert: {{value}}",
         "skip": "Übersprungen: {{value}}",
         "error": "Fehler: {{value}}"
+      },
+      "customFields": {
+        "title": "Zugeordnete eigene Felder",
+        "entry": "{{field}}: {{count}}"
       },
       "rerunRequired": "(Probelauf erneut starten erforderlich)",
       "priceJumps": {

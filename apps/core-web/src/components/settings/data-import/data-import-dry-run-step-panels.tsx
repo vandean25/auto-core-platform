@@ -34,25 +34,49 @@ type SupplierPanelsProps = {
   }
 }
 
+export function DataImportCustomFieldCounts({ job }: { job: ImportJob }) {
+  const { t } = useTranslation(['settings', 'common'])
+  const counts = job.totals.custom_field_counts
+  if (!counts || Object.keys(counts).length === 0) {
+    return null
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{t('dataImport.dryRun.customFields.title')}:</span>
+      {Object.entries(counts).map(([field, count]) => (
+        <Badge key={field} variant="outline">
+          {t('dataImport.dryRun.customFields.entry', {
+            field,
+            count: formatNumber(count),
+          })}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
 export function DataImportDryRunTotalsBadges({ job }: { job: ImportJob }) {
   const { t } = useTranslation(['settings', 'common'])
   return (
-    <div className="flex flex-wrap gap-2">
-      <Badge variant="outline">
-        {t('dataImport.dryRun.totals.rows', { value: formatNumber(job.totals.rows) })}
-      </Badge>
-      <Badge className="bg-success/15 text-success hover:bg-success/15">
-        {t('dataImport.dryRun.totals.create', { value: formatNumber(job.totals.create) })}
-      </Badge>
-      <Badge className="bg-info/15 text-info hover:bg-info/15">
-        {t('dataImport.dryRun.totals.update', { value: formatNumber(job.totals.update) })}
-      </Badge>
-      <Badge variant="secondary">
-        {t('dataImport.dryRun.totals.skip', { value: formatNumber(job.totals.skip) })}
-      </Badge>
-      <Badge variant={job.totals.error > 0 ? 'destructive' : 'outline'}>
-        {t('dataImport.dryRun.totals.error', { value: formatNumber(job.totals.error) })}
-      </Badge>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="outline">
+          {t('dataImport.dryRun.totals.rows', { value: formatNumber(job.totals.rows) })}
+        </Badge>
+        <Badge className="bg-success/15 text-success hover:bg-success/15">
+          {t('dataImport.dryRun.totals.create', { value: formatNumber(job.totals.create) })}
+        </Badge>
+        <Badge className="bg-info/15 text-info hover:bg-info/15">
+          {t('dataImport.dryRun.totals.update', { value: formatNumber(job.totals.update) })}
+        </Badge>
+        <Badge variant="secondary">
+          {t('dataImport.dryRun.totals.skip', { value: formatNumber(job.totals.skip) })}
+        </Badge>
+        <Badge variant={job.totals.error > 0 ? 'destructive' : 'outline'}>
+          {t('dataImport.dryRun.totals.error', { value: formatNumber(job.totals.error) })}
+        </Badge>
+      </div>
+      <DataImportCustomFieldCounts job={job} />
     </div>
   )
 }

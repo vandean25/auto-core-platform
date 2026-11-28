@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+import { DataImportCustomFieldsSection } from './data-import-custom-fields-section'
 import { DataImportMappingTable } from './data-import-mapping-table'
 import type { ImportEntityTypeUi, ImportFieldDefinition } from './import-field-labels'
 import type { ImportWizardOptions } from './import-wizard-logic'
@@ -75,6 +76,17 @@ export type DataImportMappingStepProps = {
 export function DataImportMappingStep(props: DataImportMappingStepProps) {
   const { t } = useTranslation(['settings', 'common'])
 
+  const handleStandardMappingChange = (fieldKey: string, csvColumn: string) => {
+    if (csvColumn) {
+      for (const [key, mappedColumn] of Object.entries(props.mapping)) {
+        if (key.startsWith('custom_fields.') && mappedColumn === csvColumn) {
+          props.onMappingChange(key, '')
+        }
+      }
+    }
+    props.onMappingChange(fieldKey, csvColumn)
+  }
+
   return (
     <section className="space-y-4" aria-labelledby="import-step-mapping">
       <h4 id="import-step-mapping" className="font-medium">
@@ -127,8 +139,19 @@ export function DataImportMappingStep(props: DataImportMappingStepProps) {
         fields={props.fields}
         mapping={props.mapping}
         csvHeaders={props.csvHeaders}
-        onMappingChange={props.onMappingChange}
+        onMappingChange={handleStandardMappingChange}
       />
+
+      {props.entityType === 'CUSTOMER' || props.entityType === 'VEHICLE' ? (
+        <DataImportCustomFieldsSection
+          entityType={props.entityType}
+          unmappedHeaders={props.csvHeaders.filter(
+            (header) => !props.fields.some((field) => props.mapping[field.key] === header),
+          )}
+          mapping={props.mapping}
+          onMappingChange={props.onMappingChange}
+        />
+      ) : null}
 
       {props.missingRequired.length > 0 ? (
         <p className="text-sm text-destructive" role="alert">

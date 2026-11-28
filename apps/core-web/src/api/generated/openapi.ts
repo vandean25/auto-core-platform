@@ -12490,6 +12490,9 @@ export interface components {
             skip: number;
             error: number;
             flagged_jumps?: number;
+            custom_field_counts?: {
+                [key: string]: number;
+            };
         };
         ImportJobProgressDto: {
             /** @enum {string|null} */
