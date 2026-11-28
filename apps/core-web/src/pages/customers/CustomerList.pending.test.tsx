@@ -47,7 +47,7 @@ type FakeServer = { customers: ReturnType<typeof serverCustomer>[]; gets: number
 let server: FakeServer
 
 /** A non-cursor sort keeps the paged offset list whose refetch lifecycle these tests cover (AUT-957). */
-const OFFSET_LIST = '/customers?sortField=company_name&sortDirection=asc'
+const OFFSET_LIST = '/customers?sortField=last_name&sortDirection=asc'
 
 function renderList() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

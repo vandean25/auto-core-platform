@@ -10,7 +10,10 @@ import {
   fetchKeysetListPage,
 } from '../common/list-cursor/index.js';
 import { projectVehicleListOperationalFields } from '../common/projections/vehicle-entity.projection.js';
-import { buildCustomFieldListFilters } from '../custom-fields/custom-field-list-filter.js';
+import {
+  assertNoCustomFieldFiltersInOffsetMode,
+  buildCustomFieldListFilters,
+} from '../custom-fields/custom-field-list-filter.js';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import { omitCustomFields } from '../custom-fields/custom-fields.validation.js';
 import {
@@ -77,6 +80,16 @@ export class VehicleListService {
     private readonly siteContext: SiteContextService,
     @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
+
+  async assertNoOffsetCustomFieldFilters(
+    customFields?: URLSearchParams,
+  ): Promise<void> {
+    if (!this.customFields || !customFields?.size) return;
+    const activeDefs = await this.customFields.loadVisibilityDefs(
+      CustomFieldEntity.VEHICLE,
+    );
+    assertNoCustomFieldFiltersInOffsetMode(activeDefs, customFields);
+  }
 
   async findAllWithCursor(
     query: VehicleCursorQuery,

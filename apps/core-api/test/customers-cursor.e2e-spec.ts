@@ -244,6 +244,65 @@ describe('Customers cursor list (AUT-957 e2e)', () => {
         await cleanupTestTenantGraph(otherPrisma, other.tenantId);
       }
     });
+
+    it('rejects offset mode with an active custom field filter fail-closed (400 CUSTOM_FIELD_FILTER_REQUIRES_CURSOR)', async () => {
+      const response = await request(app.getHttpServer())
+        .get(CUSTOMERS)
+        .set('Authorization', bearer)
+        .query({ page: '1', pageSize: '25', 'cf.segment': 'Retail' })
+        .expect(400);
+      expect(response.body.code).toBe('CUSTOM_FIELD_FILTER_REQUIRES_CURSOR');
+    });
+
+    it('ignores archived and unknown custom keys in offset mode so the list loads', async () => {
+      const response = await request(app.getHttpServer())
+        .get(CUSTOMERS)
+        .set('Authorization', bearer)
+        .query({ page: '1', pageSize: '25', 'cf.deleted': 'x', 'cf.unknown': 'x' })
+        .expect(200);
+      expect(response.body.data).toHaveLength(4);
+    });
+
+    it('ignores active custom filters in offset mode when the custom_fields flag is off', async () => {
+      await basePrisma.tenant.update({
+        where: { id: tenant.tenantId },
+        data: { custom_fields_enabled: false },
+      });
+      const response = await request(app.getHttpServer())
+        .get(CUSTOMERS)
+        .set('Authorization', bearer)
+        .query({ page: '1', pageSize: '25', 'cf.segment': 'Retail' })
+        .expect(200);
+      expect(response.body.data).toHaveLength(4);
+    });
+
+    it('sorts filtered customers by company_name in cursor mode across pages', async () => {
+      await prisma.customer.updateMany({
+        where: { tenant_id: tenant.tenantId, first_name: 'Segment 0' },
+        data: { company_name: 'Zebra GmbH' },
+      });
+      await prisma.customer.updateMany({
+        where: { tenant_id: tenant.tenantId, first_name: 'Segment 2' },
+        data: { company_name: 'Alpha GmbH' },
+      });
+      const first = await list({
+        'cf.segment': 'Fleet, regional',
+        sortField: 'company_name',
+        sortDirection: 'asc',
+        limit: '1',
+      }).expect(200);
+      const second = await list({
+        'cf.segment': 'Fleet, regional',
+        sortField: 'company_name',
+        sortDirection: 'asc',
+        limit: '1',
+        cursor: first.body.meta.nextCursor,
+      }).expect(200);
+      expect([
+        first.body.data.map((r: { company_name: string | null }) => r.company_name),
+        second.body.data.map((r: { company_name: string | null }) => r.company_name),
+      ]).toEqual([['Alpha GmbH'], ['Zebra GmbH']]);
+    });
   });
 
   // Regression: a local-time or second-precision cursor value skips or repeats rows that share a createdAt.

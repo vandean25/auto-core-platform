@@ -5,7 +5,15 @@ import { resolveCustomFieldCursorQuery, resolveListSearch } from './data-table-q
 import { scopedOffsetTableProps, useOffsetScopeGate } from './offset-scope-gate'
 import { useVehicles, vehicleKeys, type VehicleListApiRow } from './vehicles'
 
-const CURSOR_SORT_FIELDS: Record<string, string> = { createdAt: 'createdAt' }
+const CURSOR_SORT_FIELDS: Record<string, string> = {
+  createdAt: 'createdAt',
+  vehicle: 'make',
+  make: 'make',
+  model: 'model',
+  year: 'year',
+  vin: 'vin',
+  plate: 'plate',
+}
 const VEHICLE_SEARCH_FILTER_FIELDS = ['make', 'model', 'vin', 'plate']
 
 const NO_VEHICLES: VehicleListApiRow[] = []

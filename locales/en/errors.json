@@ -108,6 +108,7 @@
     "CUSTOM_FIELD_ART9_BLOCKED": "Custom field art9 blocked.",
     "CUSTOM_FIELD_ART9_CONFIRMATION_REQUIRED": "Custom field art9 confirmation required.",
     "CUSTOM_FIELD_FILTER_INVALID": "Check the custom field filter.",
+    "CUSTOM_FIELD_FILTER_REQUIRES_CURSOR": "Custom field filters require cursor pagination mode.",
     "CUSTOM_FIELD_KEY_CONFLICT": "Custom field key conflict.",
     "CUSTOM_FIELD_LIMIT_EXCEEDED": "Custom field limit exceeded.",
     "CUSTOM_FIELD_NOT_FOUND": "Custom field not found.",

@@ -33,7 +33,6 @@ export default function CustomerList() {
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
   const customFields = useCustomFieldList<Customer>('CUSTOMER')
   const list = useCustomerListState(queryParams, customFields.params)
-  const canSort = customFields.filters.size === 0
 
   const customers = list.customers
   const pending = useCustomerPendingCreate(customers, list.dataUpdatedAt)
@@ -68,7 +67,6 @@ export default function CustomerList() {
     {
       id: 'company_name',
       accessorFn: (customer) => [customer.company_name, customer.first_name, customer.last_name].filter(Boolean).join(' '),
-      enableSorting: canSort,
       meta: { mobile: 'title' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.name')} />
@@ -78,7 +76,6 @@ export default function CustomerList() {
     {
       id: 'email',
       accessorFn: (customer) => [customer.email, customer.phone].filter(Boolean).join(' '),
-      enableSorting: canSort,
       meta: { mobile: 'details' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.contact')} />
@@ -107,7 +104,6 @@ export default function CustomerList() {
     {
       id: 'address_city',
       accessorFn: (customer) => [customer.address_city, customer.address_country].filter(Boolean).join(' '),
-      enableSorting: canSort,
       meta: { mobile: 'subtitle' },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('list.columns.location')} />

@@ -156,7 +156,7 @@ export class VehicleController {
   })
   @ApiListCursorModeQuery()
   @ApiOkResponse({ type: VehiclePaginatedResponseDto })
-  findAll(
+  async findAll(
     @CustomFieldListQuery(FindAllVehiclesQueryDto)
     query: FindAllVehiclesQueryDto,
     @Headers(SCOPE_CONTEXT_HEADER) scopeContext?: string,
@@ -169,6 +169,7 @@ export class VehicleController {
         customFields,
       );
     }
+    await this.vehicleList.assertNoOffsetCustomFieldFilters(customFields);
     return findAllVehiclesOffset(this.vehicleService, query);
   }
 

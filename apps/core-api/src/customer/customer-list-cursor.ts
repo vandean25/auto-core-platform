@@ -16,6 +16,17 @@ const CUSTOMER_CURSOR_DEFAULT_LIMIT = 50;
  */
 const CUSTOMER_CURSOR_SORTS = {
   createdAt: { prismaField: 'createdAt', valueKind: 'date', nullable: false },
+  company_name: {
+    prismaField: 'company_name',
+    valueKind: 'string',
+    nullable: true,
+  },
+  email: { prismaField: 'email', valueKind: 'string', nullable: true },
+  address_city: {
+    prismaField: 'address_city',
+    valueKind: 'string',
+    nullable: true,
+  },
 } as const;
 
 export type CustomerCursorQuery = {

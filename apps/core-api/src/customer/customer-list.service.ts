@@ -9,7 +9,10 @@ import {
   cappedCustomerListCount,
   fetchKeysetListPage,
 } from '../common/list-cursor/index.js';
-import { buildCustomFieldListFilters } from '../custom-fields/custom-field-list-filter.js';
+import {
+  assertNoCustomFieldFiltersInOffsetMode,
+  buildCustomFieldListFilters,
+} from '../custom-fields/custom-field-list-filter.js';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service.js';
 import {
   attachLegacyIds,
@@ -88,6 +91,16 @@ export class CustomerListService {
     private readonly scopeContext: ScopeContextSnapshotService,
     @Optional() private readonly customFields?: CustomFieldsService,
   ) {}
+
+  async assertNoOffsetCustomFieldFilters(
+    customFields?: URLSearchParams,
+  ): Promise<void> {
+    if (!this.customFields || !customFields?.size) return;
+    const activeDefs = await this.customFields.loadVisibilityDefs(
+      CustomFieldEntity.CUSTOMER,
+    );
+    assertNoCustomFieldFiltersInOffsetMode(activeDefs, customFields);
+  }
 
   async findAllWithCursor(
     query: CustomerCursorQuery,

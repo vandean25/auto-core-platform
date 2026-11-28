@@ -66,7 +66,7 @@ export default function VehicleList() {
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10, maxPageSize: MAX_VEHICLE_LIST_PAGE_SIZE })
   const customFields = useCustomFieldList<VehicleRow>('VEHICLE')
   const list = useVehicleListState(queryParams, customFields.params)
-  const canSort = customFields.filters.size === 0
+  const canSortCustomer = customFields.filters.size === 0
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const rows = useMemo<VehicleRow[]>(() => {
@@ -128,7 +128,6 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'vehicle',
-        enableSorting: canSort,
         meta: { rowLink: true, mobile: 'title' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.makeModel')} />
@@ -146,14 +145,12 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'year',
-        enableSorting: canSort,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.year')} />
         ),
       },
       {
         accessorKey: 'vin',
-        enableSorting: canSort,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.vin')} />
         ),
@@ -161,7 +158,6 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'plate',
-        enableSorting: canSort,
         meta: { mobile: 'trailing' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.plate')} />
@@ -169,7 +165,7 @@ export default function VehicleList() {
       },
       {
         accessorKey: 'customer',
-        enableSorting: canSort,
+        enableSorting: canSortCustomer,
         meta: { mobile: 'subtitle' },
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('list.columns.customer')} />
@@ -177,7 +173,7 @@ export default function VehicleList() {
       },
       ...customFields.columns,
     ],
-    [canSort, customFields.columns, dismissPending, t, tCommon],
+    [canSortCustomer, customFields.columns, dismissPending, t, tCommon],
   )
 
   return (

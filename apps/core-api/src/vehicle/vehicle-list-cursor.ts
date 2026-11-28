@@ -16,6 +16,11 @@ const VEHICLE_CURSOR_DEFAULT_LIMIT = 50;
  */
 const VEHICLE_CURSOR_SORTS = {
   createdAt: { prismaField: 'createdAt', valueKind: 'date', nullable: false },
+  make: { prismaField: 'make', valueKind: 'string', nullable: false },
+  model: { prismaField: 'model', valueKind: 'string', nullable: false },
+  year: { prismaField: 'year', valueKind: 'int', nullable: false },
+  vin: { prismaField: 'vin', valueKind: 'string', nullable: true },
+  plate: { prismaField: 'plate', valueKind: 'string', nullable: true },
 } as const;
 
 export type VehicleCursorQuery = {

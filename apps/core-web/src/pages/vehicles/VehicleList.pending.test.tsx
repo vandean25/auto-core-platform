@@ -40,7 +40,7 @@ function newGate(): Gate {
 }
 
 /** A non-cursor sort keeps the paged offset list whose refetch lifecycle these tests cover (AUT-957). */
-const OFFSET_LIST = '/vehicles?sortField=plate&sortDirection=asc'
+const OFFSET_LIST = '/vehicles?sortField=customer&sortDirection=asc'
 
 function renderList() {
   return render(
