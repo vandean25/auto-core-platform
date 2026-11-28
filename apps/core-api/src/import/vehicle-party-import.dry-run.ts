@@ -2,7 +2,10 @@ import { ImportEntityType } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import { dateToDay } from '../vehicle/vehicle-party-date.util.js';
-import { loadVehicleBoundMappings } from './canonical-csv-cell.util.js';
+import {
+  loadImportMappingRows,
+  loadVehicleBoundMappings,
+} from './canonical-csv-cell.util.js';
 import { rowToRecord, type ParsedCsv } from './csv-parse.util.js';
 import {
   dryRunRowNoForSlice,
@@ -40,10 +43,22 @@ async function loadPartyPlanContext(
       select: { id: true, customer_id: true },
     }),
   ]);
+  const partyIdByExternalId = byType(ImportEntityType.VEHICLE_PARTY);
+  // Adoption must also see mappings under external IDs absent from this slice.
+  const storedPartyMappings = await loadImportMappingRows(
+    prisma,
+    input,
+    ImportEntityType.VEHICLE_PARTY,
+    'entity_id',
+    stored.map((party) => party.id),
+  );
+  for (const mapping of storedPartyMappings) {
+    partyIdByExternalId.set(mapping.external_id, mapping.entity_id);
+  }
   return {
     vehicleIdByExternalId,
     customerIdByExternalId: byType(ImportEntityType.CUSTOMER),
-    partyIdByExternalId: byType(ImportEntityType.VEHICLE_PARTY),
+    partyIdByExternalId,
     storedParties: stored.map((party) => ({
       id: party.id,
       vehicle_id: party.vehicle_id,
