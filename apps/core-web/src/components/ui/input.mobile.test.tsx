@@ -39,4 +39,39 @@ describe('mobile input font sizing', () => {
     expect(screen.getByLabelText('Search commands')).toHaveClass('text-base')
     expect(screen.getByLabelText('Search commands')).toHaveClass('md:text-sm')
   })
+
+  it('applies max-sm:min-h-11 to Input and SelectTrigger while keeping desktop heights', () => {
+    render(
+      <>
+        <Input aria-label="Touch Input" />
+        <Select>
+          <SelectTrigger aria-label="Touch Select">
+            <SelectValue placeholder="Pick" />
+          </SelectTrigger>
+        </Select>
+      </>,
+    )
+    expect(screen.getByLabelText('Touch Input')).toHaveClass('h-9', 'max-sm:min-h-11')
+    expect(screen.getByLabelText('Touch Select')).toHaveClass('h-10', 'max-sm:min-h-11')
+  })
+
+  it('allows dense desktop-only opt-out via max-sm:min-h-0 on Input and SelectTrigger', () => {
+    render(
+      <>
+        <Input aria-label="Dense Input" className="max-sm:min-h-0" />
+        <Select>
+          <SelectTrigger aria-label="Dense Select" className="max-sm:min-h-0">
+            <SelectValue placeholder="Pick" />
+          </SelectTrigger>
+        </Select>
+      </>,
+    )
+    const denseInput = screen.getByLabelText('Dense Input')
+    expect(denseInput).toHaveClass('h-9', 'max-sm:min-h-0')
+    expect(denseInput).not.toHaveClass('max-sm:min-h-11')
+
+    const denseSelect = screen.getByLabelText('Dense Select')
+    expect(denseSelect).toHaveClass('h-10', 'max-sm:min-h-0')
+    expect(denseSelect).not.toHaveClass('max-sm:min-h-11')
+  })
 })
