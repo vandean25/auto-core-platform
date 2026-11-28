@@ -582,4 +582,42 @@ test.describe('Invoice list — infinite mode (AUT-891)', () => {
     await refreshButton.click();
     await expect(page.getByText('RE-2026-0012')).toBeVisible();
   });
+
+  // AUT-1065: WHEN the invoice list renders at 200% zoom (1280px viewport) THEN the search placeholder is readable and the total is visible without horizontal scroll.
+  test('WHEN the invoice list renders at 200% zoom (1280px viewport) THEN the search placeholder is readable and the total is visible without horizontal scroll', async ({ page }, testInfo) => {
+    await mockCursorList(page, { path: '/api/sales/invoices', rows: invoiceRows.slice(0, 5), unpaged: 'array' });
+    await page.setViewportSize({ width: 640, height: 800 });
+    await openList(page, '');
+
+    const searchInput = page.getByPlaceholder(DE_SALES.invoices.list.searchPlaceholder);
+    await expect(searchInput).toBeVisible();
+    const hiddenWidth = await searchInput.evaluate((node: HTMLInputElement) => {
+      const style = getComputedStyle(node);
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const textWidth = context.measureText(node.placeholder).width;
+      const room = node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return Math.max(0, Math.ceil(textWidth - room));
+    });
+    expect(hiddenWidth, 'pixels of invoice search placeholder cut off at 200% zoom').toBe(0);
+
+    const firstTotal = page.getByText(/€\s*120,00|120,00\s*€/).first();
+    await expect(firstTotal).toBeVisible();
+    const totalBox = (await firstTotal.boundingBox())!;
+    expect(totalBox.x).toBeGreaterThanOrEqual(0);
+    expect(totalBox.x + totalBox.width).toBeLessThanOrEqual(640);
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+
+    await testInfo.attach('invoice-list-zoom-200-de-640', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.getByRole('columnheader', { name: DE_SALES.invoices.list.columns.total })).toBeVisible();
+    await testInfo.attach('invoice-list-de-1280', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });

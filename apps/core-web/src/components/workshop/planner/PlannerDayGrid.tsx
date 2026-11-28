@@ -39,7 +39,7 @@ function DroppableSlot({
       type="button"
       ref={setNodeRef}
       data-testid={droppableId}
-      className={`h-full min-h-10 border-r border-border transition-colors ${
+      className={`h-full min-h-24 border-r border-border transition-colors ${
         isOver ? 'bg-border' : 'bg-card hover:bg-muted/50'
       }`}
       onClick={() => onSlotClick(bayId, startIso)}
@@ -80,7 +80,7 @@ export function PlannerDayGrid({
           return (
             <div key={bay.id} className="rounded-lg border border-border bg-muted/50 p-3">
               <p className="text-sm font-semibold text-foreground mb-2">{bay.name}</p>
-              <div className="relative h-16 rounded-md bg-card border border-dashed border-border">
+              <div className="relative min-h-24 rounded-md bg-card border border-dashed border-border">
                 {bayBookings.map((booking) => {
                   const start = new Date(booking.scheduledStartAt)
                   const end = new Date(booking.scheduledEndAt)
@@ -153,16 +153,14 @@ export function PlannerDayGrid({
                     const left = ((start.getTime() - dayWindow.start.getTime()) / totalMs) * 100
                     const width = ((end.getTime() - start.getTime()) / totalMs) * 100
                     return (
-                      <div
+                      <PlannerBookingBlock
                         key={booking.orderId}
-                        className="pointer-events-auto absolute inset-y-1"
+                        booking={booking}
                         style={{
                           left: `${left}%`,
                           width: `${Math.max(width, 4)}%`,
                         }}
-                      >
-                        <PlannerBookingBlock booking={booking} />
-                      </div>
+                      />
                     )
                   })}
                 </div>

@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { formatCurrency } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 import {
@@ -28,11 +29,28 @@ type RecordTableProps = {
   headers: string[]
   emptyText: string
   isEmpty: boolean
+  mobileItems?: ReactNode
   children: ReactNode
 }
 
-/** Card with a table whose last column is right-aligned and an empty-state row. */
-function RecordTable({ headers, emptyText, isEmpty, children }: RecordTableProps) {
+/** Card with a table whose last column is right-aligned and an empty-state row (card list on phones). */
+function RecordTable({ headers, emptyText, isEmpty, mobileItems, children }: RecordTableProps) {
+  const isMobile = useIsMobile()
+
+  if (isMobile && mobileItems !== undefined) {
+    return (
+      <Card>
+        <CardContent className='p-0'>
+          {isEmpty ? (
+            <p className='py-4 text-center text-sm text-muted-foreground'>{emptyText}</p>
+          ) : (
+            <ul className='divide-y divide-border'>{mobileItems}</ul>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardContent className='p-0'>
@@ -59,6 +77,47 @@ function RecordTable({ headers, emptyText, isEmpty, children }: RecordTableProps
         </Table>
       </CardContent>
     </Card>
+  )
+}
+
+type MobileOrderCardProps = {
+  to: string
+  ariaLabel: string
+  title: string
+  subtitle: string
+  status: string
+  total: string
+}
+
+function MobileOrderCard({ to, ariaLabel, title, subtitle, status, total }: MobileOrderCardProps) {
+  const navigate = useNavigate()
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      navigate(to)
+    }
+  }
+
+  return (
+    <li>
+      <div
+        role='button'
+        tabIndex={0}
+        aria-label={ariaLabel}
+        onClick={() => navigate(to)}
+        onKeyDown={handleKeyDown}
+        className='flex min-h-14 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left hover:bg-accent/50'
+      >
+        <div className='min-w-0 flex-1'>
+          <div className='break-words font-medium'>{title}</div>
+          <div className='text-sm text-muted-foreground'>{subtitle}</div>
+        </div>
+        <div className='flex shrink-0 flex-col items-end gap-1'>
+          <StatusBadge status={status} className='whitespace-nowrap' />
+          <div className='text-sm tabular-nums text-muted-foreground'>{total}</div>
+        </div>
+      </div>
+    </li>
   )
 }
 
@@ -170,6 +229,24 @@ export function VehicleOrderTabs({ vehicle }: { vehicle: VehicleDetailResponse }
           ]}
           emptyText={t('detail.tables.noActiveOrders')}
           isEmpty={activeOrders.length === 0}
+          mobileItems={activeOrders.map((order) => {
+            const isService = order.type === 'Service'
+            return (
+              <MobileOrderCard
+                key={`${order.type}-${order.id}`}
+                to={isService ? `/workshop/orders/${order.id}` : `/sales-orders/${order.id}`}
+                ariaLabel={
+                  isService
+                    ? t('detail.aria.openServiceOrder', { number: order.number })
+                    : t('detail.aria.openSalesOrder', { number: order.number })
+                }
+                title={order.number}
+                subtitle={`${t(isService ? 'detail.orderTypes.service' : 'detail.orderTypes.sales')} · ${formatDate(order.createdAt)}`}
+                status={order.status}
+                total={formatCurrency(order.total)}
+              />
+            )
+          })}
         >
           {activeOrders.map((order) => (
             <ActiveOrderTableRow key={`${order.type}-${order.id}`} order={order} />
@@ -187,6 +264,17 @@ export function VehicleOrderTabs({ vehicle }: { vehicle: VehicleDetailResponse }
           ]}
           emptyText={t('detail.tables.noInvoices')}
           isEmpty={invoices.length === 0}
+          mobileItems={invoices.map((invoice) => (
+            <MobileOrderCard
+              key={invoice.id}
+              to={`/sales/invoices/${invoice.id}`}
+              ariaLabel={t('detail.aria.openInvoice', { number: invoice.invoice_number || invoice.id })}
+              title={invoice.invoice_number || t('shared.draft')}
+              subtitle={formatDate(invoice.date)}
+              status={invoice.status}
+              total={formatCurrency(toNumber(invoice.total_gross))}
+            />
+          ))}
         >
           {invoices.map((invoice) => (
             <InvoiceTableRow key={invoice.id} invoice={invoice} />
@@ -204,6 +292,17 @@ export function VehicleOrderTabs({ vehicle }: { vehicle: VehicleDetailResponse }
           ]}
           emptyText={t('detail.tables.noServiceOrders')}
           isEmpty={workshopOrders.length === 0}
+          mobileItems={workshopOrders.map((order) => (
+            <MobileOrderCard
+              key={order.id}
+              to={`/workshop/orders/${order.id}`}
+              ariaLabel={t('detail.aria.openServiceOrder', { number: order.order_number ?? order.id })}
+              title={order.order_number ?? `#${order.id}`}
+              subtitle={formatDate(order.createdAt)}
+              status={order.status}
+              total={formatCurrency(getWorkshopOrderTotal(order))}
+            />
+          ))}
         >
           {workshopOrders.map((order) => (
             <ServiceOrderTableRow key={order.id} order={order} />
